@@ -823,18 +823,27 @@ export interface SessionRow {
   total: number;
 }
 
+/**
+ * Everything that moves money through a register session: payments and refunds on invoices, and
+ * the deposits of a stay taken and paid back (#169), the same way.
+ */
+const MOVEMENTS = `
+  select method, kind, amount_minor, session_id from payments
+  union all select method, 'payment', amount_minor, session_id from deposits
+  union all select method, 'refund', amount_minor, session_id from deposit_refunds`;
+
 const SESSION_SELECT = `
   select s.id, s.opened_by, coalesce(u.name, '') as opened_by_name, s.opened_at,
     s.opening_minor::text, s.closed_at, s.counted_minor::text, s.note,
     coalesce(s.expected_minor, s.opening_minor + coalesce((select sum(case p.kind
        when 'payment' then p.amount_minor else -p.amount_minor end)
-       from payments p where p.session_id = s.id), 0))::text as expected_minor,
+       from (${MOVEMENTS}) p where p.session_id = s.id), 0))::text as expected_minor,
     coalesce((select json_agg(json_build_object('method', t.method, 'paidMinor', t.paid,
         'refundedMinor', t.refunded) order by t.method)
       from (select p.method,
           coalesce(sum(p.amount_minor) filter (where p.kind = 'payment'), 0) as paid,
           coalesce(sum(p.amount_minor) filter (where p.kind = 'refund'), 0) as refunded
-        from payments p where p.session_id = s.id group by p.method) t), '[]') as totals,
+        from (${MOVEMENTS}) p where p.session_id = s.id group by p.method) t), '[]') as totals,
     ${EXACT('s.opened_at')} as at_exact, count(*) over ()::int as total
   from cash_register_sessions s left join users u on u.id = s.opened_by`;
 

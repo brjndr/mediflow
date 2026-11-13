@@ -42,6 +42,7 @@ import {
   type BoardRow,
   type Visibility,
 } from './repository.js';
+import { openClearances } from './discharge-plan.js';
 import { fulfilReservationsOf, liveReservationOfBed } from './reservation-repo.js';
 import type { Admission } from './schemas.js';
 import {
@@ -627,7 +628,7 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['admissions'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. Billing and the discharge summary react to the event; this API does not clear the bill. Requires admission:discharge and admission:read.' +
+          'Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read.' +
           CHANGE_RULES,
         params: AdmissionParams,
         body: AdmissionDischarge,
@@ -639,6 +640,10 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
       return changeAdmission(request, reply, DISCHARGE, body.version, async (row) => {
         const client = request.txClient;
         const admission = { id: row.id, patientId: row.patient_id };
+        const open = await openClearances(client, row.id, body.dischargeType);
+        if (open.length > 0) {
+          throw new HttpError(409, 'clearance_pending', 'A clearance of the stay is still open');
+        }
         const closed = await closeInpatientEncounter(client, row.encounter_id, userIdOf(request));
         if (closed === 'unsigned_notes') {
           throw new HttpError(409, 'unsigned_notes', 'A note of the stay is still a draft');

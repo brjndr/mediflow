@@ -1561,7 +1561,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. Billing and the discharge summary react to the event; this API does not clear the bill. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
+        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
         post: operations["dischargePatient"];
         delete?: never;
         options?: never;
@@ -1682,6 +1682,110 @@ export interface paths {
         put?: never;
         /** @description Lets a hold on a bed go, so anyone may be given it. 404 `reservation_not_found`; 409 `reservation_ended` when it already ended (fulfilled, cancelled or lapsed). Needs the wards module. The Idempotency-Key header is required. Audited, announced on `/beds/events`, emits `bed.reservation_ended`. Requires bed:reserve and admission:read. */
         post: operations["cancelBedReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The discharge plan of an admission (DS-01): the advice for the patient and the clearance of nursing, pharmacy returns and pending laboratory work. A stay with no plan yet has none cleared (version 1). An admission outside the scope the caller holds admission:read with is 404 `admission_not_found`. Requires admission:read and the admissions feature flag. Audited. */
+        get: operations["getDischargePlan"];
+        /** @description Writes the discharge advice (up to 1000 characters), replacing the last. Only while the patient is admitted (409 `invalid_transition`). The Idempotency-Key header is required: a repeat changes nothing and answers with the plan as it is now. Requires admission:discharge and admission:read. Audited; the advice is never in an event or a log. */
+        put: operations["setDischargeAdvice"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-plan/clearances/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Marks one clearance (nursing, pharmacy or lab) cleared or open again, with who and when; a note (up to 500 characters) goes with a clearance and is dropped when it is reopened. Only while the patient is admitted (409 `invalid_transition`); an unknown kind is 400. A discharge while a clearance its type requires is open is 409 `clearance_pending` (routine and referred need all three, against advice and deceased need nursing and pharmacy, absconded none). The Idempotency-Key header is required. Requires discharge:clear and admission:read. Audited. */
+        put: operations["setDischargeClearance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The discharge summary of an admission (DS-02). 404 `summary_not_found` while none has been started. Requires dischargeSummary:read and admission:read and the admissions feature flag. Audited as a read. */
+        get: operations["getDischargeSummary"];
+        /** @description Starts or changes the draft; the six sections are plain text. `version` is the one the edit started from and is absent only while no draft exists. 409 `summary_signed` once signed (add an addendum instead), 409 `conflict` when `version` is behind or missing for an existing draft, 422 `unknown_template`. The Idempotency-Key header is required: a repeat changes nothing. Requires dischargeSummary:create, dischargeSummary:read and admission:read. Audited; the text is never in an event or a log. */
+        put: operations["saveDischargeSummary"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-summary/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Signs the draft as the caller; it can never be changed after. 404 `summary_not_found`, 409 `summary_signed`, 409 `conflict` when `version` is behind, 422 `summary_incomplete` when the diagnoses or the course are empty. The Idempotency-Key header is required. Requires dischargeSummary:sign, dischargeSummary:read and admission:read. Audited. */
+        post: operations["signDischargeSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-summary/addenda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds an addendum to a signed summary; the summary itself is not changed and an addendum is never edited. 409 `summary_not_signed` while it is a draft. The Idempotency-Key header is required: a repeat adds nothing more. Requires dischargeSummary:sign, dischargeSummary:read and admission:read. Audited. */
+        post: operations["addDischargeSummaryAddendum"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/discharge-summary/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that the signed summary was printed (the audit log) and nothing else, once per idempotency key. 404 `summary_not_found`, 409 `summary_not_signed` for a draft. Requires dischargeSummary:read and admission:read. */
+        post: operations["recordDischargeSummaryPrint"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5189,6 +5293,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions/{admissionId}/bill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The running bill of an inpatient stay (DS-03, #166): the charge ledger of the stay’s encounter added up by source, with the bed days accrued so far (a line with `accruing: true` that is not yet a ledger charge), the deposits taken (less those paid back), what was paid on invoices of the stay (deposits set against an invoice left out, so the balance counts a deposit once) and the estimate set at admission. `chargesMinor` is the sum of the lines (void charges left out); `balanceMinor` is charges less deposits and payments (negative: the patient is in credit). Needs charge:read, admission:read and the billing feature flag. Audited. */
+        get: operations["getRunningBill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/bill-estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Sets or replaces the estimate of what the stay will cost, in minor units, with an optional note (up to 300 characters). The running bill then shows actual against estimate. The Idempotency-Key header is required. Needs invoice:create, charge:read, admission:read and the billing feature flag. Audited. */
+        put: operations["setBillEstimate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The deposits taken against a stay, newest first. Needs payment:read and the billing feature flag. */
+        get: operations["listDeposits"];
+        put?: never;
+        /** @description Takes a deposit against a stay (cash goes into the caller’s open register session as a payment does: 409 `no_open_register`). A deposit is never edited or removed; it is set against the final invoice or paid back. A stay that is no longer admitted is 409 `stay_closed`. The Idempotency-Key header is required: a repeat takes nothing more. Needs payment:create and the billing feature flag. Audited. */
+        post: operations["takeDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/settlement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The final bill and settlement of an inpatient stay (DS-04, #167): the stay’s invoices, what is still to invoice, credit notes, payments, the deposits held, applied and refunded, what is due or refundable, and whether the patient may be discharged under the hospital’s policy. Needs charge:read, admission:read and the billing feature flag. Audited. */
+        get: operations["getStaySettlement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/deposits/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sets the deposits held against an issued invoice of the stay as a payment: the lesser of what is held and what is due on it (a payment of method `other`, reference "Deposit", touching no register). 409 `no_deposit_held`, 409 `invoice_not_payable` (not an issued invoice of this stay, or nothing due on it). The Idempotency-Key header is required: a repeat applies nothing more. Needs payment:create, charge:read, admission:read and the billing feature flag. Audited. */
+        post: operations["applyDeposits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/deposits/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Pays back the deposit held beyond what is due, in the mode chosen, with a reason. 409 `refund_exceeds` when the amount is more than the excess (which exists only when nothing is left to invoice and no draft is open); a cash refund comes out of the caller’s open register session (409 `no_open_register`). The Idempotency-Key header is required. Needs payment:refund, charge:read, admission:read and the billing feature flag. Audited. */
+        post: operations["refundDeposits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/discharge-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How the hospital gates discharge on the bill: `off`, `warn` (the person discharging confirms they have seen the bill) or `block` (nothing owed or unbilled); `warn` until set. Needs invoice:read and the billing feature flag. */
+        get: operations["getDischargePolicy"];
+        /** @description Sets the policy. The Idempotency-Key header is required. Needs invoice:adjust, invoice:read and the billing feature flag. Audited. */
+        put: operations["setDischargePolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/purchasing/suppliers": {
         parameters: {
             query?: never;
@@ -6226,127 +6451,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admissions/{admissionId}/bill": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The running bill of an inpatient stay (DS-03, #166): the charge ledger of the stay's encounter added up by source, with the bed days accrued so far (a line with `accruing: true` that is not yet a ledger charge), the deposits taken, what was paid on invoices of the stay and the estimate set at admission. `chargesMinor` is the sum of the lines (void charges left out); `balanceMinor` is charges less deposits and payments (negative: the patient is in credit). Needs charge:read, admission:read and the billing feature flag. Audited. */
-        get: operations["getRunningBill"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/bill-estimate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Sets or replaces the estimate of what the stay will cost, in minor units, with an optional note. The running bill then shows actual against estimate. Needs invoice:create and the billing feature flag. Audited. */
-        put: operations["setBillEstimate"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/deposits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The deposits taken against a stay, newest first. Needs payment:read and the billing feature flag. */
-        get: operations["listDeposits"];
-        put?: never;
-        /** @description Takes a deposit against a stay (cash goes into the caller's open register session as a payment does). A deposit is never edited or removed; it is set against the final invoice. A discharged stay is 409 `stay_closed`. Needs payment:create and the billing feature flag. Audited. */
-        post: operations["takeDeposit"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/settlement": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The final bill and settlement of an inpatient stay (DS-04, #167): the stay's invoices, what is still to invoice, credit notes, payments, the deposits held, applied and refunded, what is due or refundable, and whether the patient may be discharged under the hospital's policy. Needs charge:read, admission:read and the billing feature flag. Audited. */
-        get: operations["getStaySettlement"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/deposits/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Sets the deposits held against an issued invoice of the stay as a payment: the lesser of what is held and what is due on it. Needs payment:create and the billing feature flag. 409 `no_deposit_held`, `invoice_not_payable`. Audited. */
-        post: operations["applyDeposits"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/deposits/refund": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Pays back the deposit held beyond what is due, in the mode chosen, with a reason. 409 `refund_exceeds` when the amount is more than the excess. Needs payment:refund and the billing feature flag. Audited. */
-        post: operations["refundDeposits"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/billing/discharge-policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description How the hospital gates discharge on the bill: `off`, `warn` (the person discharging confirms they have seen the bill) or `block` (nothing owed or unbilled). Needs invoice:read and the billing feature flag. */
-        get: operations["getDischargePolicy"];
-        /** @description Sets the policy. Needs invoice:adjust and the billing feature flag. Audited. */
-        put: operations["setDischargePolicy"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/encounters/{encounterId}/coverage-split": {
         parameters: {
             query?: never;
@@ -6359,41 +6463,6 @@ export interface paths {
         put?: never;
         /** @description Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited. */
         post: operations["saveCoverageSplit"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/discharge-plan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The discharge plan of an admission (DS-01): the advice for the patient and the clearance of nursing, pharmacy returns and pending laboratory work. A stay with no plan yet has none cleared. Needs admission:read and the admissions feature flag. */
-        get: operations["getDischargePlan"];
-        /** @description Writes the discharge advice. Needs admission:discharge. Audited. */
-        put: operations["setDischargeAdvice"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/discharge-plan/clearances/{kind}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Marks one clearance cleared or open again, with who and when. Needs discharge:clear. Audited. Discharging while a clearance the discharge type requires is open answers 409 clearance_pending. */
-        put: operations["setDischargeClearance"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6479,75 +6548,6 @@ export interface paths {
         put?: never;
         /** @description Prepares a claim for a visit from the saved split: the payer share, the policy and the packet of documents (by name). One open claim per visit (409 claim_exists); nothing to claim is 422. Needs claim:manage. */
         post: operations["createClaim"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/discharge-summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The discharge summary of an admission (DS-02). 404 `summary_not_found` while none has been started. Needs dischargeSummary:read and the admissions feature flag. Audited as a read. */
-        get: operations["getDischargeSummary"];
-        /** @description Starts or changes the draft. Needs dischargeSummary:create. 409 `summary_signed` once signed (add an addendum instead), 409 `conflict` when `version` is behind. Audited. */
-        put: operations["saveDischargeSummary"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/discharge-summary/sign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Signs the draft as the caller; it can never be changed after. Needs dischargeSummary:sign. 422 `summary_incomplete` when diagnoses or course are empty. Audited. */
-        post: operations["signDischargeSummary"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/discharge-summary/addenda": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Adds an addendum to a signed summary. Needs dischargeSummary:sign. 409 `summary_not_signed` while it is a draft. Audited. */
-        post: operations["addDischargeSummaryAddendum"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admissions/{admissionId}/discharge-summary/print": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Records that the signed summary was printed (the audit log). Needs dischargeSummary:read. 409 `summary_not_signed` for a draft. */
-        post: operations["recordDischargeSummaryPrint"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7744,6 +7744,84 @@ export interface components {
         BedCounts: {
             /** @description One entry for each status, in the order available, occupied, cleaning, blocked. */
             counts: components["schemas"]["BedCount"][];
+        };
+        /**
+         * @description Who clears the discharge: nursing, pharmacy returns or pending laboratory work.
+         * @enum {string}
+         */
+        DischargeClearanceKind: "nursing" | "pharmacy" | "lab";
+        DischargeClearance: {
+            kind: components["schemas"]["DischargeClearanceKind"];
+            /** @enum {string} */
+            status: "pending" | "cleared";
+            note?: string;
+            /** Format: date-time */
+            clearedAt?: string;
+            clearedByName?: string;
+        };
+        /** @description The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared. */
+        DischargePlan: {
+            admissionId: string;
+            advice?: string;
+            clearances: components["schemas"]["DischargeClearance"][];
+            version: number;
+        };
+        DischargeAdviceSet: {
+            advice: string;
+        };
+        DischargeClearanceSet: {
+            /** @enum {string} */
+            status: "pending" | "cleared";
+            note?: string;
+        };
+        DischargeSummaryAddendum: {
+            id: string;
+            body: string;
+            authorName: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DischargeSummary: {
+            admissionId: string;
+            /** @enum {string} */
+            status: "draft" | "signed";
+            diagnoses: string;
+            procedures: string;
+            course: string;
+            results: string;
+            medicines: string;
+            followUp: string;
+            /** @description The discharge_summary template the text was started from. */
+            template?: {
+                id: string;
+                version: number;
+            };
+            /** Format: date-time */
+            signedAt?: string;
+            signedByName?: string;
+            addenda: components["schemas"]["DischargeSummaryAddendum"][];
+            version: number;
+        };
+        DischargeSummarySave: {
+            diagnoses: string;
+            procedures: string;
+            course: string;
+            results: string;
+            medicines: string;
+            followUp: string;
+            /** @description The discharge_summary template the text was started from. */
+            template?: {
+                id: string;
+                version: number;
+            };
+            /** @description The version the edit started from; absent while no draft exists. */
+            version?: number;
+        };
+        DischargeSummarySign: {
+            version: number;
+        };
+        DischargeSummaryAddendumCreate: {
+            body: string;
         };
         /** @description Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day. */
         WardVitalFlags: {
@@ -11254,6 +11332,118 @@ export interface components {
         TaxRatesUpdate: {
             items: components["schemas"]["TaxRate"][];
         };
+        RunningBillLine: {
+            /** @enum {string} */
+            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual" | "package";
+            /** @description Charges in the line; for bed days, the days. */
+            count: number;
+            totalMinor: number;
+            /** @description True for bed days accrued to date that are not a ledger charge yet. */
+            accruing?: boolean;
+        };
+        /** @description The running bill of an inpatient stay: the charge ledger of its encounter by source, bed days accrued but not yet posted, deposits and payments. */
+        RunningBill: {
+            admissionId: string;
+            encounterId: string;
+            /** Format: date-time */
+            asOf: string;
+            lines: components["schemas"]["RunningBillLine"][];
+            /** @description The sum of the lines (void charges left out). */
+            chargesMinor: number;
+            invoicedMinor: number;
+            /** @description Paid on the invoices, deposits set against an invoice left out. */
+            paidMinor: number;
+            /** @description Deposits taken, less those paid back. */
+            depositsMinor: number;
+            /** @description Charges less deposits and payments; negative when the patient is in credit. */
+            balanceMinor: number;
+            estimateMinor?: number;
+            estimateNote?: string;
+            patientName: string;
+            patientMrn: string;
+            /** @enum {string} */
+            status: "admitted" | "discharged" | "cancelled";
+        };
+        BillEstimateSet: {
+            amountMinor: number;
+            note?: string;
+        };
+        DepositCreate: {
+            amountMinor: number;
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            reference?: string;
+        };
+        Deposit: {
+            id: string;
+            tenantId: string;
+            admissionId: string;
+            amountMinor: number;
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            reference?: string;
+            recordedByName: string;
+            /** Format: date-time */
+            at: string;
+        };
+        DepositList: {
+            items: components["schemas"]["Deposit"][];
+        };
+        /** @description How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled). */
+        DischargePolicy: {
+            /** @enum {string} */
+            mode: "off" | "warn" | "block";
+        };
+        DepositApply: {
+            invoiceId: string;
+        };
+        DepositRefund: {
+            amountMinor: number;
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            reason: string;
+        };
+        StaySettlementInvoice: {
+            id: string;
+            number?: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "paid" | "void";
+            totalMinor: number;
+            creditedMinor: number;
+            paidMinor: number;
+        };
+        StaySettlement: {
+            admissionId: string;
+            patientName: string;
+            patientMrn: string;
+            /** @enum {string} */
+            status: "admitted" | "discharged" | "cancelled";
+            /** @description Every charge of the stay in the ledger, void ones left out. */
+            chargesMinor: number;
+            /** @description Charges not on an issued invoice yet. */
+            unbilledMinor: number;
+            /** @description The totals of the stay’s issued and paid invoices, before credit notes. */
+            invoicedMinor: number;
+            creditedMinor: number;
+            /** @description Paid on the invoices, deposits applied included. */
+            paidMinor: number;
+            dueMinor: number;
+            /** @description Every deposit taken. */
+            depositsMinor: number;
+            depositsAppliedMinor: number;
+            depositsRefundedMinor: number;
+            /** @description Taken, less applied and refunded. */
+            depositsHeldMinor: number;
+            /** @description Held beyond what is due, with nothing left to invoice: what may be refunded. */
+            excessDepositMinor: number;
+            invoices: components["schemas"]["StaySettlementInvoice"][];
+            /** @enum {string} */
+            policy: "off" | "warn" | "block";
+            clearance: {
+                cleared: boolean;
+                reasons: ("unbilled" | "draft_invoice" | "balance_due" | "excess_deposit")[];
+            };
+        };
         /**
          * @description In the hospital’s state (CGST and SGST), from another state (IGST), or not known: a GSTIN is missing.
          * @enum {string}
@@ -12287,112 +12477,6 @@ export interface components {
         PreAuthCancel: {
             version: number;
         };
-        RunningBillLine: {
-            /** @enum {string} */
-            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
-            /** @description Charges in the line; for bed days, the days. */
-            count: number;
-            totalMinor: number;
-            /** @description True for bed days accrued to date that are not a ledger charge yet. */
-            accruing?: boolean;
-        };
-        RunningBill: {
-            admissionId: string;
-            encounterId: string;
-            /** Format: date-time */
-            asOf: string;
-            lines: components["schemas"]["RunningBillLine"][];
-            chargesMinor: number;
-            invoicedMinor: number;
-            paidMinor: number;
-            depositsMinor: number;
-            balanceMinor: number;
-            estimateMinor?: number;
-            estimateNote?: string;
-            patientName: string;
-            patientMrn: string;
-            /** @enum {string} */
-            status: "admitted" | "discharged" | "cancelled";
-        };
-        BillEstimateSet: {
-            amountMinor: number;
-            note?: string;
-        };
-        DepositCreate: {
-            amountMinor: number;
-            /** @enum {string} */
-            method: "cash" | "card" | "upi" | "bank" | "other";
-            reference?: string;
-        };
-        Deposit: {
-            id: string;
-            tenantId: string;
-            admissionId: string;
-            amountMinor: number;
-            /** @enum {string} */
-            method: "cash" | "card" | "upi" | "bank" | "other";
-            reference?: string;
-            recordedByName: string;
-            /** Format: date-time */
-            at: string;
-        };
-        DepositList: {
-            items: components["schemas"]["Deposit"][];
-        };
-        DischargePolicy: {
-            /** @enum {string} */
-            mode: "off" | "warn" | "block";
-        };
-        DepositApply: {
-            invoiceId: string;
-        };
-        DepositRefund: {
-            amountMinor: number;
-            /** @enum {string} */
-            method: "cash" | "card" | "upi" | "bank" | "other";
-            reason: string;
-        };
-        StaySettlementInvoice: {
-            id: string;
-            number?: string;
-            /** @enum {string} */
-            status: "draft" | "issued" | "paid" | "void";
-            totalMinor: number;
-            creditedMinor: number;
-            paidMinor: number;
-        };
-        StaySettlement: {
-            admissionId: string;
-            patientName: string;
-            patientMrn: string;
-            /** @enum {string} */
-            status: "admitted" | "discharged" | "cancelled";
-            /** @description Every charge of the stay in the ledger, void ones left out. */
-            chargesMinor: number;
-            /** @description Charges not on an issued invoice yet. */
-            unbilledMinor: number;
-            /** @description The totals of the stay's issued and paid invoices, before credit notes. */
-            invoicedMinor: number;
-            creditedMinor: number;
-            /** @description Paid on the invoices, deposits applied included. */
-            paidMinor: number;
-            dueMinor: number;
-            /** @description Every deposit taken. */
-            depositsMinor: number;
-            depositsAppliedMinor: number;
-            depositsRefundedMinor: number;
-            /** @description Taken, less applied and refunded. */
-            depositsHeldMinor: number;
-            /** @description Held beyond what is due, with nothing left to invoice: what may be refunded. */
-            excessDepositMinor: number;
-            invoices: components["schemas"]["StaySettlementInvoice"][];
-            /** @enum {string} */
-            policy: "off" | "warn" | "block";
-            clearance: {
-                cleared: boolean;
-                reasons: ("unbilled" | "draft_invoice" | "balance_due" | "excess_deposit")[];
-            };
-        };
         CoverageSplitLine: {
             chargeId: string;
             description: string;
@@ -12429,31 +12513,6 @@ export interface components {
             };
             /** @description A saved split exists and the ledger has changed since. */
             stale: boolean;
-        };
-        /** @enum {string} */
-        DischargeClearanceKind: "nursing" | "pharmacy" | "lab";
-        DischargeClearance: {
-            kind: components["schemas"]["DischargeClearanceKind"];
-            /** @enum {string} */
-            status: "pending" | "cleared";
-            note?: string;
-            /** Format: date-time */
-            clearedAt?: string;
-            clearedByName?: string;
-        };
-        DischargePlan: {
-            admissionId: string;
-            advice?: string;
-            clearances: components["schemas"]["DischargeClearance"][];
-            version: number;
-        };
-        DischargeAdviceSet: {
-            advice: string;
-        };
-        DischargeClearanceSet: {
-            /** @enum {string} */
-            status: "pending" | "cleared";
-            note?: string;
         };
         /** @enum {string} */
         ClaimStatus: "draft" | "submitted" | "query" | "approved" | "rejected" | "settled" | "written_off" | "cancelled";
@@ -12548,55 +12607,6 @@ export interface components {
             asOf: string;
             rows: components["schemas"]["ClaimAgingRow"][];
             totals: components["schemas"]["ClaimAgingTotals"];
-        };
-        DischargeSummaryAddendum: {
-            id: string;
-            body: string;
-            authorName: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        DischargeSummary: {
-            admissionId: string;
-            /** @enum {string} */
-            status: "draft" | "signed";
-            diagnoses: string;
-            procedures: string;
-            course: string;
-            results: string;
-            medicines: string;
-            followUp: string;
-            /** @description The discharge_summary template the text was started from. */
-            template?: {
-                id: string;
-                version: number;
-            };
-            /** Format: date-time */
-            signedAt?: string;
-            signedByName?: string;
-            addenda: components["schemas"]["DischargeSummaryAddendum"][];
-            version: number;
-        };
-        DischargeSummarySave: {
-            diagnoses: string;
-            procedures: string;
-            course: string;
-            results: string;
-            medicines: string;
-            followUp: string;
-            /** @description The discharge_summary template the text was started from. */
-            template?: {
-                id: string;
-                version: number;
-            };
-            /** @description The version the edit started from; absent while no draft exists. */
-            version?: number;
-        };
-        DischargeSummarySign: {
-            version: number;
-        };
-        DischargeSummaryAddendumCreate: {
-            body: string;
         };
     };
     responses: {
@@ -20712,6 +20722,675 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BoardBed"];
                 };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDischargePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDischargeAdvice: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    advice: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDischargeClearance: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "pending" | "cleared";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDischargeSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargeSummary"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveDischargeSummary: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    diagnoses: string;
+                    procedures: string;
+                    course: string;
+                    results: string;
+                    medicines: string;
+                    followUp: string;
+                    /** @description The discharge_summary template the text was started from. */
+                    template?: {
+                        id: string;
+                        version: number;
+                    };
+                    /** @description The version the edit started from; absent while no draft exists. */
+                    version?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargeSummary"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    signDischargeSummary: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargeSummary"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addDischargeSummaryAddendum: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargeSummary"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordDischargeSummaryPrint: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Standard error body. */
             400: {
@@ -41092,6 +41771,713 @@ export interface operations {
             };
         };
     };
+    getRunningBill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The running bill of an inpatient stay: the charge ledger of its encounter by source, bed days accrued but not yet posted, deposits and payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunningBill"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setBillEstimate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountMinor: number;
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The running bill of an inpatient stay: the charge ledger of its encounter by source, bed days accrued but not yet posted, deposits and payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunningBill"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDeposits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositList"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    takeDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountMinor: number;
+                    /** @enum {string} */
+                    method: "cash" | "card" | "upi" | "bank" | "other";
+                    reference?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deposit"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getStaySettlement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySettlement"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    applyDeposits: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    invoiceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySettlement"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    refundDeposits: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountMinor: number;
+                    /** @enum {string} */
+                    method: "cash" | "card" | "upi" | "bank" | "other";
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySettlement"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDischargePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePolicy"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDischargePolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled). */
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mode: "off" | "warn" | "block";
+                };
+            };
+        };
+        responses: {
+            /** @description How the hospital gates discharge on the bill: off, warn (the person discharging confirms they have seen it) or block (nothing owed or unbilled). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DischargePolicy"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listSuppliers: {
         parameters: {
             query?: {
@@ -45523,283 +46909,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    getRunningBill: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The running bill */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunningBill"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setBillEstimate: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BillEstimateSet"];
-            };
-        };
-        responses: {
-            /** @description The running bill with the estimate */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunningBill"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listDeposits: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The deposits */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DepositList"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    takeDeposit: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DepositCreate"];
-            };
-        };
-        responses: {
-            /** @description The deposit */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Deposit"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getStaySettlement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The settlement */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StaySettlement"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    applyDeposits: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DepositApply"];
-            };
-        };
-        responses: {
-            /** @description The settlement afterwards */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StaySettlement"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    refundDeposits: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DepositRefund"];
-            };
-        };
-        responses: {
-            /** @description The settlement afterwards */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StaySettlement"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getDischargePolicy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The policy */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargePolicy"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setDischargePolicy: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DischargePolicy"];
-            };
-        };
-        responses: {
-            /** @description The policy */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargePolicy"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
     getCoverageSplit: {
         parameters: {
             query?: never;
@@ -45851,103 +46960,6 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getDischargePlan: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The discharge plan */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargePlan"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setDischargeAdvice: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DischargeAdviceSet"];
-            };
-        };
-        responses: {
-            /** @description The discharge plan */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargePlan"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setDischargeClearance: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-                kind: components["schemas"]["DischargeClearanceKind"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DischargeClearanceSet"];
-            };
-        };
-        responses: {
-            /** @description The discharge plan */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargePlan"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -46093,166 +47105,6 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getDischargeSummary: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The summary */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargeSummary"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    saveDischargeSummary: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DischargeSummarySave"];
-            };
-        };
-        responses: {
-            /** @description The draft */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargeSummary"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    signDischargeSummary: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DischargeSummarySign"];
-            };
-        };
-        responses: {
-            /** @description The signed summary */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargeSummary"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    addDischargeSummaryAddendum: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DischargeSummaryAddendumCreate"];
-            };
-        };
-        responses: {
-            /** @description The summary with the addendum */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DischargeSummary"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    recordDischargeSummaryPrint: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                admissionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Recorded */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

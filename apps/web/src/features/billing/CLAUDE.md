@@ -57,3 +57,5 @@ The mock also answers `GET`/`PUT /billing/discount-settings` and `POST /invoices
 `postMockCharge` (`mocks/handlers/billing.ts`) is what the API's subscribers in `posting.ts` do: a verified lab order that completes is charged as its test's service (`order:<id>`), a dispense is charged per batch at the batch's MRP (`dispense:<id>:<batch>`). Once per source reference, and void when a package covers the service.
 
 - **Letterhead details (#696):** the printed invoice header (`Letterhead`) shows the hospital's address, phone, registration number and GSTIN from the session's tenant; an admin sets them at `/hospital-profile` (`apps/web/src/features/hospital-profile/CLAUDE.md`).
+
+- **Now on the real API (#169):** the running bill, deposits, estimate, settlement, deposit apply and refund and the discharge policy are implemented by the API (`apps/api/src/features/billing/CLAUDE.md`), no longer planned; the mock stays for the tests. Bed days are posted as `bed` charges by an hourly job, so the `accruing` line only shows days not yet posted. The server does not enforce the discharge policy (the screen does).
