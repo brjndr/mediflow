@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+import { useFeatureFlag, usePermission } from '@/access';
+import { useEncounters } from '@/features/clinical';
 import { PatientSearch, type PatientSummary } from '@/features/patients';
+import { ServiceSearch, type ServiceOption } from '@/features/services';
+import { useFormatters } from '@/tenancy';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
@@ -12,6 +16,9 @@ import type { AmbulanceTrip } from '../types';
 
 const REFUSED: Record<string, string> = {
   unknown_patient: 'errors.patient',
+  unknown_encounter: 'errors.visit',
+  unknown_service: 'errors.service',
+  encounter_required: 'errors.visit',
   ambulance_unavailable: 'errors.unavailable',
   unknown_ambulance: 'errors.unavailable',
   conflict: 'errors.changed',
@@ -43,12 +50,27 @@ export function RequestTripDialog({
   const { t: tCommon } = useTranslation();
   const request = useRequestTrip();
   const [patient, setPatient] = useState<PatientSummary>();
-  const form = useZodForm(tripFormSchema, { pickup: '', destination: '' });
+  const [service, setService] = useState<ServiceOption>();
+  const form = useZodForm(tripFormSchema, { pickup: '', destination: '', encounterId: '' });
+  const format = useFormatters();
+  // The patient's open visits to charge the trip to: needs the clinical module and its reading.
+  const mayRead = usePermission('encounter:read');
+  const clinicalOn = useFeatureFlag('clinical');
+  const canChoose = mayRead && clinicalOn;
+  const visits = useEncounters(
+    { patientId: patient?.id, status: 'open' },
+    { enabled: canChoose && patient !== undefined },
+  );
+  const open = (visits.data?.pages.flatMap((page) => page.items) ?? []).filter(
+    (visit) => visit.status === 'open',
+  );
 
   const submit = async (values: TripFormValues) => {
     try {
       await request.mutateAsync({
         ...(patient ? { patientId: patient.id } : {}),
+        ...(patient && values.encounterId ? { encounterId: values.encounterId } : {}),
+        ...(patient && values.encounterId && service ? { serviceId: service.id } : {}),
         pickup: values.pickup,
         destination: values.destination,
       });
@@ -88,7 +110,15 @@ export function RequestTripDialog({
               </p>
               <p className="text-xs text-muted-foreground">{patient.mrn}</p>
             </div>
-            <Button type="button" variant="outline" onClick={() => setPatient(undefined)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setPatient(undefined);
+                setService(undefined);
+                form.setValue('encounterId', '');
+              }}
+            >
               {t('request.noPatient')}
             </Button>
           </div>
@@ -97,6 +127,41 @@ export function RequestTripDialog({
         )}
         <TextField<TripFormValues> name="pickup" label={t('request.pickup')} required />
         <TextField<TripFormValues> name="destination" label={t('request.destination')} required />
+        {patient && canChoose && (
+          <>
+            <SelectField<TripFormValues>
+              name="encounterId"
+              label={t('request.visit')}
+              placeholder={t('request.noCharge')}
+              hint={
+                visits.isSuccess && open.length === 0
+                  ? t('request.noVisit')
+                  : t('request.visitHint')
+              }
+              options={open.map((visit) => ({
+                value: visit.id,
+                label: t('request.visitOption', {
+                  type: t(`visitType.${visit.type}`),
+                  when: format.dateTime(visit.openedAt),
+                }),
+              }))}
+            />
+            {service ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{t('request.service')}</p>
+                  <p className="break-words">{service.name}</p>
+                  <p className="text-xs text-muted-foreground">{t('request.chargeNote')}</p>
+                </div>
+                <Button type="button" variant="outline" onClick={() => setService(undefined)}>
+                  {t('request.noService')}
+                </Button>
+              </div>
+            ) : (
+              <ServiceSearch label={t('request.serviceOptional')} onSelect={setService} />
+            )}
+          </>
+        )}
         {failure && (
           <p role="alert" className="text-sm text-destructive">
             {failure}

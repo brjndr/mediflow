@@ -11,7 +11,8 @@ module.exports = {
       startServerReadyPattern: 'Local',
       startServerReadyTimeout: 240000,
       url: urls,
-      numberOfRuns: 3,
+      // Five runs, because the median of three moved by 100 ms between identical builds (#819).
+      numberOfRuns: 5,
       settings: {
         preset: 'desktop',
         // A mid-range hospital PC (an i3 class CPU) is about 4 times slower than a CI runner.
@@ -26,13 +27,26 @@ module.exports = {
           matchingUrlPattern:
             '^http://localhost:4173/([?]mockUser=none|patients|encounters|reports|appointments)?$',
           assertions: {
+            // 2500 ms is the target and stays a warning. The error below is a ceiling 300 ms
+            // above it: on a shared CI runner, 4x CPU throttled with the mock API in the page,
+            // the same build gave medians from 2.4 s to 2.6 s (#819), which failed unrelated PRs.
             'largest-contentful-paint': [
-              'error',
+              'warn',
               { maxNumericValue: 2500, aggregationMethod: 'median' },
             ],
             'cumulative-layout-shift': [
               'error',
               { maxNumericValue: 0.1, aggregationMethod: 'median' },
+            ],
+          },
+        },
+        {
+          matchingUrlPattern:
+            '^http://localhost:4173/([?]mockUser=none|patients|encounters|reports|appointments)?$',
+          assertions: {
+            'largest-contentful-paint': [
+              'error',
+              { maxNumericValue: 2800, aggregationMethod: 'median' },
             ],
           },
         },

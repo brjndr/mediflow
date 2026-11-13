@@ -54,6 +54,9 @@ interface TripRow {
   id: string;
   tenant_id: string;
   patient_id: string | null;
+  encounter_id: string | null;
+  service_id: string | null;
+  service_name: string | null;
   ambulance_id: string | null;
   registration: string | null;
   pickup: string;
@@ -65,15 +68,21 @@ interface TripRow {
   finished_at: Date | null;
   version: number;
 }
-const TRIPS = `select x.id, x.tenant_id, x.patient_id, x.ambulance_id, a.registration, x.pickup,
+const TRIPS = `select x.id, x.tenant_id, x.patient_id, x.encounter_id, x.service_id,
+       sv.name as service_name, x.ambulance_id, a.registration, x.pickup,
        x.destination, x.status, x.requested_at, x.dispatched_at, x.picked_up_at, x.finished_at,
        x.version
   from ambulance_trips x
-  left join ambulances a on a.tenant_id = x.tenant_id and a.id = x.ambulance_id`;
+  left join ambulances a on a.tenant_id = x.tenant_id and a.id = x.ambulance_id
+  left join services sv on sv.tenant_id = x.tenant_id and sv.id = x.service_id`;
 const tripView = (row: TripRow): AmbulanceTrip => ({
   id: row.id,
   tenantId: row.tenant_id,
   ...(row.patient_id === null ? {} : { patientId: row.patient_id }),
+  ...(row.encounter_id === null ? {} : { encounterId: row.encounter_id }),
+  ...(row.service_id === null
+    ? {}
+    : { serviceId: row.service_id, serviceName: row.service_name ?? '' }),
   ...(row.ambulance_id === null
     ? {}
     : { ambulanceId: row.ambulance_id, ambulanceRegistration: row.registration ?? '' }),
@@ -271,7 +280,7 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['ambulance'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Asks for a trip from a pick-up place to a destination, in status `requested`. A `patientId` is optional (an emergency may have no record yet) and must be one the caller may read (422 `unknown_patient`). The Idempotency-Key header is required. Audited; emits `ambulance.trip_requested`. Requires ambulance:dispatch.',
+          'Asks for a trip from a pick-up place to a destination, in status `requested`. A `patientId` is optional (an emergency may have no record yet) and must be one the caller may read (422 `unknown_patient`). An `encounterId` (a visit of that patient, not cancelled, else 422 `unknown_encounter`) and a `serviceId` (an active service, else 422 `unknown_service`; it needs the visit, else 422 `encounter_required`) make the trip billable: billing charges the service to the visit when the trip is completed. The Idempotency-Key header is required. Audited; emits `ambulance.trip_requested`. Requires ambulance:dispatch.',
         body: AmbulanceTripCreate,
         response: { 201: ref(AmbulanceTrip), ...errors(400, 401, 403, 422, 429) },
       },
@@ -279,10 +288,36 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       const body = request.body;
       if (body.patientId !== undefined) await requirePatient(request, body.patientId);
+      if (body.encounterId !== undefined) {
+        const { rows: visit } = await request.txClient.query(
+          `select 1 from encounters where id::text = $1 and patient_id::text = $2
+             and status <> 'cancelled'`,
+          [body.encounterId, body.patientId ?? ''],
+        );
+        if (visit.length === 0) throw new HttpError(422, 'unknown_encounter', 'No such visit');
+      }
+      if (body.serviceId !== undefined) {
+        if (body.encounterId === undefined) {
+          throw new HttpError(422, 'encounter_required', 'A charge needs the visit it goes to');
+        }
+        const { rows: service } = await request.txClient.query(
+          'select 1 from services where id::text = $1 and not archived',
+          [body.serviceId],
+        );
+        if (service.length === 0) throw new HttpError(422, 'unknown_service', 'No such service');
+      }
       const { rows } = await request.txClient.query<{ id: string }>(
-        `insert into ambulance_trips (patient_id, pickup, destination, requested_by)
-         values ($1, $2, $3, $4) returning id`,
-        [body.patientId ?? null, body.pickup.trim(), body.destination.trim(), userIdOf(request)],
+        `insert into ambulance_trips (patient_id, encounter_id, service_id, pickup, destination,
+           requested_by)
+         values ($1, $2, $3, $4, $5, $6) returning id`,
+        [
+          body.patientId ?? null,
+          body.encounterId ?? null,
+          body.serviceId ?? null,
+          body.pickup.trim(),
+          body.destination.trim(),
+          userIdOf(request),
+        ],
       );
       const id = (rows[0] as { id: string }).id;
       request.audit('create', 'ambulance_trip', id);
@@ -368,6 +403,8 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         to,
         ambulanceId,
         patientId: trip.patient_id,
+        encounterId: trip.encounter_id,
+        serviceId: trip.service_id,
       });
       return tripView((await findTrip(client, trip.id)) as TripRow);
     },

@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
+import { mockServiceNamed } from './services';
 
 type Ambulance = components['schemas']['Ambulance'];
 type Trip = components['schemas']['AmbulanceTrip'];
@@ -172,6 +173,8 @@ export const ambulanceHandlers = [
     if (!key) return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
     const body = (await request.json().catch(() => null)) as {
       patientId?: unknown;
+      encounterId?: unknown;
+      serviceId?: unknown;
       pickup?: unknown;
       destination?: unknown;
     } | null;
@@ -182,11 +185,27 @@ export const ambulanceHandlers = [
     const known = replies.get(replyKey);
     const existing = known ? trips.find((x) => x.id === known) : undefined;
     if (existing) return HttpResponse.json(existing, { status: 201 });
+    // A charge needs a visit, and a visit needs a patient, as the API says.
+    const service =
+      typeof body.serviceId === 'string'
+        ? mockServiceNamed(access.tenantId, undefined, body.serviceId)
+        : undefined;
+    if (typeof body.encounterId === 'string' && typeof body.patientId !== 'string') {
+      return error(422, 'unknown_encounter', 'No such visit');
+    }
+    if (body.serviceId !== undefined && typeof body.encounterId !== 'string') {
+      return error(422, 'encounter_required', 'A charge needs the visit it goes to');
+    }
+    if (body.serviceId !== undefined && (!service || service.archived)) {
+      return error(422, 'unknown_service', 'No such service');
+    }
     created += 1;
     const made: Trip = {
       id: `trip_new_${created}`,
       tenantId: access.tenantId,
       ...(typeof body.patientId === 'string' ? { patientId: body.patientId } : {}),
+      ...(typeof body.encounterId === 'string' ? { encounterId: body.encounterId } : {}),
+      ...(service ? { serviceId: service.id, serviceName: service.name } : {}),
       pickup: body.pickup,
       destination: body.destination,
       status: 'requested',

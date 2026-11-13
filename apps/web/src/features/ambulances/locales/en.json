@@ -31,9 +31,19 @@
     "patient": "Patient",
     "onRecord": "Patient on record",
     "noRecord": "No record",
+    "charge": "Charge",
+    "chargeAfter": "{{service}}, billed when completed",
+    "charged": "{{service}}, billed to the visit",
+    "noCharge": "Not charged",
     "status": "Status",
     "ambulance": "Ambulance",
     "requested": "Requested"
+  },
+  "visitType": {
+    "opd": "Outpatient",
+    "ipd": "Inpatient",
+    "er": "Emergency",
+    "daycare": "Day care"
   },
   "fleet": {
     "heading": "Fleet",
@@ -71,6 +81,15 @@
     "noPatient": "No patient",
     "pickup": "Pick-up place",
     "destination": "Destination",
+    "visit": "Charge to visit (optional)",
+    "noCharge": "Not charged",
+    "visitHint": "Choose an open visit of this patient to bill the trip to when it is completed.",
+    "noVisit": "This patient has no open visit to charge.",
+    "visitOption": "{{type}} visit, opened {{when}}",
+    "service": "Charged as",
+    "serviceOptional": "Service to charge (optional)",
+    "noService": "No service",
+    "chargeNote": "Posted to the visit at the price list's price when the trip is completed.",
     "save": "Request trip",
     "saving": "Requesting..."
   },
@@ -93,6 +112,8 @@
   },
   "errors": {
     "patient": "That patient is not available to you.",
+    "visit": "That visit cannot be charged. Choose another or leave it empty.",
+    "service": "That service is not available. Choose another.",
     "unavailable": "That ambulance cannot go now. Choose another.",
     "changed": "Someone else changed this first. The list has been refreshed; try again.",
     "duplicate": "An ambulance with that registration already exists."

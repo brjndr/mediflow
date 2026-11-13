@@ -1271,6 +1271,28 @@ describe('posting charges from events', () => {
     expect(await chargesOf(`order:${orderId}`)).toEqual([]);
   });
 
+  it('charges a completed ambulance trip once, at the list price, and nothing before or without a service', async () => {
+    const tripId = randomUUID();
+    const base = { patientId: patients.asha, encounterId: encounters.other, serviceId: service };
+    const changed = (from: string, to: string) =>
+      publish('ambulance.trip_status_changed', tripId, { ...base, from, to });
+    await changed('requested', 'dispatched');
+    expect(await chargesOf(`ambulance:${tripId}`)).toEqual([]);
+    await changed('picked_up', 'completed');
+    await changed('picked_up', 'completed');
+    expect(await chargesOf(`ambulance:${tripId}`)).toEqual([
+      { unit_price_minor: '45000', description: 'Chest X-ray', flag: null, status: 'pending' },
+    ]);
+    const bare = randomUUID();
+    await publish('ambulance.trip_status_changed', bare, {
+      patientId: patients.asha,
+      encounterId: null,
+      serviceId: null,
+      to: 'completed',
+    });
+    expect(await chargesOf(`ambulance:${bare}`)).toEqual([]);
+  });
+
   it('charges a dispense for each batch, and voids or flags it when units come back', async () => {
     const dispenseId = randomUUID();
     const client = await pool.connect();
