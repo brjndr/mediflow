@@ -428,7 +428,10 @@ export const stayBillHandlers = [
   }),
 
   http.put('*/api/billing/discharge-policy', async ({ request }) => {
-    const access = authorize(request, { permission: 'invoice:adjust', featureFlag: FEATURE_FLAG });
+    const access = authorize(request, {
+      permission: 'dischargePolicy:manage',
+      featureFlag: FEATURE_FLAG,
+    });
     if ('denied' in access) return access.denied;
     const sent = await keyed(request, access.tenantId);
     if ('refused' in sent) return sent.refused;

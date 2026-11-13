@@ -14,7 +14,7 @@ type PolicyInput = z.input<typeof schema>;
 type PolicyValues = z.output<typeof schema>;
 
 /**
- * How discharge waits for the bill (`billing/discharge-policy`, DS-04, #167), for `invoice:adjust`:
+ * How discharge waits for the bill (`billing/discharge-policy`, DS-04, #167), for `dischargePolicy:manage`:
  * not at all, with a confirmation from the person discharging, or not until it is settled. The
  * admissions screen reads it with the stay's settlement; the server will enforce it (#169).
  */

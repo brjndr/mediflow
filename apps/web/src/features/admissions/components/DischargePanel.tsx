@@ -31,9 +31,9 @@ export function DischargePanel({
   const settlement = bill.settlement;
   const unsettled =
     settlement !== undefined && settlement.policy !== 'off' && !settlement.clearance.cleared;
-  // Under `block` only someone holding invoice:adjust may go on, by confirming (the server
+  // Under `block` only someone holding dischargeBill:override may go on, by confirming (the server
   // checks the same).
-  const mayOverride = usePermission('invoice:adjust');
+  const mayOverride = usePermission('dischargeBill:override');
   const blocked = unsettled && settlement.policy === 'block';
   const needsConfirm = unsettled && (settlement.policy === 'warn' || (blocked && mayOverride));
   // The plan (DS-01, #164): advice and clearances. Without one (no permission, or an API that

@@ -644,19 +644,19 @@ export const stayRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.put(
     '/billing/discharge-policy',
     {
-      config: write(['invoice:adjust', 'invoice:read']),
+      config: write(['dischargePolicy:manage', 'invoice:read']),
       schema: {
         operationId: 'setDischargePolicy',
         tags: ['billing'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Sets the policy. The Idempotency-Key header is required. Needs invoice:adjust, invoice:read and the billing feature flag. Audited.',
+          'Sets the policy. The Idempotency-Key header is required. Needs dischargePolicy:manage, invoice:read and the billing feature flag. Audited.',
         body: DischargePolicy,
         response: { 200: ref(DischargePolicy), ...errors(400, 401, 403, 422, 429) },
       },
     },
     async (request) => {
-      requireAll(request, 'invoice:adjust', 'invoice:read');
+      requireAll(request, 'dischargePolicy:manage', 'invoice:read');
       const { mode } = request.body as { mode: 'off' | 'warn' | 'block' };
       if (request.replayOf === null) {
         await request.txClient.query(
@@ -677,7 +677,7 @@ export const stayRoutes: FastifyPluginAsyncTypebox = async (app) => {
 /**
  * The hospital's discharge bill policy, enforced when admissions asks (#790). `off`, billing off
  * for the hospital, or a bill with nothing open lets the discharge through. Under `block` the
- * caller must hold `invoice:adjust` and have confirmed; under `warn` anyone must have confirmed.
+ * caller must hold `dischargeBill:override` and have confirmed; under `warn` anyone must have confirmed.
  */
 export const billDischargeGate: DischargeGate = async (request, stay) => {
   const policy = await request.access.policy();
@@ -688,7 +688,9 @@ export const billDischargeGate: DischargeGate = async (request, stay) => {
   const found = await findStay(client, stay.admissionId);
   if ((await settlement(client, found)).clearance.cleared) return;
   if (mode === 'block') {
-    const mayOverride = policy.permissions.some((grant) => grant.permission === 'invoice:adjust');
+    const mayOverride = policy.permissions.some(
+      (grant) => grant.permission === 'dischargeBill:override',
+    );
     if (!(mayOverride && stay.acknowledged)) {
       throw new HttpError(409, 'bill_outstanding', 'The bill of the stay is not settled');
     }

@@ -1578,7 +1578,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds invoice:adjust and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
+        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds dischargeBill:override and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
         post: operations["dischargePatient"];
         delete?: never;
         options?: never;
@@ -5854,7 +5854,7 @@ export interface paths {
         };
         /** @description How the hospital gates discharge on the bill: `off`, `warn` (the person discharging confirms they have seen the bill) or `block` (nothing owed or unbilled); `warn` until set. Needs invoice:read and the billing feature flag. */
         get: operations["getDischargePolicy"];
-        /** @description Sets the policy. The Idempotency-Key header is required. Needs invoice:adjust, invoice:read and the billing feature flag. Audited. */
+        /** @description Sets the policy. The Idempotency-Key header is required. Needs dischargePolicy:manage, invoice:read and the billing feature flag. Audited. */
         put: operations["setDischargePolicy"];
         post?: never;
         delete?: never;
@@ -20497,7 +20497,7 @@ export interface operations {
                     dischargeType: components["schemas"]["DischargeType"];
                     /** @description The version the change was made from. Another one gives 409 `conflict`. */
                     version: number;
-                    /** @description Confirms leaving the bill unsettled: required under the hospital’s `warn` policy, and under `block` only from a caller holding invoice:adjust. */
+                    /** @description Confirms leaving the bill unsettled: required under the hospital’s `warn` policy, and under `block` only from a caller holding dischargeBill:override. */
                     billAcknowledged?: boolean;
                 };
             };

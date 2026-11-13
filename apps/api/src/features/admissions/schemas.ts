@@ -312,7 +312,7 @@ export const AdmissionDischarge = Type.Object(
     billAcknowledged: Type.Optional(
       Type.Boolean({
         description:
-          'Confirms leaving the bill unsettled: required under the hospital’s `warn` policy, and under `block` only from a caller holding invoice:adjust.',
+          'Confirms leaving the bill unsettled: required under the hospital’s `warn` policy, and under `block` only from a caller holding dischargeBill:override.',
       }),
     ),
   },
