@@ -6,6 +6,7 @@ import type {
   LabSampleStatusValue,
   LabStageValue,
 } from './schemas.js';
+import { patientFamily } from '../../core/patient-merge/family.js';
 
 /**
  * The laboratory SQL. Every statement runs on the request's own transaction under the app role,
@@ -621,6 +622,7 @@ export async function patientResults(
   ) {
     return { rows: [], nextCursor: null };
   }
+  const family = await patientFamily(client, filters.patientId);
   // The released ids are picked over the results and samples alone; the names, the
   // acknowledgement and the correction are read for the page only, so a long history costs a
   // sort of ids per page, not every join.
@@ -629,7 +631,7 @@ export async function patientResults(
        select distinct on (r.sample_id, r.lab_test_id) r.id, s.collected_at
        from lab_results r
        join lab_samples s on s.tenant_id = r.tenant_id and s.id = r.sample_id
-       where r.patient_id = $1 and r.status = 'verified'
+       where r.patient_id = any($1::uuid[]) and r.status = 'verified'
          and ($2::uuid is null or r.lab_test_id = $2)
          and ($3::uuid is null or r.encounter_id = $3)
        order by r.sample_id, r.lab_test_id, r.entered_at desc, r.id desc
@@ -645,7 +647,7 @@ export async function patientResults(
      where r.id in (select id from page)
      order by s.collected_at desc, r.id desc`,
     [
-      filters.patientId,
+      family,
       filters.labTestId ?? null,
       filters.encounterId ?? null,
       after?.a ?? null,

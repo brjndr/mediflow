@@ -12,6 +12,7 @@ import type {
   OrderStatusValue,
   OrderTypeValue,
 } from './schemas.js';
+import { patientFamily } from '../../core/patient-merge/family.js';
 
 /**
  * The clinical SQL. Every statement runs on the request's own transaction under the app role, so
@@ -191,17 +192,19 @@ export async function listEncounters(
         : null;
     }
   }
+  const family =
+    filters.patientId === undefined ? null : await patientFamily(client, filters.patientId);
   return paged<EncounterRow>(
     client,
     {
       sql: `${ENCOUNTERS}
-            where ($1::uuid is null or e.patient_id = $1)
+            where ($1::uuid[] is null or e.patient_id = any($1::uuid[]))
               and ($2::uuid is null or e.attending_doctor_id = $2)
               and ($3::text is null or e.status = $3)
               and ($4::text is null or e.type = $4)
               and ${visible('$5', '$6')}`,
       values: [
-        filters.patientId ?? null,
+        family,
         filters.attendingDoctorId ?? null,
         filters.status ?? null,
         filters.type ?? null,

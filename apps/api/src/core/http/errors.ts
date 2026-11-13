@@ -20,6 +20,8 @@ export type ErrorBody = Static<typeof ErrorBody>;
 
 /** SQLSTATE for "permission denied" and for a row-level security violation. */
 const INSUFFICIENT_PRIVILEGE = '42501';
+/** Raised by the `refuse_merged_patient` triggers: a new row for a merged-away patient (#557). */
+const PATIENT_MERGED = 'PM409';
 
 /** The Postgres error code, whether the driver threw the error or Drizzle wrapped it as a cause. */
 function sqlState(error: unknown): string | undefined {
@@ -81,6 +83,10 @@ export function registerErrorHandling(app: FastifyInstance): void {
         'validation_failed',
         `Invalid ${error.validationContext ?? 'request'}`,
       );
+    }
+    if (sqlState(error) === PATIENT_MERGED) {
+      // A trigger refused a new row for a patient record that was merged into another (#557).
+      return send(reply, request, 409, 'patient_merged', 'This record was merged into another');
     }
     if (sqlState(error) === INSUFFICIENT_PRIVILEGE) {
       // Postgres refused the statement: a row-level security policy or a missing grant. The code
