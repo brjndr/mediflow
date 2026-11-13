@@ -81,6 +81,11 @@ export const DOMAIN_EVENTS = [
   'progressnote.created',
   'progressnote.updated',
   'ward.stockrequested',
+  // Fluid balance and care plans (NR-04): ids, the direction or the status, never an amount or text.
+  'fluid.recorded',
+  'careplan.created',
+  'careplan.task_done',
+  'careplan.closed',
   'discharge.completed',
   // An admission made by mistake was cancelled (#573): ids only, never the reason.
   'admission.cancelled',

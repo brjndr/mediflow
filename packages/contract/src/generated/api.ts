@@ -1877,6 +1877,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions/{admissionId}/fluids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The fluid intake and output entries of the stay by the time observed, newest first, optionally between `from` (included) and `to` (excluded). Corrections and the entries they correct are both listed. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every row is audited as a read. */
+        get: operations["listWardFluids"];
+        put?: never;
+        /** @description Records fluid taken in (oral, intravenous, tube) or put out (urine, drain, vomit, stool) in whole millilitres, 1 to 5000. `observedAt` is now unless sent, never in the future. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `fluid.recorded` (ids and the direction, never an amount). */
+        post: operations["recordWardFluid"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/fluids/totals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Intake, output and their balance in millilitres between two instants (`from` included, `to` excluded, at most 36 hours apart, 400 `validation_failed` otherwise). The web app asks once for each shift of the day. An entry that was corrected counts as its correction. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Audited as a read of the stay's balance. */
+        get: operations["getFluidTotals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/fluids/{fluidId}/correct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Corrects an entry of the stay with a new one that names it and gives a reason; the original is kept. The correction is of the same direction (422 `direction_changed`), is taken at the time of the one it corrects, and an entry is corrected once (422 `already_corrected`). One of another stay is 404 `fluid_not_found`. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `fluid.recorded`. */
+        post: operations["correctWardFluid"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/care-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The care plans of the stay, newest first, each with its tasks in the order they were added. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). Every plan is audited as a read. */
+        get: operations["listCarePlans"];
+        put?: never;
+        /** @description Starts a care plan for an admitted patient: the problem, optionally a goal and up to 20 tasks, each with an optional due time. A stay outside the scope the caller holds the permission with, or another hospital’s, answers 404 `admission_not_found`. A stay that has ended takes no new record (409 `admission_not_open`). The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited; emits `careplan.created` (ids only). */
+        post: operations["createCarePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/care-plans/{planId}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a task to a plan that is still active (409 `plan_closed`). A plan outside the caller scope, or another hospital’s, is 404 `plan_not_found`; of a stay that has ended, 409 `admission_not_open`. The Idempotency-Key header is required: the same key records nothing again and answers with the record as it is now. Audited as an update of the plan. */
+        post: operations["addCarePlanTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/care-plan-tasks/{taskId}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Marks a task done, with an optional note, by the caller now. A task is done once (409 `already_done`) and a plan that has ended takes no more (409 `plan_closed`). A task outside the caller scope, or another hospital’s, is 404 `task_not_found`; of a stay that has ended, 409 `admission_not_open`. Audited; emits `careplan.task_done`. */
+        post: operations["completeCarePlanTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/care-plans/{planId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Ends an active plan as completed or cancelled; it does not change again (409 `plan_closed`). A plan outside the caller scope, or another hospital’s, is 404 `plan_not_found`; of a stay that has ended, 409 `admission_not_open`. Audited; emits `careplan.closed`. */
+        post: operations["closeCarePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/codes/search": {
         parameters: {
             query?: never;
@@ -7595,6 +7716,116 @@ export interface components {
             /** Format: date-time */
             requestedAt: string;
             requestedById: string;
+        };
+        /**
+         * @description Intake: oral, intravenous, tube, other_intake. Output: urine, drain, vomit, stool, other_output.
+         * @enum {string}
+         */
+        FluidKind: "oral" | "intravenous" | "tube" | "other_intake" | "urine" | "drain" | "vomit" | "stool" | "other_output";
+        /** @description One measure of fluid taken in or put out, append-only: a correction is a new entry that names the one it corrects, once, and replaces its amount in the totals. */
+        WardFluid: {
+            id: string;
+            tenantId: string;
+            admissionId: string;
+            /** @enum {string} */
+            direction: "intake" | "output";
+            kind: components["schemas"]["FluidKind"];
+            amountMl: number;
+            /** Format: date-time */
+            observedAt: string;
+            /** Format: date-time */
+            recordedAt: string;
+            recordedById: string;
+            recordedByName: string;
+            correctsId?: string;
+            correctionReason?: string;
+            /** @description The entry that corrects this one. Absent while it stands. */
+            correctedById?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        WardFluidPage: {
+            items: components["schemas"]["WardFluid"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        WardFluidCreate: {
+            kind: components["schemas"]["FluidKind"];
+            amountMl: number;
+            /**
+             * Format: date-time
+             * @description When: now when not sent, never in the future.
+             */
+            observedAt?: string;
+        };
+        /** @description The entry as it should have read, of the same direction as the one it corrects, and why. The time is the corrected entry one. */
+        WardFluidCorrect: {
+            kind: components["schemas"]["FluidKind"];
+            amountMl: number;
+            reason: string;
+        };
+        /** @description What was taken in and put out between two instants (from included, to excluded) by the time observed. An entry that was corrected counts as its correction. */
+        FluidTotals: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            intakeMl: number;
+            outputMl: number;
+            /** @description Intake minus output. */
+            balanceMl: number;
+            entries: number;
+        };
+        /** @enum {string} */
+        CarePlanStatus: "active" | "completed" | "cancelled";
+        CarePlanTask: {
+            id: string;
+            description: string;
+            /** Format: date-time */
+            dueAt?: string;
+            /** Format: date-time */
+            doneAt?: string;
+            doneById?: string;
+            doneByName?: string;
+            doneNote?: string;
+        };
+        /** @description A nursing problem, its goal and the tasks to carry out. The plan only ends (completed or cancelled); a task is done once. */
+        CarePlan: {
+            id: string;
+            tenantId: string;
+            admissionId: string;
+            problem: string;
+            goal?: string;
+            status: components["schemas"]["CarePlanStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            createdById: string;
+            createdByName: string;
+            /** Format: date-time */
+            closedAt?: string;
+            tasks: components["schemas"]["CarePlanTask"][];
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        CarePlanPage: {
+            items: components["schemas"]["CarePlan"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CarePlanTaskCreate: {
+            description: string;
+            /** Format: date-time */
+            dueAt?: string;
+        };
+        CarePlanCreate: {
+            problem: string;
+            goal?: string;
+            tasks?: components["schemas"]["CarePlanTaskCreate"][];
+        };
+        CarePlanClose: {
+            /** @enum {string} */
+            status: "completed" | "cancelled";
+        };
+        CarePlanTaskDone: {
+            note?: string;
         };
         /** @description A diagnosis code (ICD-10) or a procedure code. Reference data shared by every hospital, so it carries no tenant; only `favourite` is the hospital’s own. */
         Code: {
@@ -21030,6 +21261,774 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWardFluids: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardFluidPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordWardFluid: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WardFluidCreate"];
+            };
+        };
+        responses: {
+            /** @description One measure of fluid taken in or put out, append-only: a correction is a new entry that names the one it corrects, once, and replaces its amount in the totals. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardFluid"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getFluidTotals: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was taken in and put out between two instants (from included, to excluded) by the time observed. An entry that was corrected counts as its correction. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FluidTotals"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    correctWardFluid: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+                fluidId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WardFluidCorrect"];
+            };
+        };
+        responses: {
+            /** @description One measure of fluid taken in or put out, append-only: a correction is a new entry that names the one it corrects, once, and replaces its amount in the totals. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WardFluid"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCarePlans: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarePlanPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCarePlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CarePlanCreate"];
+            };
+        };
+        responses: {
+            /** @description A nursing problem, its goal and the tasks to carry out. The plan only ends (completed or cancelled); a task is done once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarePlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addCarePlanTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CarePlanTaskCreate"];
+            };
+        };
+        responses: {
+            /** @description A nursing problem, its goal and the tasks to carry out. The plan only ends (completed or cancelled); a task is done once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarePlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    completeCarePlanTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CarePlanTaskDone"];
+            };
+        };
+        responses: {
+            /** @description A nursing problem, its goal and the tasks to carry out. The plan only ends (completed or cancelled); a task is done once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarePlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    closeCarePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                planId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CarePlanClose"];
+            };
+        };
+        responses: {
+            /** @description A nursing problem, its goal and the tasks to carry out. The plan only ends (completed or cancelled); a task is done once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarePlan"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

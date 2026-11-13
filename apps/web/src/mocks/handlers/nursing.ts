@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
+import { careHandlers } from './nursing-care';
 import { marHandlers } from './nursing-mar';
 import { notesHandlers } from './nursing-notes';
 
@@ -53,6 +54,7 @@ function flagsOf(vital: Partial<WardVital>): Flags | undefined {
 
 export const nursingHandlers = [
   ...marHandlers,
+  ...careHandlers,
   ...notesHandlers,
   http.get('*/api/admissions/:admissionId/vitals', ({ request, params }) => {
     const access = authorize(request, {

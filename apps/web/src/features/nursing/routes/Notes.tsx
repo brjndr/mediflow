@@ -9,11 +9,12 @@ import { focusIfLost } from '@/shared/lib/focus';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { Form, SelectField, SubmitButton, TextAreaField, useZodForm } from '@/shared/ui/form';
 import { maskMrn } from '@/shared/utils/mask';
-import { useFormatters } from '@/tenancy';
+import { useFormatters, useTenant } from '@/tenancy';
 import { EditNoteDialog, NoteHistoryDialog } from '../components/NoteDialogs';
 import { useAddNote, useNotes } from '../hooks/use-notes';
 import { useStay } from '../hooks/use-nursing';
 import { NOTE_KINDS, NOTE_MAX, noteFormSchema, type NoteValues } from '../notes-schemas';
+import { shiftOf } from '../shifts';
 import type { ProgressNote } from '../types';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
@@ -21,6 +22,7 @@ export default function Notes() {
   const { t } = useTranslation('nursing');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
+  const timezone = useTenant()?.timezone ?? 'UTC';
   const session = useSession();
   const { admissionId = '' } = useParams();
   const stay = useStay(admissionId);
@@ -65,6 +67,11 @@ export default function Notes() {
         hideable: false,
       },
       { id: 'kind', header: t('notes.kind'), value: (row) => t(`notes.kinds.${row.kind}`) },
+      {
+        id: 'shift',
+        header: t('notes.shift'),
+        value: (row) => t(`shifts.${shiftOf(row.createdAt, timezone)}`),
+      },
       { id: 'author', header: t('columns.by'), value: (row) => row.createdByName },
       { id: 'body', header: t('notes.body'), value: (row) => row.body },
       {
@@ -76,7 +83,7 @@ export default function Notes() {
             : t('notes.original'),
       },
     ],
-    [t, format],
+    [t, format, timezone],
   );
 
   const actions: GridAction<ProgressNote>[] = [
