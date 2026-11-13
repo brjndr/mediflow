@@ -8,7 +8,14 @@ export const ADMISSION_PERMISSIONS = [
   {
     id: 'admission:read',
     description: 'See admissions, who is in which bed, and the bed board with its patients',
-    defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
+    defaults: {
+      admin: 'all',
+      doctor: 'all',
+      nurse: 'all',
+      receptionist: 'all',
+      pharmacist: 'all',
+      lab_technician: 'all',
+    },
   },
   {
     id: 'admission:create',
