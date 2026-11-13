@@ -39,4 +39,24 @@ export const NURSING_PERMISSIONS = [
     description: 'Write progress notes (nursing, ward round) and edit your own',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
   },
+  {
+    id: 'fluidBalance:read',
+    description: 'See the fluid intake and output of an admitted patient, with the totals',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+  },
+  {
+    id: 'fluidBalance:record',
+    description: 'Record fluid taken in and put out, and correct an entry with a reason',
+    defaults: { admin: 'all', nurse: 'all' },
+  },
+  {
+    id: 'carePlan:read',
+    description: 'See the care plans of an admitted patient and their tasks',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+  },
+  {
+    id: 'carePlan:write',
+    description: 'Start a care plan, add tasks, mark a task done and end a plan',
+    defaults: { admin: 'all', nurse: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];

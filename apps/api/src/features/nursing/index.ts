@@ -1,10 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { NURSING_PERMISSIONS } from './permissions.js';
+import { careRoutes } from './care-routes.js';
 import { nursingRoutes } from './routes.js';
 
 /**
  * Nursing and ward care (BE-24): ward vital signs, the medication administration chart, progress
- * notes with their history, the diet orders of a stay (read only) and requests for ward stock,
+ * notes with their history, fluid intake and output with totals, care plans with tasks (#160), the diet orders of a stay (read only) and requests for ward stock,
  * all of an admitted patient. Behind the `nursing` module flag; the stay is the `admissions`
  * module's, so that flag must be on too. Reads the clinical module's orders and writes the
  * inventory's indents only through their `index.ts`. Publishes `vitals.recorded`,
@@ -14,4 +15,5 @@ import { nursingRoutes } from './routes.js';
 export const nursingFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('nursing', NURSING_PERMISSIONS);
   await app.register(nursingRoutes);
+  await app.register(careRoutes);
 };

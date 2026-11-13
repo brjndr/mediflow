@@ -77,11 +77,12 @@ const NOTE_READ = 'progressNote:read';
 const NOTE_WRITE = 'progressNote:write';
 
 const iso = (value: Date) => value.toISOString();
-const invalid = (message: string) => new HttpError(400, 'validation_failed', message);
-const stayNotFound = () => new HttpError(404, 'admission_not_found', 'No such admission');
-const notOpen = () => new HttpError(409, 'admission_not_open', 'The patient is no longer admitted');
+export const invalid = (message: string) => new HttpError(400, 'validation_failed', message);
+export const stayNotFound = () => new HttpError(404, 'admission_not_found', 'No such admission');
+export const notOpen = () =>
+  new HttpError(409, 'admission_not_open', 'The patient is no longer admitted');
 
-const userIdOf = (request: FastifyRequest): string => {
+export const userIdOf = (request: FastifyRequest): string => {
   const userId = request.session?.userId;
   if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
   return userId;
@@ -102,7 +103,7 @@ async function requireModules(request: FastifyRequest, ...modules: string[]): Pr
  * for a stay that does not exist, is another hospital's or is out of scope. `forUpdate` locks the
  * admission row, so a discharge and a ward record take turns.
  */
-async function stayFor(
+export async function stayFor(
   request: FastifyRequest,
   admissionId: string,
   permission: Permission,
@@ -119,29 +120,29 @@ async function stayFor(
   return stay;
 }
 
-const openStay = (stay: Stay): void => {
+export const openStay = (stay: Stay): void => {
   if (stay.status !== 'admitted') throw notOpen();
 };
 
 /** The database refusing a write because the stay ended meanwhile. */
-function stayRefusal(error: unknown): unknown {
+export function stayRefusal(error: unknown): unknown {
   // Only the nursing_open_stay trigger, not any other CHECK violation (also 23514).
   const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
   return code === '23514' && message === 'The stay is not open' ? notOpen() : error;
 }
 
-const refusedBy = (error: unknown, constraint: string): boolean => {
+export const refusedBy = (error: unknown, constraint: string): boolean => {
   const { code, constraint: name } = (error ?? {}) as { code?: unknown; constraint?: unknown };
   return code === '23505' && name === constraint;
 };
 
-const stayEvent = (stay: Stay) => ({
+export const stayEvent = (stay: Stay) => ({
   admissionId: stay.id,
   patientId: stay.patientId,
   encounterId: stay.encounterId,
 });
 
-const page = (limit: number | undefined) => limit ?? DEFAULT_PAGE_SIZE;
+export const page = (limit: number | undefined) => limit ?? DEFAULT_PAGE_SIZE;
 
 // --- views -------------------------------------------------------------------------------------
 
@@ -257,7 +258,7 @@ function measuresOf(body: object): Record<string, number> {
 }
 
 /** An instant that is not more than a minute ahead of now. */
-function notFuture(value: string | undefined, field: string): Date {
+export function notFuture(value: string | undefined, field: string): Date {
   const at = value === undefined ? new Date() : new Date(value);
   if (Number.isNaN(at.getTime())) throw invalid(`${field} is not a time`);
   if (at.getTime() > Date.now() + 60_000) throw invalid(`${field} is in the future`);

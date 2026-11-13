@@ -301,6 +301,10 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'mar:record' },
   { permission: 'progressNote:read' },
   { permission: 'progressNote:write' },
+  { permission: 'fluidBalance:read' },
+  { permission: 'fluidBalance:record' },
+  { permission: 'carePlan:read' },
+  { permission: 'carePlan:write' },
   // Ambulances (OP-03).
   { permission: 'ambulance:read' },
   { permission: 'ambulance:manage' },
@@ -334,6 +338,8 @@ const ADMIN: PermissionGrantDto[] = [
 ];
 
 const DOCTOR: PermissionGrantDto[] = [
+  { permission: 'fluidBalance:read' },
+  { permission: 'carePlan:read' },
   { permission: 'progressNote:read' },
   { permission: 'progressNote:write' },
   { permission: 'patient:read' },

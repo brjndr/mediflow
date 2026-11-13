@@ -42,3 +42,16 @@ export type ProgressNoteCreate = components['schemas']['ProgressNoteCreate'];
 export type ProgressNoteUpdate = components['schemas']['ProgressNoteUpdate'];
 export type ProgressNoteVersion = components['schemas']['ProgressNoteVersion'];
 export type ProgressNoteVersionPage = components['schemas']['ProgressNoteVersionPage'];
+
+export type WardFluid = components['schemas']['WardFluid'];
+export type WardFluidPage = components['schemas']['WardFluidPage'];
+export type WardFluidCreate = components['schemas']['WardFluidCreate'];
+export type WardFluidCorrect = components['schemas']['WardFluidCorrect'];
+export type FluidKind = components['schemas']['FluidKind'];
+export type FluidTotals = components['schemas']['FluidTotals'];
+
+export type CarePlan = components['schemas']['CarePlan'];
+export type CarePlanPage = components['schemas']['CarePlanPage'];
+export type CarePlanTask = components['schemas']['CarePlanTask'];
+export type CarePlanCreate = components['schemas']['CarePlanCreate'];
+export type CarePlanTaskCreate = components['schemas']['CarePlanTaskCreate'];
