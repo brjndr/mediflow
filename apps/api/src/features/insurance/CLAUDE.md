@@ -2,7 +2,7 @@
 
 What was decided for this feature's API (BE-28, #187). Claude Code loads it when a file of this folder is read. The web side is `apps/web/src/features/insurance/CLAUDE.md`.
 
-**Three slices.** First: payers, plans and rate agreements, a patient's policies, and pre-authorizations (migration 0098, switch `insurance`). Second: the coverage split and claims (migration 0099). Third: corporate credit with receipts (#803, migration 0100, `credit.ts`).
+**Three slices.** First: payers, plans and rate agreements, a patient's policies, and pre-authorizations (migration 0098, switch `insurance`). Second: the coverage split and claims (migration 0099). Third: corporate credit with receipts (#803, migration 0101, `credit.ts`).
 
 - **Permissions:** `payer:read|manage`, `policy:read|manage`, `preauth:read|manage`. The admin holds all; the receptionist reads payers and manages policies and pre-authorizations (the "create/view" cell of the matrix). `claim:read|manage|writeoff`: the admin holds all, the receptionist reads and manages claims, only a holder of `claim:writeoff` gives up money. `receivable:read|manage|receipt`: the admin holds all, the receptionist reads.
 - **Payers** (`insurer`, `tpa`, `corporate`): the code and kind never change (a trigger), the code is unique per hospital whatever its capitals (409 `duplicate_code`). `PATCH` sends the changed fields and the `version` (409 `version_conflict`); a contact field sent as `null` is cleared. The list is a `GET` with `q` (name or code), because nothing about a patient is searched here.
