@@ -161,6 +161,14 @@ export default function Ambulances() {
         value: (row) => row.ambulanceRegistration ?? '',
       },
       {
+        id: 'crew',
+        header: t('trips.crew'),
+        value: (row) =>
+          row.crew
+            .map((member) => `${member.userName} (${t(`crew.duty.${member.duty}`)})`)
+            .join(', '),
+      },
+      {
         id: 'requested',
         header: t('trips.requested'),
         value: (row) => format.dateTime(row.requestedAt),

@@ -104,6 +104,7 @@ const TABLES = [
   'roster_shifts',
   'blood_unit_events',
   'blood_units',
+  'ambulance_trip_crew',
   'ambulance_trips',
   'ambulances',
   'cleaning_tasks',
@@ -830,6 +831,7 @@ interface Trip {
   ambulanceId?: string;
   ambulanceRegistration?: string;
   patientId?: string;
+  crew: { userId: string; userName: string; duty: string }[];
 }
 let plate = 0;
 const addAmbulance = (more: object = {}, options: Options = {}) =>
@@ -892,6 +894,77 @@ describe('ambulances', () => {
       'update',
       'update',
     ]);
+  });
+
+  it('names the crew at dispatch, shows it on the trip and refuses what does not fit', async () => {
+    await wipe();
+    const [first, second, third] = [
+      await ok<Ambulance>(await addAmbulance(), 201),
+      await ok<Ambulance>(await addAmbulance(), 201),
+      await ok<Ambulance>(await addAmbulance(), 201),
+    ] as [Ambulance, Ambulance, Ambulance];
+    const request = async () => ok<Trip>(await requestTrip(), 201);
+    const trip = await request();
+    expect(trip.crew).toEqual([]);
+    const crew = [
+      { userId: labTech.id, duty: 'paramedic' },
+      { userId: pharmacist.id, duty: 'driver' },
+    ];
+    const bad = (body: object) => moveTrip(trip, 'dispatched', { ambulanceId: first.id, ...body });
+    expect(errorOf(await bad({ crew: [{ userId: admin.id, duty: 'driver' }, ...crew] }))).toEqual([
+      422,
+      'invalid_crew',
+    ]);
+    expect(
+      errorOf(await bad({ crew: [crew[0], { userId: labTech.id, duty: 'attendant' }] })),
+    ).toEqual([422, 'invalid_crew']);
+    expect(errorOf(await bad({ crew: [{ userId: clinicAdmin.id, duty: 'driver' }] }))).toEqual([
+      422,
+      'unknown_crew',
+    ]);
+    expect(errorOf(await bad({ crew: [{ userId: 'nope', duty: 'driver' }] }))).toEqual([
+      422,
+      'unknown_crew',
+    ]);
+    expect((await ambulanceNow(first.id))?.status).toBe('available');
+    const sent = await ok<Trip>(await bad({ crew }));
+    expect(sent.crew.map((member) => [member.userId, member.duty])).toEqual([
+      [pharmacist.id, 'driver'],
+      [labTech.id, 'paramedic'],
+    ]);
+    expect(sent.crew[0]?.userName).toBe('Ops Pharmacist');
+    // Someone on a trip under way cannot go on another.
+    const other = await request();
+    expect(
+      errorOf(
+        await moveTrip(other, 'dispatched', {
+          ambulanceId: second.id,
+          crew: [{ userId: labTech.id, duty: 'driver' }],
+        }),
+      ),
+    ).toEqual([409, 'crew_busy']);
+    // The crew is not named at any other move.
+    expect(errorOf(await moveTrip(sent, 'picked_up', { crew }))).toEqual([422, 'crew_at_dispatch']);
+    const listed = (await ok<Page<Trip>>(await get('/ambulance-trips'))).items.find(
+      (item) => item.id === trip.id,
+    );
+    expect(listed?.crew).toHaveLength(2);
+    // Another hospital never sees it, and the crew is free once the trip ends.
+    expect(
+      (await ok<Page<Trip>>(await get('/ambulance-trips', { tenant: clinic, user: clinicAdmin })))
+        .items,
+    ).toEqual([]);
+    const done = await ok<Trip>(
+      await moveTrip(await ok<Trip>(await moveTrip(sent, 'picked_up')), 'completed'),
+    );
+    expect(done.crew).toHaveLength(2);
+    const again = await ok<Trip>(
+      await moveTrip(other, 'dispatched', {
+        ambulanceId: third.id,
+        crew: [{ userId: labTech.id, duty: 'driver' }],
+      }),
+    );
+    expect(again.crew).toHaveLength(1);
   });
 
   it('keeps the visit and service of a billable trip, and refuses ones that do not fit', async () => {
@@ -1172,8 +1245,14 @@ describe('row-level security', () => {
     await ok(await shift(), 201);
     await ok(await leave({ startsAt: at(200), endsAt: at(220) }), 201);
     await ok(await register(), 201);
-    await ok(await addAmbulance(), 201);
-    await ok(await requestTrip(), 201);
+    const rls = await ok<Ambulance>(await addAmbulance(), 201);
+    const rlsTrip = await ok<Trip>(await requestTrip(), 201);
+    await ok(
+      await moveTrip(rlsTrip, 'dispatched', {
+        ambulanceId: rls.id,
+        crew: [{ userId: nurse.id, duty: 'driver' }],
+      }),
+    );
     await ok(await makeTask(beds[0] as string), 201);
     for (const table of TABLES) {
       const own = await asTenantSql(pool, hospital.id, (client) =>
