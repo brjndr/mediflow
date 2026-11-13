@@ -97,7 +97,10 @@ describe('transactional outbox', () => {
   it('emits no event when the transaction rolls back', async () => {
     expect((await register(hospital.id, 'p-rolled-back', true)).statusCode).toBe(500);
     expect(await pendingFor(hospital.id)).toEqual([]);
-    expect(await app.events.dispatch()).toBe(0);
+    // dispatch() works across every hospital, and other test files share this database, so its
+    // count is not ours to assert (#819): nothing of ours was left to deliver.
+    await app.events.dispatch();
+    expect(received.filter((m) => m.entityId === 'p-rolled-back')).toEqual([]);
   });
 
   it('keeps an event from a committed request and delivers it once, to its subscriber', async () => {
@@ -106,14 +109,16 @@ describe('transactional outbox', () => {
       { event: 'patient.registered', entity_id: 'p-1' },
     ]);
 
-    expect(await app.events.dispatch()).toBe(1);
-    expect(await app.events.dispatch()).toBe(0);
+    // Other files' events may be in the outbox too, so count only this hospital's.
+    await app.events.dispatch();
+    await app.events.dispatch();
     expect(await pendingFor(hospital.id)).toEqual([]);
 
     await queue.drain();
-    expect(received).toHaveLength(1);
-    expect(handlerTenants).toEqual([hospital.id]);
-    expect(received[0]).toMatchObject({
+    const ours = received.filter((m) => m.tenantId === hospital.id);
+    expect(ours).toHaveLength(1);
+    expect(handlerTenants.filter((t) => t === hospital.id)).toEqual([hospital.id]);
+    expect(ours[0]).toMatchObject({
       tenantId: hospital.id,
       event: 'patient.registered',
       entityId: 'p-1',
@@ -121,7 +126,9 @@ describe('transactional outbox', () => {
       payload: { source: 'test' },
     });
     // The id lets an idempotent subscriber recognise a repeat.
-    expect(queue.sent.at(-1)?.options.id).toBe(received[0]?.eventId);
+    expect(
+      queue.sent.find((s) => (s.data as DomainEventMessage).entityId === 'p-1')?.options.id,
+    ).toBe(ours[0]?.eventId);
   });
 
   it('labels each event with the hospital of the request that emitted it', async () => {
