@@ -17,6 +17,7 @@ const KINDS: readonly Kind[] = [
   'pharmacy_sales',
   'stock',
   'collections',
+  'collections_by_close',
   'outstanding',
   'opd_hourly',
 ];
@@ -216,6 +217,7 @@ function result(kind: Kind, from: string | null, to: string | null): Result {
         totals: [null, null, 200, null, null, null],
       };
     case 'collections':
+    case 'collections_by_close':
       return {
         ...base,
         columns: [

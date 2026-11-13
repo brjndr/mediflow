@@ -131,34 +131,49 @@ const revenue: Query = async (client, from, to, limit) => {
   });
 };
 
-const collections: Query = async (client, from, to, limit) => {
-  const { rows } = await client.query<{
-    day: string;
-    method: string;
-    taken_by: string | null;
-    collected: string;
-    refunded: string;
-  }>(
-    `with t as (select timezone from tenants where id = app_tenant_id()),
-     b as (select ${DAY_BOUNDS} from t)
-     select (p.at at time zone t.timezone)::date::text as day, p.method, u.name as taken_by,
+/**
+ * Payments and refunds by payment method and person. `bySessionClose` dates cash by the day its
+ * register session closed (the day-end settlement) and leaves out cash of a session still open;
+ * money with no session is dated as recorded.
+ */
+const collectionsBy =
+  (bySessionClose: boolean): Query =>
+  async (client, from, to, limit) => {
+    const { rows } = await client.query<{
+      day: string;
+      method: string;
+      taken_by: string | null;
+      collected: string;
+      refunded: string;
+    }>(
+      `with t as (select timezone from tenants where id = app_tenant_id()),
+     b as (select ${DAY_BOUNDS} from t),
+     d as (
+       select p.*, ${bySessionClose ? 'coalesce(s.closed_at, p.at)' : 'p.at'} as counted_at
+       from payments p
+       ${bySessionClose ? 'left join cash_register_sessions s on s.tenant_id = p.tenant_id and s.id = p.session_id' : ''}
+       where ${bySessionClose ? 'p.session_id is null or s.closed_at is not null' : 'true'}
+     )
+     select (p.counted_at at time zone t.timezone)::date::text as day, p.method, u.name as taken_by,
             (coalesce(sum(p.amount_minor) filter (where p.kind = 'payment'), 0))::text as collected,
             (coalesce(sum(p.amount_minor) filter (where p.kind = 'refund'), 0))::text as refunded
-     from payments p
+     from d p
      cross join b cross join t
      left join users u on u.id = p.recorded_by
-     where p.at >= b.lo and p.at < b.hi
+     where p.counted_at >= b.lo and p.counted_at < b.hi
      group by 1, p.method, p.recorded_by, u.name
      order by 1, p.method, u.name nulls last, p.recorded_by
      limit $3`,
-    [from, to, limit + 1],
-  );
-  return rows.map((r) => {
-    const collected = num(r.collected);
-    const refunded = num(r.refunded);
-    return [r.day, r.method, r.taken_by, collected, refunded, collected - refunded];
-  });
-};
+      [from, to, limit + 1],
+    );
+    return rows.map((r) => {
+      const collected = num(r.collected);
+      const refunded = num(r.refunded);
+      return [r.day, r.method, r.taken_by, collected, refunded, collected - refunded];
+    });
+  };
+const collections = collectionsBy(false);
+const collectionsBySessionClose = collectionsBy(true);
 
 /** Issued invoices not fully paid, by age in days since issue at the hospital's clock. */
 const outstanding: Query = async (client) => {
@@ -438,6 +453,18 @@ const DEFINITIONS: Record<
     ],
     sums: ['collectedMinor', 'refundedMinor', 'netCollectedMinor'],
     query: collections,
+  },
+  collections_by_close: {
+    columns: [
+      col('day', 'date'),
+      col('method', 'text'),
+      col('takenBy', 'text'),
+      col('collectedMinor', 'money'),
+      col('refundedMinor', 'money'),
+      col('netCollectedMinor', 'money'),
+    ],
+    sums: ['collectedMinor', 'refundedMinor', 'netCollectedMinor'],
+    query: collectionsBySessionClose,
   },
   outstanding: {
     columns: [col('ageBucket', 'text'), col('invoices', 'integer'), col('dueMinor', 'money')],
