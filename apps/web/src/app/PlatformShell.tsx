@@ -74,7 +74,7 @@ export function PlatformShell() {
         <PlatformNav />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-2 border-b px-3 sm:gap-3 sm:px-4">
+        <header className="flex min-h-14 flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-1 sm:gap-x-3 sm:px-4">
           <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
             <UserIdentity to="/platform/security" />
             <ThemeSwitch />

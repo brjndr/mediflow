@@ -77,7 +77,7 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-2 border-b bg-card/70 px-3 shadow-soft sm:gap-3 sm:px-4">
+        <header className="flex min-h-14 flex-wrap items-center gap-x-2 gap-y-1 border-b bg-card/70 px-3 py-1 shadow-soft sm:gap-x-3 sm:px-4">
           <Button
             className="lg:hidden"
             size="icon"
