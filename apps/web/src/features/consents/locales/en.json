@@ -65,6 +65,12 @@
       "template": "That consent form is no longer available. Choose another."
     }
   },
+  "print": {
+    "action": "Print",
+    "patient": "Patient",
+    "patientValue": "{{name}} (MRN {{mrn}})",
+    "printedBy": "Printed {{time}} by {{name}}"
+  },
   "view": {
     "action": "View",
     "heading": "Consent for {{procedure}}",

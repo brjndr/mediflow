@@ -5,6 +5,7 @@ import { RichTextView } from '@/shared/ui/rich-text';
 import { useFormatters } from '@/tenancy';
 import { useConsent } from '../hooks/use-consents';
 import type { Consent } from '../types';
+import { ConsentDocument, PrintRecordButton } from './PrintRecord';
 import { SignatureView } from './SignaturePad';
 
 /**
@@ -57,7 +58,12 @@ export function ConsentView({ consent, onClose }: { consent: Consent; onClose: (
           )}
         </>
       )}
-      <div>
+      <div className="flex flex-wrap gap-2">
+        {detail.data && (
+          <PrintRecordButton>
+            <ConsentDocument consent={consent} detail={detail.data} />
+          </PrintRecordButton>
+        )}
         <Button type="button" variant="outline" onClick={onClose}>
           {t('close')}
         </Button>
