@@ -102,7 +102,7 @@ export function BedPicker({
                 <li key={bed.id}>
                   {/* The text is in nested spans, which the rule does not follow; the input is inside the label. */}
                   {}
-                  <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent pointer-coarse:min-h-11">
+                  <label className="group flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-accent pointer-coarse:min-h-11">
                     <input
                       type="radio"
                       name={groupId}
@@ -114,11 +114,11 @@ export function BedPicker({
                       <span className="block font-medium">
                         {t('admit.bedOption', { number: bed.number, ward: bed.wardName })}
                       </span>
-                      <span className="block text-muted-foreground">
+                      <span className="block text-muted-foreground group-has-[:checked]:text-foreground">
                         {bed.roomName} · {bed.categoryName}
                       </span>
                       {priceOf(bed.categoryName) !== undefined && (
-                        <span className="block text-muted-foreground">
+                        <span className="block text-muted-foreground group-has-[:checked]:text-foreground">
                           {t('admit.dayPrice', {
                             price: format.money(priceOf(bed.categoryName) ?? 0),
                           })}
