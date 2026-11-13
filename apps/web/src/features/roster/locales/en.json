@@ -85,7 +85,7 @@
   },
   "leave": {
     "heading": "Leave",
-    "intro": "Ask for days off. A second person with the right to manage the roster approves or rejects the request. Approved leave keeps you off new shifts. No reason is kept.",
+    "intro": "Ask for days off. A second person with the right to manage the roster approves or rejects the request, unless the hospital lets its only manager approve their own. Approved leave keeps you off new shifts. No reason is kept.",
     "empty": "No leave requested or coming up.",
     "approve": "Approve",
     "reject": "Reject",
@@ -93,7 +93,8 @@
     "decidedBy": "{{state}} by {{name}}",
     "columns": {
       "from": "First day",
-      "to": "Last day"
+      "to": "Last day",
+      "kind": "Kind"
     },
     "state": {
       "requested": "Waiting for a decision",
@@ -115,14 +116,44 @@
       "lastHint": "The day you are back at work is the one after.",
       "save": "Send request",
       "saving": "Sending…",
-      "done": "Your leave request is sent."
+      "done": "Your leave request is sent.",
+      "kind": "Kind of leave"
     },
     "errors": {
       "overlap": "You already have leave requested or approved in these days.",
       "period": "Leave ends after it starts, within 90 days, and has not already passed.",
       "shifts": "This person still has shifts in those days. Cancel them first, then approve.",
       "own": "Someone else decides on your leave.",
-      "changed": "The request has changed. Check the list and try again."
+      "changed": "The request has changed. Check the list and try again.",
+      "allowance": "That is more days than this year allows for this kind of leave."
+    },
+    "decidedByThemselves": "{{state}} by {{name}} (their own leave)",
+    "kindDays": "{{kind}}, {{count}} day",
+    "kindDays_other": "{{kind}}, {{count}} days",
+    "kind": {
+      "annual": "Annual leave",
+      "sick": "Sick leave",
+      "casual": "Casual leave",
+      "unpaid": "Unpaid leave"
+    },
+    "balance": {
+      "left": "{{left}} of {{total}} days left this year, counting requests waiting.",
+      "noLimit": "No limit set for this kind."
+    },
+    "rules": {
+      "open": "Leave rules",
+      "title": "Leave rules",
+      "description": "Set the days a year for each kind of leave, and who may approve a manager’s own leave.",
+      "loading": "Loading the rules…",
+      "days": "{{kind}}: days a year",
+      "daysHint": "Leave it empty for no limit.",
+      "selfApproval": "Approving your own leave",
+      "selfApprovalHint": "Even when allowed, it works only while nobody else could approve it.",
+      "never": "Always a second person",
+      "soleManager": "The only manager may approve their own",
+      "save": "Save rules",
+      "saving": "Saving…",
+      "done": "The leave rules are saved."
     }
   },
   "weekLeave": {

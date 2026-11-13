@@ -426,6 +426,88 @@ describe('leave requests', () => {
   });
 });
 
+describe('leave kinds, allowances and self approval (#667)', () => {
+  const leaveTable = () => screen.findByRole('table', { name: 'Leave' });
+
+  async function setRules(sick: string, selfApproval: string) {
+    await userEvent.click(await screen.findByRole('button', { name: 'Leave rules' }));
+    const dialog = await screen.findByRole('dialog');
+    const field = await within(dialog).findByLabelText(/Sick leave: days a year/);
+    if (sick) await userEvent.type(field, sick);
+    await userEvent.selectOptions(
+      within(dialog).getByLabelText(/Approving your own leave/),
+      selfApproval,
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save rules' }));
+    expect(await screen.findByText('The leave rules are saved.')).toBeInTheDocument();
+  }
+
+  async function ask(kind: string, first: string, last: string) {
+    await userEvent.click(screen.getByRole('button', { name: 'Ask for leave' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText(/Kind of leave/), kind);
+    fireEvent.change(within(dialog).getByLabelText(/First day/), { target: { value: first } });
+    fireEvent.change(within(dialog).getByLabelText(/Last day/), { target: { value: last } });
+    return dialog;
+  }
+
+  it('shows the days left for the chosen kind and refuses more than the year allows', async () => {
+    renderApp({ entry: '/roster' });
+    await leaveTable();
+    await setRules('3', 'never');
+    const dialog = await ask('sick', '2026-12-01', '2026-12-05');
+    expect(await within(dialog).findByText(/3 of 3 days left this year/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    expect(
+      await within(dialog).findByText(/more days than this year allows for this kind/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Your leave request is sent.')).not.toBeInTheDocument();
+  });
+
+  it('lists a request with its kind and days', async () => {
+    renderApp({ entry: '/roster' });
+    await leaveTable();
+    const dialog = await ask('sick', '2026-12-01', '2026-12-02');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText('Your leave request is sent.')).toBeInTheDocument();
+    expect(await within(await leaveTable()).findByText('Sick leave, 2 days')).toBeInTheDocument();
+  });
+
+  it('lets the manager approve their own leave once the hospital allows it', async () => {
+    renderApp({ entry: '/roster' });
+    await leaveTable();
+    const dialog = await ask('annual', '2026-12-01', '2026-12-01');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText('Your leave request is sent.')).toBeInTheDocument();
+    const own = () =>
+      within(
+        within(screen.getByRole('table', { name: 'Leave' }))
+          .getByText('Annual leave, 1 day')
+          .closest('tr') as HTMLElement,
+      );
+    expect(own().getByRole('button', { name: /^Approve/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await setRules('', 'sole_manager');
+    await waitFor(() =>
+      expect(own().getByRole('button', { name: /^Approve/ })).not.toHaveAttribute(
+        'aria-disabled',
+        'true',
+      ),
+    );
+    await userEvent.click(own().getByRole('button', { name: /^Approve/ }));
+    expect(await screen.findByText(/\(their own leave\)/)).toBeInTheDocument();
+  });
+
+  it('offers the rules only with roster:manage', async () => {
+    revokePermission(HOSPITAL, 'admin', 'roster:manage');
+    renderApp({ entry: '/roster' });
+    await leaveTable();
+    expect(screen.queryByRole('button', { name: 'Leave rules' })).not.toBeInTheDocument();
+  });
+});
+
 describe('rosterConflicts', () => {
   const shift = (id: string, userId: string, from: string, to: string, status = 'scheduled') =>
     ({

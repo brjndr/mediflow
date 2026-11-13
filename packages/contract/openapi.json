@@ -10082,6 +10082,96 @@
         "enum": ["requested", "approved", "rejected", "cancelled"],
         "description": "requested -> approved | rejected | cancelled; approved -> cancelled."
       },
+      "LeaveKind": {
+        "type": "string",
+        "enum": ["annual", "sick", "casual", "unpaid"],
+        "description": "What the leave is taken as."
+      },
+      "SelfApproval": {
+        "type": "string",
+        "enum": ["never", "sole_manager"],
+        "description": "never: a second person always decides; sole_manager: the only person holding roster:manage may approve their own leave."
+      },
+      "LeaveAllowance": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "days"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/LeaveKind"
+          },
+          "days": {
+            "minimum": 0,
+            "maximum": 366,
+            "type": "integer"
+          }
+        }
+      },
+      "LeaveSettings": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["selfApproval", "allowances"],
+        "properties": {
+          "selfApproval": {
+            "$ref": "#/components/schemas/SelfApproval"
+          },
+          "allowances": {
+            "maxItems": 4,
+            "description": "Days a year for each kind; a kind that is not listed has no limit.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaveAllowance"
+            }
+          }
+        }
+      },
+      "LeaveBalanceRow": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "usedDays", "pendingDays"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/LeaveKind"
+          },
+          "allowanceDays": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "usedDays": {
+            "minimum": 0,
+            "description": "Approved leave starting in the year.",
+            "type": "integer"
+          },
+          "pendingDays": {
+            "minimum": 0,
+            "description": "Requested, not yet decided.",
+            "type": "integer"
+          },
+          "remainingDays": {
+            "description": "Allowance less used and pending.",
+            "type": "integer"
+          }
+        }
+      },
+      "LeaveBalance": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["userId", "year", "items"],
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaveBalanceRow"
+            }
+          }
+        }
+      },
       "RosterLeave": {
         "additionalProperties": false,
         "type": "object",
@@ -10092,7 +10182,10 @@
           "userName",
           "startsAt",
           "endsAt",
+          "kind",
+          "days",
           "status",
+          "selfApproved",
           "version"
         ],
         "properties": {
@@ -10116,8 +10209,19 @@
             "format": "date-time",
             "type": "string"
           },
+          "kind": {
+            "$ref": "#/components/schemas/LeaveKind"
+          },
+          "days": {
+            "minimum": 1,
+            "description": "Whole days, for the allowance.",
+            "type": "integer"
+          },
           "status": {
             "$ref": "#/components/schemas/LeaveStatus"
+          },
+          "selfApproved": {
+            "type": "boolean"
           },
           "decidedByName": {
             "type": "string"
@@ -10172,6 +10276,9 @@
             "format": "date-time",
             "description": "After the start, and at most 90 days later.",
             "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LeaveKind"
           }
         }
       },
@@ -47651,6 +47758,9 @@
                     "format": "date-time",
                     "description": "After the start, and at most 90 days later.",
                     "type": "string"
+                  },
+                  "kind": {
+                    "$ref": "#/components/schemas/LeaveKind"
                   }
                 }
               }
@@ -47722,6 +47832,235 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roster/leave-settings": {
+      "get": {
+        "operationId": "getLeaveSettings",
+        "tags": ["roster"],
+        "description": "The hospital's leave rules: the yearly allowance for each kind (a kind not listed has no limit) and whether the only manager may approve their own leave. Requires roster:read.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setLeaveSettings",
+        "tags": ["roster"],
+        "description": "Replaces the leave rules. Each kind may appear once (422 `invalid_allowances`). Leaves already asked are not looked at again. The Idempotency-Key header is required. Audited. Requires roster:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveSettings"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/roster/leave-balance": {
+      "get": {
+        "operationId": "getLeaveBalance",
+        "tags": ["roster"],
+        "description": "Days taken and waiting for each kind of leave in a calendar year on the hospital's clock (this year when `year` is left out), counted for leaves that start in it. Your own, or another person's with roster:manage (403 `permission_denied`). Requires roster:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "userId",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "year",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaveBalance"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

@@ -9,9 +9,10 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { utcToZoned } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
 import type { LeaveMove } from '../api';
-import { useLeaves, useMoveLeave } from '../hooks/use-roster';
+import { useLeaves, useLeaveSettings, useMoveLeave } from '../hooks/use-roster';
 import type { RosterLeave } from '../types';
 import { LeaveDialog } from './LeaveDialog';
+import { LeaveRulesDialog } from './LeaveRulesDialog';
 
 const REFUSED: Record<string, string> = {
   shifts_in_leave: 'leave.errors.shifts',
@@ -35,7 +36,10 @@ export function LeavePanel({ today }: { today: string }) {
   const canRequest = usePermission('roster:requestLeave');
   const leaves = useLeaves();
   const rows = useMemo(() => leaves.data?.pages.flatMap((page) => page.items) ?? [], [leaves.data]);
+  const settings = useLeaveSettings();
+  const selfApproves = settings.data?.selfApproval === 'sole_manager';
   const [asking, setAsking] = useState(false);
+  const [editingRules, setEditingRules] = useState(false);
   const move = useMoveLeave();
   const status = useRef<HTMLParagraphElement>(null);
   const [message, setMessage] = useState({ text: '', count: 0 });
@@ -62,11 +66,16 @@ export function LeavePanel({ today }: { today: string }) {
         value: (row) => format.calendarDate(lastDay(row)),
       },
       {
+        id: 'kind',
+        header: t('leave.columns.kind'),
+        value: (row) => t('leave.kindDays', { kind: t(`leave.kind.${row.kind}`), count: row.days }),
+      },
+      {
         id: 'state',
         header: t('columns.state'),
         value: (row) =>
           row.decidedByName
-            ? t('leave.decidedBy', {
+            ? t(row.selfApproved ? 'leave.decidedByThemselves' : 'leave.decidedBy', {
                 state: t(`leave.state.${row.status}`),
                 name: row.decidedByName,
               })
@@ -96,7 +105,9 @@ export function LeavePanel({ today }: { today: string }) {
         id: 'approve',
         label: t('leave.approve'),
         requires: 'roster:manage',
-        disabled: (row) => row.status !== 'requested' || row.userId === me || move.isPending,
+        // One's own request is the server's to allow (the hospital's rule, and no other manager).
+        disabled: (row) =>
+          row.status !== 'requested' || (row.userId === me && !selfApproves) || move.isPending,
         onSelect: (row) => run(row, 'approve'),
       },
       {
@@ -116,7 +127,7 @@ export function LeavePanel({ today }: { today: string }) {
         onSelect: (row) => run(row, 'cancel'),
       },
     ];
-  }, [t, tCommon, me, canManage, canRequest, move]);
+  }, [t, tCommon, me, canManage, canRequest, move, selfApproves]);
 
   return (
     <section aria-labelledby="roster-leave" className="flex flex-col gap-3">
@@ -124,11 +135,18 @@ export function LeavePanel({ today }: { today: string }) {
         <h2 id="roster-leave" className="text-lg font-semibold">
           {t('leave.heading')}
         </h2>
-        <Can permission="roster:requestLeave">
-          <Button variant="outline" onClick={() => setAsking(true)}>
-            {t('leave.new.open')}
-          </Button>
-        </Can>
+        <div className="flex flex-wrap gap-2">
+          <Can permission="roster:manage">
+            <Button variant="outline" onClick={() => setEditingRules(true)}>
+              {t('leave.rules.open')}
+            </Button>
+          </Can>
+          <Can permission="roster:requestLeave">
+            <Button variant="outline" onClick={() => setAsking(true)}>
+              {t('leave.new.open')}
+            </Button>
+          </Can>
+        </div>
       </div>
       <p className="text-sm text-muted-foreground">{t('leave.intro')}</p>
       <p
@@ -154,6 +172,15 @@ export function LeavePanel({ today }: { today: string }) {
         loadingMore={leaves.isFetchingNextPage}
         onLoadMore={() => void leaves.fetchNextPage()}
       />
+      {editingRules && (
+        <LeaveRulesDialog
+          onClose={() => setEditingRules(false)}
+          onSaved={() => {
+            setEditingRules(false);
+            say(t('leave.rules.done'));
+          }}
+        />
+      )}
       {asking && (
         <LeaveDialog
           day={today}

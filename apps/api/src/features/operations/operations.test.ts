@@ -100,6 +100,8 @@ const audited = async (entity: string, entityId: string) =>
 
 const tenants = () => [hospital, clinic, closed].map((tenant) => tenant.id);
 const TABLES = [
+  'roster_leave_allowances',
+  'roster_settings',
   'roster_shift_templates',
   'roster_leaves',
   'roster_shifts',
@@ -778,6 +780,173 @@ describe('leave requests', () => {
       403,
       'feature_disabled',
     ]);
+  });
+});
+
+describe('leave kinds, balances and self approval', () => {
+  interface Settings {
+    selfApproval: string;
+    allowances: { kind: string; days: number }[];
+  }
+  interface Balance {
+    year: number;
+    items: {
+      kind: string;
+      allowanceDays?: number;
+      usedDays: number;
+      pendingDays: number;
+      remainingDays?: number;
+    }[];
+  }
+  const put = (body: object, options: Options = {}) =>
+    app.inject({
+      method: 'PUT',
+      url: '/roster/leave-settings',
+      headers: headers({ ...options, key: fresh() }),
+      payload: body,
+    });
+  const balance = (query = '', options: Options = {}) =>
+    get(`/roster/leave-balance?year=2031${query}`, options);
+  const kindRow = (body: Balance, kind: string) => body.items.find((one) => one.kind === kind);
+
+  it('have a kind, which defaults to annual, and report days', async () => {
+    await wipe();
+    const made = await ok<Leave & { kind: string; days: number; selfApproved: boolean }>(
+      await leave({ kind: 'sick' }, { user: nurse }),
+      201,
+    );
+    expect(made).toMatchObject({ kind: 'sick', days: 2, selfApproved: false });
+    const plain = await ok<{ kind: string }>(
+      await leave({ startsAt: at(100), endsAt: at(124) }, { user: nurse }),
+      201,
+    );
+    expect(plain.kind).toBe('annual');
+    expect(errorOf(await leave({ kind: 'sabbatical' }, { user: nurse }))[0]).toBe(400);
+    expect((await eventsOf(made.id))[0]?.payload).toMatchObject({ kind: 'sick' });
+  });
+
+  it('count approved and waiting days per kind, own or by a manager', async () => {
+    await wipe();
+    await ok<Settings>(
+      await put({
+        selfApproval: 'never',
+        allowances: [
+          { kind: 'annual', days: 10 },
+          { kind: 'sick', days: 4 },
+        ],
+      }),
+    );
+    const sick = await ok<Leave>(await leave({ kind: 'sick' }, { user: nurse }), 201);
+    await ok<Leave>(await post(`/roster/leaves/${sick.id}/approve`, { version: 1 }));
+    await ok<Leave>(
+      await leave({ startsAt: at(200), endsAt: at(272), kind: 'annual' }, { user: nurse }),
+      201,
+    );
+    const mine = await ok<Balance>(await balance('', { user: nurse }));
+    expect(kindRow(mine, 'sick')).toEqual({
+      kind: 'sick',
+      allowanceDays: 4,
+      usedDays: 2,
+      pendingDays: 0,
+      remainingDays: 2,
+    });
+    expect(kindRow(mine, 'annual')).toMatchObject({
+      usedDays: 0,
+      pendingDays: 3,
+      remainingDays: 7,
+    });
+    expect(kindRow(mine, 'unpaid')).toEqual({ kind: 'unpaid', usedDays: 0, pendingDays: 0 });
+    expect(kindRow(await ok<Balance>(await balance(`&userId=${nurse.id}`)), 'sick')?.usedDays).toBe(
+      2,
+    );
+    expect(errorOf(await balance(`&userId=${admin.id}`, { user: nurse }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+    // A leave in another year does not count.
+    const other = await ok<Balance>(await get('/roster/leave-balance?year=2030', { user: nurse }));
+    expect(kindRow(other, 'sick')?.usedDays).toBe(0);
+  });
+
+  it('refuse a request beyond the year allowance, for that kind only', async () => {
+    await wipe();
+    await ok<Settings>(
+      await put({ selfApproval: 'never', allowances: [{ kind: 'sick', days: 3 }] }),
+    );
+    await ok<Leave>(await leave({ kind: 'sick' }, { user: nurse }), 201);
+    expect(
+      errorOf(await leave({ startsAt: at(100), endsAt: at(148), kind: 'sick' }, { user: nurse })),
+    ).toEqual([422, 'allowance_exceeded']);
+    // Another kind has no limit, and another person has their own days.
+    await ok<Leave>(
+      await leave({ startsAt: at(100), endsAt: at(124), kind: 'casual' }, { user: nurse }),
+      201,
+    );
+    await ok<Leave>(
+      await leave({ startsAt: at(300), endsAt: at(324), kind: 'sick' }, { user: labTech }),
+      201,
+    );
+  });
+
+  it('are set by managers, read by staff, listed once per kind, one hospital only', async () => {
+    await wipe();
+    expect(await ok<Settings>(await get('/roster/leave-settings', { user: nurse }))).toEqual({
+      selfApproval: 'never',
+      allowances: [],
+    });
+    const body = { selfApproval: 'sole_manager', allowances: [{ kind: 'annual', days: 20 }] };
+    expect(errorOf(await put(body, { user: nurse }))).toEqual([403, 'permission_denied']);
+    expect(
+      errorOf(
+        await put({
+          selfApproval: 'never',
+          allowances: [
+            { kind: 'annual', days: 1 },
+            { kind: 'annual', days: 2 },
+          ],
+        }),
+      ),
+    ).toEqual([422, 'invalid_allowances']);
+    expect(await ok<Settings>(await put(body))).toEqual(body);
+    expect(
+      await ok<Settings>(
+        await get('/roster/leave-settings', { tenant: clinic, user: clinicAdmin }),
+      ),
+    ).toEqual({ selfApproval: 'never', allowances: [] });
+    expect(errorOf(await put(body, { tenant: closed }))).toEqual([403, 'feature_disabled']);
+  });
+
+  it('let the only manager approve their own leave when the hospital allows it', async () => {
+    await wipe();
+    const mine = await ok<Leave>(await leave(), 201);
+    const approve = (id: string) => post(`/roster/leaves/${id}/approve`, { version: 1 });
+    // Not allowed by default.
+    expect(errorOf(await approve(mine.id))).toEqual([403, 'own_request']);
+    await ok<Settings>(await put({ selfApproval: 'sole_manager', allowances: [] }));
+    // Rejecting one's own leave is pointless and stays refused.
+    expect(errorOf(await post(`/roster/leaves/${mine.id}/reject`, { version: 1 }))).toEqual([
+      403,
+      'own_request',
+    ]);
+    // Allowed, but a second manager exists: they decide.
+    const second = await createUser(pool, 'Ops Second Admin', { withPassword: false });
+    await addMembership(pool, second, hospital, 'admin');
+    expect(errorOf(await approve(mine.id))).toEqual([403, 'own_request']);
+    await pool.query(
+      "update memberships set status = 'suspended' where tenant_id = $1 and user_id = $2",
+      [hospital.id, second.id],
+    );
+    const approved = await ok<Leave & { selfApproved: boolean }>(await approve(mine.id));
+    expect(approved).toMatchObject({ status: 'approved', selfApproved: true });
+    expect((await eventsOf(mine.id)).at(-1)?.payload).toMatchObject({ selfApproved: true });
+    // Someone else's leave is an ordinary approval.
+    const theirs = await ok<Leave>(
+      await leave({ startsAt: at(300), endsAt: at(340) }, { user: nurse }),
+      201,
+    );
+    expect(await ok<{ selfApproved: boolean }>(await approve(theirs.id))).toMatchObject({
+      selfApproved: false,
+    });
   });
 });
 
@@ -1495,6 +1664,14 @@ describe('row-level security', () => {
     await ok(await leave({ startsAt: at(200), endsAt: at(220) }), 201);
     await ok(await register(), 201);
     await ok(await template({ name: 'RLS template' }), 201);
+    await ok(
+      await app.inject({
+        method: 'PUT',
+        url: '/roster/leave-settings',
+        headers: headers({ key: fresh() }),
+        payload: { selfApproval: 'never', allowances: [{ kind: 'sick', days: 5 }] },
+      }),
+    );
     const rls = await ok<Ambulance>(await addAmbulance(), 201);
     const rlsTrip = await ok<Trip>(await requestTrip(), 201);
     await ok(

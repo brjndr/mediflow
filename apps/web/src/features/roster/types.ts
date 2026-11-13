@@ -12,6 +12,10 @@ export type ShiftKind = Schemas['ShiftKind'];
 export type RosterLeave = Schemas['RosterLeave'];
 export type RosterLeavePage = Schemas['RosterLeavePage'];
 export type LeaveStatus = Schemas['LeaveStatus'];
+/** What leave is taken as, the hospital's yearly allowances and who may approve their own (#667). */
+export type LeaveKind = Schemas['LeaveKind'];
+export type LeaveSettings = Schemas['LeaveSettings'];
+export type LeaveBalance = Schemas['LeaveBalance'];
 
 /** A hospital's own shift template (#592): the hours of a shift on the hospital's clock. */
 export type ShiftTemplate = Schemas['ShiftTemplate'];
