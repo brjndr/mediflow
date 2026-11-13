@@ -50,3 +50,22 @@ export const RECORDS_PERMISSIONS = [
     defaults: { admin: 'all' },
   },
 ] as const satisfies readonly PermissionDefinition[];
+
+/** Requests to correct a record (#556): anyone who sees it asks, a second person decides. */
+export const CORRECTION_PERMISSIONS = [
+  {
+    id: 'correction:read',
+    description: 'See the requests to correct a patient’s record, and why',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
+  },
+  {
+    id: 'correction:request',
+    description: 'Ask for a correction to a patient’s record, with a reason',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
+  },
+  {
+    id: 'correction:decide',
+    description: 'Approve or reject a request to correct a record (never one’s own)',
+    defaults: { admin: 'all' },
+  },
+] as const satisfies readonly PermissionDefinition[];
