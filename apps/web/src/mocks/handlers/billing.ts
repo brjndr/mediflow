@@ -19,6 +19,7 @@ type PaymentList = components['schemas']['PaymentList'];
 type CreditNote = components['schemas']['CreditNote'];
 type CreditNoteList = components['schemas']['CreditNoteList'];
 type RegisterSession = components['schemas']['RegisterSession'];
+type CollectedOnDate = components['schemas']['CollectedOnDate'];
 type RegisterSessionPage = components['schemas']['RegisterSessionPage'];
 type TaxRates = components['schemas']['TaxRates'];
 type TaxClass = components['schemas']['TaxRate']['taxClass'];
@@ -1443,6 +1444,40 @@ export const billingHandlers = [
     return 'refused' in result
       ? result.refused
       : HttpResponse.json<RegisterSessionPage>(result.page);
+  }),
+
+  http.get('*/api/cash-registers/collected', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'cashRegister:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const date =
+      new URL(request.url).searchParams.get('date') ?? new Date().toISOString().slice(0, 10);
+    const mine = state.payments.filter(
+      (each) => each.tenantId === access.tenantId && each.at.slice(0, 10) === date,
+    );
+    const totals = METHODS.flatMap((method): CollectedOnDate['totals'] => {
+      const rows = mine.filter((each) => each.method === method);
+      if (rows.length === 0) return [];
+      const sum = (kind: 'payment' | 'refund') =>
+        rows
+          .filter((each) => each.kind === kind)
+          .reduce((total, each) => total + each.amountMinor, 0);
+      return [
+        {
+          method: method as CollectedOnDate['totals'][number]['method'],
+          paidMinor: sum('payment'),
+          refundedMinor: sum('refund'),
+        },
+      ];
+    });
+    return HttpResponse.json<CollectedOnDate>({
+      date,
+      timezone: 'UTC',
+      totals,
+      netMinor: totals.reduce((sum, each) => sum + each.paidMinor - each.refundedMinor, 0),
+    });
   }),
 
   http.get('*/api/cash-registers/sessions/:sessionId', ({ request, params }) => {

@@ -17,29 +17,22 @@ import { renderApp } from '@/test/render';
 // The three widgets of #712, each contributed by its own feature to the landing page.
 const home = () => screen.findByRole('heading', { name: 'Hospital management system' });
 const tile = (name: string) => screen.queryByRole('region', { name });
-const FLOW = 'OPD visits, last 7 days';
+const FLOW = 'OPD visits by hour, today';
 const CAPACITY = 'Bed capacity';
 const COLLECTED = 'Collected today';
 
-/** A drawer opened now that took cash and UPI, with a refund of part of the cash. */
+/** Cash and UPI taken today, with a refund of part of the cash, as the server nets them. */
 function sessionsOfToday() {
   server.use(
-    http.get('*/api/cash-registers/sessions', () =>
+    http.get('*/api/cash-registers/collected', () =>
       HttpResponse.json({
-        items: [
-          {
-            id: 'reg_1',
-            openedByName: 'Cashier',
-            openedAt: new Date().toISOString(),
-            openingMinor: 0,
-            expectedMinor: 100000,
-            totals: [
-              { method: 'cash', paidMinor: 120000, refundedMinor: 20000 },
-              { method: 'upi', paidMinor: 50000, refundedMinor: 0 },
-            ],
-          },
+        date: '2026-11-14',
+        timezone: 'Asia/Kolkata',
+        totals: [
+          { method: 'cash', paidMinor: 120000, refundedMinor: 20000 },
+          { method: 'upi', paidMinor: 50000, refundedMinor: 0 },
         ],
-        nextCursor: null,
+        netMinor: 150000,
       }),
     ),
   );
@@ -53,8 +46,10 @@ describe('dashboard widgets: flow, capacity, collected today', () => {
     await home();
 
     const flow = await screen.findByRole('region', { name: FLOW });
-    // 42 + 18 visits on the first day: it is the busiest, said in words and not only by colour.
-    expect(await within(flow).findByText(/Busiest on .*, 60 visits/)).toBeInTheDocument();
+    // 14 + 11 visits at nine o'clock: the busiest hour, said in words and not only by colour.
+    expect(
+      (await within(flow).findAllByText(/Busiest at 09:00, 25 visits/)).length,
+    ).toBeGreaterThan(0);
     expect(await screen.findByRole('region', { name: CAPACITY })).toBeInTheDocument();
     expect(await screen.findByRole('img', { name: /Beds occupied: \d+%/ })).toBeInTheDocument();
 
@@ -90,7 +85,7 @@ describe('dashboard widgets: flow, capacity, collected today', () => {
 
   it('says so in place when a request fails and leaves the others alone', async () => {
     server.use(
-      http.get('*/api/cash-registers/sessions', () =>
+      http.get('*/api/cash-registers/collected', () =>
         HttpResponse.json({ code: 'server_error' }, { status: 500 }),
       ),
     );

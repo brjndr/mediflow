@@ -1,6 +1,7 @@
 import { api, isApiError, requireData } from '@/shared/api';
 import {
   chargePageSchema,
+  collectedOnDateSchema,
   chargeSchema,
   creditNoteListSchema,
   creditNoteSchema,
@@ -17,6 +18,7 @@ import {
 import type {
   ChargePage,
   Charge,
+  CollectedOnDate,
   ChargeCreate,
   CreditNote,
   CreditNoteCreate,
@@ -237,6 +239,12 @@ export async function fetchRegisterSessions(
     signal,
   });
   return registerSessionPageSchema.parse(requireData(result));
+}
+
+/** What the hospital took on a day, by payment mode (today when no date) (`cashRegister:read`). */
+export async function fetchCollected(signal?: AbortSignal): Promise<CollectedOnDate> {
+  const result = await api.GET('/cash-registers/collected', { signal });
+  return collectedOnDateSchema.parse(requireData(result));
 }
 
 export async function fetchRegisterSession(
