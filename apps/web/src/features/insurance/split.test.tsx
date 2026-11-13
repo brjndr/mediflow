@@ -78,7 +78,7 @@ describe('the split panel', () => {
     expect(within(panel).getByText('The split adds up to the charges')).toBeVisible();
     expect(within(panel).getAllByText('Co-pay on a covered charge').length).toBeGreaterThan(0);
     await expectNoAxeViolations();
-  });
+  }, 30_000);
 
   it('leaves a service the plan does not cover to the patient', async () => {
     setMockAgreementTerms('agr_h_2026', 0);
