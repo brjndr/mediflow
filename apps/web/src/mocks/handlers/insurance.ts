@@ -534,3 +534,18 @@ export const insuranceHandlers = [
     return HttpResponse.json(agreementView(agreement));
   }),
 ];
+
+/** A plan with its organisation, for the policies of a patient (policy capture, IN-02). */
+export function mockPlanWithPayer(tenantId: string, planId: unknown) {
+  const plan = state.plans.find((one) => one.id === planId && one.tenantId === tenantId);
+  const payer = plan && state.payers.find((one) => one.id === plan.payerId);
+  if (!plan || !payer) return undefined;
+  return {
+    planId: plan.id,
+    planName: plan.name,
+    payerId: payer.id,
+    payerName: payer.name,
+    archived: plan.archived || payer.archived,
+    preAuthRequired: plan.preAuthRequired,
+  };
+}

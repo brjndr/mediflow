@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { usePermission } from '@/access';
 import { useEncounter } from '@/features/clinical';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { Slot } from '@/registry';
 import { Button } from '@/shared/ui/button';
 import { InvoiceBuilder } from '../components/InvoiceBuilder';
 import { useVisitInvoices } from '../hooks/use-billing';
@@ -59,6 +60,11 @@ export default function InvoiceNew() {
             })}
           </p>
           <ExistingDrafts encounterId={encounterId} />
+          {/* Cover and limits from the insurance module, ids only. */}
+          <Slot
+            id="invoice.builder.panels"
+            context={{ encounterId, patientId: encounter.data.patientId }}
+          />
           <InvoiceBuilder encounterId={encounterId} />
         </>
       )}

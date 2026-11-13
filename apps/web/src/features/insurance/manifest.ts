@@ -42,5 +42,25 @@ export const insuranceFeature: FeatureManifest = {
     },
   ],
   nav: { icon: ShieldPlus, order: 86, requires: ['payer:read'] },
-  permissions: ['payer:read', 'payer:manage'],
+  extensions: [
+    {
+      slot: 'patient.detail.tabs',
+      component: () => import('./components/InsuranceTab'),
+      requires: ['policy:read'],
+      order: 45,
+    },
+    {
+      slot: 'invoice.builder.panels',
+      component: () => import('./components/LimitPanel'),
+      requires: ['preauth:read'],
+    },
+  ],
+  permissions: [
+    'payer:read',
+    'payer:manage',
+    'policy:read',
+    'policy:manage',
+    'preauth:read',
+    'preauth:manage',
+  ],
 };

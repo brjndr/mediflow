@@ -313,6 +313,11 @@ const ADMIN: PermissionGrantDto[] = [
   // Insurers, TPAs and corporates (IN-01).
   { permission: 'payer:read' },
   { permission: 'payer:manage' },
+  // Policy capture and pre-authorization (IN-02).
+  { permission: 'policy:read' },
+  { permission: 'policy:manage' },
+  { permission: 'preauth:read' },
+  { permission: 'preauth:manage' },
   { permission: 'code:read' },
   { permission: 'code:manage' },
   { permission: 'template:read' },

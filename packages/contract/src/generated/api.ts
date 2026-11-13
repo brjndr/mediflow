@@ -5950,6 +5950,110 @@ export interface paths {
         patch: operations["endRateAgreement"];
         trace?: never;
     };
+    "/patients/{patientId}/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The insurance policies on a patient's record, newest first. Needs policy:read. */
+        get: operations["listPatientPolicies"];
+        put?: never;
+        /** @description Records a policy on the patient's record against a payer's plan. Needs policy:manage. */
+        post: operations["createPatientPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patient-policies/{policyId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Ends a policy: it can no longer back a new pre-authorization. Needs policy:manage. */
+        post: operations["endPatientPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/pre-auths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The patient's pre-authorization requests, newest first. Needs preauth:read. */
+        get: operations["listPatientPreAuths"];
+        put?: never;
+        /** @description Raises a pre-authorization request to the payer of one of the patient's active policies. Needs preauth:manage. */
+        post: operations["createPreAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/pre-auths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The pre-authorizations of one visit with what the visit has been charged so far (billedMinor), to show the approved limit while billing. Needs preauth:read. */
+        get: operations["listEncounterPreAuths"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pre-auths/{preAuthId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records the payer's answer to a submitted request: approved (with the amount approved) or rejected. Needs preauth:manage. */
+        post: operations["decidePreAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pre-auths/{preAuthId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws a submitted request. Needs preauth:manage. */
+        post: operations["cancelPreAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11456,6 +11560,92 @@ export interface components {
             payer: components["schemas"]["Payer"];
             plans: components["schemas"]["PayerPlan"][];
             agreements: components["schemas"]["RateAgreement"][];
+        };
+        PatientPolicy: {
+            id: string;
+            patientId: string;
+            payerId: string;
+            payerName: string;
+            planId: string;
+            planName: string;
+            policyNumber: string;
+            memberId?: string;
+            holderName: string;
+            /** @enum {string} */
+            relationship: "self" | "spouse" | "child" | "parent" | "other";
+            /** Format: date */
+            validFrom: string;
+            /** Format: date */
+            validTo?: string;
+            /**
+             * @description Worked out by the server from the dates and whether it was ended.
+             * @enum {string}
+             */
+            status: "active" | "expired" | "ended";
+            /** @description Whether the plan asks for pre-authorization of an admission. */
+            preAuthRequired: boolean;
+            version: number;
+        };
+        PatientPolicyCreate: {
+            planId: string;
+            policyNumber: string;
+            memberId?: string;
+            holderName: string;
+            /** @enum {string} */
+            relationship: "self" | "spouse" | "child" | "parent" | "other";
+            /** Format: date */
+            validFrom: string;
+            /** Format: date */
+            validTo?: string;
+        };
+        PatientPolicyEnd: {
+            version: number;
+        };
+        PreAuth: {
+            id: string;
+            patientId: string;
+            policyId: string;
+            payerName: string;
+            planName: string;
+            policyNumber: string;
+            /** @description The visit the cover is for, when known. */
+            encounterId?: string;
+            treatment: string;
+            requestedMinor: number;
+            /** @description The limit the payer approved. Absent until approved. */
+            approvedMinor?: number;
+            /** @description What the visit has been charged so far, worked out by the server from the charge ledger. */
+            billedMinor: number;
+            /** @enum {string} */
+            status: "submitted" | "approved" | "rejected" | "cancelled";
+            referenceNumber?: string;
+            decisionNote?: string;
+            /** @description What is enclosed with the request, by name. The files are on the patient record (documents). */
+            documents: string[];
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            version: number;
+        };
+        PreAuthCreate: {
+            policyId: string;
+            encounterId?: string;
+            treatment: string;
+            requestedMinor: number;
+            documents: string[];
+        };
+        PreAuthDecision: {
+            version: number;
+            /** @enum {string} */
+            outcome: "approved" | "rejected";
+            /** @description Required when approved. */
+            approvedMinor?: number;
+            referenceNumber?: string;
+            note?: string;
+        };
+        PreAuthCancel: {
+            version: number;
         };
     };
     responses: {
@@ -43117,6 +43307,251 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listPatientPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policies */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPolicy"][];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createPatientPolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientPolicyCreate"];
+            };
+        };
+        responses: {
+            /** @description The policy */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    endPatientPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientPolicyEnd"];
+            };
+        };
+        responses: {
+            /** @description The policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientPolicy"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listPatientPreAuths: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"][];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createPreAuth: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreAuthCreate"];
+            };
+        };
+        responses: {
+            /** @description The request */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listEncounterPreAuths: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"][];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    decidePreAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preAuthId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreAuthDecision"];
+            };
+        };
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelPreAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preAuthId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreAuthCancel"];
+            };
+        };
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreAuth"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

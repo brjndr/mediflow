@@ -7,6 +7,10 @@ const KNOWN = [
   'starts_in_past',
   'payer_archived',
   'service_not_found',
+  'duplicate_policy',
+  'policy_not_active',
+  'not_submitted',
+  'plan_archived',
 ] as const;
 
 /**

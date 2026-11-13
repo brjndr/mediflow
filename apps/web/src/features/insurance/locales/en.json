@@ -106,8 +106,12 @@
   },
   "plan": {
     "description": "Amounts are in the hospital's currency. Leave a limit empty for no limit.",
-    "add": { "title": "Add a plan" },
-    "edit": { "title": "Change {{name}}" },
+    "add": {
+      "title": "Add a plan"
+    },
+    "edit": {
+      "title": "Change {{name}}"
+    },
     "code": "Code",
     "codeHint": "Unique among this organisation's plans. It cannot be changed later.",
     "name": "Name",
@@ -159,7 +163,9 @@
   },
   "agreement": {
     "description": "Between the two dates, the discount applies to list prices, and an agreed rate replaces the list price of its service.",
-    "add": { "title": "Add a rate agreement" },
+    "add": {
+      "title": "Add a rate agreement"
+    },
     "name": "Name",
     "effectiveFrom": "First day",
     "fromHint": "Today or later.",
@@ -190,6 +196,129 @@
     "agreement_overlap": "This period overlaps another agreement with the same organisation. End that one first or choose other dates.",
     "starts_in_past": "An agreement cannot start in the past.",
     "payer_archived": "This organisation is archived. Restore it first.",
-    "service_not_found": "A service in the list no longer exists. Remove it and try again."
+    "service_not_found": "A service in the list no longer exists. Remove it and try again.",
+    "duplicate_policy": "This policy is already on the patient’s record.",
+    "policy_not_active": "This policy is no longer active. Choose another policy.",
+    "not_submitted": "This request has already been answered or withdrawn.",
+    "plan_archived": "This plan is archived. Choose another plan."
+  },
+  "tab": {
+    "title": "Insurance"
+  },
+  "policy": {
+    "heading": "Policies",
+    "empty": "No insurance policy on this record.",
+    "add": {
+      "button": "Add a policy",
+      "title": "Add an insurance policy",
+      "description": "The organisation and plan, the number on the card and the dates it runs.",
+      "saved": "The policy was added."
+    },
+    "payer": "Insurer, TPA or corporate",
+    "choosePayer": "Choose an organisation",
+    "plan": "Plan",
+    "choosePlan": "Choose a plan",
+    "choosePayerFirst": "Choose an organisation first",
+    "number": "Policy number",
+    "memberId": "Member ID",
+    "holder": "Policy holder",
+    "relationship": "Patient is the holder’s",
+    "relation": {
+      "self": "Self",
+      "spouse": "Spouse",
+      "child": "Child",
+      "parent": "Parent",
+      "other": "Other"
+    },
+    "validFrom": "Valid from",
+    "validTo": "Valid until",
+    "validToHint": "Leave empty when the policy has no end date.",
+    "valid": "Valid",
+    "validRange": "{{from}} to {{to}}",
+    "validFromOnly": "From {{from}}",
+    "preAuth": "Pre-authorization",
+    "preAuthRequired": "Asked for by the plan",
+    "status": {
+      "active": "Active",
+      "expired": "Expired",
+      "ended": "Ended"
+    },
+    "end": {
+      "button": "End policy",
+      "title": "End this policy?",
+      "description": "It can no longer back a new pre-authorization. Requests already made are kept as they were.",
+      "confirm": "End policy",
+      "saved": "The policy was ended."
+    },
+    "errors": {
+      "endBeforeStart": "The last day is before the first."
+    }
+  },
+  "preauth": {
+    "heading": "Pre-authorizations",
+    "empty": "No pre-authorization requested for this patient.",
+    "needsPolicy": "Add an active policy before asking a payer for approval.",
+    "policy": "Policy",
+    "choosePolicy": "Choose a policy",
+    "treatment": "Treatment or procedure",
+    "treatmentHint": "What the payer is asked to approve.",
+    "requested": "Amount asked for",
+    "requestedHint": "In the hospital’s currency.",
+    "documents": "Documents enclosed",
+    "documentsHint": "One name to a line. The files themselves are kept on the patient’s record, under Documents.",
+    "approved": "Amount approved",
+    "approvedHint": "The limit the payer agreed to cover.",
+    "outcome": "Answer",
+    "reference": "Payer’s reference",
+    "note": "Note",
+    "sent": "Requested",
+    "status": {
+      "submitted": "Waiting for the payer",
+      "approved": "Approved",
+      "rejected": "Not approved",
+      "cancelled": "Withdrawn"
+    },
+    "add": {
+      "button": "Request pre-authorization",
+      "title": "Request pre-authorization",
+      "description": "Asks the payer of one of the patient’s active policies to approve the cost.",
+      "submit": "Send request",
+      "saved": "The request was recorded."
+    },
+    "decide": {
+      "button": "Record the answer",
+      "title": "Record the payer’s answer",
+      "description": "What {{payer}} answered to this request.",
+      "saved": {
+        "approved": "The approval was recorded.",
+        "rejected": "The refusal was recorded."
+      }
+    },
+    "cancel": {
+      "button": "Withdraw",
+      "title": "Withdraw this request?",
+      "description": "The payer is no longer asked to approve it. This cannot be undone.",
+      "confirm": "Withdraw request",
+      "saved": "The request was withdrawn."
+    }
+  },
+  "limit": {
+    "heading": "Insurance cover for this visit",
+    "none": "No pre-authorization for this visit.",
+    "waiting": "Waiting for the payer to answer a request for {{amount}}.",
+    "refused": "The payer did not approve this request.",
+    "approved": "Approved: {{amount}}",
+    "billed": "Billed so far: {{amount}}",
+    "left": "Left: {{amount}}",
+    "over": "Over the limit by {{amount}}",
+    "level": {
+      "ok": "{{percent}}% used",
+      "near": "{{percent}}% used, near the limit",
+      "reached": "Limit reached"
+    },
+    "warning": {
+      "near": "The bill is near the approved limit. Ask the payer for more before it passes.",
+      "reached": "The bill has reached the approved limit. The patient pays what is above it."
+    }
   }
 }
