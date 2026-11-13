@@ -136,3 +136,19 @@ describe('timezone helpers', () => {
     expect(utcToZoned(iso, 'America/Los_Angeles')).toEqual({ day: '2026-10-14', time: '21:00' });
   });
 });
+
+describe('formatters under hi-IN (#767)', () => {
+  const hindi = createFormatters({ locale: 'hi-IN', timezone: 'Asia/Kolkata', currency: 'INR' });
+  const instant = '2026-10-14T20:15:00Z';
+
+  it('writes dates and times in Hindi on the hospital clock', () => {
+    expect(plain(hindi.date(instant))).toBe('15 अक्टू॰ 2026');
+    expect(plain(hindi.time(instant))).toMatch(/1:45/);
+  });
+
+  it('groups numbers and money in lakhs, with Latin digits and the rupee sign', () => {
+    expect(hindi.number(1234567.5)).toBe('12,34,567.5');
+    expect(hindi.money(123456700)).toContain('12,34,567');
+    expect(hindi.money(123456700)).toContain('₹');
+  });
+});

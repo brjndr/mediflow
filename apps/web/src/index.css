@@ -4,6 +4,24 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+ * Devanagari for Hindi (#767). Only the Devanagari subset is declared, and its unicode-range
+ * means the browser fetches the file (about 50 kB, font-display swap) only when a page shows
+ * such characters: English pages never request it, and text paints at once in the system font.
+ * Latin stays in the system font, and so do the rupee sign (U+20B9) and the joiners, which the
+ * package's own range includes: English invoices show the rupee, and loading the font for it
+ * widened phone pages (#767). The font is licensed under the SIL OFL.
+ */
+@font-face {
+  font-family: 'Noto Sans Devanagari Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+
+/*
  * Theme tokens. Every color and the radius are CSS variables so a hospital's branding
  * (tenant config) can re-theme the whole app at runtime with applyTheme() in shared/lib/theme.ts.
  * Components must use these tokens (bg-primary, text-muted-foreground ...), never raw hex values.
@@ -147,6 +165,12 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+  }
+  /* Hindi only (#767): the Devanagari font goes first, and its unicode-range leaves Latin to the
+     usual stack. Changing the stack for every language (a --font-sans override) widened phone
+     pages in CI, so English is left exactly as it was. */
+  :lang(hi) body {
+    font-family: 'Noto Sans Devanagari Variable', var(--font-sans);
   }
 }
 

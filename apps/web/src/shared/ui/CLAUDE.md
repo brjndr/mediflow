@@ -29,3 +29,10 @@ Tokens in `index.css`, exposed to Tailwind in `@theme inline`; all derived with 
 - **Checked (#714):** every route passes axe with contrast in light and dark (`A11Y_DARK=1`); the landing page passes under four brand colors in light. Dark has no switch in the app. `themeFromBrandColor` accepts a color by its contrast on white and also returns `primary-dark` (`darkCounterpart`: the color lightened, same hue, until it has 4.5:1 on the dark card) and `primary-dark-foreground`; `.dark` in `index.css` uses them for `--primary`, `--ring` and `--primary-foreground` with `!important`, because the brand is written inline on the root (#729). The four colors pass axe in dark too (`A11Y_DARK=1`). `prefers-reduced-motion` and `prefers-reduced-transparency` (solid sidebar) are in `index.css`, and print is untouched (`.shell-bg` has no background in print).
 
 - **Theme switch (#730):** `app/ThemeSwitch.tsx` in both shell headers cycles light, dark and system. The choice is a theme name in `localStorage` (`mediflow.theme`, no PHI; `shared/lib/color-scheme.ts`), applied before first paint by the inline script in `index.html` (keep the two in step) and followed live for `system`. Print CSS is unchanged.
+
+## Hindi (#767)
+
+- Font: `Noto Sans Devanagari Variable` (`@fontsource-variable`, SIL OFL), declared in `index.css` with the Devanagari subset only and its `unicode-range`, used first under `:lang(hi) body` only (an override of `--font-sans` for every language widened phone pages in CI; English is untouched). The browser fetches the file (about 50 kB) only when a page shows Devanagari, so English pages and first paint are unchanged; Latin stays in the system font.
+- Dates, numbers and money under `hi-IN` come from the same tenant formatters (`Intl`): Latin digits, lakh grouping, the rupee sign.
+- `e2e/hindi.spec.ts` opens main screens in Hindi (`?mockUser=<id>&mockLanguage=hi`) at 320 and 360 px with axe and the no-sideways-scroll check.
+- `app/i18n.ts` redraws on `added` resources: a feature with no Hindi file is ready before its English fallback arrives, and without the redraw a label showed its key.
