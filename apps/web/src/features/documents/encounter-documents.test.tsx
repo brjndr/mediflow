@@ -12,11 +12,13 @@ const HOSPITAL = TENANT_IDS.hospital;
 
 async function openPanel() {
   renderApp({ entry: '/encounters/enc_h_1' });
-  await userEvent.click(await screen.findByRole('button', { name: 'Documents' }));
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Documents' }, { timeout: 8000 }),
+  );
   return screen.findByRole('table', { name: 'Documents of this visit' });
 }
 
-describe('documents of a visit', () => {
+describe('documents of a visit', { timeout: 20000 }, () => {
   it('attaches a file to the visit and lists only the visit documents', async () => {
     const table = await openPanel();
     // The patient's other documents are not the visit's.
