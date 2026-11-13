@@ -9,9 +9,12 @@ import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { dayBoundsUtc, todayIn } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { CopyWeekDialog } from '../components/CopyWeekDialog';
 import { LeavePanel } from '../components/LeavePanel';
 import { OnCallPanel } from '../components/OnCallPanel';
 import { ShiftDialog } from '../components/ShiftDialog';
+import { SwapDialog } from '../components/SwapDialog';
+import { TemplatesPanel } from '../components/TemplatesPanel';
 import { useApprovedLeaves, useCancelShift, useShifts } from '../hooks/use-roster';
 import { rosterConflicts } from '../conflicts';
 import { MIN_REST_HOURS } from '../schemas';
@@ -59,6 +62,9 @@ export default function RosterPage() {
   const rows = useMemo(() => shifts.data?.pages.flatMap((page) => page.items) ?? [], [shifts.data]);
   const conflicts = useMemo(() => rosterConflicts(rows), [rows]);
   const [adding, setAdding] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [swappingId, setSwappingId] = useState<string | null>(null);
+  const swapping = swappingId === null ? undefined : rows.find((row) => row.id === swappingId);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const cancelling =
     cancellingId === null ? undefined : rows.find((row) => row.id === cancellingId);
@@ -105,6 +111,13 @@ export default function RosterPage() {
   const actions = useMemo<GridAction<RosterShift>[]>(
     () => [
       {
+        id: 'swap',
+        label: t('swap.open'),
+        requires: 'roster:manage',
+        disabled: (row) => row.status !== 'scheduled',
+        onSelect: (row) => setSwappingId(row.id),
+      },
+      {
         id: 'cancel',
         label: t('cancel'),
         requires: 'roster:manage',
@@ -123,7 +136,12 @@ export default function RosterPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <Can permission="roster:manage">
-          <Button onClick={() => setAdding(true)}>{t('new.open')}</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setCopying(true)}>
+              {t('copy.open')}
+            </Button>
+            <Button onClick={() => setAdding(true)}>{t('new.open')}</Button>
+          </div>
         </Can>
       </div>
       <p className="text-sm text-muted-foreground">{t('intro')}</p>
@@ -212,7 +230,28 @@ export default function RosterPage() {
           </ul>
         </section>
       )}
+      <TemplatesPanel say={say} />
       <LeavePanel today={todayIn(timezone)} />
+      {copying && (
+        <CopyWeekDialog
+          weekStartUtc={dayBoundsUtc(weekStart, timezone).start}
+          {...(department ? { departmentId: department } : {})}
+          onClose={() => setCopying(false)}
+        />
+      )}
+      {swapping && (
+        <SwapDialog
+          shift={swapping}
+          others={rows.filter(
+            (row) => row.status === 'scheduled' && row.userId !== swapping.userId,
+          )}
+          onClose={() => setSwappingId(null)}
+          onDone={(text) => {
+            setSwappingId(null);
+            say(text);
+          }}
+        />
+      )}
       {adding && (
         <ShiftDialog
           day={

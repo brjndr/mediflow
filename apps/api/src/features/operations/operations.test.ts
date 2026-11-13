@@ -100,6 +100,7 @@ const audited = async (entity: string, entityId: string) =>
 
 const tenants = () => [hospital, clinic, closed].map((tenant) => tenant.id);
 const TABLES = [
+  'roster_shift_templates',
   'roster_leaves',
   'roster_shifts',
   'blood_unit_events',
@@ -387,6 +388,254 @@ describe('the roster', () => {
       hospital.id,
     ]);
     expect(rows).toHaveLength(1);
+  });
+});
+
+// --- templates, copied weeks and swaps (#592) ----------------------------------------------------
+
+interface Template {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  departmentName?: string;
+  active: boolean;
+  version: number;
+}
+interface CopyResult {
+  copied: number;
+  skipped: { shiftId: string; reason: string }[];
+}
+const template = (more: object = {}, options: Options = {}) =>
+  post(
+    '/roster/templates',
+    { name: 'Early', shiftKind: 'morning', startTime: '06:30', endTime: '14:30', ...more },
+    options,
+  );
+
+describe('shift templates', () => {
+  it('are kept per hospital, listed, retired once and audited', async () => {
+    await wipe();
+    const made = await ok<Template>(await template({ departmentId: department }), 201);
+    expect(made).toMatchObject({ name: 'Early', departmentName: 'Medicine', active: true });
+    expect(await audited('roster_shift_template', made.id)).toEqual(['create']);
+    expect(errorOf(await template({ name: 'early' }))).toEqual([409, 'template_exists']);
+    expect(errorOf(await template({ name: 'Same', endTime: '06:30' }))).toEqual([
+      422,
+      'invalid_period',
+    ]);
+    expect(errorOf(await template({ name: 'X', departmentId: 'nope' }))).toEqual([
+      422,
+      'unknown_department',
+    ]);
+    // A night template runs into the next day.
+    await ok(
+      await template({ name: 'Night', shiftKind: 'night', startTime: '22:00', endTime: '06:00' }),
+      201,
+    );
+    // Another hospital has its own list, and may reuse the name.
+    expect(
+      (
+        await ok<Page<Template>>(
+          await get('/roster/templates', { tenant: clinic, user: clinicAdmin }),
+        )
+      ).items,
+    ).toEqual([]);
+    await ok(await template({}, { tenant: clinic, user: clinicAdmin }), 201);
+    expect(errorOf(await post(`/roster/templates/${made.id}/retire`, { version: 5 }))).toEqual([
+      409,
+      'conflict',
+    ]);
+    const retired = await ok<Template>(
+      await post(`/roster/templates/${made.id}/retire`, { version: 1 }),
+    );
+    expect(retired.active).toBe(false);
+    expect(errorOf(await post(`/roster/templates/${made.id}/retire`, { version: 2 }))).toEqual([
+      409,
+      'invalid_transition',
+    ]);
+    expect((await ok<Page<Template>>(await get('/roster/templates'))).items).toHaveLength(1);
+    expect(
+      (await ok<Page<Template>>(await get('/roster/templates?includeInactive=true'))).items,
+    ).toHaveLength(2);
+    // The name is free again once its template is retired.
+    await ok(await template(), 201);
+    expect(
+      errorOf(
+        await post(
+          `/roster/templates/${made.id}/retire`,
+          { version: 2 },
+          { tenant: clinic, user: clinicAdmin },
+        ),
+      ),
+    ).toEqual([404, 'template_not_found']);
+  });
+
+  it('are read by staff and managed by those who manage the roster', async () => {
+    expect((await template({ name: 'Nurse try' }, { user: nurse })).statusCode).toBe(403);
+    expect((await get('/roster/templates', { user: nurse })).statusCode).toBe(200);
+    expect(errorOf(await get('/roster/templates', { tenant: closed }))).toEqual([
+      403,
+      'feature_disabled',
+    ]);
+  });
+});
+
+describe('copying a week', () => {
+  const copy = (more: object = {}, options: Options = {}) =>
+    post('/roster/copy-week', { fromStart: at(0), toStart: at(168), ...more }, options);
+
+  it('fills the next weeks, skips what clashes, and writes an event for each shift', async () => {
+    await wipe();
+    await ok(await shift({ departmentId: department }), 201);
+    await ok(await shift({ userId: labTech.id, startsAt: at(30), endsAt: at(38) }), 201);
+    // The nurse is already on duty in the next week at the same time.
+    await ok(await shift({ startsAt: at(168 + 12), endsAt: at(168 + 14) }), 201);
+    // Outside the source week: not copied.
+    await ok(await shift({ startsAt: at(200), endsAt: at(208) }), 201);
+    const result = await ok<CopyResult>(await copy({ weeks: 2 }));
+    expect(result.copied).toBe(3);
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0]?.reason).toBe('shift_overlap');
+    const { rows } = await pool.query<{ starts_at: Date; department_id: string | null }>(
+      "select starts_at, department_id from roster_shifts where tenant_id = $1 and user_id = $2 and status = 'scheduled' order by starts_at",
+      [hospital.id, nurse.id],
+    );
+    const later = rows.find((row) => row.starts_at.toISOString() === at(8 + 336));
+    expect(later?.department_id).toBe(department);
+    const events = await pool.query(
+      "select 1 from outbox where tenant_id = $1 and event = 'roster.shift_scheduled'",
+      [hospital.id],
+    );
+    expect(events.rowCount).toBe(4 + 3);
+  });
+
+  it('skips a person on approved leave, and refuses bad windows', async () => {
+    await wipe();
+    await ok(await shift(), 201);
+    await pool.query(
+      `insert into roster_leaves (tenant_id, user_id, starts_at, ends_at, status, decided_by, decided_at, created_by)
+       values ($1, $2, $3, $4, 'approved', $5, now(), $2)`,
+      [hospital.id, nurse.id, at(168), at(216), admin.id],
+    );
+    const result = await ok<CopyResult>(await copy());
+    expect(result).toMatchObject({ copied: 0, skipped: [{ reason: 'on_leave' }] });
+    expect(errorOf(await copy({ toStart: at(100) }))).toEqual([422, 'invalid_period']);
+    expect(errorOf(await copy({ toStart: at(24) }))).toEqual([422, 'invalid_period']);
+    expect(errorOf(await copy({ toStart: at(-168), weeks: 2 }))).toEqual([422, 'invalid_period']);
+    await pool.query('delete from roster_leaves where tenant_id = $1', [hospital.id]);
+  });
+
+  it('is only for managers, only reads its own hospital, and repeats safely', async () => {
+    await wipe();
+    await ok(await shift(), 201);
+    expect((await copy({}, { user: nurse })).statusCode).toBe(403);
+    expect(await ok<CopyResult>(await copy({}, { tenant: clinic, user: clinicAdmin }))).toEqual({
+      copied: 0,
+      skipped: [],
+    });
+    expect(errorOf(await copy({}, { tenant: closed }))).toEqual([403, 'feature_disabled']);
+    await ok(await copy({}, { key: 'copy-once-1' }));
+    await ok(await copy({}, { key: 'copy-once-1' }));
+    const { rows } = await pool.query('select 1 from roster_shifts where tenant_id = $1', [
+      hospital.id,
+    ]);
+    expect(rows).toHaveLength(2);
+  });
+});
+
+describe('swaps', () => {
+  interface Swapped {
+    created: Shift[];
+  }
+  const swap = (id: string, body: object, options: Options = {}) =>
+    post(`/roster/shifts/${id}/swap`, body, options);
+
+  it('hand a shift to someone else: the old one is cancelled, the new one points at it', async () => {
+    await wipe();
+    const made = await ok<Shift>(await shift({ departmentId: department }), 201);
+    const done = await ok<Swapped>(await swap(made.id, { version: 1, userId: labTech.id }));
+    expect(done.created).toHaveLength(1);
+    expect(done.created[0]).toMatchObject({ userId: labTech.id, status: 'scheduled' });
+    const { rows } = await pool.query<{ status: string; replaces_shift_id: string | null }>(
+      'select status, replaces_shift_id from roster_shifts where tenant_id = $1 order by status',
+      [hospital.id],
+    );
+    expect(rows.map((row) => row.status)).toEqual(['cancelled', 'scheduled']);
+    expect(rows[1]?.replaces_shift_id).toBe(made.id);
+    expect((await eventsOf(made.id)).map((event) => event.event)).toContain(
+      'roster.shift_cancelled',
+    );
+    expect(errorOf(await swap(made.id, { version: 2, userId: nurse.id }))).toEqual([
+      409,
+      'invalid_transition',
+    ]);
+  });
+
+  it('refuse a clash and leave everything as it was', async () => {
+    await wipe();
+    const mine = await ok<Shift>(await shift(), 201);
+    await ok(await shift({ userId: labTech.id, startsAt: at(10), endsAt: at(14) }), 201);
+    expect(errorOf(await swap(mine.id, { version: 1, userId: labTech.id }))).toEqual([
+      409,
+      'shift_overlap',
+    ]);
+    expect(errorOf(await swap(mine.id, { version: 1, userId: clinicAdmin.id }))).toEqual([
+      422,
+      'unknown_user',
+    ]);
+    expect(errorOf(await swap(mine.id, { version: 1, userId: nurse.id }))).toEqual([
+      422,
+      'invalid_swap',
+    ]);
+    expect(errorOf(await swap(mine.id, { version: 1 }))).toEqual([422, 'invalid_swap']);
+    expect(errorOf(await swap(mine.id, { version: 9, userId: pharmacist.id }))).toEqual([
+      409,
+      'conflict',
+    ]);
+    const { rows } = await pool.query(
+      "select 1 from roster_shifts where tenant_id = $1 and status = 'scheduled'",
+      [hospital.id],
+    );
+    expect(rows).toHaveLength(2);
+  });
+
+  it('exchange two shifts, even ones that overlap in time', async () => {
+    await wipe();
+    const a = await ok<Shift>(await shift(), 201);
+    const b = await ok<Shift>(
+      await shift({ userId: labTech.id, startsAt: at(10), endsAt: at(18) }),
+      201,
+    );
+    expect(errorOf(await swap(a.id, { version: 1, withShiftId: b.id }))).toEqual([
+      422,
+      'invalid_swap',
+    ]);
+    const done = await ok<Swapped>(
+      await swap(a.id, { version: 1, withShiftId: b.id, withVersion: 1 }),
+    );
+    expect(done.created.map((one) => one.userId).sort()).toEqual([labTech.id, nurse.id].sort());
+    expect(errorOf(await swap(a.id, { version: 2, withShiftId: a.id, withVersion: 1 }))).toEqual([
+      409,
+      'invalid_transition',
+    ]);
+  });
+
+  it('are for managers, and one hospital cannot swap another’s shifts', async () => {
+    await wipe();
+    const made = await ok<Shift>(await shift(), 201);
+    expect(
+      (await swap(made.id, { version: 1, userId: labTech.id }, { user: nurse })).statusCode,
+    ).toBe(403);
+    expect(
+      errorOf(
+        await swap(
+          made.id,
+          { version: 1, userId: clinicAdmin.id },
+          { tenant: clinic, user: clinicAdmin },
+        ),
+      ),
+    ).toEqual([404, 'shift_not_found']);
   });
 });
 
@@ -1245,6 +1494,7 @@ describe('row-level security', () => {
     await ok(await shift(), 201);
     await ok(await leave({ startsAt: at(200), endsAt: at(220) }), 201);
     await ok(await register(), 201);
+    await ok(await template({ name: 'RLS template' }), 201);
     const rls = await ok<Ambulance>(await addAmbulance(), 201);
     const rlsTrip = await ok<Trip>(await requestTrip(), 201);
     await ok(
