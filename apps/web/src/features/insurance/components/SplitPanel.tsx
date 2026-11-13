@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { usePermission } from '@/access';
 import type { SlotProps } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -9,8 +10,9 @@ import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { StatusBadge } from '@/shared/ui/status-badge';
 import { useFormatters } from '@/tenancy';
 import { useCoverageSplit, useSaveSplit } from '../hooks/use-split';
+import { ClaimPacketDialog } from './ClaimDialogs';
 import { splitReconciles } from '../split';
-import type { CoverageSplitLine } from '../types';
+import type { ClaimDetail, CoverageSplitLine } from '../types';
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -34,6 +36,10 @@ export default function SplitPanel({ context }: SlotProps) {
   const split = useCoverageSplit(encounterId, canRead);
   const save = useSaveSplit(encounterId);
   const [saved, setSaved] = useState(false);
+  const canClaim = usePermission('claim:manage');
+  const canOpenClaim = usePermission('claim:read');
+  const [packet, setPacket] = useState(false);
+  const [claim, setClaim] = useState<ClaimDetail>();
 
   const columns = useMemo<GridColumn<CoverageSplitLine>[]>(
     () => [
@@ -166,12 +172,37 @@ export default function SplitPanel({ context }: SlotProps) {
           {format.money(data.patientMinor)}
         </dd>
       </dl>
-      <div>
+      <div className="flex flex-wrap items-center gap-3">
         <StatusBadge
           tone={reconciles ? 'success' : 'danger'}
           label={reconciles ? t('split.reconciled') : t('split.notReconciled')}
         />
+        {canClaim && data.payerMinor > 0 && claim === undefined && (
+          <Button type="button" variant="outline" size="sm" onClick={() => setPacket(true)}>
+            {t('claims.packet.button')}
+          </Button>
+        )}
       </div>
+      {/* Always on the page, so the new claim is announced. */}
+      <p role="status" className={claim ? 'text-sm' : 'sr-only'}>
+        {claim ? t('claims.packet.saved', { number: claim.number }) : ''}{' '}
+        {claim && canOpenClaim && (
+          <Link to={`/claims/${claim.id}`} className="font-medium underline">
+            {t('claims.packet.open')}
+          </Link>
+        )}
+      </p>
+      {packet && (
+        <ClaimPacketDialog
+          encounterId={encounterId}
+          payerMinor={data.payerMinor}
+          onClose={() => setPacket(false)}
+          onCreated={(made) => {
+            setPacket(false);
+            setClaim(made);
+          }}
+        />
+      )}
     </section>
   );
 }

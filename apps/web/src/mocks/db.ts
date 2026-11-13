@@ -326,6 +326,10 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'policy:manage' },
   { permission: 'preauth:read' },
   { permission: 'preauth:manage' },
+  // Claims (IN-04).
+  { permission: 'claim:read' },
+  { permission: 'claim:manage' },
+  { permission: 'claim:writeoff' },
   { permission: 'code:read' },
   { permission: 'code:manage' },
   { permission: 'template:read' },

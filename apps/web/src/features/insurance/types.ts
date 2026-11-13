@@ -30,3 +30,15 @@ export type PreAuthStatus = PreAuth['status'];
 
 export type CoverageSplit = Schemas['CoverageSplit'];
 export type CoverageSplitLine = Schemas['CoverageSplitLine'];
+
+/** An insurance claim for a visit, from the packet to the money received (IN-04, #184). */
+export type Claim = Schemas['Claim'];
+export type ClaimDetail = Schemas['ClaimDetail'];
+export type ClaimEvent = Schemas['ClaimEvent'];
+export type ClaimStatus = Schemas['ClaimStatus'];
+export type ClaimActionKind = Schemas['ClaimActionKind'];
+export type ClaimPage = Schemas['ClaimPage'];
+export type ClaimCreate = Schemas['ClaimCreate'];
+export type ClaimAction = Schemas['ClaimAction'];
+export type ClaimAging = Schemas['ClaimAging'];
+export type ClaimAgingRow = Schemas['ClaimAgingRow'];

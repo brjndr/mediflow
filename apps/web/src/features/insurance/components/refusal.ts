@@ -11,6 +11,9 @@ const KNOWN = [
   'policy_not_active',
   'not_submitted',
   'plan_archived',
+  'invalid_transition',
+  'claim_exists',
+  'nothing_to_claim',
 ] as const;
 
 /**

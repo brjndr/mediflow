@@ -200,7 +200,10 @@
     "duplicate_policy": "This policy is already on the patient’s record.",
     "policy_not_active": "This policy is no longer active. Choose another policy.",
     "not_submitted": "This request has already been answered or withdrawn.",
-    "plan_archived": "This plan is archived. Choose another plan."
+    "plan_archived": "This plan is archived. Choose another plan.",
+    "invalid_transition": "The claim has moved on since you opened it. Reload it and try again.",
+    "claim_exists": "This visit already has a claim.",
+    "nothing_to_claim": "The payer owes nothing on this visit, so there is nothing to claim."
   },
   "tab": {
     "title": "Insurance"
@@ -352,5 +355,148 @@
     "saving": "Saving",
     "saved": "The split was saved.",
     "stale": "The charges have changed since the split was saved. Save it again before billing from it."
+  },
+  "claims": {
+    "heading": "Insurance claims",
+    "description": "Claims sent to insurers and TPAs for the payer share of a visit: what is waiting, what was paid and what was given up.",
+    "gridLabel": "Insurance claims",
+    "aging": "Aging of unpaid claims",
+    "backToList": "Back to the claims",
+    "count_one": "{{count}} claim",
+    "count_other": "{{count}} claims",
+    "empty": "No claims yet. Prepare one from a visit’s bill.",
+    "emptyStatus": "No claims in this state.",
+    "filters": {
+      "status": "State",
+      "any": "Any state"
+    },
+    "columns": {
+      "number": "Claim",
+      "patient": "Patient",
+      "payer": "Payer",
+      "claimed": "Claimed",
+      "outstanding": "Still to come",
+      "status": "State",
+      "age": "Days since sent"
+    },
+    "notSent": "Not sent",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "status": {
+      "draft": "Being prepared",
+      "submitted": "Sent to the payer",
+      "query": "Payer has a question",
+      "approved": "Approved, payment due",
+      "rejected": "Rejected",
+      "settled": "Paid",
+      "written_off": "Written off",
+      "cancelled": "Withdrawn"
+    },
+    "detail": {
+      "heading": "Claim {{number}}",
+      "summary": "Summary",
+      "payer": "Payer",
+      "policy": "Policy",
+      "patient": "Patient",
+      "visit": "Visit",
+      "claimed": "Claimed",
+      "approved": "Approved",
+      "received": "Received",
+      "writtenOff": "Written off",
+      "outstanding": "Still to come",
+      "reference": "Payer’s reference",
+      "notGiven": "Not given",
+      "openQuery": "The payer asks",
+      "packet": "Claim packet",
+      "packetEmpty": "Nothing enclosed.",
+      "packetHint": "The files are on the patient’s record, under Documents.",
+      "history": "History",
+      "actions": "What you can do",
+      "noActions": "Nothing more can be done to this claim.",
+      "noRights": "You can read this claim but not change it.",
+      "notFound": "This claim is not available.",
+      "notFoundBody": "No claim matches this address.",
+      "saved": "Claim moved to “{{state}}”.",
+      "loading": "Loading the claim"
+    },
+    "action": {
+      "submit": "Send to the payer",
+      "raise_query": "Record a question",
+      "reply": "Reply to the question",
+      "approve": "Record approval",
+      "reject": "Record rejection",
+      "settle": "Record payment",
+      "write_off": "Write off the rest",
+      "cancel": "Withdraw"
+    },
+    "event": {
+      "create": "Prepared",
+      "submit": "Sent to the payer",
+      "raise_query": "Payer asked a question",
+      "reply": "Replied",
+      "approve": "Approved",
+      "reject": "Rejected",
+      "settle": "Payment recorded",
+      "write_off": "Written off",
+      "cancel": "Withdrawn"
+    },
+    "dialog": {
+      "description": {
+        "submit": "Marks the claim as sent. The days to payment count from now.",
+        "raise_query": "Writes down what the payer asked for.",
+        "reply": "Answers the payer’s question and sends the claim back to the payer.",
+        "approve": "Writes down what the payer agreed to pay.",
+        "reject": "Writes down that the payer refused the claim.",
+        "settle": "Writes down a payment that came in.",
+        "write_off": "Gives up what the payer will not pay. This cannot be undone and is kept on the record.",
+        "cancel": "Takes the claim back. This cannot be undone."
+      },
+      "submit": "Confirm",
+      "note": {
+        "query": "The payer’s question",
+        "reply": "Your reply",
+        "reason": "Reason",
+        "other": "Note"
+      },
+      "approved": "Amount approved",
+      "approvedHint": "Up to the amount claimed, in the hospital’s currency.",
+      "received": "Amount received",
+      "receivedHint": "Up to the amount approved, in the hospital’s currency.",
+      "reference": "Payer’s reference",
+      "documents": "More documents enclosed",
+      "documentsHint": "One name to a line. The files are on the patient’s record.",
+      "writeOffAmount": "This writes off {{amount}}."
+    },
+    "packet": {
+      "button": "Prepare a claim",
+      "title": "Prepare a claim",
+      "description": "Makes a claim for the payer’s share of this visit, {{amount}}, as split above. Name what is enclosed.",
+      "documents": "Documents enclosed",
+      "documentsHint": "One name to a line, such as the discharge summary and the final bill. The files are on the patient’s record, under Documents.",
+      "note": "Note",
+      "submit": "Prepare claim",
+      "saved": "Claim {{number}} was prepared.",
+      "open": "Open the claim"
+    },
+    "agingPage": {
+      "heading": "Aging of unpaid claims",
+      "description": "What the payers still owe, by the days since each claim was sent. Claims not yet sent are not counted.",
+      "gridLabel": "Unpaid claims by payer and age",
+      "payer": "Payer",
+      "claims": "Claims",
+      "total": "Still to come",
+      "totals": "All payers",
+      "empty": "Nothing is owed on any claim.",
+      "asOf": "As of {{when}}",
+      "bucket0": "0 to 30 days",
+      "bucket1": "31 to 60 days",
+      "bucket2": "61 to 90 days",
+      "bucket3": "Over 90 days"
+    },
+    "onRecord": "On the record",
+    "errors": {
+      "overClaimed": "This is more than was claimed.",
+      "overApproved": "This is more than was approved."
+    }
   }
 }

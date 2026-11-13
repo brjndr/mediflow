@@ -18104,6 +18104,363 @@
             "maxLength": 500
           }
         }
+      },
+      "ClaimStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "submitted",
+          "query",
+          "approved",
+          "rejected",
+          "settled",
+          "written_off",
+          "cancelled"
+        ]
+      },
+      "ClaimActionKind": {
+        "type": "string",
+        "enum": [
+          "submit",
+          "raise_query",
+          "reply",
+          "approve",
+          "reject",
+          "settle",
+          "write_off",
+          "cancel"
+        ]
+      },
+      "Claim": {
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "patientId",
+          "encounterId",
+          "policyId",
+          "payerId",
+          "payerName",
+          "policyNumber",
+          "claimedMinor",
+          "receivedMinor",
+          "writtenOffMinor",
+          "outstandingMinor",
+          "status",
+          "documents",
+          "createdAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string",
+            "description": "The hospital claim number."
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "policyId": {
+            "type": "string"
+          },
+          "payerId": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "policyNumber": {
+            "type": "string"
+          },
+          "claimedMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The payer share of the visit split when the claim was prepared."
+          },
+          "approvedMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "What the payer agreed to pay. Absent until approved."
+          },
+          "receivedMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "What the payer has paid."
+          },
+          "writtenOffMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "What the hospital gave up."
+          },
+          "outstandingMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Claimed less received and written off, worked out by the server. Zero for a draft or a withdrawn claim."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ClaimStatus"
+          },
+          "referenceNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "openQuery": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "The payer question while the claim is in query."
+          },
+          "documents": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "The packet, by name. The files are on the patient record."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ClaimEvent": {
+        "type": "object",
+        "required": ["at", "action", "toStatus"],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "submit",
+              "raise_query",
+              "reply",
+              "approve",
+              "reject",
+              "settle",
+              "write_off",
+              "cancel"
+            ]
+          },
+          "toStatus": {
+            "$ref": "#/components/schemas/ClaimStatus"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      },
+      "ClaimDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Claim"
+          },
+          {
+            "type": "object",
+            "required": ["events", "allowedActions"],
+            "properties": {
+              "events": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ClaimEvent"
+                }
+              },
+              "allowedActions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ClaimActionKind"
+                },
+                "description": "What can be done to the claim now, from the state machine."
+              }
+            }
+          }
+        ]
+      },
+      "ClaimPage": {
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Claim"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ClaimCreate": {
+        "type": "object",
+        "required": ["documents"],
+        "properties": {
+          "documents": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      },
+      "ClaimAction": {
+        "type": "object",
+        "required": ["version", "action"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "action": {
+            "$ref": "#/components/schemas/ClaimActionKind"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Required for raise_query (the question), reply, reject and write_off (the reason)."
+          },
+          "approvedMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Required for approve."
+          },
+          "receivedMinor": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Required for settle: the payment that came in, at most the approved amount."
+          },
+          "referenceNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "documents": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "description": "Added to the packet with a reply."
+          }
+        }
+      },
+      "ClaimAgingRow": {
+        "type": "object",
+        "required": ["claims", "buckets", "outstandingMinor", "payerId", "payerName"],
+        "properties": {
+          "payerId": {
+            "type": "string"
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "claims": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "buckets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Outstanding money aged 0 to 30, 31 to 60, 61 to 90 and over 90 days from submission."
+          },
+          "outstandingMinor": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ClaimAgingTotals": {
+        "type": "object",
+        "required": ["claims", "buckets", "outstandingMinor"],
+        "properties": {
+          "claims": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "buckets": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Outstanding money aged 0 to 30, 31 to 60, 61 to 90 and over 90 days from submission."
+          },
+          "outstandingMinor": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ClaimAging": {
+        "type": "object",
+        "required": ["asOf", "rows", "totals"],
+        "properties": {
+          "asOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimAgingRow"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ClaimAgingTotals"
+          }
+        }
       }
     },
     "responses": {
@@ -62562,6 +62919,264 @@
             "$ref": "#/components/responses/Error"
           },
           "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/claims": {
+      "get": {
+        "operationId": "listClaims",
+        "description": "Insurance claims, newest first, one cursor page. Needs claim:read.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ClaimStatus"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of claims",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/claims/aging": {
+      "get": {
+        "operationId": "claimAging",
+        "description": "Money still to come in on claims, by payer and by days since the claim was submitted. Needs claim:read.",
+        "responses": {
+          "200": {
+            "description": "The aging",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimAging"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/claims/{claimId}": {
+      "get": {
+        "operationId": "getClaim",
+        "description": "One claim with its history. Needs claim:read.",
+        "parameters": [
+          {
+            "name": "claimId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The claim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/claims/{claimId}/actions": {
+      "post": {
+        "operationId": "actOnClaim",
+        "description": "Moves a claim along: submit, raise_query, reply, approve, reject, settle, write_off or cancel. Only the transitions of the claim state machine are allowed (409 invalid_transition otherwise). Needs claim:manage, and claim:writeoff for write_off.",
+        "parameters": [
+          {
+            "name": "claimId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimAction"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The claim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/encounters/{encounterId}/claims": {
+      "post": {
+        "operationId": "createClaim",
+        "description": "Prepares a claim for a visit from the saved split: the payer share, the policy and the packet of documents (by name). One open claim per visit (409 claim_exists); nothing to claim is 422. Needs claim:manage.",
+        "parameters": [
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The claim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

@@ -20,6 +20,9 @@ export const insuranceFeature: FeatureManifest = {
         title: 'Insurers and TPAs',
         create: 'Add an insurer, TPA or corporate',
         record: 'Insurer, TPA or corporate',
+        claims: 'Insurance claims',
+        claimAging: 'Aging of unpaid claims',
+        claim: 'Insurance claim',
       },
     },
     load: (language) => import(`./locales/${language}.json`),
@@ -33,6 +36,24 @@ export const insuranceFeature: FeatureManifest = {
       titleKey: 'create',
       lazy: () => import('./routes/PayerCreate'),
       requires: ['payer:manage'],
+    },
+    {
+      path: 'claims',
+      titleKey: 'claims',
+      lazy: () => import('./routes/ClaimList'),
+      requires: ['claim:read'],
+    },
+    {
+      path: 'claims/aging',
+      titleKey: 'claimAging',
+      lazy: () => import('./routes/ClaimAging'),
+      requires: ['claim:read'],
+    },
+    {
+      path: 'claims/:claimId',
+      titleKey: 'claim',
+      lazy: () => import('./routes/ClaimDetail'),
+      requires: ['claim:read'],
     },
     {
       path: 'insurance/:payerId',
@@ -68,5 +89,8 @@ export const insuranceFeature: FeatureManifest = {
     'policy:manage',
     'preauth:read',
     'preauth:manage',
+    'claim:read',
+    'claim:manage',
+    'claim:writeoff',
   ],
 };
