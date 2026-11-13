@@ -417,6 +417,19 @@ describe('the reports answered on the spot', () => {
     expect(report.currency).toBe('INR');
   });
 
+  it('counts OPD visits opened by hour of the hospital’s day', async () => {
+    const report = (await runSync('opd_hourly', MARCH_10)).json<ReportResult>();
+
+    expect(report.columns.map((column) => column.key)).toEqual(['day', 'hour', 'opened']);
+    // 20:00 UTC on the 9th is 01:30 on the 10th at the hospital; the 12th and the stay are left out.
+    expect(report.rows).toEqual([
+      ['2026-03-10', 1, 1],
+      ['2026-03-10', 10, 1],
+      ['2026-03-10', 11, 1],
+    ]);
+    expect(report.totals).toEqual([null, null, 3]);
+  });
+
   it('counts each doctor’s OPD visits and appointments in the range', async () => {
     const report = (await runSync('doctor_activity', MARCH_10)).json<ReportResult>();
 
@@ -504,6 +517,14 @@ describe('the reports answered on the spot', () => {
     const hers = (await runSync('opd_census', MARCH_10, clinic, clinicAdmin)).json<ReportResult>();
 
     expect(hers.rows).toEqual([['2026-03-10', 'Cardiology', 6, 2, 2]]);
+    const hourly = (
+      await runSync('opd_hourly', MARCH_10, clinic, clinicAdmin)
+    ).json<ReportResult>();
+    expect(hourly.rows).toEqual([
+      ['2026-03-10', 1, 2],
+      ['2026-03-10', 10, 2],
+      ['2026-03-10', 11, 2],
+    ]);
     const sales = (
       await runSync('pharmacy_sales', MARCH_10, clinic, clinicAdmin)
     ).json<ReportResult>();

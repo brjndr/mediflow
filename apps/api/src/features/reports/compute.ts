@@ -73,6 +73,24 @@ const opdCensus: Query = async (client, from, to, limit) => {
   return rows.map((r) => [r.day, r.department, r.opened, r.closed, r.cancelled]);
 };
 
+const opdHourly: Query = async (client, from, to, limit) => {
+  const { rows } = await client.query<{ day: string; hour: number; opened: number }>(
+    `select (e.opened_at at time zone t.timezone)::date::text as day,
+            extract(hour from e.opened_at at time zone t.timezone)::int as hour,
+            count(*)::int as opened
+     from tenants t
+     cross join lateral (select ${DAY_BOUNDS}) b
+     join encounters e on e.tenant_id = t.id and e.type = 'opd'
+       and e.opened_at >= b.lo and e.opened_at < b.hi
+     where t.id = app_tenant_id()
+     group by 1, 2
+     order by 1, 2
+     limit $3`,
+    [from, to, limit + 1],
+  );
+  return rows.map((r) => [r.day, r.hour, r.opened]);
+};
+
 const revenue: Query = async (client, from, to, limit) => {
   const { rows } = await client.query<{
     day: string;
@@ -347,6 +365,11 @@ const DEFINITIONS: Record<
     ],
     sums: ['opened', 'closed', 'cancelled'],
     query: opdCensus,
+  },
+  opd_hourly: {
+    columns: [col('day', 'date'), col('hour', 'integer'), col('opened', 'integer')],
+    sums: ['opened'],
+    query: opdHourly,
   },
   revenue: {
     columns: [
