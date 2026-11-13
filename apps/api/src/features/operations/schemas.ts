@@ -87,6 +87,118 @@ export const VersionBody = Type.Object({ version: Version }, { additionalPropert
 export type VersionBody = Static<typeof VersionBody>;
 export const ShiftParams = Type.Object({ shiftId: Id });
 
+// --- shift templates, copied weeks and swaps (#592) ---------------------------------------------
+
+const HHMM = Type.String({ pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'HH:MM.' });
+
+export const ShiftTemplate = Obj('ShiftTemplate', {
+  id: Type.String(),
+  tenantId: Type.String(),
+  name: Type.String(),
+  shiftKind: ref(ShiftKind),
+  startTime: HHMM,
+  endTime: HHMM,
+  departmentId: Type.Optional(Type.String()),
+  departmentName: Type.Optional(Type.String()),
+  active: Type.Boolean(),
+  version: Type.Integer({ minimum: 1 }),
+});
+export type ShiftTemplate = Static<typeof ShiftTemplate>;
+export const ShiftTemplatePage = CursorPage(ref(ShiftTemplate), { $id: 'ShiftTemplatePage' });
+
+export const ShiftTemplateCreate = Type.Object(
+  {
+    name: Type.String({ minLength: 1, maxLength: 60, pattern: PLAIN_TEXT }),
+    shiftKind: ref(ShiftKind),
+    startTime: HHMM,
+    endTime: Type.String({
+      pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$',
+      description: 'HH:MM, on the hospital’s clock. At or before the start means the next day.',
+    }),
+    departmentId: Type.Optional(Id),
+  },
+  { $id: 'ShiftTemplateCreate', additionalProperties: false },
+);
+export type ShiftTemplateCreate = Static<typeof ShiftTemplateCreate>;
+export const ShiftTemplateListQuery = Type.Object({
+  includeInactive: Type.Optional(Type.Boolean()),
+  cursor: Cursor,
+  limit: Limit,
+});
+export const TemplateParams = Type.Object({ templateId: Id });
+
+export const CopyWeekBody = Type.Object(
+  {
+    fromStart: Type.String({
+      format: 'date-time',
+      description: 'The first instant of the week to copy; seven days from here are read.',
+    }),
+    toStart: Type.String({
+      format: 'date-time',
+      description:
+        'The first instant of the first week to fill. A whole number of days from `fromStart`, not the same week.',
+    }),
+    weeks: Type.Optional(
+      Type.Integer({
+        minimum: 1,
+        maximum: 12,
+        default: 1,
+        description: 'How many weeks in a row to fill, each a copy of the source week.',
+      }),
+    ),
+    departmentId: Type.Optional(Id),
+  },
+  { $id: 'CopyWeekBody', additionalProperties: false },
+);
+export type CopyWeekBody = Static<typeof CopyWeekBody>;
+
+export const CopyWeekSkipReason = Enum(
+  'CopyWeekSkipReason',
+  ['shift_overlap', 'on_leave'] as const,
+  'Why a shift was not copied: the person is already on duty then, or on approved leave.',
+);
+export const CopyWeekResult = Obj('CopyWeekResult', {
+  copied: Type.Integer({ minimum: 0 }),
+  skipped: Type.Array(
+    Type.Object(
+      {
+        shiftId: Type.String({ description: 'The source shift that was not copied.' }),
+        userName: Type.String(),
+        startsAt: When,
+        reason: ref(CopyWeekSkipReason),
+      },
+      { additionalProperties: false },
+    ),
+  ),
+});
+export type CopyWeekResult = Static<typeof CopyWeekResult>;
+
+export const ShiftSwapBody = Type.Object(
+  {
+    version: Version,
+    userId: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description: 'Hand the shift to this person. Give this or `withShiftId`.',
+      }),
+    ),
+    withShiftId: Type.Optional(
+      Type.String({
+        maxLength: 64,
+        description: 'Exchange with this scheduled shift of someone else: each takes the other’s.',
+      }),
+    ),
+    withVersion: Type.Optional(Version),
+  },
+  { $id: 'ShiftSwapBody', additionalProperties: false },
+);
+export type ShiftSwapBody = Static<typeof ShiftSwapBody>;
+export const ShiftSwapResult = Obj('ShiftSwapResult', {
+  created: Type.Array(ref(RosterShift), {
+    description: 'The new shifts, one for a hand-over and two for an exchange.',
+  }),
+});
+
 // --- leave -------------------------------------------------------------------------------------
 
 export const LeaveStatus = Enum(
@@ -463,6 +575,14 @@ export const OPERATIONS_SCHEMAS = [
   RosterShift,
   RosterShiftPage,
   RosterShiftCreate,
+  ShiftTemplate,
+  ShiftTemplatePage,
+  ShiftTemplateCreate,
+  CopyWeekBody,
+  CopyWeekSkipReason,
+  CopyWeekResult,
+  ShiftSwapBody,
+  ShiftSwapResult,
   LeaveStatus,
   RosterLeave,
   RosterLeavePage,
