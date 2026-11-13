@@ -9,6 +9,7 @@ import {
   TENANT_IDS,
   USER_IDS,
 } from '@/mocks/db';
+import { mockStock } from '@/mocks/handlers/inventory';
 import { api } from '@/shared/api';
 import { renderApp } from '@/test/render';
 import { chunksOf, importKeys, pollDelay } from './hooks/use-imports';
@@ -212,6 +213,88 @@ describe('importing', () => {
     expect(screen.queryByRole('button', { name: 'Send and check' })).not.toBeInTheDocument();
   });
 
+  it('checks a file of opening stock against the items, places and batches, then loads it', async () => {
+    const opened = mockStock().ledger.find((entry) => entry.reason === 'opening');
+    if (!opened) throw new Error('The mock has no opening stock');
+    const { item } = opened;
+    const row = (place: string, batch: string, expiry: string, name = item.genericName) =>
+      [
+        name,
+        item.brandName ?? '',
+        item.form,
+        item.strength ?? '',
+        place,
+        batch,
+        expiry,
+        '10',
+        '',
+        '',
+      ].join(',');
+    const head =
+      'Generic name,Brand,Form,Strength,Place,Batch number,Expiry date,Quantity,Unit cost,MRP';
+    await openNew();
+    await load(
+      'Opening stock',
+      [
+        head,
+        row('Main store', 'NEW-1', '2099-01-31', 'Unlisted medicine'),
+        row('Nowhere', 'NEW-2', '2099-01-31'),
+        row('Main store', 'NEW-3', '2001-01-31'),
+        row('Main store', opened.batchNumber, '2099-01-31'),
+        row(opened.locationName, opened.batchNumber, opened.expiryDate),
+        row('Main store', 'NEW-6', '2099-01-31'),
+        row('Main store', 'NEW-6', '2099-01-31'),
+      ].join('\n'),
+    );
+    await screen.findByText('7 rows read from the file.');
+    await userEvent.click(button('Send and check'));
+
+    expect(
+      await screen.findByText(/6 problems were found. Correct the file/, {}, JOB),
+    ).toBeInTheDocument();
+    const report = await screen.findByRole('table', { name: 'Problems found in the file' });
+    for (const text of [
+      'no item in use',
+      'No place in use',
+      'past its expiry date',
+      'another expiry date',
+      'already has opening stock',
+      'same record as an earlier row',
+    ]) {
+      expect(report).toHaveTextContent(text);
+    }
+    expect(screen.queryByRole('button', { name: 'Write the records' })).not.toBeInTheDocument();
+    await userEvent.click(button('Give up this batch'));
+    await screen.findByText('This batch was given up. Nothing was written.');
+  }, 40_000);
+
+  it('loads a clean file of opening stock', async () => {
+    const opened = mockStock().ledger.find((entry) => entry.reason === 'opening');
+    if (!opened) throw new Error('The mock has no opening stock');
+    const { item } = opened;
+    await openNew();
+    await load(
+      'Opening stock',
+      [
+        'Generic name,Brand,Form,Strength,Place,Batch number,Expiry date,Quantity',
+        [
+          item.genericName,
+          item.brandName ?? '',
+          item.form,
+          item.strength ?? '',
+          'Main store',
+          'NEW-7',
+          '2099-01-31',
+          '10',
+        ].join(','),
+      ].join('\n'),
+    );
+    await screen.findByText('1 row read from the file.');
+    await userEvent.click(button('Send and check'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Write the records' }, JOB));
+    expect(await screen.findByText('1 record was written.', {}, JOB)).toBeInTheDocument();
+  }, 40_000);
+
   it('warns before a file of patients is sent', async () => {
     await openNew();
     await userEvent.selectOptions(combobox('What the file holds'), 'Patients');
@@ -230,7 +313,7 @@ describe('access', () => {
       .getAllByRole('option')
       .map((option) => option.textContent)
       .filter((text) => text !== 'Choose a kind of record');
-    expect(offered).toEqual(['Services and prices', 'Lab tests']);
+    expect(offered).toEqual(['Services and prices', 'Lab tests', 'Opening stock']);
     await expect(
       api.POST('/imports', {
         body: { kind: 'patients' },

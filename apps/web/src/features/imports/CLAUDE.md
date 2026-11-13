@@ -28,3 +28,5 @@ The API is described in `apps/api/src/features/imports/CLAUDE.md`. Where it diff
 - No undo of a written batch: each record is changed or archived on its own screen.
 - A job that stops without ending (the process killed) leaves its batch working until the next delivery takes it over (after ten minutes without a heartbeat) or the hourly job gives it up (after an hour).
 - A row is validated by Ajv against the kind's schema with options of its own, not by Fastify's compiled validator: a keyword the routes' validator treats differently would be a difference between the screen and the import. The schemas today use none.
+
+- The mock offers `opening_stock` (#745) with the API's columns and problem codes, checking the item, place and batch against the drugs and inventory mocks; loading writes nothing into stock, like the other kinds.

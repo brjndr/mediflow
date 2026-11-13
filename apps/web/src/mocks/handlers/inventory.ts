@@ -1125,3 +1125,34 @@ export const inventoryHandlers = [
 
 /** For the indents' mock (#105): a batch of the mock, for seeding records against it. */
 export const mockBatch = (batchId: string) => state.batches.find((each) => each.id === batchId);
+
+/** For the import centre's mock (#745): the place in use with this name (any capitals), or null. */
+export const mockPlaceNamed = (tenantId: string, name: string) =>
+  mockPlacesInUse(tenantId).find((each) => each.name.toLowerCase() === name.trim().toLowerCase()) ??
+  null;
+
+/**
+ * For the import centre's mock (#745), as the API checks an opening row: the code that refuses a
+ * batch of this number for the item (another expiry, or opening stock already at the place).
+ */
+export function mockOpeningRefusal(
+  tenantId: string,
+  drugId: string,
+  batchNumber: string,
+  expiryDate: string,
+  locationId: string,
+): 'batch_exists' | 'opening_exists' | null {
+  const found = state.batches.find(
+    (each) =>
+      each.tenantId === tenantId &&
+      each.drugId === drugId &&
+      each.batchNumber.toLowerCase() === batchNumber.trim().toLowerCase(),
+  );
+  if (!found) return null;
+  if (found.expiryDate !== expiryDate) return 'batch_exists';
+  const opened = state.ledger.some(
+    (each) =>
+      each.batchId === found.id && each.locationId === locationId && each.reason === 'opening',
+  );
+  return opened ? 'opening_exists' : null;
+}
