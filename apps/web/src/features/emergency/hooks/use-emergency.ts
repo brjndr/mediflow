@@ -8,6 +8,7 @@ import {
   fetchCase,
   fetchCases,
   fetchMlc,
+  fetchMlcHistory,
   fetchNotes,
   identifyCase,
   openEncounter,
@@ -218,6 +219,23 @@ export function useMlc(caseId: string, enabled: boolean) {
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
+  });
+}
+
+/**
+ * Every revision of the record, read when the history opens and never kept: each read is audited,
+ * so a second opening reads (and is logged) again.
+ */
+export function useMlcHistory(caseId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: emergencyKeys.detail(tenantId ?? '', `${caseId}:medico-legal-history`),
+    queryFn: ({ signal }) => fetchMlcHistory(caseId, signal),
+    enabled: tenantId !== undefined,
+    retry: false,
+    refetchOnWindowFocus: false,
+    gcTime: 0,
+    staleTime: 0,
   });
 }
 

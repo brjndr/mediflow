@@ -12,6 +12,7 @@ import {
   EmergencyCasePage,
   EmergencyDisposition,
   EmergencyMlc,
+  EmergencyMlcHistory,
   EmergencyMlcSave,
   EmergencyNote,
   EmergencyNoteCreate,
@@ -724,6 +725,41 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!record) throw new HttpError(404, 'not_medico_legal', 'The case is not medico-legal');
       request.audit('read', 'er_medico_legal', row.id);
       return mlcView(record);
+    },
+  );
+
+  app.get(
+    '/emergency/cases/:caseId/medico-legal/revisions',
+    {
+      config: { permissions: ['medicoLegal:read'], feature: FEATURE },
+      schema: {
+        operationId: 'listEmergencyMedicoLegalRevisions',
+        tags: ['emergency'],
+        description:
+          'Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>`). Requires medicoLegal:read.',
+        params: EmergencyParams,
+        response: { 200: ref(EmergencyMlcHistory), ...errors(400, 401, 403, 404, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      const row = await findCase(client, request.params.caseId);
+      if (!row) throw caseGone();
+      const { rows } = await client.query<MlcRow>(
+        `select m.case_id, m.revision, m.category, m.narrative, m.brought_by, m.police_informed,
+                m.police_station, m.police_reference, coalesce(u.name, '') as recorded_by_name,
+                m.recorded_at
+           from er_medico_legal m left join users u on u.id = m.recorded_by
+          where m.case_id = $1 order by m.revision desc`,
+        [row.id],
+      );
+      if (rows.length === 0) {
+        throw new HttpError(404, 'not_medico_legal', 'The case is not medico-legal');
+      }
+      for (const one of rows) {
+        request.audit('read', 'er_medico_legal', row.id, `revision:${one.revision}`);
+      }
+      return { items: rows.map(mlcView) };
     },
   );
 

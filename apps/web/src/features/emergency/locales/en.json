@@ -231,6 +231,15 @@
     "saving": "Saving...",
     "flagged": "{{id}} is marked medico-legal.",
     "revised": "The medico-legal record of {{id}} was revised.",
+    "historyButton": "History",
+    "historyTitle": "Revisions of {{id}}",
+    "historyDescription": "Every revision is kept as it was written. Opening this list is logged.",
+    "historyFirst": "First record",
+    "historyNoChange": "No field changed.",
+    "historyChanged": "{{field}}: {{from}} to {{to}}",
+    "historyNone": "none",
+    "historyYes": "yes",
+    "historyNo": "no",
     "history": "Every revision is kept; nothing is overwritten. Every view of this record is logged."
   }
 }

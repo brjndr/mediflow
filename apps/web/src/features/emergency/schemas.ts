@@ -152,6 +152,8 @@ export const mlcSchema: z.ZodType<EmergencyMlc> = z.object({
   recordedAt: z.string(),
 });
 
+export const mlcHistorySchema = z.object({ items: z.array(mlcSchema) });
+
 export const mlcFormSchema = z
   .object({
     category: z.enum(MLC_CATEGORIES),

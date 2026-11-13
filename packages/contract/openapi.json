@@ -13333,6 +13333,20 @@
           }
         }
       },
+      "EmergencyMlcHistory": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "description": "Every revision of the record, newest first. Read only.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmergencyMlc"
+            }
+          }
+        }
+      },
       "EmergencyMlcSave": {
         "additionalProperties": false,
         "type": "object",
@@ -54960,6 +54974,86 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emergency/cases/{caseId}/medico-legal/revisions": {
+      "get": {
+        "operationId": "listEmergencyMedicoLegalRevisions",
+        "tags": ["emergency"],
+        "description": "Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>`). Requires medicoLegal:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "caseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyMlcHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

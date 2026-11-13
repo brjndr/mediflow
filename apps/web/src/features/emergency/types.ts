@@ -10,6 +10,7 @@ export type EmergencyNote = components['schemas']['EmergencyNote'];
 export type EmergencyNotePage = components['schemas']['EmergencyNotePage'];
 export type EmergencyNoteKind = components['schemas']['EmergencyNoteKind'];
 export type EmergencyMlc = components['schemas']['EmergencyMlc'];
+export type EmergencyMlcHistory = components['schemas']['EmergencyMlcHistory'];
 export type EmergencyMlcSave = components['schemas']['EmergencyMlcSave'];
 export type MlcCategory = components['schemas']['EmergencyMlcCategory'];
 export type EmergencyDisposition = components['schemas']['EmergencyDisposition'];

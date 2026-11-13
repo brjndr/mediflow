@@ -154,3 +154,44 @@ describe('restricted access', () => {
     );
   });
 });
+
+describe('revision history', () => {
+  it('lists the revisions with what each changed, and reads only', async () => {
+    await open();
+    const dialog = await fillAndFlag();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await screen.findByText('Hit by a truck, head injury');
+    await userEvent.click(screen.getByRole('button', { name: 'Revise' }));
+    const again = await screen.findByRole('dialog');
+    await userEvent.selectOptions(
+      within(again).getByRole('combobox', { name: /Category/ }),
+      'assault',
+    );
+    await userEvent.click(within(again).getByRole('button', { name: 'Save' }));
+    await screen.findByText(/revision 2/);
+
+    await userEvent.click(screen.getByRole('button', { name: 'History' }));
+    const history = await screen.findByRole('dialog', { name: /Revisions of ER-0002/ });
+    const items = (await within(history).findAllByRole('listitem')).filter(
+      (one) => one.parentElement?.tagName === 'OL',
+    );
+    expect(items[0]).toHaveTextContent('Category: Road accident to Assault');
+    expect(items[0]).toHaveTextContent('revision 2');
+    expect(items[1]).toHaveTextContent('First record');
+    expect(items[1]).toHaveTextContent('Hit by a truck, head injury');
+    expect(within(history).queryByRole('button', { name: 'Revise' })).not.toBeInTheDocument();
+    await expectNoAxeViolations();
+  }, 30_000);
+
+  it('offers no history without medicoLegal:read', async () => {
+    await open();
+    const dialog = await fillAndFlag();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await screen.findByText('Hit by a truck, head injury');
+    cleanup();
+    revokePermission(TENANT_IDS.hospital, 'admin', 'medicoLegal:read');
+    renderApp({ entry: '/emergency/er_2' });
+    await screen.findByText(/The details are restricted/);
+    expect(screen.queryByRole('button', { name: 'History' })).not.toBeInTheDocument();
+  }, 30_000);
+});

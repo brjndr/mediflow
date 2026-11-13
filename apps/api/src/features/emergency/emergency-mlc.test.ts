@@ -313,3 +313,39 @@ describe('the register of medico-legal cases (#676)', () => {
     expect(page.total).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('revision history (#647)', () => {
+  const history = (caseId: string, options: Options = {}) =>
+    get(`/emergency/cases/${caseId}/medico-legal/revisions`, options);
+
+  it('lists every revision newest first and audits each one read', async () => {
+    const row = await arrive();
+    await save(row.id, { narrative: 'First account of the injury.' });
+    await save(row.id, { revision: 1, narrative: 'Corrected account of the injury.' });
+    const response = await history(row.id, { user: doctor });
+    expect(response.statusCode).toBe(200);
+    const items = response.json<{ items: Mlc[] }>().items;
+    expect(items.map((one) => one.revision)).toEqual([2, 1]);
+    expect(items[1]?.narrative).toBe('First account of the injury.');
+    const { rows } = await pool.query<{ detail: string; actor_id: string }>(
+      "select detail, actor_id from audit_log where tenant_id = $1 and action = 'read' and entity = 'er_medico_legal' and entity_id = $2 and detail is not null order by detail",
+      [hospital.id, row.id],
+    );
+    expect(rows.map((one) => one.detail)).toEqual(['revision:1', 'revision:2']);
+    expect(rows.every((one) => one.actor_id === doctor.id)).toBe(true);
+  });
+
+  it('refuses a nurse, and a case that is not flagged', async () => {
+    const row = await arrive();
+    expect(errorOf(await history(row.id))).toEqual([404, 'not_medico_legal']);
+    await save(row.id, {});
+    expect((await history(row.id, { user: nurse })).statusCode).toBe(403);
+  });
+
+  it('does not show the history to another hospital', async () => {
+    const row = await arrive();
+    await save(row.id, {});
+    const response = await history(row.id, { tenant: clinic, user: clinicAdmin });
+    expect(response.statusCode).toBe(404);
+  });
+});

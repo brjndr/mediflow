@@ -17,7 +17,7 @@ import {
   useZodForm,
 } from '@/shared/ui/form';
 import { Letterhead, useFormatters } from '@/tenancy';
-import { useMlc, useMlcPrinting, useSaveMlc } from '../hooks/use-emergency';
+import { useMlc, useMlcHistory, useMlcPrinting, useSaveMlc } from '../hooks/use-emergency';
 import { MLC_CATEGORIES, mlcFormSchema, type MlcFormValues } from '../schemas';
 import type { EmergencyCase, EmergencyMlc } from '../types';
 import { failureText } from './failure';
@@ -50,6 +50,7 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
   const printing = useMlcPrinting(row.id);
   const record = useMlc(row.id, row.medicoLegal && canRead);
   const [editing, setEditing] = useState(false);
+  const [history, setHistory] = useState(false);
   const [message, setMessage] = useState('');
   const status = useRef<HTMLParagraphElement>(null);
 
@@ -119,6 +120,9 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
                 {t('mlc.revise')}
               </Button>
             )}
+            <Button variant="outline" onClick={() => setHistory(true)}>
+              {t('mlc.historyButton')}
+            </Button>
             <Button
               variant="outline"
               aria-disabled={printing.busy || undefined}
@@ -139,6 +143,16 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
             </PrintSheet>
           )}
         </>
+      )}
+
+      {history && (
+        <MlcHistoryDialog
+          row={row}
+          onClose={() => {
+            setHistory(false);
+            setTimeout(() => focusIfLost(status.current), 0);
+          }}
+        />
       )}
 
       {editing && (
@@ -201,6 +215,103 @@ function MlcDocument({ row, record }: { row: EmergencyCase; record: EmergencyMlc
         })}
       </p>
     </>
+  );
+}
+
+const TRACKED = [
+  'category',
+  'narrative',
+  'broughtBy',
+  'policeInformed',
+  'policeStation',
+  'policeReference',
+] as const;
+type Tracked = (typeof TRACKED)[number];
+const FIELD_LABELS: Record<Tracked, string> = {
+  category: 'mlc.category',
+  narrative: 'mlc.narrative',
+  broughtBy: 'mlc.broughtBy',
+  policeInformed: 'mlc.policeInformed',
+  policeStation: 'mlc.policeStation',
+  policeReference: 'mlc.reference',
+};
+
+/** Every revision, newest first, each with what it changed from the one before. Read only. */
+function MlcHistoryDialog({ row, onClose }: { row: EmergencyCase; onClose: () => void }) {
+  const { t } = useTranslation('emergency');
+  const { t: tCommon } = useTranslation();
+  const format = useFormatters();
+  const revisions = useMlcHistory(row.id);
+
+  const show = (field: Tracked, record: EmergencyMlc | undefined): string => {
+    const value = record?.[field];
+    if (value === undefined || value === '') return t('mlc.historyNone');
+    if (typeof value === 'boolean') return t(value ? 'mlc.historyYes' : 'mlc.historyNo');
+    return field === 'category' ? t(`mlc.categories.${value}`) : value;
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => !next && onClose()}
+      title={t('mlc.historyTitle', { id: row.tempId })}
+      description={t('mlc.historyDescription')}
+      closeLabel={t('close')}
+      footer={
+        <Button variant="outline" onClick={onClose}>
+          {t('close')}
+        </Button>
+      }
+    >
+      {revisions.isError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {tCommon(errorMessageKey(revisions.error))}
+        </p>
+      ) : revisions.isPending ? (
+        <p className="text-sm text-muted-foreground">{tCommon('app.loading')}</p>
+      ) : (
+        <ol className="flex flex-col gap-4">
+          {revisions.data.map((record, index) => {
+            const before = revisions.data[index + 1];
+            const changes = TRACKED.filter((field) => show(field, record) !== show(field, before));
+            return (
+              <li
+                key={record.revision}
+                className="flex flex-col gap-1 rounded-md border p-3 text-sm"
+              >
+                <h3 className="font-semibold">
+                  {t('mlc.recordedBy', {
+                    name: record.recordedByName,
+                    at: format.dateTime(record.recordedAt),
+                    revision: record.revision,
+                  })}
+                </h3>
+                {before === undefined ? (
+                  <>
+                    <p>{t('mlc.historyFirst')}</p>
+                    <p className="whitespace-pre-wrap break-words">{record.narrative}</p>
+                  </>
+                ) : changes.length === 0 ? (
+                  <p>{t('mlc.historyNoChange')}</p>
+                ) : (
+                  <ul className="list-disc pl-5">
+                    {changes.map((field) => (
+                      <li key={field} className="whitespace-pre-wrap break-words">
+                        {t('mlc.historyChanged', {
+                          field: t(FIELD_LABELS[field]),
+                          from: show(field, before),
+                          to: show(field, record),
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Dialog>
   );
 }
 
