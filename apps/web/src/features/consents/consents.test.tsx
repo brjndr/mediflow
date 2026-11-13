@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, TENANT_IDS } from '@/mocks/db';
 import { mockConsentAudit } from '@/mocks/handlers/consents';
 import { expectNoAxeViolations } from '@/test/axe';
@@ -166,5 +166,35 @@ describe('who sees what', () => {
     renderApp({ entry: '/patients/pth_00001' });
     await screen.findByRole('heading', { level: 1 });
     expect(screen.queryByRole('tab', { name: 'Consents and certificates' })).toBeNull();
+  });
+});
+
+describe('printing a signed record (#568)', () => {
+  it('prints a consent with its text and signer, and a certificate with its fields', async () => {
+    const print = vi.fn();
+    vi.stubGlobal('print', print);
+    try {
+      const { consents, certificates } = await openTab();
+      await within(consents).findByText('Appendectomy');
+      await userEvent.click(within(consents).getByRole('button', { name: /^View/ }));
+      await screen.findByText(/consent to Appendectomy at Sample Hospital/);
+      await userEvent.click(await screen.findByRole('button', { name: 'Print' }));
+      await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+      const sheet = document.querySelector<HTMLElement>('[data-print-sheet]')!;
+      expect(
+        within(sheet).getByRole('heading', { name: 'Consent for Appendectomy' }),
+      ).toBeInTheDocument();
+      expect(sheet).toHaveTextContent('Asha Verma');
+      expect(sheet).toHaveTextContent('Signed by typing the name Asha Verma.');
+      window.dispatchEvent(new Event('afterprint'));
+      await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
+
+      await userEvent.click(within(certificates).getAllByRole('button', { name: /^View/ })[0]!);
+      await userEvent.click(await screen.findByRole('button', { name: 'Print' }));
+      await waitFor(() => expect(print).toHaveBeenCalledTimes(2));
+      expect(document.querySelector('[data-print-sheet]')).toHaveTextContent('MED-2026-0001');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
