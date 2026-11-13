@@ -15,7 +15,9 @@ const HOUR = 3_600_000;
 interface StoredShift extends Shift {
   tenantId: string;
 }
+type Template = components['schemas']['ShiftTemplate'];
 interface State {
+  templates: Template[];
   shifts: StoredShift[];
   leaves: Leave[];
   created: number;
@@ -82,7 +84,19 @@ function seed(): State {
   };
   ask(3, 72, 120, 'requested');
   ask(4, -10, 272, 'approved');
-  return { shifts, leaves, created: 0, replies: new Map() };
+  const templates: Template[] = [
+    {
+      id: 'tpl_1',
+      tenantId: H,
+      name: 'Early ward round',
+      shiftKind: 'morning',
+      startTime: '06:30',
+      endTime: '14:30',
+      active: true,
+      version: 1,
+    },
+  ];
+  return { templates, shifts, leaves, created: 0, replies: new Map() };
 }
 
 let state: State | undefined;
@@ -205,6 +219,226 @@ export const rosterHandlers = [
     found.version += 1;
     return HttpResponse.json(found);
   }),
+  http.get('*/api/roster/templates', ({ request }) => {
+    const access = authorize(request, { permission: 'roster:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const all = new URL(request.url).searchParams.get('includeInactive') === 'true';
+    const items = current().templates.filter(
+      (one) => one.tenantId === access.tenantId && (all || one.active),
+    );
+    return HttpResponse.json({ items, nextCursor: null });
+  }),
+
+  http.post('*/api/roster/templates', async ({ request }) => {
+    const access = authorize(request, { permission: 'roster:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    if (!request.headers.get('Idempotency-Key')) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body = (await request.json()) as components['schemas']['ShiftTemplateCreate'];
+    if (body.startTime === body.endTime) return error(422, 'invalid_period', 'A shift has hours');
+    const department = body.departmentId
+      ? mockDepartment(access.tenantId, body.departmentId)
+      : undefined;
+    if (body.departmentId && !department) {
+      return error(422, 'unknown_department', 'No such department');
+    }
+    const s = current();
+    if (
+      s.templates.some(
+        (one) =>
+          one.tenantId === access.tenantId &&
+          one.active &&
+          one.name.toLowerCase() === body.name.trim().toLowerCase(),
+      )
+    ) {
+      return error(409, 'template_exists', 'A template has that name');
+    }
+    s.created += 1;
+    const made: Template = {
+      id: `tpl_new_${s.created}`,
+      tenantId: access.tenantId,
+      name: body.name.trim(),
+      shiftKind: body.shiftKind,
+      startTime: body.startTime,
+      endTime: body.endTime,
+      ...(department ? { departmentId: department.id, departmentName: department.name } : {}),
+      active: true,
+      version: 1,
+    };
+    s.templates.push(made);
+    return HttpResponse.json(made, { status: 201 });
+  }),
+
+  http.post('*/api/roster/templates/:templateId/retire', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'roster:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body = (await request.json()) as { version: number };
+    const found = current().templates.find(
+      (one) => one.id === params.templateId && one.tenantId === access.tenantId,
+    );
+    if (!found) return error(404, 'template_not_found', 'No such template');
+    if (found.version !== body.version) return error(409, 'conflict', 'The template has changed');
+    if (!found.active) return error(409, 'invalid_transition', 'The template is already retired');
+    found.active = false;
+    found.version += 1;
+    return HttpResponse.json(found);
+  }),
+
+  http.post('*/api/roster/copy-week', async ({ request }) => {
+    const access = authorize(request, { permission: 'roster:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    if (!request.headers.get('Idempotency-Key')) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body = (await request.json()) as components['schemas']['CopyWeekBody'];
+    const from = Date.parse(body.fromStart);
+    const delta = Date.parse(body.toStart) - from;
+    const weeks = body.weeks ?? 1;
+    const week = 7 * 24 * HOUR;
+    if (!Number.isFinite(delta) || delta % (24 * HOUR) !== 0 || Math.abs(delta) < week) {
+      return error(422, 'invalid_period', 'The weeks are a whole number of days apart');
+    }
+    const s = current();
+    const sources = s.shifts.filter(
+      (one) =>
+        one.tenantId === access.tenantId &&
+        one.status === 'scheduled' &&
+        Date.parse(one.startsAt) >= from &&
+        Date.parse(one.startsAt) < from + week &&
+        (!body.departmentId || one.departmentId === body.departmentId),
+    );
+    if (sources.length > 300 || sources.length * weeks > 1000) {
+      return error(422, 'too_many_shifts', 'Too many shifts to copy at once');
+    }
+    let copied = 0;
+    const skipped: components['schemas']['CopyWeekResult']['skipped'] = [];
+    for (let k = 0; k < weeks; k += 1) {
+      for (const source of sources) {
+        const offset = delta + k * week;
+        const start = Date.parse(source.startsAt) + offset;
+        const end = Date.parse(source.endsAt) + offset;
+        const busy = (list: { userId: string; startsAt: string; endsAt: string }[]) =>
+          list.some(
+            (one) =>
+              one.userId === source.userId &&
+              Date.parse(one.startsAt) < end &&
+              Date.parse(one.endsAt) > start,
+          );
+        const reason = busy(
+          s.leaves.filter((one) => one.tenantId === access.tenantId && one.status === 'approved'),
+        )
+          ? 'on_leave'
+          : busy(
+                s.shifts.filter(
+                  (one) => one.tenantId === access.tenantId && one.status === 'scheduled',
+                ),
+              )
+            ? 'shift_overlap'
+            : undefined;
+        if (reason) {
+          skipped.push({
+            shiftId: source.id,
+            userName: source.userName,
+            startsAt: new Date(start).toISOString(),
+            reason,
+          });
+          continue;
+        }
+        s.created += 1;
+        s.shifts.push({
+          ...source,
+          id: `shift_new_${s.created}`,
+          startsAt: new Date(start).toISOString(),
+          endsAt: new Date(end).toISOString(),
+          version: 1,
+        });
+        copied += 1;
+      }
+    }
+    return HttpResponse.json({ copied, skipped });
+  }),
+
+  http.post('*/api/roster/shifts/:shiftId/swap', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'roster:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    if (!request.headers.get('Idempotency-Key')) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body = (await request.json()) as components['schemas']['ShiftSwapBody'];
+    const s = current();
+    const own = (id: string | undefined) =>
+      s.shifts.find((one) => one.id === id && one.tenantId === access.tenantId);
+    const found = own(params.shiftId as string);
+    if (!found) return error(404, 'shift_not_found', 'No such shift');
+    if (found.version !== body.version) return error(409, 'conflict', 'The shift has changed');
+    if (found.status !== 'scheduled') return error(409, 'invalid_transition', 'Cancelled');
+    if ((body.userId === undefined) === (body.withShiftId === undefined)) {
+      return error(422, 'invalid_swap', 'Name a person, or a shift to exchange with');
+    }
+    const other = body.withShiftId === undefined ? undefined : own(body.withShiftId);
+    if (body.withShiftId !== undefined) {
+      if (!other || other.id === found.id) return error(404, 'shift_not_found', 'No such shift');
+      if (other.version !== body.withVersion) return error(409, 'conflict', 'Shift changed');
+      if (other.status !== 'scheduled') return error(409, 'invalid_transition', 'Cancelled');
+      if (other.userId === found.userId) return error(422, 'invalid_swap', 'One person');
+    }
+    const person = mockStaffOf(access.tenantId).find(
+      (one) => one.userId === (other ? other.userId : body.userId),
+    );
+    if (!person) return error(422, 'unknown_user', 'No such member');
+    if (!other && person.userId === found.userId) {
+      return error(422, 'invalid_swap', 'The shift is already theirs');
+    }
+    const pairs: [StoredShift, { userId: string; userName: string }][] = other
+      ? [
+          [found, other],
+          [other, { userId: found.userId, userName: found.userName }],
+        ]
+      : [[found, { userId: person.userId, userName: person.name }]];
+    const leaving = new Set(other ? [found.id, other.id] : [found.id]);
+    for (const [source, to] of pairs) {
+      const start = Date.parse(source.startsAt);
+      const end = Date.parse(source.endsAt);
+      const clash = s.shifts.some(
+        (one) =>
+          one.tenantId === access.tenantId &&
+          one.userId === to.userId &&
+          one.status === 'scheduled' &&
+          !leaving.has(one.id) &&
+          Date.parse(one.startsAt) < end &&
+          Date.parse(one.endsAt) > start,
+      );
+      if (clash) return error(409, 'shift_overlap', 'The person is already on duty then');
+      const away = s.leaves.some(
+        (one) =>
+          one.tenantId === access.tenantId &&
+          one.userId === to.userId &&
+          one.status === 'approved' &&
+          Date.parse(one.startsAt) < end &&
+          Date.parse(one.endsAt) > start,
+      );
+      if (away) return error(409, 'on_leave', 'The person is on approved leave then');
+    }
+    const created: StoredShift[] = [];
+    for (const [source, to] of pairs) {
+      source.status = 'cancelled';
+      source.version += 1;
+      s.created += 1;
+      const made: StoredShift = {
+        ...source,
+        id: `shift_new_${s.created}`,
+        userId: to.userId,
+        userName: to.userName,
+        status: 'scheduled',
+        version: 1,
+      };
+      created.push(made);
+    }
+    s.shifts.push(...created);
+    return HttpResponse.json({ created });
+  }),
+
   http.get('*/api/roster/leaves', ({ request }) => {
     const access = authorize(request, { permission: 'roster:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;

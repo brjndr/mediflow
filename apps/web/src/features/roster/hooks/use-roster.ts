@@ -13,7 +13,12 @@ import { dayBoundsUtc } from '@/shared/utils/timezone';
 import { useTenant } from '@/tenancy';
 import {
   cancelShift,
+  copyWeek,
   createShift,
+  createTemplate,
+  fetchTemplates,
+  retireTemplate,
+  swapShift,
   fetchLeaves,
   fetchShifts,
   moveLeave,
@@ -22,7 +27,7 @@ import {
   type ShiftFilters,
 } from '../api';
 import { ROSTER_PAGE_SIZE } from '../schemas';
-import type { RosterShiftCreate } from '../types';
+import type { CopyWeekBody, RosterShiftCreate, ShiftSwapBody, ShiftTemplateCreate } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's roster never shows in another. */
 export const rosterKeys = createTenantKeys('roster');
@@ -262,3 +267,48 @@ export function useMoveLeave() {
     },
   });
 }
+
+/** The hospital's live shift templates (one page of 100; a hospital keeps a handful). */
+export function useShiftTemplates() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: rosterKeys.list(tenantId ?? '', { as: 'templates' }),
+    queryFn: async ({ signal }) =>
+      (await fetchTemplates({ limit: ROSTER_PAGE_SIZE }, signal)).items,
+    enabled: tenantId !== undefined,
+    staleTime: 30_000,
+  });
+}
+
+/** A write that refreshes the roster either way, with one key for one identical request. */
+function useRosterWrite<Input, Output>(run: (input: Input, key: string) => Promise<Output>) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const attempt = useAttempt();
+  return useMutation({
+    mutationFn: async (input: Input) => {
+      const done = await run(input, attempt.keyFor(input));
+      attempt.done();
+      return done;
+    },
+    onSettled: () => {
+      const tenantId = stillHere();
+      if (tenantId) void queryClient.invalidateQueries({ queryKey: rosterKeys.all(tenantId) });
+    },
+  });
+}
+
+export const useCreateTemplate = () =>
+  useRosterWrite((body: ShiftTemplateCreate, key) => createTemplate(body, key));
+
+export const useRetireTemplate = () =>
+  useRosterWrite(({ templateId, version }: { templateId: string; version: number }, key) =>
+    retireTemplate(templateId, version, key),
+  );
+
+export const useCopyWeek = () => useRosterWrite((body: CopyWeekBody, key) => copyWeek(body, key));
+
+export const useSwapShift = () =>
+  useRosterWrite(({ shiftId, body }: { shiftId: string; body: ShiftSwapBody }, key) =>
+    swapShift(shiftId, body, key),
+  );

@@ -16,7 +16,7 @@ import { isCode, iso, userIdOf, uuidOr404 } from './util.js';
 
 const FEATURE = 'roster';
 
-interface ShiftRow {
+export interface ShiftRow {
   id: string;
   tenant_id: string;
   user_id: string;
@@ -30,13 +30,13 @@ interface ShiftRow {
   version: number;
 }
 
-const SELECT = `select x.id, x.tenant_id, x.user_id, u.name as user_name, x.department_id,
+export const SHIFT_SELECT = `select x.id, x.tenant_id, x.user_id, u.name as user_name, x.department_id,
        d.name as department_name, x.shift_kind, x.starts_at, x.ends_at, x.status, x.version
   from roster_shifts x
   join users u on u.id = x.user_id
   left join departments d on d.tenant_id = x.tenant_id and d.id = x.department_id`;
 
-const view = (row: ShiftRow): RosterShift => ({
+export const shiftView = (row: ShiftRow): RosterShift => ({
   id: row.id,
   tenantId: row.tenant_id,
   userId: row.user_id,
@@ -53,7 +53,9 @@ const view = (row: ShiftRow): RosterShift => ({
 
 export const rosterRoutes: FastifyPluginAsyncTypebox = async (app) => {
   const find = async (request: { txClient: pg.ClientBase }, id: string) => {
-    const { rows } = await request.txClient.query<ShiftRow>(`${SELECT} where x.id = $1`, [id]);
+    const { rows } = await request.txClient.query<ShiftRow>(`${SHIFT_SELECT} where x.id = $1`, [
+      id,
+    ]);
     return rows[0] ?? null;
   };
 
@@ -84,14 +86,14 @@ export const rosterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (q.userId) add('x.user_id::text = ?', q.userId);
       if (q.departmentId) add('x.department_id::text = ?', q.departmentId);
       const page = await selectPage<ShiftRow>(request.txClient, {
-        select: SELECT,
+        select: SHIFT_SELECT,
         where,
         params,
         order: 'x.starts_at',
         cursor: q.cursor,
         limit: q.limit ?? DEFAULT_PAGE_SIZE,
       });
-      return { items: page.rows.map(view), nextCursor: page.nextCursor };
+      return { items: page.rows.map(shiftView), nextCursor: page.nextCursor };
     },
   );
 
@@ -160,7 +162,7 @@ export const rosterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         endsAt: end.toISOString(),
       });
       const row = await find(request, id);
-      return reply.status(201).send(view(row as ShiftRow));
+      return reply.status(201).send(shiftView(row as ShiftRow));
     },
   );
 
@@ -198,7 +200,7 @@ export const rosterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       ]);
       request.audit('update', 'roster_shift', id);
       await request.emit('roster.shift_cancelled', id, { userId: row.user_id });
-      return view((await find(request, id)) as ShiftRow);
+      return shiftView((await find(request, id)) as ShiftRow);
     },
   );
 };

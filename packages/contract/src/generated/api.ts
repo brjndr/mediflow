@@ -3944,6 +3944,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/roster/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s shift templates, oldest first; retired ones are left out unless `includeInactive`. Requires roster:read. */
+        get: operations["listShiftTemplates"];
+        put?: never;
+        /** @description Keeps a named shift template: the kind, the hours on the hospital’s clock (an end at or before the start runs into the next day) and an optional department. Two live templates cannot share a name (409 `template_exists`); the hours differ (422 `invalid_period`); 422 `unknown_department`. Audited. Requires roster:manage. */
+        post: operations["createShiftTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roster/templates/{templateId}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Retires a template, once; shifts already made from it stay. The `version` is the template’s, or 409 `conflict`; one already retired is 409 `invalid_transition`. Audited. Requires roster:manage. */
+        post: operations["retireShiftTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roster/copy-week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Copies the scheduled shifts that start in the seven days from `fromStart` into `weeks` (1 to 12) consecutive weeks from `toStart`, each shifted by whole days, the same people, kinds and departments. A shift whose person is already on duty then or on approved leave is skipped and listed, the rest are made. `toStart` is a whole number of days from `fromStart` and no copied week overlaps the source week (422 `invalid_period`); a week of more than 300 shifts or a copy of more than 1000 is 422 `too_many_shifts`. The Idempotency-Key header is required. Audited; each shift emits `roster.shift_scheduled`. Requires roster:manage. */
+        post: operations["copyRosterWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roster/shifts/{shiftId}/swap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Hands a scheduled shift to another member (`userId`), or exchanges it with another person’s scheduled shift (`withShiftId` and its `withVersion`). The old shift is cancelled and a new one is scheduled for the new person, pointing at it; all or nothing. Give `userId` or `withShiftId`, not both and not neither (422 `invalid_swap`), and not the same person (422 `invalid_swap`). 409 `conflict` for a stale version, 409 `invalid_transition` for a shift that is cancelled, 409 `shift_overlap` and `on_leave` when the new person cannot take it, 422 `unknown_user`. Audited; emits `roster.shift_cancelled` and `roster.shift_scheduled`. Requires roster:manage. */
+        post: operations["swapRosterShift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/roster/leaves": {
         parameters: {
             query?: never;
@@ -10069,6 +10138,83 @@ export interface components {
              * @description After the start, and at most 24 hours later.
              */
             endsAt: string;
+        };
+        ShiftTemplate: {
+            id: string;
+            tenantId: string;
+            name: string;
+            shiftKind: components["schemas"]["ShiftKind"];
+            /** @description HH:MM. */
+            startTime: string;
+            /** @description HH:MM. */
+            endTime: string;
+            departmentId?: string;
+            departmentName?: string;
+            active: boolean;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ShiftTemplatePage: {
+            items: components["schemas"]["ShiftTemplate"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ShiftTemplateCreate: {
+            name: string;
+            shiftKind: components["schemas"]["ShiftKind"];
+            /** @description HH:MM. */
+            startTime: string;
+            /** @description HH:MM, on the hospital’s clock. At or before the start means the next day. */
+            endTime: string;
+            departmentId?: string;
+        };
+        CopyWeekBody: {
+            /**
+             * Format: date-time
+             * @description The first instant of the week to copy; seven days from here are read.
+             */
+            fromStart: string;
+            /**
+             * Format: date-time
+             * @description The first instant of the first week to fill. A whole number of days from `fromStart`, not the same week.
+             */
+            toStart: string;
+            /**
+             * @description How many weeks in a row to fill, each a copy of the source week.
+             * @default 1
+             */
+            weeks: number;
+            departmentId?: string;
+        };
+        /**
+         * @description Why a shift was not copied: the person is already on duty then, or on approved leave.
+         * @enum {string}
+         */
+        CopyWeekSkipReason: "shift_overlap" | "on_leave";
+        CopyWeekResult: {
+            copied: number;
+            skipped: {
+                /** @description The source shift that was not copied. */
+                shiftId: string;
+                userName: string;
+                /** Format: date-time */
+                startsAt: string;
+                reason: components["schemas"]["CopyWeekSkipReason"];
+            }[];
+        };
+        ShiftSwapBody: {
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            version: number;
+            /** @description Hand the shift to this person. Give this or `withShiftId`. */
+            userId?: string;
+            /** @description Exchange with this scheduled shift of someone else: each takes the other’s. */
+            withShiftId?: string;
+            /** @description The version the change was made from. Another one gives 409 `conflict`. */
+            withVersion?: number;
+        };
+        ShiftSwapResult: {
+            /** @description The new shifts, one for a hand-over and two for an exchange. */
+            created: components["schemas"]["RosterShift"][];
         };
         /**
          * @description requested -> approved | rejected | cancelled; approved -> cancelled.
@@ -33986,6 +34132,431 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listShiftTemplates: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftTemplatePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createShiftTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    shiftKind: components["schemas"]["ShiftKind"];
+                    /** @description HH:MM. */
+                    startTime: string;
+                    /** @description HH:MM, on the hospital’s clock. At or before the start means the next day. */
+                    endTime: string;
+                    departmentId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftTemplate"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    retireShiftTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftTemplate"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    copyRosterWeek: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: date-time
+                     * @description The first instant of the week to copy; seven days from here are read.
+                     */
+                    fromStart: string;
+                    /**
+                     * Format: date-time
+                     * @description The first instant of the first week to fill. A whole number of days from `fromStart`, not the same week.
+                     */
+                    toStart: string;
+                    /**
+                     * @description How many weeks in a row to fill, each a copy of the source week.
+                     * @default 1
+                     */
+                    weeks?: number;
+                    departmentId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyWeekResult"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    swapRosterShift: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                shiftId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    version: number;
+                    /** @description Hand the shift to this person. Give this or `withShiftId`. */
+                    userId?: string;
+                    /** @description Exchange with this scheduled shift of someone else: each takes the other’s. */
+                    withShiftId?: string;
+                    /** @description The version the change was made from. Another one gives 409 `conflict`. */
+                    withVersion?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShiftSwapResult"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
