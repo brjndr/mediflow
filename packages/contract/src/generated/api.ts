@@ -6088,6 +6088,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admissions/{admissionId}/bill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The running bill of an inpatient stay (DS-03, #166): the charge ledger of the stay's encounter added up by source, with the bed days accrued so far (a line with `accruing: true` that is not yet a ledger charge), the deposits taken, what was paid on invoices of the stay and the estimate set at admission. `chargesMinor` is the sum of the lines (void charges left out); `balanceMinor` is charges less deposits and payments (negative: the patient is in credit). Needs charge:read, admission:read and the billing feature flag. Audited. */
+        get: operations["getRunningBill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/bill-estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Sets or replaces the estimate of what the stay will cost, in minor units, with an optional note. The running bill then shows actual against estimate. Needs invoice:create and the billing feature flag. Audited. */
+        put: operations["setBillEstimate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admissions/{admissionId}/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The deposits taken against a stay, newest first. Needs payment:read and the billing feature flag. */
+        get: operations["listDeposits"];
+        put?: never;
+        /** @description Takes a deposit against a stay (cash goes into the caller's open register session as a payment does). A deposit is never edited or removed; it is set against the final invoice. A discharged stay is 409 `stay_closed`. Needs payment:create and the billing feature flag. Audited. */
+        post: operations["takeDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11690,6 +11742,58 @@ export interface components {
         };
         PreAuthCancel: {
             version: number;
+        };
+        RunningBillLine: {
+            /** @enum {string} */
+            source: "service" | "order" | "dispense" | "bed" | "procedure" | "manual";
+            /** @description Charges in the line; for bed days, the days. */
+            count: number;
+            totalMinor: number;
+            /** @description True for bed days accrued to date that are not a ledger charge yet. */
+            accruing?: boolean;
+        };
+        RunningBill: {
+            admissionId: string;
+            encounterId: string;
+            /** Format: date-time */
+            asOf: string;
+            lines: components["schemas"]["RunningBillLine"][];
+            chargesMinor: number;
+            invoicedMinor: number;
+            paidMinor: number;
+            depositsMinor: number;
+            balanceMinor: number;
+            estimateMinor?: number;
+            estimateNote?: string;
+            patientName: string;
+            patientMrn: string;
+            /** @enum {string} */
+            status: "admitted" | "discharged" | "cancelled";
+        };
+        BillEstimateSet: {
+            amountMinor: number;
+            note?: string;
+        };
+        DepositCreate: {
+            amountMinor: number;
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            reference?: string;
+        };
+        Deposit: {
+            id: string;
+            tenantId: string;
+            admissionId: string;
+            amountMinor: number;
+            /** @enum {string} */
+            method: "cash" | "card" | "upi" | "bank" | "other";
+            reference?: string;
+            recordedByName: string;
+            /** Format: date-time */
+            at: string;
+        };
+        DepositList: {
+            items: components["schemas"]["Deposit"][];
         };
     };
     responses: {
@@ -43776,6 +43880,130 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getRunningBill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The running bill */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunningBill"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setBillEstimate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillEstimateSet"];
+            };
+        };
+        responses: {
+            /** @description The running bill with the estimate */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunningBill"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listDeposits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deposits */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    takeDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                admissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositCreate"];
+            };
+        };
+        responses: {
+            /** @description The deposit */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deposit"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

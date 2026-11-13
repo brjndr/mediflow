@@ -471,5 +471,63 @@
       "not_a_package": "This service is not a package.",
       "service_not_found": "This package no longer exists."
     }
+  },
+  "stay": {
+    "heading": "Running bill",
+    "back": "Back to admissions",
+    "unavailable": "This stay is not available.",
+    "asOf": "As of {{time}}.",
+    "discharged": "The patient has been discharged.",
+    "none": "Nothing has been charged to this stay yet.",
+    "totals": "Totals of the stay",
+    "charges": "Charged to date",
+    "invoiced": "Already on invoices",
+    "paid": "Paid on invoices",
+    "deposits": "Deposits taken",
+    "balance": "Balance due",
+    "credit": "In credit",
+    "bedNote": "Bed days to date are worked out from the bed history until they are posted to the charge ledger. The total is a guide until the stay is billed.",
+    "interim": "Make an interim bill",
+    "columns": {
+      "source": "For",
+      "count": "Number",
+      "total": "Amount"
+    },
+    "sources": {
+      "service": "Services",
+      "order": "Lab, imaging and orders",
+      "dispense": "Medicines",
+      "bed": "Bed days",
+      "bedAccruing": "Bed days to date",
+      "procedure": "Procedures",
+      "manual": "Typed in"
+    }
+  },
+  "deposit": {
+    "heading": "Deposits",
+    "none": "No deposit has been taken.",
+    "amount": "Deposit amount",
+    "submit": "Take deposit",
+    "saving": "Taking…",
+    "taken": "Deposit of {{amount}} taken.",
+    "columns": {
+      "at": "Date"
+    },
+    "refused": {
+      "no_open_register": "Cash goes into a cash register session, and you have none open. Open one under Cash register.",
+      "stay_closed": "The patient has been discharged, so no deposit can be taken."
+    }
+  },
+  "estimate": {
+    "heading": "Estimate and actual",
+    "none": "No estimate has been set for this stay.",
+    "on": "Estimate {{estimate}}. The charges so far are on the estimate.",
+    "over": "Estimate {{estimate}}. The charges so far are over it by {{by}}.",
+    "under": "Estimate {{estimate}}. The charges so far are under it by {{by}}.",
+    "amount": "Estimate",
+    "note": "Note",
+    "submit": "Save estimate",
+    "saving": "Saving…",
+    "saved": "Estimate saved."
   }
 }
