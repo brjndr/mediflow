@@ -73,4 +73,6 @@ export interface User {
   mfaEnabled: boolean;
   /** A platform operator: no hospital, no patient data. Steers the screens; the server checks it. */
   isPlatformAdmin: boolean;
+  /** The person's own language, or null to follow the hospital's locale. */
+  language: 'en' | 'hi' | null;
 }

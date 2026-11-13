@@ -276,6 +276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/language": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Sets the signed-in user's own language for the web app: en or hi, or null to follow the hospital's locale. Applies to every hospital the user belongs to. Returned as user.language by GET /session. */
+        put: operations["setAccountLanguage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/sessions/{sessionId}": {
         parameters: {
             query?: never;
@@ -6683,6 +6700,11 @@ export interface components {
             memberships: components["schemas"]["Membership"][];
             /** @description Whether sign-in asks for an authenticator code. */
             mfaEnabled: boolean;
+            /**
+             * @description The person's own choice of language, or null to follow the hospital's locale.
+             * @enum {null|string}
+             */
+            language: "en" | "hi" | null;
             /** @description A platform operator: has no hospital and no patient data, and uses the platform screens. Steers the screens only; every /platform route checks the flag on the server. */
             isPlatformAdmin: boolean;
         };
@@ -13729,6 +13751,58 @@ export interface operations {
             };
             /** @description Standard error body. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAccountLanguage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string|null} */
+                    language: "en" | "hi" | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The language was saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

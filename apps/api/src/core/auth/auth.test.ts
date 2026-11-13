@@ -132,6 +132,7 @@ describe('signing in', () => {
         name: 'Nurse Nila',
         memberships: [{ tenantId: hospital.id, tenantName: 'Auth Hospital', roleId: 'nurse' }],
         mfaEnabled: false,
+        language: null,
         isPlatformAdmin: false,
       },
       activeTenant: expect.objectContaining({
