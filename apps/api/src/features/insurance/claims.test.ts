@@ -10,6 +10,7 @@ import {
   createUser,
   deleteTenants,
   deleteUsers,
+  hospitalDay,
   grantRoleDefaults,
   resolveTestSession,
   type TestTenant,
@@ -179,8 +180,7 @@ async function charge(encounterId: string, patientId: string, service: string, p
 }
 
 let codes = 0;
-const dayFrom = (offset: number) =>
-  new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+const dayFrom = hospitalDay;
 
 /** A payer with a plan and a policy on the patient; returns the payer id. */
 async function cover(patientId: string, plan: object = {}, agreement?: object) {

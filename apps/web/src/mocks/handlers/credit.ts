@@ -41,8 +41,19 @@ interface State {
 }
 
 const dayOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-const daysAgo = (days: number) => dayOf(Date.now() - days * DAY_MS);
-const today = () => dayOf(Date.now());
+// "Today" is a date on the sample hospital's clock (Asia/Kolkata), as the app and the API see it.
+// In UTC it is the day before from 18:30 to midnight (#816).
+const today = () => {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+};
+const daysAgo = (days: number) => dayOf(Date.parse(today()) - days * DAY_MS);
 const addDays = (day: string, days: number) => dayOf(Date.parse(day) + days * DAY_MS);
 
 /**
