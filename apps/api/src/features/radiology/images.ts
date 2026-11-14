@@ -39,6 +39,7 @@ const FEATURE = 'radiology';
 const READ = 'imagingStudy:read';
 const PERFORM = 'imagingStudy:perform';
 export const SCAN_JOB = 'radiology.scan';
+export const UNSENT_JOB = 'radiology.unsent';
 
 export interface ScanJob {
   imageId: string;
@@ -492,4 +493,24 @@ export async function scanImage(app: FastifyInstance, job: ScanJob): Promise<voi
   if (status === 'infected') {
     app.log.warn({ event: 'imaging_image_infected', imageId: job.imageId }, 'imaging file blocked');
   }
+}
+
+/**
+ * The sweep of uploads asked for and never sent, hourly across hospitals as the worker role: a
+ * `pending` image older than an hour (its link lasts 15 minutes) is marked `failed` with the
+ * result `never_sent`, so none waits for a file that cannot arrive. A file sent in the same
+ * moment is not lost: only a row still `pending` is changed. Returns how many it closed.
+ */
+export async function closeUnsentImages(app: FastifyInstance): Promise<number> {
+  const closed = await asWorker(app, async (client) => {
+    const result = await client.query(
+      `update imaging_images set status = 'failed', scan_result = 'never_sent'
+       where status = 'pending' and created_at < now() - interval '1 hour'`,
+    );
+    return result.rowCount ?? 0;
+  });
+  if (closed > 0) {
+    app.log.info({ event: 'images_unsent_closed', count: closed }, 'unsent uploads closed');
+  }
+  return closed;
 }
