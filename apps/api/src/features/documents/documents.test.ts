@@ -465,6 +465,31 @@ describe('retention', () => {
     expect(cleared.json()).toEqual({ category: 'consent', years: null });
   });
 
+  it('counts the documents kept under an earlier rule', async () => {
+    const countOf = async (opts?: Parameters<typeof get>[1]) =>
+      (await get('/document-retention', opts))
+        .json<{ items: { category: string; otherRuleCount: number }[] }>()
+        .items.find((rule) => rule.category === 'consent')?.otherRuleCount;
+    const put = (years: number | null) =>
+      app.inject({
+        method: 'PUT',
+        url: '/document-retention/consent',
+        headers: headers(),
+        payload: { years },
+      });
+    await put(3);
+    const base = (await countOf()) ?? 0;
+    await uploaded(await patient(hospital, 'DC-0000012'), PDF, { category: 'consent' });
+    expect(await countOf()).toBe(base);
+    await put(5);
+    expect(await countOf()).toBe(base + 1);
+    await put(3);
+    expect(await countOf()).toBe(base);
+    await put(null);
+    expect(await countOf()).toBe(1);
+    expect(await countOf({ tenant: clinic, user: clinicAdmin })).toBe(0);
+  });
+
   it('dates a document from the rule at the time, and the sweep removes only what is past it', async () => {
     await app.inject({
       method: 'PUT',

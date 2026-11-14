@@ -7,7 +7,7 @@ import type {
   LegalHoldPage,
   PatientDocument,
   PatientDocumentPage,
-  RetentionRule,
+  RetentionRuleStatus,
 } from './types';
 
 export const DOCUMENT_CATEGORIES = [
@@ -102,11 +102,12 @@ export const SCAN_POLL_MS = 5000;
 
 export const RETENTION_MAX_YEARS = 100;
 
-export const retentionRulesSchema: z.ZodType<{ items: RetentionRule[] }> = z.object({
+export const retentionRulesSchema: z.ZodType<{ items: RetentionRuleStatus[] }> = z.object({
   items: z.array(
     z.object({
       category: z.enum(DOCUMENT_CATEGORIES),
       years: z.number().int().nullable(),
+      otherRuleCount: z.number().int(),
     }),
   ),
 });
