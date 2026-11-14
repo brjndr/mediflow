@@ -71,7 +71,10 @@ export const housekeepingHandlers = [
     const limit = Math.min(Number(query.get('limit') ?? 25) || 25, 100);
     const cursor = query.get('cursor');
     const all = tasks.filter(
-      (task) => task.tenantId === access.tenantId && (!status || task.status === status),
+      (task) =>
+        task.tenantId === access.tenantId &&
+        (!status || task.status === status) &&
+        (!query.get('wardId') || task.wardId === query.get('wardId')),
     );
     const start = cursor ? all.findIndex((task) => task.id === cursor) : 0;
     if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');

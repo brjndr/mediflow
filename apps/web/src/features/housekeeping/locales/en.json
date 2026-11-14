@@ -7,7 +7,9 @@
   "empty": "No tasks here.",
   "rowLabel": "Bed {{number}}, {{ward}}",
   "filters": {
-    "status": "Status"
+    "status": "Status",
+    "ward": "Ward",
+    "allWards": "All wards"
   },
   "columns": {
     "bed": "Bed",
