@@ -10283,17 +10283,11 @@ export interface components {
             category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
             /** @description Years a document of the category is kept; null keeps it for ever. */
             years: number | null;
-        };
-        DocumentRetentionRuleStatus: {
-            /** @enum {string} */
-            category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
-            /** @description Years a document of the category is kept; null keeps it for ever. */
-            years: number | null;
-            /** @description Documents of the category not yet purged whose retention date is not the one the rule would give today: kept under an earlier rule (#674). */
-            otherRuleCount: number;
+            /** @description Only in the list: documents of the category not yet purged whose retention date is not the one the rule would give today, kept under an earlier rule (#674). */
+            otherRuleCount?: number;
         };
         DocumentRetentionRules: {
-            items: components["schemas"]["DocumentRetentionRuleStatus"][];
+            items: components["schemas"]["DocumentRetentionRule"][];
         };
         DocumentRetentionRuleSet: {
             years: number | null;

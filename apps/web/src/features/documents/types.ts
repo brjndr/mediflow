@@ -12,7 +12,6 @@ export type DocumentStatus = PatientDocument['status'];
 
 /** How long a category is kept (#194, #561): `years` null keeps it for ever. */
 export type RetentionRule = Schemas['DocumentRetentionRule'];
-export type RetentionRuleStatus = Schemas['DocumentRetentionRuleStatus'];
 
 /** A legal hold (#559, #628): while active the retention sweep leaves the document(s) alone. */
 export type LegalHold = Schemas['DocumentLegalHold'];

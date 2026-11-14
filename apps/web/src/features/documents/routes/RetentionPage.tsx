@@ -11,7 +11,7 @@ import { useFormatters } from '@/tenancy';
 import { HoldsSection } from '../components/HoldsSection';
 import { useRetentionRules, useSetRetention } from '../hooks/use-retention';
 import { RETENTION_MAX_YEARS, retentionFormSchema, type RetentionValues } from '../schemas';
-import type { RetentionRuleStatus } from '../types';
+import type { RetentionRule } from '../types';
 
 /**
  * How long each category of document is kept (`/document-retention`, #561), for
@@ -25,14 +25,14 @@ export default function RetentionPage() {
   const rules = useRetentionRules();
   const box = useRef<HTMLDivElement>(null);
   const status = useRef<HTMLParagraphElement>(null);
-  const [editing, setEditing] = useState<RetentionRuleStatus | null>(null);
+  const [editing, setEditing] = useState<RetentionRule | null>(null);
   const [message, setMessage] = useState({ text: '', count: 0 });
   usePanelFocus(editing ? `edit:${editing.category}` : null, box, status);
   useLayoutEffect(() => {
     if (message.count > 0) focusIfLost(status.current);
   }, [message]);
 
-  const columns = useMemo<GridColumn<RetentionRuleStatus>[]>(
+  const columns = useMemo<GridColumn<RetentionRule>[]>(
     () => [
       {
         id: 'category',
@@ -53,17 +53,17 @@ export default function RetentionPage() {
         id: 'otherRule',
         header: t('retention.columns.otherRule'),
         value: (row) =>
-          row.otherRuleCount === 0
+          (row.otherRuleCount ?? 0) === 0
             ? t('retention.otherRuleNone')
             : t('retention.otherRule', {
-                count: row.otherRuleCount,
-                value: format.number(row.otherRuleCount),
+                count: row.otherRuleCount ?? 0,
+                value: format.number(row.otherRuleCount ?? 0),
               }),
       },
     ],
     [t, format],
   );
-  const actions: GridAction<RetentionRuleStatus>[] = [
+  const actions: GridAction<RetentionRule>[] = [
     {
       id: 'change',
       label: t('retention.change'),
@@ -123,7 +123,7 @@ function RuleForm({
   onClose,
   onSaved,
 }: {
-  rule: RetentionRuleStatus;
+  rule: RetentionRule;
   onClose: () => void;
   onSaved: (text: string) => void;
 }) {
