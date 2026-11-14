@@ -9,6 +9,7 @@ import type {
   OtRoomPage,
   OperationRecord,
   PeriopRecord,
+  RecoveryRecord,
   SurgeryConsumable,
   SurgeryConsumablePage,
   Surgery,
@@ -340,3 +341,36 @@ export const returnFormSchema = z.object({
     .regex(PLAIN_TEXT, 'validation.plain_text'),
 });
 export type ReturnFormValues = z.infer<typeof returnFormSchema>;
+
+export const RECOVERY_READINESS = ['in_recovery', 'ready_for_ward'] as const;
+
+export const recoverySchema: z.ZodType<RecoveryRecord> = z.object({
+  surgeryId: z.string(),
+  encounterId: z.string().nullable(),
+  notes: z.array(
+    z.object({
+      id: z.string(),
+      text: z.string(),
+      painScore: z.number().int().nullable(),
+      readiness: z.enum(RECOVERY_READINESS),
+      addedBy: z.string(),
+      addedByName: z.string(),
+      addedAt: z.string(),
+    }),
+  ),
+});
+
+export const recoveryFormSchema = z.object({
+  text: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(2000, 'validation.invalid_value')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+  painScore: z
+    .string()
+    .trim()
+    .regex(/^(\d|10)?$/, 'validation.invalid_value'),
+  readiness: z.enum(RECOVERY_READINESS),
+});
+export type RecoveryFormValues = z.infer<typeof recoveryFormSchema>;

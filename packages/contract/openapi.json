@@ -20555,6 +20555,77 @@
             "type": ["string", "null"]
           }
         }
+      },
+      "RecoveryReadiness": {
+        "type": "string",
+        "enum": ["in_recovery", "ready_for_ward"]
+      },
+      "RecoveryNoteInput": {
+        "type": "object",
+        "required": ["text", "readiness"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "painScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/RecoveryReadiness"
+          }
+        }
+      },
+      "RecoveryNote": {
+        "type": "object",
+        "required": ["id", "text", "painScore", "readiness", "addedBy", "addedByName", "addedAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "painScore": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "maximum": 10
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/RecoveryReadiness"
+          },
+          "addedBy": {
+            "type": "string"
+          },
+          "addedByName": {
+            "type": "string"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RecoveryRecord": {
+        "type": "object",
+        "required": ["surgeryId", "encounterId", "notes"],
+        "properties": {
+          "surgeryId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": ["string", "null"]
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoveryNote"
+            }
+          }
+        }
       }
     },
     "responses": {
@@ -72263,6 +72334,119 @@
             "$ref": "#/components/responses/Error"
           },
           "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/recovery": {
+      "get": {
+        "operationId": "getRecovery",
+        "description": "Recovery-room notes of one surgery, oldest first, with the visit it is charged to so the web can show its orders (OT-04, #179). Needs theatre:read and the theatre feature flag. Planned: the web app is built against the mock.",
+        "parameters": [
+          {
+            "name": "surgeryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The recovery record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-planned": true
+      },
+      "post": {
+        "operationId": "addRecoveryNote",
+        "description": "Adds a recovery note once the surgery has started. Needs surgery:perform. Notes are append-only: there is no update or delete; a correction is a new note. The server takes the author and time.",
+        "parameters": [
+          {
+            "name": "surgeryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryNoteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The whole recovery record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
             "$ref": "#/components/responses/Error"
           },
           "422": {

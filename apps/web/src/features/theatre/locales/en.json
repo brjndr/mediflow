@@ -51,7 +51,8 @@
     "rename": "Rename",
     "archive": "Archive or restore",
     "periop": "Checklist and anaesthesia",
-    "operation": "Operation note and stock"
+    "operation": "Operation note and stock",
+    "recovery": "Recovery and orders"
   },
   "done": {
     "booked": "Surgery booked.",
@@ -308,6 +309,38 @@
       "returnCancel": "Cancel",
       "returned_one": "{{count}} unit of {{name}} returned to stock.",
       "returned_other": "{{count}} units of {{name}} returned to stock."
+    }
+  },
+  "recovery": {
+    "title": "Recovery: {{procedure}}",
+    "description": "Notes from the recovery room, and the orders for the visit the surgery is charged to.",
+    "loading": "Loading the recovery record.",
+    "retry": "Try again",
+    "errors": {
+      "invalid_state": "Recovery notes are written once the surgery has started.",
+      "feature_disabled": "This is not switched on for your hospital."
+    },
+    "notes": {
+      "heading": "Recovery notes",
+      "listLabel": "Recovery notes",
+      "none": "No recovery notes have been written yet.",
+      "notStarted": "Recovery notes are written once the surgery has started.",
+      "pain": "Pain {{score}} of 10",
+      "by": "{{name}}, {{time}}",
+      "readiness": {
+        "in_recovery": "In recovery",
+        "ready_for_ward": "Ready for the ward"
+      },
+      "note": "Note",
+      "noteHint": "Observations, pain, nausea, wound and drain. A note is not changed; write a new one to correct it.",
+      "painScore": "Pain score (0 to 10)",
+      "readinessLabel": "Condition",
+      "add": "Add note",
+      "added": "Recovery note added."
+    },
+    "orders": {
+      "heading": "Orders",
+      "none": "Orders are placed on a visit. Link this surgery to a visit under Operation note and stock first."
     }
   }
 }

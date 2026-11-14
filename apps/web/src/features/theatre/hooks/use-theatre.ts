@@ -6,6 +6,8 @@ import { dayBoundsUtc } from '@/shared/utils/timezone';
 import { useTenant } from '@/tenancy';
 import {
   addAddendum,
+  addRecoveryNote,
+  fetchRecovery,
   bookSurgery,
   fetchConsumables,
   fetchOperation,
@@ -36,6 +38,7 @@ import type {
   OperationNoteInput,
   OperationRecord,
   PeriopRecord,
+  RecoveryNoteInput,
 } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's theatres never show in another. */
@@ -336,6 +339,35 @@ export function useReturnConsumable() {
       if (!tenantId) return;
       void queryClient.invalidateQueries({ queryKey: consumableKeys.all(tenantId) });
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.all(tenantId) });
+    },
+  });
+}
+
+export const recoveryKeys = createTenantKeys('recovery');
+
+/** The recovery notes of a surgery, read again every half minute for the ward. */
+export function useRecovery(surgeryId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: recoveryKeys.detail(tenantId ?? '', surgeryId),
+    queryFn: ({ signal }) => fetchRecovery(surgeryId, signal),
+    enabled: tenantId !== undefined,
+    refetchInterval: REFRESH_MS,
+  });
+}
+
+/** A note answers with the whole record, which replaces what is cached. */
+export function useAddRecoveryNote(surgeryId: string) {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: RecoveryNoteInput) =>
+      addRecoveryNote(surgeryId, body, attempt.keyFor([surgeryId, body])),
+    onSuccess: (record) => {
+      attempt.done();
+      if (tenantId) queryClient.setQueryData(recoveryKeys.detail(tenantId, surgeryId), record);
     },
   });
 }
