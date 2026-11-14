@@ -33,6 +33,7 @@ import {
   BILLING_SCHEMAS,
   Charge,
   ChargeCreate,
+  ChargeReview,
   ChargePage,
   ChargeQuery,
   DESCRIPTION_MAX,
@@ -312,6 +313,42 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       request.idempotentId = posted;
       request.audit('create', 'charge', posted);
       return answer(posted);
+    },
+  );
+
+  app.post(
+    '/charges/:chargeId/review',
+    {
+      config: { permissions: ['invoice:issue', 'charge:read'], feature: FEATURE },
+      schema: {
+        operationId: 'resolveChargeReview',
+        tags: ['billing'],
+        description:
+          'Takes the review flag (`return_review` or `relink_review`, #910) off a charge once the billing desk has dealt with it, by a credit note or a decision to leave it, with the reason. The charge then no longer stops its draft being issued. A charge with no such flag is 409 `not_flagged`. The reason is in the audit log. Requires invoice:issue and charge:read with the scope `all` and the billing feature flag. Audited.',
+        params: Type.Object({ chargeId: Type.String({ maxLength: 64 }) }),
+        body: ref(ChargeReview),
+        response: { 200: ref(Charge), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      requireAll(request, 'invoice:issue', 'charge:read');
+      const { chargeId } = request.params as { chargeId: string };
+      const { reason } = request.body as ChargeReview;
+      const client = request.txClient;
+      const found = await findCharge(client, chargeId);
+      if (!found) throw new HttpError(404, 'charge_not_found', 'No such charge');
+      const { rowCount } = await client.query(
+        `update charges set flag = null
+           where id = $1 and flag in ('return_review', 'relink_review')`,
+        [found.id],
+      );
+      if (!rowCount) {
+        throw new HttpError(409, 'not_flagged', 'This charge is not waiting for a review');
+      }
+      request.audit('review', 'charge', found.id, `${found.flag}: ${reason}`);
+      const row = await findCharge(client, found.id);
+      if (!row) throw new HttpError(404, 'charge_not_found', 'No such charge');
+      return chargeView(row);
     },
   );
 

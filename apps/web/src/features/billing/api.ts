@@ -72,6 +72,15 @@ export async function createCharge(
   return chargeSchema.parse(requireData(result));
 }
 
+/** Takes the review flag off a charge with the reason; the reason goes to the audit log (#910). */
+export async function resolveChargeReview(chargeId: string, reason: string): Promise<Charge> {
+  const result = await api.POST('/charges/{chargeId}/review', {
+    params: { path: { chargeId } },
+    body: { reason },
+  });
+  return chargeSchema.parse(requireData(result));
+}
+
 /** The visit's invoices, newest first, drafts included. */
 export async function fetchEncounterInvoices(
   { encounterId, cursor, limit }: { encounterId: string; cursor?: string; limit: number },

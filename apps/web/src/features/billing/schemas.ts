@@ -290,6 +290,18 @@ export function createCreditNoteSchema(
 export type CreditNoteInput = z.input<ReturnType<typeof createCreditNoteSchema>>;
 export type CreditNoteValues = z.output<ReturnType<typeof createCreditNoteSchema>>;
 
+/** Why the desk takes the review flag off a charge (#910). */
+export const chargeReviewSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(REASON_MAX, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+});
+export type ChargeReviewInput = z.input<typeof chargeReviewSchema>;
+export type ChargeReviewValues = z.output<typeof chargeReviewSchema>;
+
 export const NOTE_MAX = 300;
 
 const registerTotalSchema = z.object({

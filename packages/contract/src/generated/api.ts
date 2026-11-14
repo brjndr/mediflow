@@ -5841,6 +5841,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/charges/{chargeId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Takes the review flag (`return_review` or `relink_review`, #910) off a charge once the billing desk has dealt with it, by a credit note or a decision to leave it, with the reason. The charge then no longer stops its draft being issued. A charge with no such flag is 409 `not_flagged`. The reason is in the audit log. Requires invoice:issue and charge:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["resolveChargeReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/encounters/{encounterId}/invoices": {
         parameters: {
             query?: never;
@@ -12587,6 +12604,10 @@ export interface components {
             /** @description A service of the price catalog. */
             serviceId: string;
             quantity: number;
+        };
+        /** @description Why the desk takes the review flag off a charge. */
+        ChargeReview: {
+            reason: string;
         };
         /** @description A line the billing desk types in: something not in the price catalog. */
         ManualLine: {
@@ -45636,6 +45657,86 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resolveChargeReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chargeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChargeReview"];
+            };
+        };
+        responses: {
+            /** @description Billable work posted to a visit. Priced when it was posted; never changes afterwards. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Charge"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

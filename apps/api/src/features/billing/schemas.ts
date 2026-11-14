@@ -81,6 +81,18 @@ export const ChargeCreate = Type.Object(
 );
 export type ChargeCreate = Static<typeof ChargeCreate>;
 
+export const ChargeReview = Type.Object(
+  {
+    reason: Type.String({ minLength: 1, maxLength: 500, pattern: PLAIN_TEXT }),
+  },
+  {
+    $id: 'ChargeReview',
+    additionalProperties: false,
+    description: 'Why the desk takes the review flag off a charge.',
+  },
+);
+export type ChargeReview = Static<typeof ChargeReview>;
+
 export const ChargeQuery = Type.Object({
   status: Type.Optional(StringEnum(['pending', 'invoiced', 'void'])),
   cursor: Type.Optional(Type.String()),
@@ -518,6 +530,7 @@ export const BILLING_SCHEMAS = [
   Charge,
   ChargePage,
   ChargeCreate,
+  ChargeReview,
   ManualLine,
   InvoiceLine,
   Invoice,
