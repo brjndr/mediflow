@@ -1,0 +1,4 @@
+firstName,lastName,dob,gender,phone,email,address,legacyId
+Asha,Verma,1984-03-12,female,99000 12345,asha.verma@example.test,12 Lake Road,OLD-00417
+Ravi,Kumar,1976-11-02,male,99000 12346,,4 Mill Street,OLD-00418
+Meena,Iyer,2001-07-25,female,99000 12347,meena.iyer@example.test,,
