@@ -9,6 +9,7 @@ import type { Permission } from '../../core/access/registry.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { patientInScope } from '../patients/index.js';
 import { tokenOfPatientToday } from '../queue/index.js';
+import { survivorOf } from '../../core/patient-merge/family.js';
 import {
   findAllergen,
   findAllergies,
@@ -612,11 +613,14 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const { patientId } = request.params;
       if (!(await inScope(request, patientId, ALLERGY_READ))) throw patientNotFound();
       request.audit('read', 'allergy_list', patientId);
+      // A record merged away is read through its survivor (#865): a prescription written before
+      // the merge still names the old id, and the warning must see what was recorded since.
+      const subject = await survivorOf(request.txClient, patientId);
       return allergyView(
-        patientId,
+        subject,
         tenantIdOf(request),
-        await findAllergies(request.txClient, patientId),
-        await mergedAllergies(request.txClient, patientId),
+        await findAllergies(request.txClient, subject),
+        await mergedAllergies(request.txClient, subject),
       );
     },
   );

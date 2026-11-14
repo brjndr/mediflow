@@ -195,6 +195,38 @@ describe('reads follow a merge', () => {
     expect(body.version).toBe(0);
   });
 
+  it('reads the merged-away id through its survivor, so a later allergy is warned (#865)', async () => {
+    await pool.query(
+      `insert into allergy_lists (tenant_id, patient_id, status, items, updated_by)
+       values ($1, $2, 'listed', $3::jsonb, $4)`,
+      [
+        hospital.id,
+        ids.target,
+        JSON.stringify([{ substance: 'Aspirin', severity: 'mild' }]),
+        admin.id,
+      ],
+    );
+    try {
+      for (const id of [ids.source, ids.target]) {
+        const response = await app.inject({
+          url: `/patients/${id}/allergies`,
+          headers: as(hospital.id, admin.id),
+        });
+        expect(response.statusCode).toBe(200);
+        const body = response.json<{ patientId: string; items: { substance: string }[] }>();
+        expect(body.patientId).toBe(ids.target);
+        expect(body.items.map((item) => item.substance).sort()).toEqual(['Aspirin', 'Penicillin']);
+      }
+      const other = await app.inject({
+        url: `/patients/${ids.foreign}/allergies`,
+        headers: as(hospital.id, admin.id),
+      });
+      expect(other.statusCode).toBe(404);
+    } finally {
+      await pool.query('delete from allergy_lists where patient_id = $1', [ids.target]);
+    }
+  });
+
   it('lists the merged-away stay under the survivor, inside the hospital', async () => {
     const response = await app.inject({
       url: `/admissions?patientId=${ids.target}`,
