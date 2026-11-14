@@ -116,22 +116,20 @@ export async function searchPatients(
   const term = input.q?.trim().toLowerCase() ?? '';
   if (term !== '') {
     // Every word must appear, in any order: "verma asha" finds Asha Verma.
-    const words = term.split(/\s+/).map((word) => {
-      params.push(likePattern(word));
-      return `search_text like $${params.length}`;
-    });
-    const matches = [`(${words.join(' and ')})`];
-    // An exact legacy registration number (#694), on the plain column and its tenant-first index.
-    params.push(tidy(input.q ?? ''));
-    matches.push(`legacy_id = $${params.length}`);
+    const words = term.split(/\s+/).map(likePattern);
     // Only something that looks like a phone number is tried as one, so the digits of an MRN
     // do not bring in everyone whose phone happens to contain them.
     const digits = term.replace(/\D/g, '');
-    if (input.byPhone && PHONE_SHAPED.test(term) && digits.length >= 3) {
-      params.push(likePattern(digits));
-      matches.push(`phone_digits like $${params.length}`);
-    }
-    where.push(`(${matches.join(' or ')})`);
+    const phone =
+      input.byPhone && PHONE_SHAPED.test(term) && digits.length >= 3 ? likePattern(digits) : null;
+    // The ids come from a definer function over a trigram index (#864). The rows are read again
+    // here under row-level security and the caller's scope, so the function cannot widen what
+    // is shown. The last argument is an exact legacy registration number (#694).
+    params.push(words, phone, tidy(input.q ?? ''), Boolean(input.mergedAway));
+    const n = params.length;
+    where.push(
+      `id in (select patient_search_ids($${n - 3}::text[], $${n - 2}::text, $${n - 1}::text, $${n}::boolean))`,
+    );
   }
 
   // Counted on the first page only: the number does not change while someone pages through.
