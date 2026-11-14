@@ -317,7 +317,7 @@ describe('recording a reaction', () => {
     expect(list.items.map((item) => item.id)).toEqual([reaction.id]);
     const one = await ok<Reaction>(await get(`/transfusion-reactions/${reaction.id}`));
     expect(one.id).toBe(reaction.id);
-    expect(await audited('transfusion_reaction', reaction.id)).toEqual(['create', 'read']);
+    expect(await audited('transfusion_reaction', reaction.id)).toEqual(['create', 'read', 'read']);
     const page = await ok<{ items: Reaction[]; nextCursor: string | null }>(
       await get('/transfusion-reactions?limit=1'),
     );

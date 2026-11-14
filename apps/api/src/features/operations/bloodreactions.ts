@@ -260,6 +260,7 @@ export const bloodReactionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         request.txClient,
         page.rows.map((row) => row.id),
       );
+      for (const row of page.rows) request.audit('read', 'transfusion_reaction', row.id);
       return {
         items: page.rows.map((row) => reactionView(row, updates.get(row.id) ?? [])),
         nextCursor: page.nextCursor,
