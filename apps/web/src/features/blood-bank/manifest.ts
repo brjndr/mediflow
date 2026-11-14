@@ -3,7 +3,8 @@ import type { FeatureManifest } from '@/registry';
 
 /**
  * Blood bank (#196): blood units from collection to transfusion, the stock that can be given now
- * and the history of each unit. A patient is named by id only and looked up when shown.
+ * and the history of each unit, the donors (#586) and a "Blood group" tab on the patient's screen.
+ * A patient is named by id only and looked up when shown.
  */
 export const bloodBankFeature: FeatureManifest = {
   id: 'blood-bank',
@@ -29,5 +30,17 @@ export const bloodBankFeature: FeatureManifest = {
     'bloodUnit:test',
     'transfusionReaction:read',
     'transfusionReaction:record',
+    'bloodDonor:read',
+    'bloodDonor:manage',
+    'patient.bloodGroup:read',
+    'patient.bloodGroup:update',
+  ],
+  extensions: [
+    {
+      slot: 'patient.detail.tabs',
+      component: () => import('./components/PatientBloodGroupTab'),
+      requires: ['patient.bloodGroup:read'],
+      order: 70,
+    },
   ],
 };

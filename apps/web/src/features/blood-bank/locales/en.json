@@ -144,7 +144,14 @@
     "notAvailable": "The unit is not available.",
     "notGiven": "Only a unit that was issued or transfused can have a reaction.",
     "patientMismatch": "The unit was not given to this patient.",
-    "severityNotRaised": "A severity can only be raised, never lowered or repeated."
+    "severityNotRaised": "A severity can only be raised, never lowered or repeated.",
+    "donorChanged": "Someone else changed this donor first. The list has been refreshed.",
+    "donorPeriod": "The date must be in the future, and a unit must expire after the donation.",
+    "donorAge": "A donor must be 18 to 65 years old on the day.",
+    "tooSoon": "This donor gave blood less than 90 days ago.",
+    "donorDeferred": "This donor is deferred and cannot give blood now.",
+    "reasonRequired": "A reason is needed to change a blood group on record.",
+    "donorMissing": "That donor could not be found."
   },
   "severity": {
     "mild": "Mild",
@@ -257,5 +264,116 @@
     "onset": "Began {{date}}",
     "raisedTo": "raised to {{severity}}",
     "addUpdate": "Add update"
+  },
+  "tabs": {
+    "label": "Blood bank sections",
+    "units": "Units",
+    "donors": "Donors"
+  },
+  "units": {
+    "heading": "Blood units"
+  },
+  "donor": {
+    "heading": "Donors",
+    "description": "People who give blood. Names and phone numbers are hidden here; open a donor to see them.",
+    "search": "Search donors",
+    "searchHint": "Name or donor number",
+    "gridLabel": "Donors",
+    "count_one": "{{count}} donor",
+    "count_other": "{{count}} donors",
+    "empty": "No donors here.",
+    "rowLabel": "Donor {{number}}, {{group}}",
+    "fullName": "Full name",
+    "dateOfBirth": "Date of birth",
+    "dateOfBirthHint": "A donor is 18 to 65 years old.",
+    "ageRange": "A donor must be 18 to 65 years old.",
+    "sex": "Sex",
+    "sexes": {
+      "female": "Female",
+      "male": "Male",
+      "other": "Other"
+    },
+    "phone": "Phone",
+    "none": "None",
+    "columns": {
+      "donor": "Donor",
+      "status": "Status",
+      "lastDonated": "Last gave blood"
+    },
+    "status": {
+      "active": "Can give blood",
+      "deferred": "Deferred",
+      "permanent": "Deferred for good",
+      "until": "Deferred until {{date}}"
+    },
+    "actions": {
+      "collect": "Record collection",
+      "defer": "Defer",
+      "detail": "Open record"
+    },
+    "register": {
+      "open": "Register donor",
+      "title": "Register a donor",
+      "description": "A donor is a person of the blood bank, not a patient. The number is made for you.",
+      "submit": "Register donor",
+      "saving": "Saving..."
+    },
+    "done": {
+      "registered": "Donor {{number}} registered.",
+      "collected": "Collection from donor {{number}} recorded. Unit {{unit}} is waiting for testing.",
+      "deferred": "Donor {{number}} deferred."
+    },
+    "detail": {
+      "title": "Donor {{number}}",
+      "description": "The whole record. Opening it is kept in the audit log.",
+      "loading": "Loading the donor...",
+      "collections": "Collections",
+      "noCollections": "No collection recorded.",
+      "collection_one": "{{date}}: {{volume}} ml, {{count}} unit",
+      "collection_other": "{{date}}: {{volume}} ml, {{count}} units",
+      "trace": "Units made from this donor",
+      "noUnits": "No unit made yet.",
+      "unit": "Unit {{number}}, {{status}}",
+      "reactions_one": "{{count}} reaction reported, worst: {{severity}}",
+      "reactions_other": "{{count}} reactions reported, worst: {{severity}}"
+    }
+  },
+  "collection": {
+    "title": "Record a collection from donor {{number}}",
+    "description": "The unit made is group {{group}} (the donor's group) and goes to testing next.",
+    "volume": "Volume collected (ml)",
+    "unitVolume": "Volume of the unit (ml)",
+    "submit": "Record collection",
+    "saving": "Saving..."
+  },
+  "defer": {
+    "title": "Defer donor {{number}}",
+    "description": "A deferred donor cannot give blood. A deferral is never shortened.",
+    "kind": "Deferral",
+    "until": "Until a date",
+    "permanent": "For good",
+    "untilDate": "Until",
+    "untilHint": "A day after today.",
+    "permanentWarning": "A permanent deferral is final and cannot be lifted.",
+    "reason": "Reason",
+    "submit": "Defer donor",
+    "saving": "Saving..."
+  },
+  "patientGroup": {
+    "tab": "Blood group",
+    "heading": "Blood group",
+    "loading": "Loading the blood group...",
+    "current": "Blood group on record: {{group}}",
+    "none": "No blood group on record yet.",
+    "history": "Earlier entries",
+    "record": "Record blood group",
+    "choose": "Choose a group",
+    "reason": "Reason",
+    "reasonNeeded": "A reason is needed to change the group on record.",
+    "reasonOptional": "Only needed when the group changes.",
+    "submit": "Record blood group",
+    "saving": "Saving...",
+    "saved": "Blood group {{group}} recorded.",
+    "unchanged": "Blood group {{group}} is already on record. Nothing changed."
   }
 }

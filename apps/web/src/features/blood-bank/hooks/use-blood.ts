@@ -4,6 +4,14 @@ import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
   addReactionUpdate,
+  deferDonor,
+  fetchDonor,
+  fetchDonorTrace,
+  recordCollection,
+  registerDonor,
+  searchDonors,
+  setPatientBloodGroup,
+  type DonorFilters,
   fetchCompatibleUnits,
   fetchPatientBloodGroup,
   fetchStock,
@@ -18,7 +26,12 @@ import {
   type UnitFilters,
   type UnitMove,
 } from '../api';
+import { DONOR_PAGE_SIZE } from '../donor-schemas';
 import type {
+  BloodCollectionCreate,
+  BloodDonorCreate,
+  BloodDonorDefer,
+  PatientBloodGroupSet,
   BloodComponent,
   BloodScreeningCreate,
   BloodUnitCreate,
@@ -206,5 +219,91 @@ export function useTrace(unitId: string) {
     queryKey: bloodKeys.detail(tenantId ?? '', `trace:${unitId}`),
     queryFn: ({ signal }) => fetchTrace(unitId, signal),
     enabled: tenantId !== undefined,
+  });
+}
+
+export function useDonors(filters: DonorFilters) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: bloodKeys.list(tenantId ?? '', { kind: 'donors', ...filters }),
+    queryFn: ({ pageParam, signal }) =>
+      searchDonors({ filters, cursor: pageParam, limit: DONOR_PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
+  });
+}
+
+/** The full record of one donor: opening it is audited on the server, so only a dialog asks. */
+export function useDonor(donorId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: bloodKeys.detail(tenantId ?? '', `donor:${donorId}`),
+    queryFn: ({ signal }) => fetchDonor(donorId, signal),
+    enabled: tenantId !== undefined,
+    // Another read is another audited read: a dialog opened twice reads it again, once.
+    gcTime: 0,
+  });
+}
+
+export function useDonorTrace(donorId: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: bloodKeys.detail(tenantId ?? '', `donor-trace:${donorId}`),
+    queryFn: ({ signal }) => fetchDonorTrace(donorId, signal),
+    enabled: tenantId !== undefined && enabled,
+    gcTime: 0,
+    retry: false,
+  });
+}
+
+export function useRegisterDonor() {
+  const refresh = useRefreshAll();
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: BloodDonorCreate) =>
+      registerDonor(body, attempt.keyFor(JSON.stringify(body))),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+export function useDeferDonor() {
+  const refresh = useRefreshAll();
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: { donorId: string; body: BloodDonorDefer }) =>
+      deferDonor(input.donorId, input.body, attempt.keyFor(JSON.stringify(input))),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+/** Records a donation. The units it makes join the unit list, so every blood query is read again. */
+export function useRecordCollection() {
+  const refresh = useRefreshAll();
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: BloodCollectionCreate) =>
+      recordCollection(body, attempt.keyFor(JSON.stringify(body))),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+export function useSetPatientBloodGroup() {
+  const refresh = useRefreshAll();
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: { patientId: string; body: PatientBloodGroupSet }) =>
+      setPatientBloodGroup(input.patientId, input.body, attempt.keyFor(JSON.stringify(input))),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
   });
 }

@@ -22,9 +22,19 @@ All on the Units screen, on the operations API (`bloodtesting.ts`, `bloodcompat.
 - **Trace** (`transfusionReaction:read`): donor number and group, and the donor's name only when the API sends `fullName` (it needs `bloodDonor:read`); collection date, screening outcome, every move, the cross-matches (patients by `PatientLabel`), the recipient (id looked up with `usePatientName`) and the reactions with their updates. Reactions are shown only here: there is no Reactions tab. `GET /transfusion-reactions` (a list with filters) exists in the contract and is not used yet.
 - **Mock** (`mocks/handlers/blood-bank.ts`): units in testing (BU-0002), available (BU-0001), issued (BU-0003, to `pth_00001`) and reserved (BU-0004, same collection as BU-0003). A mock patient's blood group follows its number (`groupOf`: pth_00001 is O+); the ABO and Rh rule there is a stand-in for the server's. A screening happens once per unit; clearing and reserving are gated as the server gates them; a cross-match lasts 72 hours.
 
+## Second slice, part 2 (#586): donors and the patient's blood group
+
+- **Tabs** on `/blood-bank`: "Units" and, with `bloodDonor:read`, "Donors" (a plain tab list with the arrow keys; Radix tabs are not a dependency and `DetailTab` belongs to the patient screen). Only the open tab is mounted.
+- **Donors** (`DonorsPanel.tsx`, `DonorDialogs.tsx`, schemas in `donor-schemas.ts`): `DataGrid` from `POST /blood/donors/search` (term, group and status in the body; `SearchInput`, debounced), showing `maskedName` and `maskedPhone` only. The full record (`GET /blood/donors/{id}`, audited by the server) is read only when "Open record" is chosen, with `gcTime: 0` so a second opening is a second audited read; the donor trace (`GET /blood/donors/{id}/trace`) is asked only with `transfusionReaction:read`.
+- **Register donor** (`bloodDonor:manage`): name, date of birth as a calendar day (age 18 to 65 on the hospital's today, the same rule as the server's 422 `donor_age`), sex, group, optional phone.
+- **Record collection**: donor, collected-at and expiry on the hospital's clock, the volume collected and exactly **one unit** (number, component, volume). The API accepts up to four units; the screen records one. The unit takes the donor's group. 422 `donor_age`, `donation_too_soon`, `donor_deferred`, `invalid_period` and 409 `duplicate_unit` are said in words (`donorRefusalKey` in `refusal.ts`, which words `conflict` for a donor, not a unit). A deferred donor's "Record collection" is `aria-disabled`.
+- **Defer** (`ConfirmDialog`, destructive): until a day (sent as the start of that day on the hospital's clock, must be after today) or permanent, with a reason; permanent shows a warning that it is final. The server never shortens a deferral.
+- **Patient blood group** (`PatientBloodGroupTab.tsx`, a `patient.detail.tabs` contribution requiring `patient.bloodGroup:read`): the group on record, its history, and a form with `patient.bloodGroup:update`. A group that differs from the one on record needs a reason (checked before sending, and 422 `reason_required` is mapped); the same group again writes nothing and the screen says so (it compares the history length). It reads the same query as the cross-match dialog, so recording refreshes both.
+- **Mock**: `mocks/handlers/blood-donors.ts` (donors per hospital, masking, the 90-day and age rules, collections creating units through `addCollectedMockUnits` in `blood-bank.ts`) and a blood group log in `blood-bank.ts` (`clearMockPatientBloodGroup` for tests). Donors and the trace reach the same units as the Units tab.
+
 ## Not here yet
 
-Donor registry and collection, and the patient's blood group tab (part 2 of #586). A list of all reactions, notifying the recipient's doctor and recalling cleared units of a reactive donor.
+A collection of several units at once, editing a donor, a list of all reactions, notifying the recipient's doctor and recalling cleared units of a reactive donor.
 
 ## Decisions
 

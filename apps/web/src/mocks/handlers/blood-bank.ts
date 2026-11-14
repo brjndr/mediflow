@@ -122,7 +122,7 @@ const seedHistory = (): Map<string, Entry[]> => {
   return entries;
 };
 
-interface Donor {
+export interface Donor {
   id: string;
   donorNumber: string;
   bloodGroup: Group;
@@ -173,14 +173,59 @@ const seedExtras = () => ({
   ]),
 });
 
+type GroupEntry = components['schemas']['PatientBloodGroupEntry'];
+
 let units = seed();
 let history = seedHistory();
 let extras = seedExtras();
+/** Blood groups written on patients in this session, newest first. A missing patient has the default. */
+let groupLog = new Map<string, GroupEntry[]>();
 onMockReset(() => {
   units = seed();
   history = seedHistory();
   extras = seedExtras();
+  groupLog = new Map();
 });
+
+/** For tests: a patient with no blood group on record. */
+export function clearMockPatientBloodGroup(patientId: string): void {
+  groupLog.set(patientId, []);
+}
+
+/** A donation makes units in `collected`, as the real API does. Returns the ids made. */
+export function addCollectedMockUnits(
+  tenantId: string,
+  made: Pick<
+    Unit,
+    'unitNumber' | 'bloodGroup' | 'component' | 'volumeMl' | 'collectedAt' | 'expiresAt'
+  >[],
+  collectionId: string,
+  donor: Donor,
+): { ids: string[]; duplicate: boolean } {
+  if (
+    made.some((m) => units.some((u) => u.tenantId === tenantId && u.unitNumber === m.unitNumber))
+  ) {
+    return { ids: [], duplicate: true };
+  }
+  const ids = made.map((m) => {
+    const unit: Unit = {
+      ...m,
+      id: `bu_${units.length + 1}`,
+      tenantId,
+      status: 'collected',
+      screeningStatus: 'pending',
+      version: 1,
+    };
+    units.push(unit);
+    history.set(unit.id, [
+      { toStatus: 'collected', actorId: 'user_1', occurredAt: new Date().toISOString() },
+    ]);
+    extras.collections.set(unit.id, collectionId);
+    extras.donors.set(collectionId, donor);
+    return unit.id;
+  });
+  return { ids, duplicate: false };
+}
 
 /** For tests: a unit the bank holds. */
 export function addMockBloodUnit(unit: Partial<Unit> & { id: string }): void {
@@ -201,8 +246,24 @@ export function addMockBloodUnit(unit: Partial<Unit> & { id: string }): void {
 
 /** Mock only: the group of a synthetic patient follows its number, so tests know it. */
 function groupOf(patientId: string): Group {
+  const written = groupLog.get(patientId)?.[0]?.bloodGroup;
+  if (written) return written;
   const number = Number(patientId.slice(patientId.lastIndexOf('_') + 1));
   return GROUPS[(Number.isFinite(number) ? number - 1 : 0) % GROUPS.length] ?? 'O+';
+}
+
+/** The group on record and the entries before it, newest first. */
+function groupRecord(patientId: string) {
+  const logged = groupLog.get(patientId);
+  const history: GroupEntry[] = logged ?? [
+    {
+      bloodGroup: groupOf(patientId),
+      recordedBy: 'user_1',
+      recordedAt: '2026-10-01T08:00:00.000Z',
+    },
+  ];
+  const bloodGroup = history[0]?.bloodGroup;
+  return { patientId, ...(bloodGroup ? { bloodGroup } : {}), history };
 }
 
 const abo = (group: Group) => group.slice(0, -1);
@@ -547,12 +608,42 @@ export const bloodBankHandlers = [
     if (!knownPatient(access.tenantId, patientId)) {
       return error(404, 'patient_not_found', 'No such patient');
     }
-    const bloodGroup = groupOf(patientId);
-    return HttpResponse.json({
-      patientId,
-      bloodGroup,
-      history: [{ bloodGroup, recordedBy: 'user_1', recordedAt: '2026-10-01T08:00:00.000Z' }],
+    return HttpResponse.json(groupRecord(patientId));
+  }),
+
+  http.post('*/api/patients/:patientId/blood-group', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'patient.bloodGroup:update',
+      featureFlag: FEATURE_FLAG,
     });
+    if ('denied' in access) return access.denied;
+    const patientId = String(params.patientId);
+    if (!knownPatient(access.tenantId, patientId)) {
+      return error(422, 'unknown_patient', 'No such patient');
+    }
+    const body = (await request.json().catch(() => null)) as {
+      bloodGroup?: Group;
+      reason?: string;
+    } | null;
+    if (!body?.bloodGroup || !GROUPS.includes(body.bloodGroup)) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const current = groupRecord(patientId).bloodGroup;
+    if (current === body.bloodGroup) return HttpResponse.json(groupRecord(patientId));
+    if (current !== undefined && !body.reason?.trim()) {
+      return error(422, 'reason_required', 'A reason is needed to change the group');
+    }
+    const earlier = groupRecord(patientId).history;
+    groupLog.set(patientId, [
+      {
+        bloodGroup: body.bloodGroup,
+        ...(body.reason ? { reason: body.reason } : {}),
+        recordedBy: 'user_1',
+        recordedAt: new Date().toISOString(),
+      },
+      ...earlier,
+    ]);
+    return HttpResponse.json(groupRecord(patientId));
   }),
 
   http.post('*/api/transfusion-reactions', async ({ request }) => {
@@ -691,3 +782,26 @@ export const bloodBankHandlers = [
     });
   }),
 ];
+
+/** The units made from a donor's donations, with the collection each came from. */
+export function mockDonorUnits(
+  tenantId: string,
+  donorId: string,
+): { unit: Unit; collectionId: string; recipientPatientId?: string }[] {
+  return units
+    .filter((unit) => unit.tenantId === tenantId)
+    .flatMap((unit) => {
+      const collectionId = extras.collections.get(unit.id);
+      if (!collectionId || extras.donors.get(collectionId)?.id !== donorId) return [];
+      const recipient = [...(history.get(unit.id) ?? [])]
+        .reverse()
+        .find((entry) => entry.toStatus === 'issued');
+      return [
+        {
+          unit,
+          collectionId,
+          ...(recipient?.patientId ? { recipientPatientId: recipient.patientId } : {}),
+        },
+      ];
+    });
+}
