@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
+import type pg from 'pg';
 import { verifyDocumentDownload, verifyDocumentUpload } from '../../core/files/signing.js';
 import { asWorker, looksLike } from '../../core/files/worker.js';
 import { HttpError } from '../../core/http/errors.js';
@@ -185,7 +186,9 @@ export async function scanDocument(app: FastifyInstance, job: ScanJob): Promise<
       [job.documentId, status, result],
     ),
   );
-  if (status !== 'clean') await recordBlocked(app, job.documentId, status);
+  if (status !== 'clean') {
+    await asWorker(app, (client) => recordBlocked(client, job.documentId, status));
+  }
   if (status === 'infected') {
     app.log.warn({ event: 'document_infected', documentId: job.documentId }, 'document blocked');
   }
@@ -196,8 +199,12 @@ export async function scanDocument(app: FastifyInstance, job: ScanJob): Promise<
  * file) and a `document.blocked` event, written in one transaction as the worker role for the
  * document's own hospital. The uploader sees it on the home page (`GET /documents/blocked`).
  */
-async function recordBlocked(app: FastifyInstance, documentId: string, status: string) {
-  await asWorker(app, async (client) => {
+async function recordBlocked(
+  client: pg.PoolClient,
+  documentId: string,
+  status: string,
+): Promise<void> {
+  {
     const { rows } = await client.query<{
       tenant_id: string;
       created_by: string;
@@ -219,7 +226,7 @@ async function recordBlocked(app: FastifyInstance, documentId: string, status: s
        values ($1, 'document.blocked', $2, $3, $4)`,
       [row.tenant_id, documentId, row.created_by, JSON.stringify({ status })],
     );
-  });
+  }
 }
 
 /**
@@ -304,8 +311,10 @@ export async function closeUnsentDocuments(app: FastifyInstance): Promise<number
   const closed = await asWorker(app, async (client) => {
     const result = await client.query(
       `update patient_documents set status = 'failed', scan_result = 'never_sent'
-       where status = 'pending' and created_at < now() - interval '1 hour'`,
+       where status = 'pending' and created_at < now() - interval '1 hour' returning id`,
     );
+    // Told to the uploader like a blocked scan (#925): the same audit entry and event.
+    for (const { id } of result.rows) await recordBlocked(client, id, 'failed');
     return result.rowCount ?? 0;
   });
   if (closed > 0) {

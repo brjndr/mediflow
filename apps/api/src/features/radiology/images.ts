@@ -609,8 +609,12 @@ export async function closeUnsentImages(app: FastifyInstance): Promise<number> {
   const closed = await asWorker(app, async (client) => {
     const result = await client.query(
       `update imaging_images set status = 'failed', scan_result = 'never_sent'
-       where status = 'pending' and created_at < now() - interval '1 hour'`,
+       where status = 'pending' and created_at < now() - interval '1 hour' returning id`,
     );
+    // Told to the uploader like a blocked scan (#925): the same audit entry and event.
+    for (const { id } of result.rows as { id: string }[]) {
+      await recordBlocked(client, { imageId: id, status: 'failed' });
+    }
     return result.rowCount ?? 0;
   });
   if (closed > 0) {

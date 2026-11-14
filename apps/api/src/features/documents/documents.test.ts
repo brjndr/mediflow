@@ -860,6 +860,18 @@ describe('uploads asked for and never sent (#560)', () => {
     expect(await statusOf(received.document.id)).toBe('scanning');
     expect(await closeUnsentDocuments(app)).toBe(0);
 
+    // The uploader is told, as for a blocked scan (#925), in their own hospital only.
+    expect(await actions('patient_document', old.document.id)).toContain('scan_blocked');
+    const event = await pool.query(
+      "select actor_id, payload from outbox where event = 'document.blocked' and entity_id = $1",
+      [old.document.id],
+    );
+    expect(event.rows).toEqual([{ actor_id: admin.id, payload: { status: 'failed' } }]);
+    const elsewhere = (
+      await get('/documents/blocked', { tenant: clinic, user: clinicAdmin })
+    ).json<{ items: { id: string }[] }>();
+    expect(elsewhere.items.map((one) => one.id)).not.toContain(old.document.id);
+
     // The document cannot be downloaded.
     expect(errorOf(await get(`/documents/${old.document.id}/download-url`))).toEqual([
       409,

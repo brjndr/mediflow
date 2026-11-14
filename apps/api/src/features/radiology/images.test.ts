@@ -596,6 +596,14 @@ describe('uploads asked for and never sent (#560)', () => {
     expect(await statusOf(recent.image.id)).toBe('pending');
     expect(await statusOf(received.image.id)).toBe('scanning');
     expect(await closeUnsentImages(app)).toBe(0);
+
+    // The uploader is told, as for a blocked scan (#925).
+    expect(await actions(old.image.id)).toContain('scan_blocked');
+    const event = await pool.query(
+      "select payload from outbox where event = 'imaging.blocked' and entity_id = $1",
+      [old.image.id],
+    );
+    expect(event.rows).toEqual([{ payload: { status: 'failed' } }]);
   });
 });
 
