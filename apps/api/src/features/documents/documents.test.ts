@@ -280,7 +280,7 @@ describe('receiving the file and the scan', () => {
     expect(errorOf(other)).toEqual([404, 'document_not_found']);
   });
 
-  it('blocks and deletes an infected file', async () => {
+  it('blocks and deletes an infected file, and tells the uploader until dismissed', async () => {
     const upload = await uploaded(ids.a, EICAR);
     await queue.drain();
     const id = upload.document.id;
@@ -291,6 +291,33 @@ describe('receiving the file and the scan', () => {
     );
     expect(await store.get(row.rows[0]?.file_key ?? '')).toBeNull();
     expect(errorOf(await get(`/documents/${id}/download-url`))).toEqual([409, 'document_blocked']);
+
+    // The uploader is told (#673).
+    expect(await actions('patient_document', id)).toContain('scan_blocked');
+    const event = await pool.query<{ actor_id: string; payload: { status: string } }>(
+      "select actor_id, payload from outbox where event = 'document.blocked' and entity_id = $1",
+      [id],
+    );
+    expect(event.rows).toEqual([{ actor_id: admin.id, payload: { status: 'infected' } }]);
+
+    type Blocked = { items: { id: string; status: string }[] };
+    const mine = (await get('/documents/blocked')).json<Blocked>();
+    expect(mine.items.map((one) => [one.id, one.status])).toContainEqual([id, 'infected']);
+    const theirs = (await get('/documents/blocked', { user: receptionist })).json<Blocked>();
+    expect(theirs.items.map((one) => one.id)).not.toContain(id);
+    const elsewhere = (
+      await get('/documents/blocked', { tenant: clinic, user: clinicAdmin })
+    ).json<Blocked>();
+    expect(elsewhere.items).toEqual([]);
+
+    // Not theirs, or another hospital's: the same 404. Theirs: gone from the list, the row stays.
+    const dismiss = (options: Options) => post(`/documents/${id}/dismiss-blocked`, {}, options);
+    expect((await dismiss({ user: receptionist })).statusCode).toBe(404);
+    expect((await dismiss({ tenant: clinic, user: clinicAdmin })).statusCode).toBe(404);
+    expect((await dismiss({})).statusCode).toBe(204);
+    const after = (await get('/documents/blocked')).json<Blocked>();
+    expect(after.items.map((one) => one.id)).not.toContain(id);
+    expect(await statusOf(id)).toBe('infected');
   });
 
   it('refuses a wrong size, a wrong type, a forged link and a second use', async () => {

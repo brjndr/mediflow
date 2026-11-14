@@ -182,7 +182,27 @@ export const SignedQuery = Type.Object({
   signature: Type.String({ minLength: 1, maxLength: 200 }),
 });
 
+export const BlockedDocument = Type.Object(
+  {
+    id: Id,
+    title: Type.String(),
+    fileName: Type.String(),
+    status: StringEnum(['infected', 'failed']),
+    blockedAt: Type.String({ format: 'date-time' }),
+  },
+  {
+    $id: 'BlockedDocument',
+    description: 'A file the caller attached that the scan blocked, not yet dismissed.',
+  },
+);
+export const BlockedDocuments = Type.Object(
+  { items: Type.Array(ref(BlockedDocument)) },
+  { $id: 'BlockedDocuments' },
+);
+
 export const DOCUMENT_SCHEMAS = [
+  BlockedDocument,
+  BlockedDocuments,
   PatientDocument,
   PatientDocumentCreate,
   PatientDocumentUpload,

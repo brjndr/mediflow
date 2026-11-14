@@ -10,6 +10,9 @@ export type PatientDocumentCreate = Schemas['PatientDocumentCreate'];
 export type DocumentCategory = PatientDocumentCreate['category'];
 export type DocumentStatus = PatientDocument['status'];
 
+/** A file the caller attached that the scan blocked, until they dismiss it (#673). */
+export type BlockedDocument = Schemas['BlockedDocument'];
+
 /** How long a category is kept (#194, #561): `years` null keeps it for ever. */
 export type RetentionRule = Schemas['DocumentRetentionRule'];
 

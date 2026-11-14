@@ -1,6 +1,7 @@
 import { api, requireData } from '@/shared/api';
 import { env } from '@/shared/config/env';
 import {
+  blockedSchema,
   documentPageSchema,
   documentSchema,
   holdPageSchema,
@@ -11,6 +12,7 @@ import {
   uploadSchema,
 } from './schemas';
 import type {
+  BlockedDocument,
   DocumentCategory,
   LegalHold,
   LegalHoldPage,
@@ -100,6 +102,18 @@ export async function fetchDownloadUrl(documentId: string): Promise<string> {
   const { url } = downloadSchema.parse(requireData(result));
   const base = new URL(env.apiBaseUrl, window.location.origin).href.replace(/\/$/, '');
   return `${base}${url}`;
+}
+
+/** The files the caller attached that the scan blocked and they have not dismissed (#673). */
+export async function fetchBlockedDocuments(signal?: AbortSignal): Promise<BlockedDocument[]> {
+  const result = await api.GET('/documents/blocked', { signal });
+  return blockedSchema.parse(requireData(result)).items;
+}
+
+/** The uploader has seen it: it leaves their list. */
+export async function dismissBlocked(documentId: string): Promise<void> {
+  // A refusal is thrown by the client; a 204 has no body to read.
+  await api.POST('/documents/{documentId}/dismiss-blocked', { params: { path: { documentId } } });
 }
 
 export async function retireDocument(

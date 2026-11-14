@@ -185,9 +185,41 @@ export async function scanDocument(app: FastifyInstance, job: ScanJob): Promise<
       [job.documentId, status, result],
     ),
   );
+  if (status !== 'clean') await recordBlocked(app, job.documentId, status);
   if (status === 'infected') {
     app.log.warn({ event: 'document_infected', documentId: job.documentId }, 'document blocked');
   }
+}
+
+/**
+ * A blocked document is told to its uploader (#673): an audit entry (the reason code, never the
+ * file) and a `document.blocked` event, written in one transaction as the worker role for the
+ * document's own hospital. The uploader sees it on the home page (`GET /documents/blocked`).
+ */
+async function recordBlocked(app: FastifyInstance, documentId: string, status: string) {
+  await asWorker(app, async (client) => {
+    const { rows } = await client.query<{
+      tenant_id: string;
+      created_by: string;
+      scan_result: string | null;
+    }>(
+      `select tenant_id, created_by, scan_result from patient_documents
+       where id = $1 and status = $2 and blocked_seen_at is null`,
+      [documentId, status],
+    );
+    const row = rows[0];
+    if (!row) return;
+    await client.query(
+      `insert into audit_log (tenant_id, actor_id, action, entity, entity_id, detail)
+       values ($1, null, 'scan_blocked', 'patient_document', $2, $3)`,
+      [row.tenant_id, documentId, row.scan_result?.slice(0, 127) ?? status],
+    );
+    await client.query(
+      `insert into outbox (tenant_id, event, entity_id, actor_id, payload)
+       values ($1, 'document.blocked', $2, $3, $4)`,
+      [row.tenant_id, documentId, row.created_by, JSON.stringify({ status })],
+    );
+  });
 }
 
 /**

@@ -10,6 +10,7 @@ import { tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { patientInScope, patientMergedInto } from '../patients/index.js';
 import {
+  BlockedDocuments,
   CategoryParams,
   HoldListQuery,
   HoldParams,
@@ -228,6 +229,73 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       request.idempotentId = row.id;
       request.audit('create', 'patient_document', row.id);
       return reply.status(201).send(uploadOf(row));
+    },
+  );
+
+  // The uploader is told about a file the scan blocked (#673): their own, until dismissed.
+  app.get(
+    '/documents/blocked',
+    {
+      config: { permissions: [UPLOAD], feature: FEATURE },
+      schema: {
+        operationId: 'listBlockedDocuments',
+        tags: ['documents'],
+        description:
+          'The files the caller attached that the malware scan blocked (infected, or not scannable, or never sent) and that they have not dismissed, newest first, at most 50. Only the caller’s own uploads, whatever the patient. Requires document:upload.',
+        response: { 200: ref(BlockedDocuments), ...errors(401, 403, 429) },
+      },
+    },
+    async (request) => {
+      const { rows } = await request.txClient.query<{
+        id: string;
+        title: string;
+        file_name: string;
+        status: 'infected' | 'failed';
+        blocked_at: Date;
+      }>(
+        `select id, title, file_name, status, coalesce(scanned_at, created_at) as blocked_at
+         from patient_documents
+         where created_by = $1 and status in ('infected', 'failed') and blocked_seen_at is null
+           and retired_at is null
+         order by created_at desc, id desc limit 50`,
+        [userIdOf(request)],
+      );
+      return {
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          fileName: row.file_name,
+          status: row.status,
+          blockedAt: row.blocked_at.toISOString(),
+        })),
+      };
+    },
+  );
+
+  app.post(
+    '/documents/:documentId/dismiss-blocked',
+    {
+      config: { permissions: [UPLOAD], feature: FEATURE },
+      schema: {
+        operationId: 'dismissBlockedDocument',
+        tags: ['documents'],
+        description:
+          'The uploader has seen that a file was blocked: it leaves their list. The row stays. 404 for a file that is not the caller’s own, or not blocked. Requires document:upload.',
+        params: DocumentParams,
+        response: { 204: Type.Null(), ...errors(401, 403, 404, 429) },
+      },
+    },
+    async (request, reply) => {
+      const { documentId } = request.params;
+      if (!UUID.test(documentId)) throw documentNotFound();
+      const { rowCount } = await request.txClient.query(
+        `update patient_documents set blocked_seen_at = now()
+         where id = $1 and created_by = $2 and status in ('infected', 'failed')
+           and blocked_seen_at is null`,
+        [documentId, userIdOf(request)],
+      );
+      if (!rowCount) throw documentNotFound();
+      return reply.status(204).send(null);
     },
   );
 
