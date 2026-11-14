@@ -70,6 +70,16 @@ export const OPERATIONS_PERMISSIONS = [
     defaults: { admin: 'all', lab_technician: 'all' },
   },
   {
+    id: 'transfusionReaction:read',
+    description: 'See transfusion reactions, and trace a blood unit from donor to recipient',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', lab_technician: 'all' },
+  },
+  {
+    id: 'transfusionReaction:record',
+    description: 'Report a transfusion reaction and add to it',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', lab_technician: 'all' },
+  },
+  {
     id: 'patient.bloodGroup:read',
     description: 'See a patient’s blood group and the entries before it',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all', lab_technician: 'all' },

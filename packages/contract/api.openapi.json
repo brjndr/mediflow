@@ -11258,6 +11258,320 @@
           }
         }
       },
+      "ReactionSeverity": {
+        "type": "string",
+        "enum": ["mild", "moderate", "severe"],
+        "description": "How bad a transfusion reaction is. It can be raised later, never lowered."
+      },
+      "ReactionKind": {
+        "type": "string",
+        "enum": ["febrile", "allergic", "hemolytic", "trali", "taco", "other"],
+        "description": "The kind of reaction: febrile, allergic, hemolytic, transfusion-related acute lung injury (trali), transfusion-associated circulatory overload (taco) or other."
+      },
+      "TransfusionReactionUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "note", "recordedBy", "recordedAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ReactionSeverity"
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "TransfusionReaction": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "unitId",
+          "patientId",
+          "transfusedAt",
+          "onsetAt",
+          "kind",
+          "severity",
+          "currentSeverity",
+          "actions",
+          "reportedBy",
+          "createdAt",
+          "updates"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "unitId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "transfusedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "onsetAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReactionKind"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ReactionSeverity"
+          },
+          "currentSeverity": {
+            "$ref": "#/components/schemas/ReactionSeverity"
+          },
+          "actions": {
+            "type": "string"
+          },
+          "reportedBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updates": {
+            "description": "Oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransfusionReactionUpdate"
+            }
+          },
+          "heldUnitIds": {
+            "description": "Only in the answer to recording or updating: the sibling units of the same collection that were discarded by this call.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TransfusionReactionPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransfusionReaction"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "TransfusionReactionCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "unitId",
+          "patientId",
+          "transfusedAt",
+          "onsetAt",
+          "kind",
+          "severity",
+          "actions"
+        ],
+        "properties": {
+          "unitId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "encounterId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "transfusedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "onsetAt": {
+            "format": "date-time",
+            "description": "Not before `transfusedAt`.",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReactionKind"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ReactionSeverity"
+          },
+          "actions": {
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "TransfusionReactionUpdateCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["note"],
+        "properties": {
+          "note": {
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ReactionSeverity"
+          }
+        }
+      },
+      "TraceDonor": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "donorNumber", "bloodGroup"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "donorNumber": {
+            "type": "string"
+          },
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "fullName": {
+            "description": "Only for a caller who holds bloodDonor:read.",
+            "type": "string"
+          }
+        }
+      },
+      "BloodUnitTrace": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["unit", "history", "crossmatches", "reactions"],
+        "properties": {
+          "unit": {
+            "$ref": "#/components/schemas/BloodUnit"
+          },
+          "donor": {
+            "$ref": "#/components/schemas/TraceDonor"
+          },
+          "collectionId": {
+            "type": "string"
+          },
+          "collectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "screeningOutcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["cleared"]
+              },
+              {
+                "type": "string",
+                "enum": ["reactive"]
+              }
+            ]
+          },
+          "history": {
+            "description": "Every move, oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BloodUnitEntry"
+            }
+          },
+          "crossmatches": {
+            "description": "Newest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BloodCrossmatch"
+            }
+          },
+          "recipientPatientId": {
+            "description": "The patient the unit went to: an id, never a name.",
+            "type": "string"
+          },
+          "reactions": {
+            "description": "Oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransfusionReaction"
+            }
+          }
+        }
+      },
+      "TraceUnit": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["unit", "reactionCount"],
+        "properties": {
+          "unit": {
+            "$ref": "#/components/schemas/BloodUnit"
+          },
+          "collectionId": {
+            "type": "string"
+          },
+          "recipientPatientId": {
+            "type": "string"
+          },
+          "reactionCount": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "worstSeverity": {
+            "$ref": "#/components/schemas/ReactionSeverity"
+          }
+        }
+      },
+      "BloodDonorTrace": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["donor", "units"],
+        "properties": {
+          "donor": {
+            "$ref": "#/components/schemas/TraceDonor"
+          },
+          "units": {
+            "description": "Newest collection first, at most 200.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceUnit"
+            }
+          }
+        }
+      },
       "AmbulanceKind": {
         "type": "string",
         "enum": ["basic", "advanced", "neonatal"],
@@ -51407,6 +51721,602 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transfusion-reactions": {
+      "post": {
+        "operationId": "recordTransfusionReaction",
+        "tags": ["bloodbank"],
+        "description": "Records a reaction to a transfused unit, for the patient the unit was given to. The unit is issued or transfused (409 `unit_not_given`), the patient is the unit’s (422 `patient_mismatch`) and one the caller may read (422 `unknown_patient`), the visit, when named, is that patient’s (422 `unknown_encounter`), and the times are not in the future and the onset not before the transfusion (422 `invalid_period`). A severe or hemolytic reaction holds the other units of the same collection: each still in stock or issued is discarded with the reason \"Held after a transfusion reaction\", and their ids come back in `heldUnitIds`. The Idempotency-Key header is required. Audited; emits `blood.reaction_recorded` (ids and severity only), and `blood.unit_status_changed` for each held unit. Requires transfusionReaction:record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "unitId",
+                  "patientId",
+                  "transfusedAt",
+                  "onsetAt",
+                  "kind",
+                  "severity",
+                  "actions"
+                ],
+                "properties": {
+                  "unitId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "patientId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "encounterId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "transfusedAt": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "onsetAt": {
+                    "format": "date-time",
+                    "description": "Not before `transfusedAt`.",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "$ref": "#/components/schemas/ReactionKind"
+                  },
+                  "severity": {
+                    "$ref": "#/components/schemas/ReactionSeverity"
+                  },
+                  "actions": {
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfusionReaction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listTransfusionReactions",
+        "tags": ["bloodbank"],
+        "description": "Transfusion reactions, newest first, with their updates; filter by unit, patient or the severity first reported. Cursor paging. Requires transfusionReaction:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "unitId",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "patientId",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/ReactionSeverity"
+            },
+            "in": "query",
+            "name": "severity",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfusionReactionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transfusion-reactions/{reactionId}": {
+      "get": {
+        "operationId": "getTransfusionReaction",
+        "tags": ["bloodbank"],
+        "description": "A reaction with its updates, oldest first. Audited as a read. 404 `transfusion_reaction_not_found`. Requires transfusionReaction:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "reactionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfusionReaction"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transfusion-reactions/{reactionId}/updates": {
+      "post": {
+        "operationId": "updateTransfusionReaction",
+        "tags": ["bloodbank"],
+        "description": "Adds a note to a reaction, and may raise its severity (a severity that is not higher than the current one is 422 `severity_not_raised`). Updates are never edited or removed. Raising it to severe holds the unit’s siblings as recording a severe reaction does. Audited; emits `blood.reaction_recorded` again when the severity was raised. Requires transfusionReaction:record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["note"],
+                "properties": {
+                  "note": {
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "severity": {
+                    "$ref": "#/components/schemas/ReactionSeverity"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "reactionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransfusionReaction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood-units/{unitId}/trace": {
+      "get": {
+        "operationId": "traceBloodUnit",
+        "tags": ["bloodbank"],
+        "description": "From a unit to the donor who gave it and the patient who received it: the donor (the name only for a caller who also holds bloodDonor:read), the collection, the screening outcome, every move, the cross-matches, the recipient as a patient id (never a name) and the reactions reported. Audited as a read. 404 `blood_unit_not_found`. Requires transfusionReaction:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "unitId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodUnitTrace"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood/donors/{donorId}/trace": {
+      "get": {
+        "operationId": "traceBloodDonor",
+        "tags": ["bloodbank"],
+        "description": "From a donor to every unit made from their donations, newest first (at most 200): where each unit is now, the patient it went to as an id (never a name) and how many reactions were reported against it, with the worst severity. Audited as a read. 404 `blood_donor_not_found`. Requires bloodDonor:read and transfusionReaction:read (403 `permission_denied`).",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "donorId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodDonorTrace"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

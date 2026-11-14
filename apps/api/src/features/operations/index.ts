@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { ambulanceRoutes } from './ambulance.js';
 import { bloodBankRoutes } from './bloodbank.js';
 import { bloodDonorRoutes } from './blooddonors.js';
+import { bloodReactionRoutes } from './bloodreactions.js';
 import { bloodTestingRoutes } from './bloodtesting.js';
 import { BLOOD_EXPIRY_JOB, expireBloodUnitsEverywhere } from './expiry.js';
 import { housekeepingRoutes, subscribeToReleasedBeds } from './housekeeping.js';
@@ -17,7 +18,7 @@ import { OPERATIONS_SCHEMAS } from './schemas.js';
  * `housekeeping`. Publishes `roster.shift_scheduled`, `roster.shift_cancelled`,
  * `blood.unit_registered`, `blood.unit_status_changed`, `blood.donor_registered`,
  * `blood.donor_deferred`, `blood.collection_recorded`, `blood.unit_screened`,
- * `blood.crossmatch_recorded`, `ambulance.trip_requested`,
+ * `blood.crossmatch_recorded`, `blood.reaction_recorded`, `ambulance.trip_requested`,
  * `ambulance.trip_status_changed`, `cleaning.task_created` and `cleaning.task_completed`, and
  * subscribes to `bed.released` to make the cleaning task for the bed.
  */
@@ -30,6 +31,7 @@ export const operationsFeature: FastifyPluginAsync = async (app) => {
   await app.register(bloodBankRoutes);
   await app.register(bloodDonorRoutes);
   await app.register(bloodTestingRoutes);
+  await app.register(bloodReactionRoutes);
   await app.register(ambulanceRoutes);
   await app.register(housekeepingRoutes);
   subscribeToReleasedBeds(app);
