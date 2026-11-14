@@ -121,6 +121,7 @@ export const DOMAIN_EVENTS = [
   'surgery.started',
   'surgery.completed',
   'surgery.cancelled',
+  'surgery.checklist_step_completed',
   'claim.submitted',
   'claim.settled',
   // A record of a catalog (a service, a price, later a drug, a test, a bed) was added or changed.

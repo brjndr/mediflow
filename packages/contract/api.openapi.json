@@ -13834,6 +13834,201 @@
           }
         }
       },
+      "FitnessStatus": {
+        "type": "string",
+        "enum": ["fit", "conditional", "unfit"]
+      },
+      "ChecklistStepCode": {
+        "type": "string",
+        "enum": [
+          "consent_confirmed",
+          "site_marked",
+          "fasting_confirmed",
+          "identity_confirmed",
+          "anaesthesia_check_done",
+          "allergies_checked",
+          "team_introduced",
+          "procedure_confirmed",
+          "antibiotic_given",
+          "counts_correct",
+          "specimens_labelled",
+          "concerns_handed_over"
+        ]
+      },
+      "ChecklistEntry": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["step", "completedAt", "completedBy", "completedByName"],
+        "properties": {
+          "step": {
+            "$ref": "#/components/schemas/ChecklistStepCode"
+          },
+          "completedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "completedBy": {
+            "type": "string"
+          },
+          "completedByName": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "Fitness": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["status", "assessedAt", "assessedBy", "assessedByName"],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/FitnessStatus"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "assessedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "assessedBy": {
+            "type": "string"
+          },
+          "assessedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "AnaesthesiaInput": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["technique", "asaClass"],
+        "properties": {
+          "technique": {
+            "type": "string",
+            "enum": ["general", "spinal", "epidural", "regional", "local", "sedation"]
+          },
+          "asaClass": {
+            "minimum": 1,
+            "maximum": 6,
+            "type": "integer"
+          },
+          "drugs": {
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "notes": {
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "Anaesthesia": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["technique", "asaClass", "savedAt"],
+        "properties": {
+          "technique": {
+            "type": "string",
+            "enum": ["general", "spinal", "epidural", "regional", "local", "sedation"]
+          },
+          "asaClass": {
+            "minimum": 1,
+            "maximum": 6,
+            "type": "integer"
+          },
+          "drugs": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "savedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "signedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "signedBy": {
+            "type": "string"
+          },
+          "signedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "PeriopRecord": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["surgeryId", "checklist", "fitness", "anaesthesia"],
+        "properties": {
+          "surgeryId": {
+            "type": "string"
+          },
+          "checklist": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChecklistEntry"
+            }
+          },
+          "fitness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Fitness"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "anaesthesia": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Anaesthesia"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "FitnessInput": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/FitnessStatus"
+          },
+          "notes": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "ChecklistStepInput": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "note": {
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
       "StockLocationKind": {
         "type": "string",
         "enum": ["store", "pharmacy", "ward", "department"],
@@ -56616,6 +56811,553 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/periop": {
+      "get": {
+        "operationId": "getPeriop",
+        "tags": ["theatre"],
+        "description": "The pre-operative and peri-operative record of one surgery (OT-02, #177): fitness for surgery, the checklist steps done so far and the anaesthesia record. Audited as a read of the patient record. Requires theatre:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriopRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/fitness": {
+      "put": {
+        "operationId": "recordFitness",
+        "tags": ["theatre"],
+        "description": "Records the assessment of fitness for surgery, replacing the one before it (each is audited). Refused with 409 `invalid_state` once the surgery is completed or cancelled. Requires surgery:perform.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": {
+                    "$ref": "#/components/schemas/FitnessStatus"
+                  },
+                  "notes": {
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriopRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/checklist/{step}": {
+      "post": {
+        "operationId": "completeChecklistStep",
+        "tags": ["theatre"],
+        "description": "Completes one step of the pre-operative or WHO surgical safety checklist. The server takes the time and the signed-in user as the signer; a step is never undone or redone (a repeat answers with the first entry). Steps of a phase need every step of the phases before it (409 `phase_incomplete`). 409 `invalid_state` once the surgery is completed or cancelled. The Idempotency-Key header is required. Audited; emits `surgery.checklist_step_completed` (ids and the step, never the note). Requires surgery:perform.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/ChecklistStepCode"
+            },
+            "in": "path",
+            "name": "step",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriopRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/anaesthesia": {
+      "put": {
+        "operationId": "saveAnaesthesia",
+        "tags": ["theatre"],
+        "description": "Saves the anaesthesia record as a draft, replacing the draft before it. 409 `already_signed` once signed; 409 `invalid_state` once the surgery is completed or cancelled. Requires surgery:perform.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["technique", "asaClass"],
+                "properties": {
+                  "technique": {
+                    "type": "string",
+                    "enum": ["general", "spinal", "epidural", "regional", "local", "sedation"]
+                  },
+                  "asaClass": {
+                    "minimum": 1,
+                    "maximum": 6,
+                    "type": "integer"
+                  },
+                  "drugs": {
+                    "minLength": 1,
+                    "maxLength": 1000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "notes": {
+                    "minLength": 1,
+                    "maxLength": 1000,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriopRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/theatre/surgeries/{surgeryId}/anaesthesia/sign": {
+      "post": {
+        "operationId": "signAnaesthesia",
+        "tags": ["theatre"],
+        "description": "Signs the anaesthesia record: the server takes the time and the signed-in user. A signed record is never changed and is signed once (409 `already_signed`). 404 `anaesthesia_not_found` without a draft; 409 `invalid_state` once the surgery is completed or cancelled. The Idempotency-Key header is required. Audited. Requires surgery:perform.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "surgeryId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriopRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
