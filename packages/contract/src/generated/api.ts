@@ -5206,6 +5206,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/theatre/surgeries/{surgeryId}/operation-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The operation note of one surgery with its addenda, and the visit the surgery is charged to (OT-03, #178). `note` is null before one is saved. Audited as a read of the surgery. Requires theatre:read. */
+        get: operations["getOperationNote"];
+        /** @description Saves the operation note as a draft, replacing the draft before it. 409 `already_signed` once signed; 409 `invalid_state` before the surgery has started or after it was cancelled. Requires surgery:perform. */
+        put: operations["saveOperationNote"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/theatre/surgeries/{surgeryId}/operation-note/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Signs the operation note: the server takes the time and the signed-in user. A signed note is never changed (409 `already_signed`); 404 `note_not_found` without a draft; 409 `invalid_state` for a cancelled or unstarted surgery. The Idempotency-Key header is required. Audited. Requires surgery:perform. */
+        post: operations["signOperationNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/theatre/surgeries/{surgeryId}/operation-note/addenda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds an addendum to a signed operation note: the correction of a signed note, with the signer and time taken by the server. 409 `not_signed` while the note is a draft or missing. The Idempotency-Key header is required; a repeat adds nothing. Audited. Requires surgery:perform. */
+        post: operations["addOperationNoteAddendum"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/theatre/surgeries/{surgeryId}/encounter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Names the visit (encounter) the surgery and its consumables are charged to. The visit must be an open one of the same patient (422 `unknown_encounter`); only a scheduled or in-progress surgery is linked (409 `invalid_state`). Charges follow the link: nothing is charged for a surgery with none. Audited. Requires surgery:schedule. */
+        put: operations["linkSurgeryEncounter"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/inventory/locations": {
         parameters: {
             query?: never;
@@ -11505,6 +11574,8 @@ export interface components {
             patientId: string;
             /** @description The procedure service, when chosen. */
             serviceId?: string;
+            /** @description The visit the surgery is charged to, when linked (#178). */
+            encounterId?: string;
             procedure: string;
             notes?: string;
             /** Format: date-time */
@@ -11564,6 +11635,10 @@ export interface components {
             quantity: number;
             /** @description The stock ledger entry that took the units out. */
             ledgerEntryId: string;
+            /** @description The item as the drug and consumable master names it. */
+            itemName: string;
+            batchNumber: string;
+            locationName: string;
             recordedBy: string;
             /** Format: date-time */
             recordedAt: string;
@@ -11634,6 +11709,52 @@ export interface components {
         };
         ChecklistStepInput: {
             note?: string;
+        };
+        OperationNoteInput: {
+            procedureDone: string;
+            findings?: string;
+            technique?: string;
+            complications?: string;
+            bloodLossMl?: number;
+            specimens?: string;
+            postOpPlan?: string;
+        };
+        OperationNote: {
+            procedureDone: string;
+            findings?: string;
+            technique?: string;
+            complications?: string;
+            bloodLossMl?: number;
+            specimens?: string;
+            postOpPlan?: string;
+            /** Format: date-time */
+            savedAt: string;
+            savedBy: string;
+            /** Format: date-time */
+            signedAt?: string;
+            signedBy?: string;
+            signedByName?: string;
+        };
+        OperationAddendum: {
+            id: string;
+            text: string;
+            addedBy: string;
+            addedByName: string;
+            /** Format: date-time */
+            addedAt: string;
+        };
+        OperationRecord: {
+            surgeryId: string;
+            /** @description The visit the surgery is charged to, when linked. */
+            encounterId: string | null;
+            note: components["schemas"]["OperationNote"] | null;
+            addenda: components["schemas"]["OperationAddendum"][];
+        };
+        AddendumInput: {
+            text: string;
+        };
+        SurgeryEncounterInput: {
+            encounterId: string;
         };
         /**
          * @description What a place that keeps stock is: a store, a pharmacy counter, a ward’s own stock, or a department’s (a theatre, the laboratory).
@@ -41951,6 +42072,416 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOperationNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveOperationNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    procedureDone: string;
+                    findings?: string;
+                    technique?: string;
+                    complications?: string;
+                    bloodLossMl?: number;
+                    specimens?: string;
+                    postOpPlan?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    signOperationNote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addOperationNoteAddendum: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    linkSurgeryEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    encounterId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

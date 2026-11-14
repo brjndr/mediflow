@@ -10,7 +10,7 @@ What was decided for OT-01 (#176). The root `CLAUDE.md` wins where the two disag
 - **Idempotency:** every POST sends one key per identical body (`useAttempt`). Moves send the `version` read; room updates (PATCH) send the version and no key.
 - **Refresh:** the day is read again every 30 seconds; every mutation invalidates the tenant's surgery (or theatre) keys.
 - **Mock:** `mocks/handlers/theatre.ts` seeds two theatres and one surgery on `SEEDED_DAY` (2030-01-15, 09:30 to 11:00 on the hospital's clock) so it is never in the past, and refuses overlaps like the database does. The clinic has the switch off.
-- **Not built:** the team (anaesthetists, nurses; the API has only a surgeon), consumables (`/consumables` has no screen), linking to the admission, turnover time between cases, the procedure charge, operation notes (OT-03, OT-04), a week view.
+- **Not built:** the team (anaesthetists, nurses; the API has only a surgeon), linking to the admission, turnover time between cases, a week view, implant serial numbers and a count sheet (OT-04), the charges in the mock (the mock posts none; the real API does).
 
 ## Checklist and anaesthesia record (OT-02, #177)
 
@@ -19,3 +19,11 @@ What was decided for OT-01 (#176). The root `CLAUDE.md` wins where the two disag
 - **Checklist:** twelve steps in four phases (`CHECKLIST_PHASES` in `schemas.ts`): before the day (consent, site marked, fasting), sign in, time out, sign out (WHO). A phase opens when every step of the earlier ones is done (the server answers 409 `phase_incomplete`; the UI shows the button as `aria-disabled`). The time and the signer are taken by the server; a step is never undone, a repeat returns the first entry. Consent here is a confirmed step, not a link to a signed consent from the consents feature.
 - **Anaesthesia:** a draft replaced on each save, then signed once (`already_signed` after that). Signing needs a saved draft with no unsaved edits. Start and end times and a vitals chart are not built.
 - Every write answers with the whole record, which replaces the cached one (`periopKeys`); the record is re-read every 30 seconds.
+
+## Operation note, stock used and charges (#178)
+
+- A second row action, **Operation note and stock** (`theatre:read`, not for a cancelled surgery), opens `OperationDialog`: the **visit**, the **note** and the **stock used**. `surgery:perform` writes the note and the stock; `surgery:schedule` links the visit.
+- **Visit:** a surgery is charged to an encounter of the same patient. It is chosen from the patient's open visits (`useEncounters` from clinical, which needs the clinical module and `encounter:read`; without it the select is empty) while the surgery is scheduled or in progress. With no visit nothing is charged, and the dialog says so. Linking changes the surgery's version (the day's list is read again).
+- **Note:** procedure performed, findings, steps and technique, complications, blood loss, specimens, post-operative plan. A draft replaced on each save, written once the surgery has started (also after it is completed), signed once (the server takes the signer and time); a signed note is corrected only by addenda. Signing needs the draft saved with no unsaved edits, as for anaesthesia. Every write answers with the whole record (`operationKeys`).
+- **Stock used:** the item is found with `DrugSearch` (consumables included), the place from `usePlaces`, the batch from `useStock` for that item and place (expired batches are not offered; the server decides the rest). One batch and quantity at a time (the API takes up to 20 lines). Stock leaves the ledger when recorded; the list shows item, batch, place and time. `inventoryKeys` are invalidated after recording.
+- **Mock:** `mocks/handlers/theatre.ts` keeps notes and stock used, and moves the inventory mock's stock (`mockStockOut`); it posts no charges.

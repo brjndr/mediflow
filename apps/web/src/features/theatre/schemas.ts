@@ -7,7 +7,10 @@ import type {
   AnaesthesiaInput,
   OtRoom,
   OtRoomPage,
+  OperationRecord,
   PeriopRecord,
+  SurgeryConsumable,
+  SurgeryConsumablePage,
   Surgery,
   SurgeryPage,
   SurgeryStatus,
@@ -112,6 +115,7 @@ export const surgerySchema: z.ZodType<Surgery> = z.object({
   surgeonId: z.string(),
   patientId: z.string(),
   serviceId: z.string().optional(),
+  encounterId: z.string().optional(),
   procedure: z.string(),
   notes: z.string().optional(),
   startsAt: z.string(),
@@ -219,3 +223,105 @@ export const periopSchema: z.ZodType<PeriopRecord> = z.object({
     })
     .nullable(),
 });
+
+export const NOTE_TEXT_MAX = 2000;
+const lines = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, 'validation.invalid_value')
+    .regex(PLAIN_LINES, 'validation.plain_text');
+
+export const operationNoteFormSchema = z.object({
+  procedureDone: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(300, 'validation.invalid_value')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  findings: lines(2000),
+  technique: lines(2000),
+  complications: lines(1000),
+  bloodLossMl: z
+    .string()
+    .trim()
+    .regex(/^(\d{1,5})?$/, 'validation.invalid_value')
+    .refine((value) => value === '' || Number(value) <= 20000, 'validation.invalid_value'),
+  specimens: lines(500),
+  postOpPlan: lines(1000),
+});
+export type OperationNoteFormValues = z.infer<typeof operationNoteFormSchema>;
+
+export const addendumFormSchema = z.object({
+  text: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(2000, 'validation.invalid_value')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+});
+export type AddendumFormValues = z.infer<typeof addendumFormSchema>;
+
+export const consumableFormSchema = z.object({
+  locationId: z.string().min(1, 'validation.required'),
+  batchId: z.string().min(1, 'validation.required'),
+  quantity: z
+    .string()
+    .trim()
+    .regex(/^[1-9]\d{0,4}$/, 'validation.invalid_value'),
+});
+export type ConsumableFormValues = z.infer<typeof consumableFormSchema>;
+
+const noteSchema = z.object({
+  procedureDone: z.string(),
+  findings: z.string().optional(),
+  technique: z.string().optional(),
+  complications: z.string().optional(),
+  bloodLossMl: z.number().int().optional(),
+  specimens: z.string().optional(),
+  postOpPlan: z.string().optional(),
+  savedAt: z.string(),
+  savedBy: z.string(),
+  signedAt: z.string().optional(),
+  signedBy: z.string().optional(),
+  signedByName: z.string().optional(),
+});
+export const operationSchema: z.ZodType<OperationRecord> = z.object({
+  surgeryId: z.string(),
+  encounterId: z.string().nullable(),
+  note: noteSchema.nullable(),
+  addenda: z.array(
+    z.object({
+      id: z.string(),
+      text: z.string(),
+      addedBy: z.string(),
+      addedByName: z.string(),
+      addedAt: z.string(),
+    }),
+  ),
+});
+
+const consumableSchema: z.ZodType<SurgeryConsumable> = z.object({
+  id: z.string(),
+  useId: z.string(),
+  drugId: z.string(),
+  batchId: z.string(),
+  locationId: z.string(),
+  quantity: z.number().int(),
+  ledgerEntryId: z.string(),
+  itemName: z.string(),
+  batchNumber: z.string(),
+  locationName: z.string(),
+  recordedBy: z.string(),
+  recordedAt: z.string(),
+});
+export const consumablePageSchema: z.ZodType<SurgeryConsumablePage> = z.object({
+  items: z.array(consumableSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
+});
+
+export const visitFormSchema = z.object({
+  encounterId: z.string().min(1, 'validation.required'),
+});
+export type VisitFormValues = z.infer<typeof visitFormSchema>;

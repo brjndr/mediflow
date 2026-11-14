@@ -1,10 +1,19 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
+import { inventoryKeys } from '@/features/inventory';
 import { createTenantKeys } from '@/shared/api';
 import { dayBoundsUtc } from '@/shared/utils/timezone';
 import { useTenant } from '@/tenancy';
 import {
+  addAddendum,
   bookSurgery,
+  fetchConsumables,
+  fetchOperation,
+  linkEncounter,
+  recordConsumables,
+  saveOperationNote,
+  signOperationNote,
+  type RecordConsumables,
   createRoom,
   fetchRooms,
   fetchSurgeries,
@@ -19,7 +28,13 @@ import {
   type MoveSurgery,
 } from '../api';
 import { PAGE_SIZE } from '../schemas';
-import type { AnaesthesiaInput, ChecklistStepCode, PeriopRecord } from '../types';
+import type {
+  AnaesthesiaInput,
+  ChecklistStepCode,
+  OperationNoteInput,
+  OperationRecord,
+  PeriopRecord,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's theatres never show in another. */
 export const roomKeys = createTenantKeys('ot-rooms');
@@ -208,3 +223,100 @@ export const useSignAnaesthesia = (surgeryId: string) =>
     (_: void, key) => signAnaesthesia(surgeryId, key),
     () => 'sign',
   );
+
+export const operationKeys = createTenantKeys('operation');
+export const consumableKeys = createTenantKeys('ot-consumables');
+
+/** The operation note of one surgery and the visit it is charged to. */
+export function useOperation(surgeryId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: operationKeys.detail(tenantId ?? '', surgeryId),
+    queryFn: ({ signal }) => fetchOperation(surgeryId, signal),
+    enabled: tenantId !== undefined,
+    refetchInterval: REFRESH_MS,
+  });
+}
+
+/** Every change answers with the whole record, which replaces what is cached. */
+function useOperationWrite<Input>(
+  surgeryId: string,
+  write: (input: Input, key: string) => Promise<OperationRecord>,
+  identity: (input: Input) => unknown,
+  { changesSurgery = false } = {},
+) {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: Input) => write(input, attempt.keyFor([surgeryId, identity(input)])),
+    onSuccess: (record) => {
+      attempt.done();
+      if (!tenantId) return;
+      queryClient.setQueryData(operationKeys.detail(tenantId, surgeryId), record);
+      // Linking a visit changes the surgery's version, which the day's list carries.
+      if (changesSurgery) {
+        void queryClient.invalidateQueries({ queryKey: surgeryKeys.all(tenantId) });
+      }
+    },
+  });
+}
+
+export const useSaveOperationNote = (surgeryId: string) =>
+  useOperationWrite(
+    surgeryId,
+    (body: OperationNoteInput) => saveOperationNote(surgeryId, body),
+    (body) => body,
+  );
+export const useSignOperationNote = (surgeryId: string) =>
+  useOperationWrite(
+    surgeryId,
+    (_: void, key) => signOperationNote(surgeryId, key),
+    () => 'sign',
+  );
+export const useAddAddendum = (surgeryId: string) =>
+  useOperationWrite(
+    surgeryId,
+    (text: string, key) => addAddendum({ surgeryId, text }, key),
+    (text) => text,
+  );
+export const useLinkEncounter = (surgeryId: string) =>
+  useOperationWrite(
+    surgeryId,
+    (encounterId: string) => linkEncounter(surgeryId, encounterId),
+    (encounterId) => encounterId,
+    { changesSurgery: true },
+  );
+
+export const CONSUMABLES_PAGE = 50;
+
+/** What was used in the surgery, oldest first, a page at a time. */
+export function useConsumables(surgeryId: string) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: consumableKeys.list(tenantId ?? '', { surgeryId, limit: CONSUMABLES_PAGE }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchConsumables(surgeryId, { cursor: pageParam, limit: CONSUMABLES_PAGE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined,
+  });
+}
+
+/** Records stock used; the stock lists of the inventory screens are read again. */
+export function useRecordConsumables() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: RecordConsumables) => recordConsumables(input, attempt.keyFor(input)),
+    onSuccess: () => attempt.done(),
+    onSettled: () => {
+      if (!tenantId) return;
+      void queryClient.invalidateQueries({ queryKey: consumableKeys.all(tenantId) });
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.all(tenantId) });
+    },
+  });
+}
