@@ -35,6 +35,7 @@ const seed = (): Unit[] => [
     collectedAt: '2026-11-01T08:00:00.000Z',
     expiresAt: '2030-12-06T08:00:00.000Z',
     status: 'available',
+    screeningStatus: 'cleared',
     version: 3,
   },
   {
@@ -47,6 +48,7 @@ const seed = (): Unit[] => [
     collectedAt: '2026-11-05T08:00:00.000Z',
     expiresAt: '2030-11-10T08:00:00.000Z',
     status: 'testing',
+    screeningStatus: 'pending',
     version: 2,
   },
 ];
@@ -90,6 +92,7 @@ export function addMockBloodUnit(unit: Partial<Unit> & { id: string }): void {
     collectedAt: '2026-11-02T08:00:00.000Z',
     expiresAt: '2030-12-02T08:00:00.000Z',
     status: 'available',
+    screeningStatus: 'cleared',
     version: 1,
     ...unit,
   });
@@ -177,6 +180,7 @@ export const bloodBankHandlers = [
       collectedAt: body.collectedAt,
       expiresAt: body.expiresAt,
       status: 'collected',
+      screeningStatus: 'pending',
       version: 1,
     };
     units.push(unit);

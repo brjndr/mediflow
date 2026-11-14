@@ -46,7 +46,7 @@ const permissionFor = (from: BloodUnitStatusValue, to: BloodUnitStatusValue): st
     ? ISSUE
     : MANAGE;
 
-interface UnitRow {
+export interface UnitRow {
   id: string;
   tenant_id: string;
   unit_number: string;
@@ -56,16 +56,17 @@ interface UnitRow {
   collected_at: Date;
   expires_at: Date;
   status: BloodUnitStatusValue;
+  screening_status: BloodUnit['screeningStatus'];
   patient_id: string | null;
   version: number;
   expired: boolean;
 }
 
-const SELECT = `select x.id, x.tenant_id, x.unit_number, x.blood_group, x.component, x.volume_ml,
-       x.collected_at, x.expires_at, x.status, x.patient_id, x.version, (x.expires_at <= now()) as expired
+export const UNIT_SELECT = `select x.id, x.tenant_id, x.unit_number, x.blood_group, x.component, x.volume_ml,
+       x.collected_at, x.expires_at, x.status, x.screening_status, x.patient_id, x.version, (x.expires_at <= now()) as expired
   from blood_units x`;
 
-const view = (row: UnitRow): BloodUnit => ({
+export const view = (row: UnitRow): BloodUnit => ({
   id: row.id,
   tenantId: row.tenant_id,
   unitNumber: row.unit_number,
@@ -75,14 +76,19 @@ const view = (row: UnitRow): BloodUnit => ({
   collectedAt: iso(row.collected_at),
   expiresAt: iso(row.expires_at),
   status: row.status,
+  screeningStatus: row.screening_status,
   ...(row.patient_id === null ? {} : { patientId: row.patient_id }),
   version: row.version,
 });
 
-async function find(client: pg.ClientBase, id: string, lock = false): Promise<UnitRow | null> {
+export async function find(
+  client: pg.ClientBase,
+  id: string,
+  lock = false,
+): Promise<UnitRow | null> {
   if (!isUuid(id)) return null;
   const { rows } = await client.query<UnitRow>(
-    `${SELECT} where x.id = $1 ${lock ? 'for update' : ''}`,
+    `${UNIT_SELECT} where x.id = $1 ${lock ? 'for update' : ''}`,
     [id],
   );
   return rows[0] ?? null;
@@ -117,7 +123,7 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (q.component) add('x.component = ?', q.component);
       if (q.patientId) add('x.patient_id::text = ?', q.patientId);
       const page = await selectPage<UnitRow>(request.txClient, {
-        select: SELECT,
+        select: UNIT_SELECT,
         where,
         params,
         order: 'x.expires_at',
@@ -283,7 +289,7 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['bloodbank'],
         headers: IdempotencyHeaders,
         description:
-          'Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Issuing may name the visit (`encounterId`, a visit of the unit’s patient, else 422 `unknown_encounter`) and the priced service (`serviceId`, active, else 422 `unknown_service`) the unit is charged as; one without the other is 422 `charge_incomplete`. Billing then charges the service to the visit once. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`.',
+          'Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Issuing may name the visit (`encounterId`, a visit of the unit’s patient, else 422 `unknown_encounter`) and the priced service (`serviceId`, active, else 422 `unknown_service`) the unit is charged as; one without the other is 422 `charge_incomplete`. Billing then charges the service to the visit once. Reserving needs a `patientId` the caller may read (422 `unknown_patient`), a unit within its date (409 `unit_expired`) and a compatible cross-match of this unit and patient made in the last 72 hours (409 `crossmatch_required`). Moving a unit from testing to available needs a screening that cleared it (409 `screening_required`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`.',
         params: BloodUnitParams,
         body: BloodUnitMove,
         response: { 200: ref(BloodUnit), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -313,6 +319,9 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if ((to === 'reserved' || to === 'issued') && row.expired) {
         throw new HttpError(409, 'unit_expired', 'The unit is past its date');
       }
+      if (row.status === 'testing' && to === 'available' && row.screening_status !== 'cleared') {
+        throw new HttpError(409, 'screening_required', 'The unit is not cleared by screening');
+      }
       let patientId: string | null = null;
       if (to === 'reserved') {
         if (body.patientId === undefined) {
@@ -320,6 +329,19 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
         await requirePatient(request, body.patientId);
         patientId = body.patientId;
+        const { rows: match } = await client.query<{ ok: boolean }>(
+          `select (result = 'compatible' and valid_until > now()) as ok from blood_crossmatches
+           where blood_unit_id = $1 and patient_id::text = $2
+           order by performed_at desc, id desc limit 1`,
+          [row.id, patientId],
+        );
+        if (match[0]?.ok !== true) {
+          throw new HttpError(
+            409,
+            'crossmatch_required',
+            'Cross-match the unit with this patient first; a compatible one is good for 72 hours',
+          );
+        }
       } else if (to === 'issued' || to === 'transfused') {
         patientId = row.patient_id;
       }

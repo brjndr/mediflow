@@ -108,6 +108,12 @@ export const DOMAIN_EVENTS = [
   'roster.leave_cancelled',
   'blood.unit_registered',
   'blood.unit_status_changed',
+  // Donors, screening and cross-match (#585): ids, the blood group and outcomes, never a name.
+  'blood.donor_registered',
+  'blood.donor_deferred',
+  'blood.collection_recorded',
+  'blood.unit_screened',
+  'blood.crossmatch_recorded',
   'ambulance.trip_requested',
   'ambulance.trip_status_changed',
   'cleaning.task_created',

@@ -112,12 +112,14 @@ const TABLES = [
   'ambulances',
   'cleaning_tasks',
 ];
+// Rows of the screening and cross-match tables that the blood bank tests leave behind.
+const BLOOD_EXTRA_TABLES = ['blood_crossmatches', 'blood_screenings'];
 async function wipe() {
   const client = await pool.connect();
   try {
     await client.query('begin');
     await client.query('set local session_replication_role = replica');
-    for (const table of TABLES) {
+    for (const table of [...BLOOD_EXTRA_TABLES, ...TABLES]) {
       await client.query(`delete from ${table} where tenant_id = any($1)`, [tenants()]);
     }
     await client.query(
@@ -985,7 +987,31 @@ async function unitAt(to: 'collected' | 'testing' | 'available', more: object = 
   if (to === 'collected') return unit;
   unit = await ok<Unit>(await move(unit, 'testing', {}, { user: labTech }));
   if (to === 'testing') return unit;
-  return ok<Unit>(await move(unit, 'available', {}, { user: labTech }));
+  await ok(
+    await post(
+      `/blood-units/${unit.id}/screening`,
+      {
+        hiv: 'negative',
+        hbv: 'negative',
+        hcv: 'negative',
+        syphilis: 'negative',
+        malaria: 'negative',
+      },
+      { user: labTech },
+    ),
+    201,
+  );
+  const cleared = (await ok<Detail>(await get(`/blood-units/${unit.id}`))).unit;
+  return ok<Unit>(await move(cleared, 'available', {}, { user: labTech }));
+}
+/** Reserves a unit for a patient the way the ward does, after a cross-match made in the bank. */
+async function reserve(unit: Unit, forPatient = patientId, options: Options = { user: nurse }) {
+  await pool.query(
+    `insert into blood_crossmatches (tenant_id, blood_unit_id, patient_id, result, performed_by)
+     values ($1, $2, $3, 'compatible', $4)`,
+    [hospital.id, unit.id, forPatient, labTech.id],
+  );
+  return move(unit, 'reserved', { patientId: forPatient }, options);
 }
 
 describe('the blood bank', () => {
@@ -1009,9 +1035,7 @@ describe('the blood bank', () => {
   it('takes a unit from collection to transfusion, keeping every move', async () => {
     await wipe();
     const available = await unitAt('available');
-    const reserved = await ok<Unit>(
-      await move(available, 'reserved', { patientId }, { user: nurse }),
-    );
+    const reserved = await ok<Unit>(await reserve(available));
     expect(reserved).toMatchObject({ status: 'reserved', patientId });
     const issued = await ok<Unit>(await move(reserved, 'issued', {}, { user: nurse }));
     expect(issued.patientId).toBe(patientId);
@@ -1098,9 +1122,7 @@ describe('the blood bank', () => {
   it('releases a reservation back to stock, and refuses a stale version', async () => {
     await wipe();
     const available = await unitAt('available');
-    const reserved = await ok<Unit>(
-      await move(available, 'reserved', { patientId }, { user: nurse }),
-    );
+    const reserved = await ok<Unit>(await reserve(available));
     expect(errorOf(await move(available, 'discarded', { reason: 'x' }, { user: labTech }))).toEqual(
       [409, 'conflict'],
     );
@@ -1134,7 +1156,7 @@ describe('the blood bank', () => {
     await unitAt('available');
     await unitAt('available');
     const held = await unitAt('available', { bloodGroup: 'A-', component: 'plasma' });
-    await ok(await move(held, 'reserved', { patientId }, { user: nurse }));
+    await ok(await reserve(held));
     await unitAt('testing');
     const stock = await ok<{
       items: { bloodGroup: string; component: string; available: number; reserved: number }[];
@@ -1165,7 +1187,7 @@ describe('the blood bank', () => {
       collectedAt: past.collectedAt,
       expiresAt: new Date(Date.now() + 2000).toISOString(),
     });
-    await ok<Unit>(await move(held, 'reserved', { patientId }, { user: nurse }));
+    await ok<Unit>(await reserve(held));
     await new Promise((resolve) => setTimeout(resolve, 2100));
     const fresh = await unitAt('available');
     const testing = await unitAt('testing', past);

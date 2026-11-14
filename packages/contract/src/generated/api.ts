@@ -4298,8 +4298,163 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Issuing may name the visit (`encounterId`, a visit of the unit’s patient, else 422 `unknown_encounter`) and the priced service (`serviceId`, active, else 422 `unknown_service`) the unit is charged as; one without the other is 422 `charge_incomplete`. Billing then charges the service to the visit once. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`. */
+        /** @description Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Issuing may name the visit (`encounterId`, a visit of the unit’s patient, else 422 `unknown_encounter`) and the priced service (`serviceId`, active, else 422 `unknown_service`) the unit is charged as; one without the other is 422 `charge_incomplete`. Billing then charges the service to the visit once. Reserving needs a `patientId` the caller may read (422 `unknown_patient`), a unit within its date (409 `unit_expired`) and a compatible cross-match of this unit and patient made in the last 72 hours (409 `crossmatch_required`). Moving a unit from testing to available needs a screening that cleared it (409 `screening_required`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`. */
         post: operations["moveBloodUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/donors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Registers a blood donor: a person of the blood bank, not a patient. Only the name, birth date, sex, blood group and an optional phone are kept. The donor is aged 18 to 65 (422 `donor_age`); the number is made by the server. The Idempotency-Key header is required. Audited; emits `blood.donor_registered`. Requires bloodDonor:manage. */
+        post: operations["registerBloodDonor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/donors/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Donors, newest first, with the name and phone masked. `q` matches part of the name or the donor number. What is searched for travels in the body, never in a query string, and the API does not log the body. It reads data only. Requires bloodDonor:read. */
+        post: operations["searchBloodDonors"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/donors/{donorId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A donor in full, with the collections made, newest first. Audited as a read. 404 `blood_donor_not_found`. Requires bloodDonor:read. */
+        get: operations["getBloodDonor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/donors/{donorId}/defer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Defers a donor from giving blood, until a date (`until`, in the future, else 422 `invalid_period`) or for good when it is left out. A deferral is never shortened: a later date replaces an earlier one, and a permanent one is final. Audited; emits `blood.donor_deferred`. Requires bloodDonor:manage. */
+        post: operations["deferBloodDonor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records a donation and the units made of it, each in status `collected` with the donor’s blood group and awaiting testing and screening. The donor is not deferred (422 `donor_deferred`), is aged 18 to 65 on the day (422 `donor_age`) and last gave at least 90 days before (422 `donation_too_soon`). The collection is not in the future and every unit expires after it (422 `invalid_period`); a unit number is unique (409 `duplicate_unit`). The Idempotency-Key header is required. Audited; emits `blood.collection_recorded` and `blood.unit_registered` for each unit. Requires bloodDonor:manage. */
+        post: operations["recordBloodCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood-units/{unitId}/screening": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The screening of a unit, with each test. Audited as a read. 404 `blood_unit_not_found`, or `blood_screening_not_found` before it is screened. Requires bloodUnit:test. */
+        get: operations["getBloodUnitScreening"];
+        put?: never;
+        /** @description Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction. Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` and `blood.donor_deferred`. Requires bloodUnit:test. */
+        post: operations["screenBloodUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood-units/{unitId}/crossmatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records the cross-match of an available unit against a patient (422 `unknown_patient`), good for 72 hours. The patient’s blood group must be on record (422 `blood_group_unknown`), and a compatible result for a group that can never match is refused (422 `abo_incompatible`). A unit past its date is 409 `unit_expired`; one not available is 409 `not_available`. Reserving the unit for the patient needs a compatible cross-match of the last 72 hours. Audited; emits `blood.crossmatch_recorded`. Requires bloodUnit:test. */
+        post: operations["crossmatchBloodUnit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/blood-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The patient’s blood group on record and every entry before it, newest first. Audited as a read. 422 `unknown_patient` for a patient the caller may not read. Requires patient.bloodGroup:read. */
+        get: operations["getPatientBloodGroup"];
+        put?: never;
+        /** @description Records the patient’s blood group as a new entry; earlier entries are kept. A group that differs from the one on record needs a `reason` (422 `reason_required`); the same group again changes nothing. Audited. Requires patient.bloodGroup:update. */
+        post: operations["setPatientBloodGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/compatible-units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. Requires bloodUnit:read. */
+        post: operations["listCompatibleBloodUnits"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10800,6 +10955,11 @@ export interface components {
          * @enum {string}
          */
         BloodUnitStatus: "collected" | "testing" | "available" | "reserved" | "issued" | "transfused" | "discarded" | "expired";
+        /**
+         * @description pending until the unit is screened; only cleared goes on to stock.
+         * @enum {string}
+         */
+        ScreeningStatus: "pending" | "cleared" | "reactive";
         BloodUnit: {
             id: string;
             tenantId: string;
@@ -10812,6 +10972,7 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
             status: components["schemas"]["BloodUnitStatus"];
+            screeningStatus: components["schemas"]["ScreeningStatus"];
             /** @description The patient it is held for, issued to or went to. */
             patientId?: string;
             version: number;
@@ -10877,6 +11038,187 @@ export interface components {
         };
         BloodStock: {
             items: components["schemas"]["BloodStockRow"][];
+        };
+        /**
+         * @description As on the donor form.
+         * @enum {string}
+         */
+        DonorSex: "female" | "male" | "other";
+        /**
+         * @description deferred while a temporary deferral runs, or for good.
+         * @enum {string}
+         */
+        DonorStatus: "active" | "deferred";
+        /**
+         * @description The result of one infection test.
+         * @enum {string}
+         */
+        ScreeningResult: "negative" | "reactive";
+        /**
+         * @description The result of a cross-match.
+         * @enum {string}
+         */
+        CrossmatchResult: "compatible" | "incompatible";
+        BloodDonorSummary: {
+            id: string;
+            tenantId: string;
+            donorNumber: string;
+            sex: components["schemas"]["DonorSex"];
+            bloodGroup: components["schemas"]["BloodGroup"];
+            status: components["schemas"]["DonorStatus"];
+            /** Format: date-time */
+            deferredUntil?: string;
+            deferredPermanent: boolean;
+            /** Format: date-time */
+            lastDonatedAt?: string;
+            version: number;
+            /** @description Initials and dots, never the full name. */
+            maskedName: string;
+            maskedPhone?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        BloodDonorPage: {
+            items: components["schemas"]["BloodDonorSummary"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        BloodCollection: {
+            id: string;
+            donorId: string;
+            /** Format: date-time */
+            collectedAt: string;
+            volumeMl: number;
+            unitIds: string[];
+        };
+        BloodDonor: {
+            id: string;
+            tenantId: string;
+            donorNumber: string;
+            sex: components["schemas"]["DonorSex"];
+            bloodGroup: components["schemas"]["BloodGroup"];
+            status: components["schemas"]["DonorStatus"];
+            /** Format: date-time */
+            deferredUntil?: string;
+            deferredPermanent: boolean;
+            /** Format: date-time */
+            lastDonatedAt?: string;
+            version: number;
+            fullName: string;
+            /** Format: date */
+            dateOfBirth: string;
+            phone?: string;
+            deferralReason?: string;
+            /** @description Newest first. */
+            collections: components["schemas"]["BloodCollection"][];
+        };
+        BloodDonorCreate: {
+            fullName: string;
+            /**
+             * Format: date
+             * @description Age 18 to 65 (422 `donor_age`).
+             */
+            dateOfBirth: string;
+            sex: components["schemas"]["DonorSex"];
+            bloodGroup: components["schemas"]["BloodGroup"];
+            phone?: string;
+        };
+        BloodDonorSearch: {
+            /** @description Part of the name, or the donor number. */
+            q?: string;
+            bloodGroup?: components["schemas"]["BloodGroup"];
+            status?: components["schemas"]["DonorStatus"];
+            cursor?: string;
+            /** @default 25 */
+            limit: number;
+        };
+        BloodDonorDefer: {
+            reason: string;
+            /**
+             * Format: date-time
+             * @description When the deferral ends. Without it the deferral is permanent.
+             */
+            until?: string;
+        };
+        BloodCollectionCreate: {
+            donorId: string;
+            /** Format: date-time */
+            collectedAt?: string;
+            volumeMl: number;
+            units: {
+                unitNumber: string;
+                component: components["schemas"]["BloodComponent"];
+                volumeMl: number;
+                /** Format: date-time */
+                expiresAt: string;
+            }[];
+        };
+        BloodScreeningCreate: {
+            hiv: components["schemas"]["ScreeningResult"];
+            hbv: components["schemas"]["ScreeningResult"];
+            hcv: components["schemas"]["ScreeningResult"];
+            syphilis: components["schemas"]["ScreeningResult"];
+            malaria: components["schemas"]["ScreeningResult"];
+        };
+        BloodScreening: {
+            id: string;
+            unitId: string;
+            hiv: components["schemas"]["ScreeningResult"];
+            hbv: components["schemas"]["ScreeningResult"];
+            hcv: components["schemas"]["ScreeningResult"];
+            syphilis: components["schemas"]["ScreeningResult"];
+            malaria: components["schemas"]["ScreeningResult"];
+            outcome: "cleared" | "reactive";
+            screenedBy: string;
+            /** Format: date-time */
+            screenedAt: string;
+        };
+        PatientBloodGroupEntry: {
+            bloodGroup: components["schemas"]["BloodGroup"];
+            reason?: string;
+            recordedBy: string;
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        PatientBloodGroup: {
+            patientId: string;
+            bloodGroup?: components["schemas"]["BloodGroup"];
+            /** @description Newest first. */
+            history: components["schemas"]["PatientBloodGroupEntry"][];
+        };
+        PatientBloodGroupSet: {
+            bloodGroup: components["schemas"]["BloodGroup"];
+            /** @description Required when the group differs from the one on record. */
+            reason?: string;
+        };
+        BloodCrossmatchCreate: {
+            patientId: string;
+            result: components["schemas"]["CrossmatchResult"];
+        };
+        BloodCrossmatch: {
+            id: string;
+            unitId: string;
+            patientId: string;
+            result: components["schemas"]["CrossmatchResult"];
+            performedBy: string;
+            /** Format: date-time */
+            performedAt: string;
+            /** Format: date-time */
+            validUntil: string;
+        };
+        CompatibleUnitsRequest: {
+            patientId: string;
+            component: components["schemas"]["BloodComponent"];
+        };
+        CompatibleUnit: {
+            unit: components["schemas"]["BloodUnit"];
+            crossmatch?: components["schemas"]["BloodCrossmatch"];
+            /** @description A compatible cross-match for this patient is on record and still within 72 hours. */
+            crossmatchValid: boolean;
+        };
+        CompatibleUnits: {
+            patientBloodGroup: components["schemas"]["BloodGroup"];
+            /** @description Soonest expiry first. */
+            items: components["schemas"]["CompatibleUnit"][];
         };
         /**
          * @description How well equipped an ambulance is.
@@ -36725,6 +37067,854 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    registerBloodDonor: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fullName: string;
+                    /**
+                     * Format: date
+                     * @description Age 18 to 65 (422 `donor_age`).
+                     */
+                    dateOfBirth: string;
+                    sex: components["schemas"]["DonorSex"];
+                    bloodGroup: components["schemas"]["BloodGroup"];
+                    phone?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodDonor"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    searchBloodDonors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BloodDonorSearch"];
+            };
+        };
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodDonorPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getBloodDonor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                donorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodDonor"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deferBloodDonor: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                donorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    /**
+                     * Format: date-time
+                     * @description When the deferral ends. Without it the deferral is permanent.
+                     */
+                    until?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodDonor"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordBloodCollection: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    donorId: string;
+                    /** Format: date-time */
+                    collectedAt?: string;
+                    volumeMl: number;
+                    units: {
+                        unitNumber: string;
+                        component: components["schemas"]["BloodComponent"];
+                        volumeMl: number;
+                        /** Format: date-time */
+                        expiresAt: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodCollection"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getBloodUnitScreening: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodScreening"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    screenBloodUnit: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hiv: components["schemas"]["ScreeningResult"];
+                    hbv: components["schemas"]["ScreeningResult"];
+                    hcv: components["schemas"]["ScreeningResult"];
+                    syphilis: components["schemas"]["ScreeningResult"];
+                    malaria: components["schemas"]["ScreeningResult"];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodScreening"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    crossmatchBloodUnit: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    patientId: string;
+                    result: components["schemas"]["CrossmatchResult"];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodCrossmatch"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPatientBloodGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientBloodGroup"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setPatientBloodGroup: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    bloodGroup: components["schemas"]["BloodGroup"];
+                    /** @description Required when the group differs from the one on record. */
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientBloodGroup"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCompatibleBloodUnits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompatibleUnitsRequest"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompatibleUnits"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

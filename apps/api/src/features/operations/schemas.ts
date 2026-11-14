@@ -315,6 +315,12 @@ export const BloodUnitStatus = Enum(
   'collected -> testing -> available -> reserved -> issued -> transfused. Discarded from any state before transfusion; available or reserved units past their date are expired; reserved goes back to available when released.',
 );
 
+export const ScreeningStatus = Enum(
+  'ScreeningStatus',
+  ['pending', 'cleared', 'reactive'] as const,
+  'pending until the unit is screened; only cleared goes on to stock.',
+);
+
 export const BloodUnit = Obj('BloodUnit', {
   id: Type.String(),
   tenantId: Type.String(),
@@ -325,6 +331,7 @@ export const BloodUnit = Obj('BloodUnit', {
   collectedAt: When,
   expiresAt: When,
   status: ref(BloodUnitStatus),
+  screeningStatus: ref(ScreeningStatus),
   patientId: Type.Optional(
     Type.String({ description: 'The patient it is held for, issued to or went to.' }),
   ),
@@ -414,6 +421,226 @@ export const BloodStockRow = Obj('BloodStockRow', {
   nextExpiry: Type.Optional(When),
 });
 export const BloodStock = Obj('BloodStock', { items: Type.Array(ref(BloodStockRow)) });
+
+// --- donors, screening, patient blood group and cross-match (#585) ------------------------------
+
+export const DonorSex = Enum(
+  'DonorSex',
+  ['female', 'male', 'other'] as const,
+  'As on the donor form.',
+);
+export const DonorStatus = Enum(
+  'DonorStatus',
+  ['active', 'deferred'] as const,
+  'deferred while a temporary deferral runs, or for good.',
+);
+export const ScreeningResult = Enum(
+  'ScreeningResult',
+  ['negative', 'reactive'] as const,
+  'The result of one infection test.',
+);
+export const CrossmatchResult = Enum(
+  'CrossmatchResult',
+  ['compatible', 'incompatible'] as const,
+  'The result of a cross-match.',
+);
+
+const DONOR_FIELDS = {
+  id: Type.String(),
+  tenantId: Type.String(),
+  donorNumber: Type.String(),
+  sex: ref(DonorSex),
+  bloodGroup: ref(BloodGroup),
+  status: ref(DonorStatus),
+  deferredUntil: Type.Optional(When),
+  deferredPermanent: Type.Boolean(),
+  lastDonatedAt: Type.Optional(When),
+  version: Type.Integer({ minimum: 1 }),
+};
+
+/** In a list: the name and phone masked, the birth date left out. */
+export const BloodDonorSummary = Obj('BloodDonorSummary', {
+  ...DONOR_FIELDS,
+  maskedName: Type.String({ description: 'Initials and dots, never the full name.' }),
+  maskedPhone: Type.Optional(Type.String()),
+});
+export const BloodDonorPage = CursorPage(ref(BloodDonorSummary), { $id: 'BloodDonorPage' });
+
+export const BloodCollection = Obj('BloodCollection', {
+  id: Type.String(),
+  donorId: Type.String(),
+  collectedAt: When,
+  volumeMl: Type.Integer(),
+  unitIds: Type.Array(Type.String()),
+});
+export const BloodDonor = Obj('BloodDonor', {
+  ...DONOR_FIELDS,
+  fullName: Type.String(),
+  dateOfBirth: Type.String({ format: 'date' }),
+  phone: Type.Optional(Type.String()),
+  deferralReason: Type.Optional(Type.String()),
+  collections: Type.Array(ref(BloodCollection), { description: 'Newest first.' }),
+});
+
+export const BloodDonorCreate = Type.Object(
+  {
+    fullName: Type.String({ minLength: 1, maxLength: 100, pattern: PLAIN_TEXT }),
+    dateOfBirth: Type.String({ format: 'date', description: 'Age 18 to 65 (422 `donor_age`).' }),
+    sex: ref(DonorSex),
+    bloodGroup: ref(BloodGroup),
+    phone: Type.Optional(Type.String({ minLength: 4, maxLength: 20, pattern: PLAIN_TEXT })),
+  },
+  { $id: 'BloodDonorCreate', additionalProperties: false },
+);
+export type BloodDonorCreate = Static<typeof BloodDonorCreate>;
+
+export const BloodDonorSearch = Type.Object(
+  {
+    q: Type.Optional(
+      Type.String({ maxLength: 100, description: 'Part of the name, or the donor number.' }),
+    ),
+    bloodGroup: Type.Optional(ref(BloodGroup)),
+    status: Type.Optional(ref(DonorStatus)),
+    cursor: Cursor,
+    limit: Limit,
+  },
+  { $id: 'BloodDonorSearch', additionalProperties: false },
+);
+export type BloodDonorSearch = Static<typeof BloodDonorSearch>;
+export const BloodDonorParams = Type.Object({ donorId: Id });
+
+export const BloodDonorDefer = Type.Object(
+  {
+    reason: Type.String({ minLength: 1, maxLength: 500, pattern: PLAIN_TEXT }),
+    until: Type.Optional(
+      Type.String({
+        format: 'date-time',
+        description: 'When the deferral ends. Without it the deferral is permanent.',
+      }),
+    ),
+  },
+  { $id: 'BloodDonorDefer', additionalProperties: false },
+);
+export type BloodDonorDefer = Static<typeof BloodDonorDefer>;
+
+export const BloodCollectionCreate = Type.Object(
+  {
+    donorId: Id,
+    collectedAt: Type.Optional(When),
+    volumeMl: Type.Integer({ minimum: 50, maximum: 1000 }),
+    units: Type.Array(
+      Type.Object(
+        {
+          unitNumber: Type.String({ minLength: 1, maxLength: 40, pattern: PLAIN_TEXT }),
+          component: ref(BloodComponent),
+          volumeMl: Type.Integer({ minimum: 10, maximum: 1000 }),
+          expiresAt: When,
+        },
+        { additionalProperties: false },
+      ),
+      { minItems: 1, maxItems: 4 },
+    ),
+  },
+  { $id: 'BloodCollectionCreate', additionalProperties: false },
+);
+export type BloodCollectionCreate = Static<typeof BloodCollectionCreate>;
+
+export const BloodScreeningCreate = Type.Object(
+  {
+    hiv: ref(ScreeningResult),
+    hbv: ref(ScreeningResult),
+    hcv: ref(ScreeningResult),
+    syphilis: ref(ScreeningResult),
+    malaria: ref(ScreeningResult),
+  },
+  { $id: 'BloodScreeningCreate', additionalProperties: false },
+);
+export type BloodScreeningCreate = Static<typeof BloodScreeningCreate>;
+export const BloodScreening = Obj('BloodScreening', {
+  id: Type.String(),
+  unitId: Type.String(),
+  hiv: ref(ScreeningResult),
+  hbv: ref(ScreeningResult),
+  hcv: ref(ScreeningResult),
+  syphilis: ref(ScreeningResult),
+  malaria: ref(ScreeningResult),
+  outcome: Type.Union([Type.Literal('cleared'), Type.Literal('reactive')]),
+  screenedBy: Type.String(),
+  screenedAt: When,
+});
+
+export const PatientBloodGroupEntry = Obj('PatientBloodGroupEntry', {
+  bloodGroup: ref(BloodGroup),
+  reason: Type.Optional(Type.String()),
+  recordedBy: Type.String(),
+  recordedAt: When,
+});
+export const PatientBloodGroup = Obj('PatientBloodGroup', {
+  patientId: Type.String(),
+  bloodGroup: Type.Optional(ref(BloodGroup)),
+  history: Type.Array(ref(PatientBloodGroupEntry), { description: 'Newest first.' }),
+});
+export const PatientBloodGroupSet = Type.Object(
+  {
+    bloodGroup: ref(BloodGroup),
+    reason: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 500,
+        pattern: PLAIN_TEXT,
+        description: 'Required when the group differs from the one on record.',
+      }),
+    ),
+  },
+  { $id: 'PatientBloodGroupSet', additionalProperties: false },
+);
+export type PatientBloodGroupSet = Static<typeof PatientBloodGroupSet>;
+export const PatientParams = Type.Object({ patientId: Id });
+
+export const BloodCrossmatchCreate = Type.Object(
+  {
+    patientId: Id,
+    result: ref(CrossmatchResult),
+  },
+  { $id: 'BloodCrossmatchCreate', additionalProperties: false },
+);
+export type BloodCrossmatchCreate = Static<typeof BloodCrossmatchCreate>;
+export const BloodCrossmatch = Obj('BloodCrossmatch', {
+  id: Type.String(),
+  unitId: Type.String(),
+  patientId: Type.String(),
+  result: ref(CrossmatchResult),
+  performedBy: Type.String(),
+  performedAt: When,
+  validUntil: When,
+});
+
+export const CompatibleUnitsRequest = Type.Object(
+  {
+    patientId: Id,
+    component: ref(BloodComponent),
+  },
+  { $id: 'CompatibleUnitsRequest', additionalProperties: false },
+);
+export type CompatibleUnitsRequest = Static<typeof CompatibleUnitsRequest>;
+export const CompatibleUnit = Obj('CompatibleUnit', {
+  unit: ref(BloodUnit),
+  crossmatch: Type.Optional(ref(BloodCrossmatch)),
+  crossmatchValid: Type.Boolean({
+    description:
+      'A compatible cross-match for this patient is on record and still within 72 hours.',
+  }),
+});
+export const CompatibleUnits = Obj('CompatibleUnits', {
+  patientBloodGroup: ref(BloodGroup),
+  items: Type.Array(ref(CompatibleUnit), { description: 'Soonest expiry first.' }),
+});
+
+export type BloodDonor = Static<typeof BloodDonor>;
+export type BloodDonorSummary = Static<typeof BloodDonorSummary>;
+export type BloodCollection = Static<typeof BloodCollection>;
+export type PatientBloodGroup = Static<typeof PatientBloodGroup>;
+export type BloodCrossmatch = Static<typeof BloodCrossmatch>;
 
 // --- ambulances --------------------------------------------------------------------------------
 
@@ -638,6 +865,7 @@ export const OPERATIONS_SCHEMAS = [
   BloodGroup,
   BloodComponent,
   BloodUnitStatus,
+  ScreeningStatus,
   BloodUnit,
   BloodUnitPage,
   BloodUnitEntry,
@@ -646,6 +874,28 @@ export const OPERATIONS_SCHEMAS = [
   BloodUnitMove,
   BloodStockRow,
   BloodStock,
+  DonorSex,
+  DonorStatus,
+  ScreeningResult,
+  CrossmatchResult,
+  BloodDonorSummary,
+  BloodDonorPage,
+  BloodCollection,
+  BloodDonor,
+  BloodDonorCreate,
+  BloodDonorSearch,
+  BloodDonorDefer,
+  BloodCollectionCreate,
+  BloodScreeningCreate,
+  BloodScreening,
+  PatientBloodGroupEntry,
+  PatientBloodGroup,
+  PatientBloodGroupSet,
+  BloodCrossmatchCreate,
+  BloodCrossmatch,
+  CompatibleUnitsRequest,
+  CompatibleUnit,
+  CompatibleUnits,
   AmbulanceKind,
   AmbulanceStatus,
   CrewRole,

@@ -55,6 +55,31 @@ export const OPERATIONS_PERMISSIONS = [
     defaults: { admin: 'all', nurse: 'all', lab_technician: 'all' },
   },
   {
+    id: 'bloodUnit:test',
+    description: 'Record the screening and cross-match of a blood unit',
+    defaults: { admin: 'all', lab_technician: 'all' },
+  },
+  {
+    id: 'bloodDonor:read',
+    description: 'Search blood donors and see a donor’s record and collections',
+    defaults: { admin: 'all', lab_technician: 'all' },
+  },
+  {
+    id: 'bloodDonor:manage',
+    description: 'Register blood donors, record collections and defer a donor',
+    defaults: { admin: 'all', lab_technician: 'all' },
+  },
+  {
+    id: 'patient.bloodGroup:read',
+    description: 'See a patient’s blood group and the entries before it',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', lab_technician: 'all' },
+  },
+  {
+    id: 'patient.bloodGroup:update',
+    description: 'Record or correct a patient’s blood group',
+    defaults: { admin: 'all', lab_technician: 'all' },
+  },
+  {
     id: 'ambulance:read',
     description: 'See the ambulances and their trips',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },

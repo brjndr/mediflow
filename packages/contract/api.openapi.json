@@ -10436,6 +10436,11 @@
         ],
         "description": "collected -> testing -> available -> reserved -> issued -> transfused. Discarded from any state before transfusion; available or reserved units past their date are expired; reserved goes back to available when released."
       },
+      "ScreeningStatus": {
+        "type": "string",
+        "enum": ["pending", "cleared", "reactive"],
+        "description": "pending until the unit is screened; only cleared goes on to stock."
+      },
       "BloodUnit": {
         "additionalProperties": false,
         "type": "object",
@@ -10449,6 +10454,7 @@
           "collectedAt",
           "expiresAt",
           "status",
+          "screeningStatus",
           "version"
         ],
         "properties": {
@@ -10480,6 +10486,9 @@
           },
           "status": {
             "$ref": "#/components/schemas/BloodUnitStatus"
+          },
+          "screeningStatus": {
+            "$ref": "#/components/schemas/ScreeningStatus"
           },
           "patientId": {
             "description": "The patient it is held for, issued to or went to.",
@@ -10681,6 +10690,570 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/BloodStockRow"
+            }
+          }
+        }
+      },
+      "DonorSex": {
+        "type": "string",
+        "enum": ["female", "male", "other"],
+        "description": "As on the donor form."
+      },
+      "DonorStatus": {
+        "type": "string",
+        "enum": ["active", "deferred"],
+        "description": "deferred while a temporary deferral runs, or for good."
+      },
+      "ScreeningResult": {
+        "type": "string",
+        "enum": ["negative", "reactive"],
+        "description": "The result of one infection test."
+      },
+      "CrossmatchResult": {
+        "type": "string",
+        "enum": ["compatible", "incompatible"],
+        "description": "The result of a cross-match."
+      },
+      "BloodDonorSummary": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "donorNumber",
+          "sex",
+          "bloodGroup",
+          "status",
+          "deferredPermanent",
+          "version",
+          "maskedName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "donorNumber": {
+            "type": "string"
+          },
+          "sex": {
+            "$ref": "#/components/schemas/DonorSex"
+          },
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DonorStatus"
+          },
+          "deferredUntil": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deferredPermanent": {
+            "type": "boolean"
+          },
+          "lastDonatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maskedName": {
+            "description": "Initials and dots, never the full name.",
+            "type": "string"
+          },
+          "maskedPhone": {
+            "type": "string"
+          }
+        }
+      },
+      "BloodDonorPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BloodDonorSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "BloodCollection": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "donorId", "collectedAt", "volumeMl", "unitIds"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "donorId": {
+            "type": "string"
+          },
+          "collectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "volumeMl": {
+            "type": "integer"
+          },
+          "unitIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BloodDonor": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "tenantId",
+          "donorNumber",
+          "sex",
+          "bloodGroup",
+          "status",
+          "deferredPermanent",
+          "version",
+          "fullName",
+          "dateOfBirth",
+          "collections"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "donorNumber": {
+            "type": "string"
+          },
+          "sex": {
+            "$ref": "#/components/schemas/DonorSex"
+          },
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DonorStatus"
+          },
+          "deferredUntil": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deferredPermanent": {
+            "type": "boolean"
+          },
+          "lastDonatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "dateOfBirth": {
+            "format": "date",
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "deferralReason": {
+            "type": "string"
+          },
+          "collections": {
+            "description": "Newest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BloodCollection"
+            }
+          }
+        }
+      },
+      "BloodDonorCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["fullName", "dateOfBirth", "sex", "bloodGroup"],
+        "properties": {
+          "fullName": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "dateOfBirth": {
+            "format": "date",
+            "description": "Age 18 to 65 (422 `donor_age`).",
+            "type": "string"
+          },
+          "sex": {
+            "$ref": "#/components/schemas/DonorSex"
+          },
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "phone": {
+            "minLength": 4,
+            "maxLength": 20,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "BloodDonorSearch": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "q": {
+            "maxLength": 100,
+            "description": "Part of the name, or the donor number.",
+            "type": "string"
+          },
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DonorStatus"
+          },
+          "cursor": {
+            "maxLength": 300,
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "type": "integer"
+          }
+        }
+      },
+      "BloodDonorDefer": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "until": {
+            "format": "date-time",
+            "description": "When the deferral ends. Without it the deferral is permanent.",
+            "type": "string"
+          }
+        }
+      },
+      "BloodCollectionCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["donorId", "volumeMl", "units"],
+        "properties": {
+          "donorId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "collectedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "volumeMl": {
+            "minimum": 50,
+            "maximum": 1000,
+            "type": "integer"
+          },
+          "units": {
+            "minItems": 1,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["unitNumber", "component", "volumeMl", "expiresAt"],
+              "properties": {
+                "unitNumber": {
+                  "minLength": 1,
+                  "maxLength": 40,
+                  "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                  "type": "string"
+                },
+                "component": {
+                  "$ref": "#/components/schemas/BloodComponent"
+                },
+                "volumeMl": {
+                  "minimum": 10,
+                  "maximum": 1000,
+                  "type": "integer"
+                },
+                "expiresAt": {
+                  "format": "date-time",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BloodScreeningCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["hiv", "hbv", "hcv", "syphilis", "malaria"],
+        "properties": {
+          "hiv": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "hbv": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "hcv": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "syphilis": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "malaria": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          }
+        }
+      },
+      "BloodScreening": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "unitId",
+          "hiv",
+          "hbv",
+          "hcv",
+          "syphilis",
+          "malaria",
+          "outcome",
+          "screenedBy",
+          "screenedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "unitId": {
+            "type": "string"
+          },
+          "hiv": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "hbv": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "hcv": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "syphilis": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "malaria": {
+            "$ref": "#/components/schemas/ScreeningResult"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["cleared"]
+              },
+              {
+                "type": "string",
+                "enum": ["reactive"]
+              }
+            ]
+          },
+          "screenedBy": {
+            "type": "string"
+          },
+          "screenedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "PatientBloodGroupEntry": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["bloodGroup", "recordedBy", "recordedAt"],
+        "properties": {
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "PatientBloodGroup": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "history"],
+        "properties": {
+          "patientId": {
+            "type": "string"
+          },
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "history": {
+            "description": "Newest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientBloodGroupEntry"
+            }
+          }
+        }
+      },
+      "PatientBloodGroupSet": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["bloodGroup"],
+        "properties": {
+          "bloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "reason": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "description": "Required when the group differs from the one on record.",
+            "type": "string"
+          }
+        }
+      },
+      "BloodCrossmatchCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "result"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/CrossmatchResult"
+          }
+        }
+      },
+      "BloodCrossmatch": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "unitId",
+          "patientId",
+          "result",
+          "performedBy",
+          "performedAt",
+          "validUntil"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "unitId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/CrossmatchResult"
+          },
+          "performedBy": {
+            "type": "string"
+          },
+          "performedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "validUntil": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "CompatibleUnitsRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "component"],
+        "properties": {
+          "patientId": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "component": {
+            "$ref": "#/components/schemas/BloodComponent"
+          }
+        }
+      },
+      "CompatibleUnit": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["unit", "crossmatchValid"],
+        "properties": {
+          "unit": {
+            "$ref": "#/components/schemas/BloodUnit"
+          },
+          "crossmatch": {
+            "$ref": "#/components/schemas/BloodCrossmatch"
+          },
+          "crossmatchValid": {
+            "description": "A compatible cross-match for this patient is on record and still within 72 hours.",
+            "type": "boolean"
+          }
+        }
+      },
+      "CompatibleUnits": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientBloodGroup", "items"],
+        "properties": {
+          "patientBloodGroup": {
+            "$ref": "#/components/schemas/BloodGroup"
+          },
+          "items": {
+            "description": "Soonest expiry first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompatibleUnit"
             }
           }
         }
@@ -49550,7 +50123,7 @@
       "post": {
         "operationId": "moveBloodUnit",
         "tags": ["bloodbank"],
-        "description": "Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Issuing may name the visit (`encounterId`, a visit of the unit’s patient, else 422 `unknown_encounter`) and the priced service (`serviceId`, active, else 422 `unknown_service`) the unit is charged as; one without the other is 422 `charge_incomplete`. Billing then charges the service to the visit once. Reserving needs a `patientId` the caller may read (422 `unknown_patient`) and a unit within its date (409 `unit_expired`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`.",
+        "description": "Moves a unit along its life: collected -> testing -> available -> reserved -> issued -> transfused; discarded from any state before transfusion (a `reason` is required); expired for an available or reserved unit past its date; reserved back to available. Anything else is 409 `invalid_transition`. Issuing may name the visit (`encounterId`, a visit of the unit’s patient, else 422 `unknown_encounter`) and the priced service (`serviceId`, active, else 422 `unknown_service`) the unit is charged as; one without the other is 422 `charge_incomplete`. Billing then charges the service to the visit once. Reserving needs a `patientId` the caller may read (422 `unknown_patient`), a unit within its date (409 `unit_expired`) and a compatible cross-match of this unit and patient made in the last 72 hours (409 `crossmatch_required`). Moving a unit from testing to available needs a screening that cleared it (409 `screening_required`). Testing, clearing for stock, discarding and expiring need bloodUnit:manage; reserving, issuing, transfusing and releasing a reservation need bloodUnit:issue (403 `permission_denied`). The `version` is the unit’s, or 409 `conflict`. Every move is kept in the unit’s history. Audited; emits `blood.unit_status_changed`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -49679,6 +50252,1151 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood/donors": {
+      "post": {
+        "operationId": "registerBloodDonor",
+        "tags": ["bloodbank"],
+        "description": "Registers a blood donor: a person of the blood bank, not a patient. Only the name, birth date, sex, blood group and an optional phone are kept. The donor is aged 18 to 65 (422 `donor_age`); the number is made by the server. The Idempotency-Key header is required. Audited; emits `blood.donor_registered`. Requires bloodDonor:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["fullName", "dateOfBirth", "sex", "bloodGroup"],
+                "properties": {
+                  "fullName": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "dateOfBirth": {
+                    "format": "date",
+                    "description": "Age 18 to 65 (422 `donor_age`).",
+                    "type": "string"
+                  },
+                  "sex": {
+                    "$ref": "#/components/schemas/DonorSex"
+                  },
+                  "bloodGroup": {
+                    "$ref": "#/components/schemas/BloodGroup"
+                  },
+                  "phone": {
+                    "minLength": 4,
+                    "maxLength": 20,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodDonor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood/donors/search": {
+      "post": {
+        "operationId": "searchBloodDonors",
+        "tags": ["bloodbank"],
+        "description": "Donors, newest first, with the name and phone masked. `q` matches part of the name or the donor number. What is searched for travels in the body, never in a query string, and the API does not log the body. It reads data only. Requires bloodDonor:read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BloodDonorSearch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodDonorPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood/donors/{donorId}": {
+      "get": {
+        "operationId": "getBloodDonor",
+        "tags": ["bloodbank"],
+        "description": "A donor in full, with the collections made, newest first. Audited as a read. 404 `blood_donor_not_found`. Requires bloodDonor:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "donorId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodDonor"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood/donors/{donorId}/defer": {
+      "post": {
+        "operationId": "deferBloodDonor",
+        "tags": ["bloodbank"],
+        "description": "Defers a donor from giving blood, until a date (`until`, in the future, else 422 `invalid_period`) or for good when it is left out. A deferral is never shortened: a later date replaces an earlier one, and a permanent one is final. Audited; emits `blood.donor_deferred`. Requires bloodDonor:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["reason"],
+                "properties": {
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "type": "string"
+                  },
+                  "until": {
+                    "format": "date-time",
+                    "description": "When the deferral ends. Without it the deferral is permanent.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "donorId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodDonor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood/collections": {
+      "post": {
+        "operationId": "recordBloodCollection",
+        "tags": ["bloodbank"],
+        "description": "Records a donation and the units made of it, each in status `collected` with the donor’s blood group and awaiting testing and screening. The donor is not deferred (422 `donor_deferred`), is aged 18 to 65 on the day (422 `donor_age`) and last gave at least 90 days before (422 `donation_too_soon`). The collection is not in the future and every unit expires after it (422 `invalid_period`); a unit number is unique (409 `duplicate_unit`). The Idempotency-Key header is required. Audited; emits `blood.collection_recorded` and `blood.unit_registered` for each unit. Requires bloodDonor:manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["donorId", "volumeMl", "units"],
+                "properties": {
+                  "donorId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "collectedAt": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "volumeMl": {
+                    "minimum": 50,
+                    "maximum": 1000,
+                    "type": "integer"
+                  },
+                  "units": {
+                    "minItems": 1,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": ["unitNumber", "component", "volumeMl", "expiresAt"],
+                      "properties": {
+                        "unitNumber": {
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                          "type": "string"
+                        },
+                        "component": {
+                          "$ref": "#/components/schemas/BloodComponent"
+                        },
+                        "volumeMl": {
+                          "minimum": 10,
+                          "maximum": 1000,
+                          "type": "integer"
+                        },
+                        "expiresAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodCollection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood-units/{unitId}/screening": {
+      "post": {
+        "operationId": "screenBloodUnit",
+        "tags": ["bloodbank"],
+        "description": "Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason \"Reactive screening\") and defers its donor for good, in the same transaction. Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` and `blood.donor_deferred`. Requires bloodUnit:test.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["hiv", "hbv", "hcv", "syphilis", "malaria"],
+                "properties": {
+                  "hiv": {
+                    "$ref": "#/components/schemas/ScreeningResult"
+                  },
+                  "hbv": {
+                    "$ref": "#/components/schemas/ScreeningResult"
+                  },
+                  "hcv": {
+                    "$ref": "#/components/schemas/ScreeningResult"
+                  },
+                  "syphilis": {
+                    "$ref": "#/components/schemas/ScreeningResult"
+                  },
+                  "malaria": {
+                    "$ref": "#/components/schemas/ScreeningResult"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "unitId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodScreening"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getBloodUnitScreening",
+        "tags": ["bloodbank"],
+        "description": "The screening of a unit, with each test. Audited as a read. 404 `blood_unit_not_found`, or `blood_screening_not_found` before it is screened. Requires bloodUnit:test.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "unitId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodScreening"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood-units/{unitId}/crossmatch": {
+      "post": {
+        "operationId": "crossmatchBloodUnit",
+        "tags": ["bloodbank"],
+        "description": "Records the cross-match of an available unit against a patient (422 `unknown_patient`), good for 72 hours. The patient’s blood group must be on record (422 `blood_group_unknown`), and a compatible result for a group that can never match is refused (422 `abo_incompatible`). A unit past its date is 409 `unit_expired`; one not available is 409 `not_available`. Reserving the unit for the patient needs a compatible cross-match of the last 72 hours. Audited; emits `blood.crossmatch_recorded`. Requires bloodUnit:test.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["patientId", "result"],
+                "properties": {
+                  "patientId": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "result": {
+                    "$ref": "#/components/schemas/CrossmatchResult"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "unitId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BloodCrossmatch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/blood-group": {
+      "get": {
+        "operationId": "getPatientBloodGroup",
+        "tags": ["bloodbank"],
+        "description": "The patient’s blood group on record and every entry before it, newest first. Audited as a read. 422 `unknown_patient` for a patient the caller may not read. Requires patient.bloodGroup:read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientBloodGroup"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "setPatientBloodGroup",
+        "tags": ["bloodbank"],
+        "description": "Records the patient’s blood group as a new entry; earlier entries are kept. A group that differs from the one on record needs a `reason` (422 `reason_required`); the same group again changes nothing. Audited. Requires patient.bloodGroup:update.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["bloodGroup"],
+                "properties": {
+                  "bloodGroup": {
+                    "$ref": "#/components/schemas/BloodGroup"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Required when the group differs from the one on record.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientBloodGroup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blood/compatible-units": {
+      "post": {
+        "operationId": "listCompatibleBloodUnits",
+        "tags": ["bloodbank"],
+        "description": "The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. Requires bloodUnit:read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompatibleUnitsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompatibleUnits"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
