@@ -212,9 +212,7 @@ afterAll(async () => {
   } finally {
     await app.close();
   }
-  // Removing 60,000 patients checks every table that refers to one (appointments, queue tokens,
-  // readings, allergies): about three seconds each on a slow machine.
-}, 180_000);
+}, 60_000);
 
 describe('registering a patient', () => {
   it('assigns the next MRN of the hospital and records who captured consent', async () => {
@@ -773,6 +771,22 @@ describe('a large register', () => {
     );
     await pool.query('analyze patients');
   }, 120_000);
+
+  afterAll(async () => {
+    // Nothing refers to these synthetic rows, so the foreign-key checks (22 tables, one probe per
+    // row) are pure cost: skip them where the role may, and fall back to a plain delete.
+    if (!large) return;
+    const client = await pool.connect();
+    try {
+      await client.query('set session_replication_role = replica');
+      await client.query('delete from patients where tenant_id = $1', [large.id]);
+    } catch {
+      // not allowed to switch the setting: the plain delete in the file's afterAll does the work
+    } finally {
+      await client.query('reset session_replication_role').catch(() => undefined);
+      client.release();
+    }
+  }, 60_000);
 
   it('answers a search and a deep page quickly', async () => {
     const started = performance.now();
