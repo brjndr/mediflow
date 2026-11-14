@@ -100,6 +100,48 @@ describe('operation note, stock used and the visit', () => {
     expect(list).toHaveTextContent(/Main store/);
   }, 60_000);
 
+  it('returns units to stock with a reason and shows what came back', async () => {
+    const dialog = await startAndOpen();
+    await within(dialog).findByText(/No stock has been recorded/);
+    await userEvent.type(within(dialog).getByRole('combobox', { name: 'Item used' }), 'acec');
+    const [first] = await within(await within(dialog).findByRole('listbox')).findAllByRole(
+      'option',
+    );
+    await userEvent.click(first as HTMLElement);
+    await within(dialog).findByText(/^Item: /);
+    await userEvent.selectOptions(
+      within(dialog).getByRole('combobox', { name: /Take from/ }),
+      'Main store',
+    );
+    const batch = within(dialog).getByRole('combobox', { name: /Batch/ });
+    await waitFor(() => expect(within(batch).getAllByRole('option').length).toBeGreaterThan(1));
+    await userEvent.selectOptions(batch, within(batch).getAllByRole('option')[1] as HTMLElement);
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /Units used/ }), '3');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Record stock used' }));
+    const list = await within(dialog).findByRole('list', { name: 'Stock used in this surgery' });
+    await userEvent.click(within(list).getByRole('button', { name: /^Return to stock: / }));
+    // More than was used is refused before anything is sent.
+    await userEvent.type(within(list).getByRole('textbox', { name: /Units to return/ }), '4');
+    await userEvent.type(within(list).getByRole('textbox', { name: /Reason/ }), 'Opened, not used');
+    await userEvent.click(within(list).getByRole('button', { name: 'Return to stock' }));
+    expect(list).not.toHaveTextContent(/returned to stock$/);
+    expect(list).toHaveTextContent(/3 used/);
+    await userEvent.clear(within(list).getByRole('textbox', { name: /Units to return/ }));
+    await userEvent.type(within(list).getByRole('textbox', { name: /Units to return/ }), '1');
+    await userEvent.click(within(list).getByRole('button', { name: 'Return to stock' }));
+    await within(dialog).findByText(/1 unit of .* returned to stock./);
+    expect(await within(list).findByText('1 unit returned to stock')).toBeVisible();
+    await userEvent.click(within(list).getByRole('button', { name: /^Return to stock: / }));
+    await userEvent.type(within(list).getByRole('textbox', { name: /Units to return/ }), '2');
+    await userEvent.type(within(list).getByRole('textbox', { name: /Reason/ }), 'Wrong size');
+    await userEvent.click(within(list).getByRole('button', { name: 'Return to stock' }));
+    expect(await within(list).findByText('All returned to stock')).toBeVisible();
+    expect(
+      within(list).queryByRole('button', { name: /^Return to stock/ }),
+    ).not.toBeInTheDocument();
+    await expectNoAxeViolations(dialog);
+  }, 90_000);
+
   it('says so when no visit is linked and offers only the patient’s open visits', async () => {
     const dialog = await startAndOpen();
     expect(await within(dialog).findByText(/nothing is charged for this surgery/)).toBeVisible();
@@ -117,6 +159,9 @@ describe('operation note, stock used and the visit', () => {
     expect(within(dialog).queryByRole('button', { name: 'Save draft' })).not.toBeInTheDocument();
     expect(
       within(dialog).queryByRole('button', { name: 'Record stock used' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('button', { name: /^Return to stock/ }),
     ).not.toBeInTheDocument();
   }, 40_000);
 });

@@ -222,7 +222,9 @@
       "unknown_location": "That place is not in use.",
       "unknown_item": "That item is not in use.",
       "duplicate_batch": "A batch can be named once.",
-      "feature_disabled": "Stock is not switched on for this hospital."
+      "feature_disabled": "Stock is not switched on for this hospital.",
+      "over_return": "More than was used, less what has come back already.",
+      "consumable_not_found": "That recording is not part of this surgery."
     },
     "done": {
       "linked": "Visit linked. Charges for this surgery go to it.",
@@ -294,7 +296,18 @@
       "batchOption_one": "{{number}}, expires {{expiry}}, {{count}} unit here",
       "batchOption_other": "{{number}}, expires {{expiry}}, {{count}} units here",
       "quantity": "Units used",
-      "record": "Record stock used"
+      "record": "Record stock used",
+      "allReturned": "All returned to stock",
+      "someReturned_one": "{{count}} unit returned to stock",
+      "someReturned_other": "{{count}} units returned to stock",
+      "return": "Return to stock",
+      "returnAction": "Return to stock: {{name}}, batch {{batch}}",
+      "returnQuantity": "Units to return (up to {{count}})",
+      "returnReason": "Reason",
+      "returnConfirm": "Return to stock",
+      "returnCancel": "Cancel",
+      "returned_one": "{{count}} unit of {{name}} returned to stock.",
+      "returned_other": "{{count}} units of {{name}} returned to stock."
     }
   }
 }

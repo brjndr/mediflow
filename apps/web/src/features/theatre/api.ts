@@ -266,3 +266,22 @@ export async function recordConsumables(
   });
   return consumablePageSchema.parse(requireData(result));
 }
+
+export interface ReturnConsumable {
+  surgeryId: string;
+  consumableId: string;
+  quantity: number;
+  reason: string;
+}
+
+/** Brings units of a recorded consumable back to stock (#892, #901). */
+export async function returnConsumable(
+  { surgeryId, consumableId, ...body }: ReturnConsumable,
+  key: string,
+): Promise<SurgeryConsumablePage> {
+  const result = await api.POST(
+    '/theatre/surgeries/{surgeryId}/consumables/{consumableId}/return',
+    { params: { path: { surgeryId, consumableId }, header: { 'idempotency-key': key } }, body },
+  );
+  return consumablePageSchema.parse(requireData(result));
+}

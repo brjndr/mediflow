@@ -1,3 +1,4 @@
+import { Undo2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
@@ -24,6 +25,7 @@ import {
   useLinkEncounter,
   useOperation,
   useRecordConsumables,
+  useReturnConsumable,
   useSaveOperationNote,
   useSignOperationNote,
 } from '../hooks/use-theatre';
@@ -31,13 +33,15 @@ import {
   addendumFormSchema,
   consumableFormSchema,
   operationNoteFormSchema,
+  returnFormSchema,
   visitFormSchema,
   type AddendumFormValues,
   type ConsumableFormValues,
   type OperationNoteFormValues,
+  type ReturnFormValues,
   type VisitFormValues,
 } from '../schemas';
-import type { OperationRecord, Surgery } from '../types';
+import type { OperationRecord, Surgery, SurgeryConsumable } from '../types';
 
 const KNOWN_ERRORS = [
   'invalid_state',
@@ -52,6 +56,8 @@ const KNOWN_ERRORS = [
   'unknown_location',
   'unknown_item',
   'duplicate_batch',
+  'over_return',
+  'consumable_not_found',
   'feature_disabled',
 ];
 
@@ -373,6 +379,66 @@ function BatchField({ drugId }: { drugId: string }) {
   );
 }
 
+function ReturnForm({
+  surgeryId,
+  item,
+  onDone,
+  onCancel,
+}: {
+  surgeryId: string;
+  item: SurgeryConsumable;
+  onDone: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation('theatre');
+  const giveBack = useReturnConsumable();
+  const left = item.quantity - item.returnedQuantity;
+  const form = useZodForm(returnFormSchema, { quantity: '', reason: '' });
+  const submit = async (values: ReturnFormValues) => {
+    const quantity = Number(values.quantity);
+    if (quantity > left) {
+      form.setError('quantity', { message: 'validation.invalid_value' });
+      return;
+    }
+    giveBack.reset();
+    try {
+      await giveBack.mutateAsync({
+        surgeryId,
+        consumableId: item.id,
+        quantity,
+        reason: values.reason,
+      });
+      onDone(t('operation.stock.returned', { name: item.itemName, count: quantity }));
+    } catch {
+      // Said below, from the mutation state.
+    }
+  };
+  return (
+    <Form form={form} id={`operation-return-${item.id}`} onSubmit={submit}>
+      <TextField<ReturnFormValues>
+        name="quantity"
+        label={t('operation.stock.returnQuantity', { count: left })}
+        inputMode="numeric"
+        required
+      />
+      <TextField<ReturnFormValues>
+        name="reason"
+        label={t('operation.stock.returnReason')}
+        required
+      />
+      <Failure error={giveBack.error} />
+      <div className="flex flex-wrap gap-2">
+        <SubmitButton variant="outline" pending={giveBack.isPending}>
+          {t('operation.stock.returnConfirm')}
+        </SubmitButton>
+        <Button variant="ghost" onClick={onCancel}>
+          {t('operation.stock.returnCancel')}
+        </Button>
+      </div>
+    </Form>
+  );
+}
+
 function StockSection({
   surgery,
   onSaved,
@@ -389,6 +455,7 @@ function StockSection({
   const record = useRecordConsumables();
   const places = usePlaces(canPerform && started);
   const [drug, setDrug] = useState<Drug>();
+  const [returning, setReturning] = useState<string>();
   const form = useZodForm(consumableFormSchema, { locationId: '', batchId: '', quantity: '' });
   const items = useMemo(() => used.data?.pages.flatMap((page) => page.items) ?? [], [used.data]);
 
@@ -432,7 +499,7 @@ function StockSection({
           className="flex flex-col divide-y rounded-md border"
         >
           {items.map((each) => (
-            <li key={each.id} className="flex flex-col gap-0.5 px-3 py-2 text-sm">
+            <li key={each.id} className="flex flex-col gap-1 px-3 py-2 text-sm">
               <span className="font-medium">
                 {t('operation.stock.line', { name: each.itemName, count: each.quantity })}
               </span>
@@ -443,6 +510,45 @@ function StockSection({
                   time: format.dateTime(each.recordedAt),
                 })}
               </span>
+              {each.returnedQuantity > 0 && (
+                <span className="inline-flex items-center gap-1 font-medium">
+                  <Undo2 aria-hidden="true" className="size-4" />
+                  {each.returnedQuantity >= each.quantity
+                    ? t('operation.stock.allReturned')
+                    : t('operation.stock.someReturned', { count: each.returnedQuantity })}
+                </span>
+              )}
+              {canPerform &&
+                started &&
+                each.returnedQuantity < each.quantity &&
+                (returning === each.id ? (
+                  <ReturnForm
+                    surgeryId={surgery.id}
+                    item={each}
+                    onDone={(message) => {
+                      setReturning(undefined);
+                      onSaved(message);
+                    }}
+                    onCancel={() => {
+                      setReturning(undefined);
+                      setTimeout(() => document.getElementById('return-' + each.id)?.focus(), 0);
+                    }}
+                  />
+                ) : (
+                  <div>
+                    <Button
+                      id={'return-' + each.id}
+                      variant="outline"
+                      onClick={() => setReturning(each.id)}
+                      aria-label={t('operation.stock.returnAction', {
+                        name: each.itemName,
+                        batch: each.batchNumber,
+                      })}
+                    >
+                      {t('operation.stock.return')}
+                    </Button>
+                  </div>
+                ))}
             </li>
           ))}
         </ul>

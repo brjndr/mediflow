@@ -11,9 +11,11 @@ import {
   fetchOperation,
   linkEncounter,
   recordConsumables,
+  returnConsumable,
   saveOperationNote,
   signOperationNote,
   type RecordConsumables,
+  type ReturnConsumable,
   createRoom,
   fetchRooms,
   fetchSurgeries,
@@ -312,6 +314,23 @@ export function useRecordConsumables() {
   return useMutation({
     gcTime: 0,
     mutationFn: (input: RecordConsumables) => recordConsumables(input, attempt.keyFor(input)),
+    onSuccess: () => attempt.done(),
+    onSettled: () => {
+      if (!tenantId) return;
+      void queryClient.invalidateQueries({ queryKey: consumableKeys.all(tenantId) });
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.all(tenantId) });
+    },
+  });
+}
+
+/** Returns units of a recorded consumable to stock; the used list and the stock are read again. */
+export function useReturnConsumable() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: ReturnConsumable) => returnConsumable(input, attempt.keyFor(input)),
     onSuccess: () => attempt.done(),
     onSettled: () => {
       if (!tenantId) return;
