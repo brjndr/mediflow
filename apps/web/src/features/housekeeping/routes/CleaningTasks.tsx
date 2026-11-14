@@ -38,6 +38,13 @@ export default function CleaningTasks() {
   const [done, setDone] = useState<{ text: string; at: number }>();
   const [requesting, setRequesting] = useState(false);
   const statusLine = useRef<HTMLParagraphElement>(null);
+  const opener = useRef<HTMLDivElement>(null);
+  const wasRequesting = useRef(false);
+  // The dialog is gone: put focus back on the button that opened it.
+  useEffect(() => {
+    if (wasRequesting.current && !requesting) opener.current?.querySelector('button')?.focus();
+    wasRequesting.current = requesting;
+  }, [requesting]);
   // A row that moved on has left the filtered list and may have taken focus with it.
   useEffect(() => {
     if (done) focusIfLost(statusLine.current);
@@ -117,7 +124,9 @@ export default function CleaningTasks() {
           <p className="text-muted-foreground">{t('description')}</p>
         </div>
         <Can permission="cleaningTask:manage">
-          <Button onClick={() => setRequesting(true)}>{t('request.open')}</Button>
+          <div ref={opener}>
+            <Button onClick={() => setRequesting(true)}>{t('request.open')}</Button>
+          </div>
         </Can>
       </div>
       {requesting && (

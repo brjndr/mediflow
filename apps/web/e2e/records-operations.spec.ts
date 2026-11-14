@@ -110,7 +110,7 @@ test('requesting a cleaning is reachable with the keyboard alone', async ({ page
   await expectFocusRing(page);
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  // Not asserted: focus ends on the page body here, not on the opener (proposed issue).
+  await expect(open).toBeFocused();
 });
 
 test('registering a blood unit is reachable with the keyboard alone', async ({ page }) => {
