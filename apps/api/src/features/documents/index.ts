@@ -15,6 +15,7 @@ import {
   RECORDS_PERMISSIONS,
 } from './records-permissions.js';
 import { documentRoutes } from './routes.js';
+import { insertAuditEntries } from '../../core/audit/plugin.js';
 
 /**
  * Patient documents (#194): files kept on a patient's record, sent through signed links, held
@@ -36,14 +37,16 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
       );
       // A hold on the whole record follows its documents to the survivor (#629). The source's own
       // hold stays as it was, so placing and releasing keep their history.
-      await client.query(
-        `insert into document_legal_holds (tenant_id, patient_id, reason, placed_by, placed_at)
-         select h.tenant_id, $2, h.reason, h.placed_by, h.placed_at
+      const held = await client.query(
+        `insert into document_legal_holds (tenant_id, patient_id, reason, placed_by, placed_at,
+           merged_from_patient_id)
+         select h.tenant_id, $2, h.reason, h.placed_by, h.placed_at, $1
            from document_legal_holds h
           where h.patient_id = $1 and h.document_id is null and h.released_at is null`,
         [sourceId, targetId],
       );
-      return moved.rowCount ?? 0;
+      // The copied holds count too, so a merge with only a hold is still undone (#866).
+      return (moved.rowCount ?? 0) + (held.rowCount ?? 0);
     },
     async (client, { sourceId }) => {
       const { rows } = await client.query<{ n: string }>(
@@ -52,12 +55,35 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
       );
       return Number(rows[0]?.n ?? 0);
     },
-    // An unmerge (#555): documents that came from the source go back to it. A whole-record legal
-    // hold copied to the survivor stays there (over-holding is the safe side; release it by hand).
+    // An unmerge (#555): documents that came from the source go back to it, and the whole-record
+    // hold the merge copied to the survivor is released (#866) in the name of the person who
+    // unmerged. A hold placed on the survivor by hand has no `merged_from_patient_id` and stays.
     async (client, { sourceId, targetId }) => {
       const back = await client.query(
         'update patient_documents set patient_id = $1 where patient_id = $2 and original_patient_id = $1',
         [sourceId, targetId],
+      );
+      const released = await client.query<{ id: string; by: string; merge_id: string }>(
+        `update document_legal_holds h set released_at = now(), released_by = m.unmerged_by
+           from patient_merges m
+          where h.patient_id = $2 and h.merged_from_patient_id = $1 and h.document_id is null
+            and h.released_at is null and m.source_patient_id = $1 and m.target_patient_id = $2
+            and m.unmerged_at = (select max(unmerged_at) from patient_merges
+                                  where source_patient_id = $1 and target_patient_id = $2)
+        returning h.id, m.unmerged_by as by, m.id as merge_id`,
+        [sourceId, targetId],
+      );
+      // The reason is the unmerge's own, kept on the merge row that the entry names.
+      await insertAuditEntries(
+        client,
+        released.rows[0]?.by ?? null,
+        `unmerge:${sourceId}`,
+        released.rows.map((row) => ({
+          action: 'update',
+          entity: 'document_legal_hold',
+          entityId: row.id,
+          detail: `unmerge:${row.merge_id}`,
+        })),
       );
       return back.rowCount ?? 0;
     },

@@ -109,6 +109,7 @@ afterAll(async () => {
     await client.query('set local session_replication_role = replica');
     for (const tenant of [hospital, other]) {
       for (const table of [
+        'document_legal_holds',
         'patient_documents',
         'patient_merges',
         'patient_settings',
@@ -127,7 +128,56 @@ afterAll(async () => {
   await app.close();
 });
 
+const hold = (tenant: TestTenant, patientId: string, by: TestUser) =>
+  pool.query(
+    `insert into document_legal_holds (tenant_id, patient_id, reason, placed_by)
+     values ($1, $2, 'Inquiry', $3)`,
+    [tenant.id, patientId, by.id],
+  );
+const openHolds = async (patientId: string) =>
+  (
+    await pool.query<{ reason: string }>(
+      'select reason from document_legal_holds where patient_id = $1 and released_at is null',
+      [patientId],
+    )
+  ).rowCount;
+
 describe('unmerging patients', () => {
+  it('releases the legal hold the merge copied, and only that one', async () => {
+    const target = await patient(hospital, admin);
+    const source = await patient(hospital, admin);
+    const foreign = await patient(other, otherAdmin);
+    await hold(hospital, source, admin);
+    await hold(hospital, target, admin); // placed by hand on the survivor
+    await hold(other, foreign, otherAdmin);
+    expect((await merge(target, source)).statusCode).toBe(201);
+    expect(await openHolds(target)).toBe(2);
+
+    expect((await unmerge(source)).statusCode).toBe(200);
+    expect(await openHolds(target)).toBe(1);
+    expect(await openHolds(source)).toBe(1); // the source's own hold is untouched
+    expect(await openHolds(foreign)).toBe(1);
+    const released = await pool.query<{ released_by: string; id: string }>(
+      `select id, released_by from document_legal_holds
+        where patient_id = $1 and released_at is not null`,
+      [target],
+    );
+    expect(released.rows).toHaveLength(1);
+    expect(released.rows[0]!.released_by).toBe(admin.id);
+    const audit = await pool.query(
+      `select 1 from audit_log where entity = 'document_legal_hold' and entity_id = $1
+         and actor_id = $2 and detail like 'unmerge:%'`,
+      [released.rows[0]!.id, admin.id],
+    );
+    expect(audit.rowCount).toBe(1);
+
+    // Merging again copies the source's hold again, and a second unmerge releases it too.
+    expect((await merge(target, source)).statusCode).toBe(201);
+    expect(await openHolds(target)).toBe(2);
+    expect((await unmerge(source)).statusCode).toBe(200);
+    expect(await openHolds(target)).toBe(1);
+  });
+
   it('gives the record and its documents back inside the window', async () => {
     const target = await patient(hospital, admin);
     const source = await patient(hospital, admin);
