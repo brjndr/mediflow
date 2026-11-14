@@ -364,6 +364,24 @@ describe('searching', () => {
     expect(none).toMatchObject({ items: [], nextCursor: null, total: 0 });
   });
 
+  it('matches a word of one or two characters at the start of a first or last name (#879)', async () => {
+    const created = (
+      await register({ ...asha, firstName: 'Xylia', lastName: 'Obrien-Qq' })
+    ).json<Summary>();
+
+    const first = (await search({ q: 'xy' })).json<Page>();
+    const last = (await search({ q: 'ob' })).json<Page>();
+    const middle = (await search({ q: 'yl' })).json<Page>();
+    const mixed = (await search({ q: 'xy obrien' })).json<Page>();
+    const mixedWrong = (await search({ q: 'ob zzzz' })).json<Page>();
+
+    expect(first.items.map((item) => item.id)).toContain(created.id);
+    expect(last.items.map((item) => item.id)).toContain(created.id);
+    expect(middle.items.map((item) => item.id)).not.toContain(created.id);
+    expect(mixed.items.map((item) => item.id)).toContain(created.id);
+    expect(mixedWrong.items).toEqual([]);
+  });
+
   it('treats what was typed as text, never as a pattern', async () => {
     const everything = (await search({ q: '%' })).json<Page>();
     const underscore = (await search({ q: '_' })).json<Page>();
