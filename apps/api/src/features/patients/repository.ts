@@ -64,6 +64,23 @@ const isShortWord = (pattern: string) => pattern.slice(1, -1).replaceAll('\\', '
 
 /** The most a short-word search counts; beyond it the total is left out (#899). */
 const SHORT_COUNT_CAP = 10_000;
+/** The same for several short words, where every row read is also tested (#907). */
+const SHORT_WORDS_COUNT_CAP = 1_000;
+
+/**
+ * The call that reads ids in name order: one word has its own function (#899), several words
+ * the one that tests each row against the others (#907). The arguments are placeholders.
+ */
+const shortFunction = (
+  words: string[],
+  word: string,
+  legacy: string,
+  after: string,
+  lim: string,
+) =>
+  words.length > 1
+    ? `patient_search_short_words_page(${word}::text[], ${legacy}, ${after}, ${lim})`
+    : `patient_search_short_page(${word}, ${legacy}, ${after}, ${lim})`;
 
 /** Byte order of the name, which the indexes behind `patient_search_short_page` serve. */
 const SHORT_ORDER = 'last_name_lower collate "C", first_name_lower collate "C", id';
@@ -118,7 +135,7 @@ export async function searchPatients(
   // The arguments of the search function, kept to count with it for a caller who sees all (#880).
   let searchArgs: unknown[] | null = null;
   // One word of one or two characters, read page by page in name order (#899).
-  let shortWord: { word: string; legacy: string } | null = null;
+  let shortWord: { words: string[]; legacy: string } | null = null;
 
   const visible = visibilityClause(visibility, params);
   if (visible) where.push(visible);
@@ -141,15 +158,17 @@ export async function searchPatients(
     searchArgs = [words, phone, tidy(input.q ?? ''), Boolean(input.mergedAway)];
     if (
       phone === null &&
-      words.length === 1 &&
-      isShortWord(words[0] ?? '') &&
+      words.length <= 4 &&
+      words.every(isShortWord) &&
       visibility.scope === 'all' &&
       input.sort === 'name' &&
       !input.mergedAway
     ) {
       // Ids come from a definer function that reads the name indexes in order and stops after
       // the page; the rows are read again below under row-level security, as for the search.
-      shortWord = { word: term, legacy: tidy(input.q ?? '') };
+      // With several words each is read as the start of the last name and the rest test the
+      // row (#907).
+      shortWord = { words: term.split(/\s+/), legacy: tidy(input.q ?? '') };
     }
     params.push(...searchArgs);
     const n = params.length;
@@ -163,12 +182,17 @@ export async function searchPatients(
   if (!input.cursor && shortWord) {
     // A short word can match a large share of the hospital: count up to a cap and leave the
     // total out beyond it (the list then says there are more).
+    const cap = shortWord.words.length > 1 ? SHORT_WORDS_COUNT_CAP : SHORT_COUNT_CAP;
     const counted = await client.query<{ total: string }>(
-      'select count(*) as total from patient_search_short_page($1, $2, null, null, null, $3)',
-      [shortWord.word, shortWord.legacy, SHORT_COUNT_CAP + 1],
+      `select count(*) as total from ${shortFunction(shortWord.words, '$1', '$2', 'null, null, null', '$3')}`,
+      [
+        shortWord.words.length > 1 ? shortWord.words : shortWord.words[0],
+        shortWord.legacy,
+        cap + 1,
+      ],
     );
     const found = Number(counted.rows[0]?.total ?? 0);
-    total = found > SHORT_COUNT_CAP ? undefined : found;
+    total = found > cap ? undefined : found;
   } else if (!input.cursor && searchArgs && visibility.scope === 'all') {
     // Nothing narrows the match but the hospital, which the function applies itself, so it can
     // count without the outer query building a hash join on a common word (#880).
@@ -214,10 +238,10 @@ export async function searchPatients(
   if (shortWord) {
     const paged = await client.query<PatientRow>(
       `select ${COLUMNS} from patients
-       where id in (select patient_search_short_page($1, $2, $3, $4, $5::uuid, $6))
+       where id in (select ${shortFunction(shortWord.words, '$1', '$2', '$3, $4, $5::uuid', '$6')})
        order by ${SHORT_ORDER} limit $6`,
       [
-        shortWord.word,
+        shortWord.words.length > 1 ? shortWord.words : shortWord.words[0],
         shortWord.legacy,
         after?.last_name_lower ?? null,
         after?.first_name_lower ?? null,
