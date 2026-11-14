@@ -6,11 +6,14 @@ import { renderApp } from '@/test/render';
 
 const PATIENT = 'pth_00001';
 const LINK = { name: 'Admit to hospital' };
+const SLOW = { timeout: 10_000 };
 
 describe('"Admit to hospital" from the patient screen (#576)', () => {
   it('opens the admit form with the patient filled', async () => {
     renderApp({ entry: `/patients/${PATIENT}` });
-    await userEvent.click(await screen.findByRole('link', LINK));
+    // The patient page loads first, then the slot contribution (a lazy chunk); wait for both (#842).
+    await screen.findByRole('link', { name: 'Edit' }, SLOW);
+    await userEvent.click(await screen.findByRole('link', LINK, SLOW));
     await screen.findByRole('heading', { name: 'Admit a patient', level: 1 });
     expect(await screen.findByRole('button', { name: 'Change patient' })).toBeInTheDocument();
   });
