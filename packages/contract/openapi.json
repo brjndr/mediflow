@@ -1013,6 +1013,17 @@
           "mergedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "unmergedBy": {
+            "description": "Present when the merge was undone (#555).",
+            "type": "string"
+          },
+          "unmergedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "unmergeReason": {
+            "type": "string"
           }
         }
       },
@@ -1055,6 +1066,32 @@
           },
           "nextCursor": {
             "type": "null"
+          }
+        }
+      },
+      "PatientUnmerge": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
+      "PatientSettings": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["unmergeWindowDays"],
+        "properties": {
+          "unmergeWindowDays": {
+            "minimum": 0,
+            "maximum": 365,
+            "description": "Days after a merge during which it may be undone; 0 turns unmerging off.",
+            "type": "integer"
           }
         }
       },
@@ -23595,6 +23632,233 @@
             }
           },
           "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/unmerge": {
+      "post": {
+        "operationId": "unmergePatient",
+        "tags": ["patients"],
+        "description": "Undoes the merge of the record in the path (the one that was merged away) while the hospital window is open (#555; `unmergeWindowDays`, 30 by default). Atomic: the record points at nobody again and is searchable and editable, each module gives back the rows it moved at merge time (documents now), and the merge is kept with who undid it and why. 409 `not_merged` for a record that is not merged; 409 `patient_merged` when the survivor was itself merged away since; 409 `unmerge_window_closed`; 409 `unmerge_unsupported` if a module moved rows and cannot give them back. Rows written for the survivor after the merge stay with it. Audited, and announced as `patient.unmerged`. Requires patient:unmerge with the scope `all`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientUnmerge"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientMerge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patient-settings": {
+      "get": {
+        "operationId": "getPatientSettings",
+        "tags": ["patients"],
+        "description": "The hospital settings for patient records (#555): how many days a merge may be undone. Requires patient:unmerge.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setPatientSettings",
+        "tags": ["patients"],
+        "description": "Sets how many days after a merge it may be undone (0 turns unmerging off, at most 365). Merges already made use the new value. Audited. Requires patient:unmerge.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

@@ -20,7 +20,23 @@ export interface PatientMergeRegistry {
    * `name` is the key of the count kept with the merge, e.g. `documents`. `count` reads how many
    * rows `handler` would move and changes nothing: without it the module is left out of a preview.
    */
-  register(name: string, handler: PatientMergeHandler, count?: PatientMergeCounter): void;
+  register(
+    name: string,
+    handler: PatientMergeHandler,
+    count?: PatientMergeCounter,
+    undo?: PatientMergeHandler,
+  ): void;
+  /** Names among `names` whose module registered no way to reverse its move (#555). */
+  cannotUndo(names: string[]): string[];
+  /**
+   * Reverses the move of each module in `names` (those that moved rows when the merge was made),
+   * in reverse order of registering. Runs after the source stopped pointing at the survivor.
+   */
+  undo(
+    client: pg.PoolClient,
+    merge: { sourceId: string; targetId: string },
+    names: string[],
+  ): Promise<void>;
   /** What a merge would move, by module name, zero ones left out. Read only. */
   preview(
     client: pg.PoolClient,
@@ -43,13 +59,24 @@ export const patientMergePlugin = fp(
   async (app) => {
     const handlers = new Map<string, PatientMergeHandler>();
     const counters = new Map<string, PatientMergeCounter>();
+    const undoers = new Map<string, PatientMergeHandler>();
     app.decorate('patientMerge', {
-      register(name, handler, count) {
+      register(name, handler, count, undo) {
         if (!/^[a-z][a-z_]{0,39}$/.test(name) || handlers.has(name)) {
           throw new Error(`patient_merge_handler_invalid: ${name}`);
         }
         handlers.set(name, handler);
         if (count) counters.set(name, count);
+        if (undo) undoers.set(name, undo);
+      },
+      cannotUndo(names) {
+        return names.filter((name) => !undoers.has(name));
+      },
+      async undo(client, merge, names) {
+        for (const name of [...handlers.keys()].reverse()) {
+          const undo = undoers.get(name);
+          if (undo && names.includes(name)) await undo(client, merge);
+        }
       },
       async preview(client, merge) {
         const counts: Record<string, number> = {};

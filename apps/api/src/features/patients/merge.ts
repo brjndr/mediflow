@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type, type Static } from '@sinclair/typebox';
+import type { FastifyRequest } from 'fastify';
 import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
@@ -31,6 +32,11 @@ const PatientMerge = Type.Object(
     }),
     mergedBy: Type.String(),
     mergedAt: Type.String({ format: 'date-time' }),
+    unmergedBy: Type.Optional(
+      Type.String({ description: 'Present when the merge was undone (#555).' }),
+    ),
+    unmergedAt: Type.Optional(Type.String({ format: 'date-time' })),
+    unmergeReason: Type.Optional(Type.String()),
   },
   { $id: 'PatientMerge' },
 );
@@ -52,6 +58,26 @@ const PatientMergeCreate = Type.Object(
   { $id: 'PatientMergeCreate', additionalProperties: false },
 );
 type PatientMergeCreate = Static<typeof PatientMergeCreate>;
+
+const PatientUnmerge = Type.Object(
+  { reason: Type.String({ minLength: 1, maxLength: 500, pattern: PLAIN_TEXT }) },
+  { $id: 'PatientUnmerge', additionalProperties: false },
+);
+type PatientUnmerge = Static<typeof PatientUnmerge>;
+
+const PatientSettings = Type.Object(
+  {
+    unmergeWindowDays: Type.Integer({
+      minimum: 0,
+      maximum: 365,
+      description: 'Days after a merge during which it may be undone; 0 turns unmerging off.',
+    }),
+  },
+  { $id: 'PatientSettings', additionalProperties: false },
+);
+type PatientSettings = Static<typeof PatientSettings>;
+const DEFAULT_WINDOW_DAYS = 30;
+const UNMERGE = 'patient:unmerge';
 
 const PatientMergeList = Type.Object(
   { items: Type.Array(ref(PatientMerge)), nextCursor: Type.Null() },
@@ -83,8 +109,12 @@ interface MergeRow {
   moved: Record<string, number>;
   merged_by: string;
   merged_at: Date;
+  unmerged_by: string | null;
+  unmerged_at: Date | null;
+  unmerge_reason: string | null;
 }
-const COLUMNS = 'id, source_patient_id, target_patient_id, reason, moved, merged_by, merged_at';
+const COLUMNS = `id, source_patient_id, target_patient_id, reason, moved, merged_by, merged_at,
+  unmerged_by, unmerged_at, unmerge_reason`;
 const view = (row: MergeRow) => ({
   id: row.id,
   sourcePatientId: row.source_patient_id,
@@ -93,6 +123,13 @@ const view = (row: MergeRow) => ({
   moved: row.moved,
   mergedBy: row.merged_by,
   mergedAt: row.merged_at.toISOString(),
+  ...(row.unmerged_at
+    ? {
+        unmergedBy: row.unmerged_by!,
+        unmergedAt: row.unmerged_at.toISOString(),
+        unmergeReason: row.unmerge_reason!,
+      }
+    : {}),
 });
 
 /** The record a patient was merged into, or null when it was not (or does not exist). */
@@ -114,6 +151,8 @@ export const mergeRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.addSchema(PatientMerge);
   app.addSchema(PatientMergeCreate);
   app.addSchema(PatientMergeList);
+  app.addSchema(PatientUnmerge);
+  app.addSchema(PatientSettings);
   app.addSchema(PatientMergePreview);
 
   app.get(
@@ -290,6 +329,157 @@ export const mergeRoutes: FastifyPluginAsyncTypebox = async (app) => {
       );
       for (const row of rows) request.audit('read', 'patient_merge', row.id);
       return { items: rows.map(view), nextCursor: null };
+    },
+  );
+
+  app.post(
+    '/patients/:patientId/unmerge',
+    {
+      config: {
+        permissions: [UNMERGE],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'unmergePatient',
+        tags: ['patients'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Undoes the merge of the record in the path (the one that was merged away) while the hospital window is open (#555; `unmergeWindowDays`, 30 by default). Atomic: the record points at nobody again and is searchable and editable, each module gives back the rows it moved at merge time (documents now), and the merge is kept with who undid it and why. 409 `not_merged` for a record that is not merged; 409 `patient_merged` when the survivor was itself merged away since; 409 `unmerge_window_closed`; 409 `unmerge_unsupported` if a module moved rows and cannot give them back. Rows written for the survivor after the merge stay with it. Audited, and announced as `patient.unmerged`. Requires patient:unmerge with the scope `all`.',
+        params: Params,
+        body: ref(PatientUnmerge),
+        response: { 200: ref(PatientMerge), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      const body = request.body as PatientUnmerge;
+      const userId = request.session?.userId;
+      if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
+      if (request.access.scope(UNMERGE) !== 'all') throw notFound();
+      const client = request.txClient;
+
+      if (request.replayOf !== null) {
+        const again = request.idempotentId
+          ? await client.query<MergeRow>(`select ${COLUMNS} from patient_merges where id = $1`, [
+              request.idempotentId,
+            ])
+          : null;
+        const row = again?.rows[0];
+        if (!row) throw notFound();
+        request.audit('read', 'patient_merge', row.id);
+        return view(row);
+      }
+
+      const sourceId = request.params.patientId;
+      const found = await client.query<{ merged_into_id: string | null }>(
+        'select merged_into_id from patients where id = $1 for update',
+        [sourceId],
+      );
+      if (found.rowCount !== 1) throw notFound();
+      const targetId = found.rows[0]!.merged_into_id;
+      if (!targetId) throw new HttpError(409, 'not_merged', 'This record was not merged');
+      const target = await client.query<{ merged_into_id: string | null }>(
+        'select merged_into_id from patients where id = $1 for update',
+        [targetId],
+      );
+      if (target.rows[0]?.merged_into_id) {
+        throw new HttpError(
+          409,
+          'patient_merged',
+          'The record this one was merged into was merged away since',
+        );
+      }
+      const merge = await client.query<MergeRow & { open: boolean }>(
+        `select ${COLUMNS},
+                merged_at + make_interval(days => coalesce(
+                  (select unmerge_window_days from patient_settings), $2)) >= now() as open
+           from patient_merges
+          where source_patient_id = $1 and unmerged_at is null for update`,
+        [sourceId, DEFAULT_WINDOW_DAYS],
+      );
+      const current = merge.rows[0];
+      if (!current) throw notFound();
+      if (!current.open) {
+        throw new HttpError(409, 'unmerge_window_closed', 'The window to undo this merge is over');
+      }
+      const names = Object.keys(current.moved);
+      if (app.patientMerge.cannotUndo(names).length > 0) {
+        throw new HttpError(409, 'unmerge_unsupported', 'This merge cannot be undone');
+      }
+      const reason = tidyWithin(body.reason, 500);
+      if (!reason) throw new HttpError(400, 'validation_failed', 'A reason is needed');
+
+      // The merge is marked first: the database lets the record and its rows go back only in the
+      // transaction that did so.
+      const { rows } = await client.query<MergeRow>(
+        `update patient_merges set unmerged_at = now(), unmerged_by = $2, unmerge_reason = $3
+          where id = $1 returning ${COLUMNS}`,
+        [current.id, userId, reason],
+      );
+      await client.query('update patients set merged_into_id = null where id = $1', [sourceId]);
+      await app.patientMerge.undo(client, { sourceId, targetId }, names);
+      const row = rows[0]!;
+      request.idempotentId = row.id;
+      request.audit('update', 'patient', sourceId);
+      request.audit('update', 'patient', targetId);
+      request.audit('update', 'patient_merge', row.id);
+      await request.emit('patient.unmerged', targetId, {
+        mergeId: row.id,
+        sourcePatientId: sourceId,
+        targetPatientId: targetId,
+      });
+      return view(row);
+    },
+  );
+
+  const windowOf = async (client: FastifyRequest['txClient']): Promise<PatientSettings> => {
+    const { rows } = await client.query<{ unmerge_window_days: number }>(
+      'select unmerge_window_days from patient_settings',
+    );
+    return { unmergeWindowDays: rows[0]?.unmerge_window_days ?? DEFAULT_WINDOW_DAYS };
+  };
+
+  app.get(
+    '/patient-settings',
+    {
+      config: { permissions: [UNMERGE], feature: FEATURE },
+      schema: {
+        operationId: 'getPatientSettings',
+        tags: ['patients'],
+        description:
+          'The hospital settings for patient records (#555): how many days a merge may be undone. Requires patient:unmerge.',
+        response: { 200: ref(PatientSettings), ...errors(401, 403, 429) },
+      },
+    },
+    async (request) => windowOf(request.txClient),
+  );
+
+  app.put(
+    '/patient-settings',
+    {
+      config: { permissions: [UNMERGE], feature: FEATURE },
+      schema: {
+        operationId: 'setPatientSettings',
+        tags: ['patients'],
+        description:
+          'Sets how many days after a merge it may be undone (0 turns unmerging off, at most 365). Merges already made use the new value. Audited. Requires patient:unmerge.',
+        body: ref(PatientSettings),
+        response: { 200: ref(PatientSettings), ...errors(400, 401, 403, 429) },
+      },
+    },
+    async (request) => {
+      const userId = request.session?.userId;
+      if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
+      const body = request.body as PatientSettings;
+      await request.txClient.query(
+        `insert into patient_settings (tenant_id, unmerge_window_days, updated_by)
+         values (app_tenant_id(), $1, $2)
+         on conflict (tenant_id) do update set unmerge_window_days = excluded.unmerge_window_days,
+           updated_by = excluded.updated_by, updated_at = now()`,
+        [body.unmergeWindowDays, userId],
+      );
+      request.audit('update', 'patient_settings');
+      return windowOf(request.txClient);
     },
   );
 };
