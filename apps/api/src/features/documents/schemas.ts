@@ -129,8 +129,22 @@ export const RetentionRule = Type.Object(
   },
   { $id: 'DocumentRetentionRule' },
 );
+export const RetentionRuleStatus = Type.Object(
+  {
+    category: Category,
+    years: Type.Union([Type.Integer({ minimum: 1, maximum: 100 }), Type.Null()], {
+      description: 'Years a document of the category is kept; null keeps it for ever.',
+    }),
+    otherRuleCount: Type.Integer({
+      minimum: 0,
+      description:
+        'Documents of the category not yet purged whose retention date is not the one the rule would give today: kept under an earlier rule (#674).',
+    }),
+  },
+  { $id: 'DocumentRetentionRuleStatus' },
+);
 export const RetentionRules = Type.Object(
-  { items: Type.Array(ref(RetentionRule)) },
+  { items: Type.Array(ref(RetentionRuleStatus)) },
   { $id: 'DocumentRetentionRules' },
 );
 export const RetentionRuleSet = Type.Object(
@@ -183,6 +197,7 @@ export const DOCUMENT_SCHEMAS = [
   PatientDocumentDownload,
   PatientDocumentRetire,
   RetentionRule,
+  RetentionRuleStatus,
   RetentionRules,
   RetentionRuleSet,
   LegalHold,

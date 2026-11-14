@@ -19,6 +19,7 @@ import type {
   PatientDocumentPage,
   PatientDocumentUpload,
   RetentionRule,
+  RetentionRuleStatus,
 } from './types';
 
 // Every address holds ids, a category and a page cursor only: a title, a file name or anything
@@ -114,7 +115,7 @@ export async function retireDocument(
 }
 
 /** The years each category is kept (#561): every category, `years` null where kept for ever. */
-export async function fetchRetentionRules(signal?: AbortSignal): Promise<RetentionRule[]> {
+export async function fetchRetentionRules(signal?: AbortSignal): Promise<RetentionRuleStatus[]> {
   const result = await api.GET('/document-retention', { signal });
   return retentionRulesSchema.parse(requireData(result)).items;
 }
