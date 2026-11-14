@@ -1,0 +1,13 @@
+{
+  "widget": {
+    "title": "Images that were blocked",
+    "loading": "Checking your uploads.",
+    "none": "None of the images you uploaded was blocked.",
+    "infected": "Failed the virus scan and was deleted. Upload a clean copy.",
+    "failed": "Could not be scanned or never arrived. Upload it again.",
+    "dismiss": "Dismiss the notice for {{fileName}}",
+    "ok": "Dismiss",
+    "dismissDone": "Notice dismissed.",
+    "dismissFailed": "The notice could not be dismissed. Try again."
+  }
+}

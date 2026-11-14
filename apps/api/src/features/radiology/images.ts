@@ -18,6 +18,7 @@ import { tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { imagingOrder } from '../clinical/index.js';
 import {
+  BlockedImages,
   IMAGE_MAX_BYTES,
   IMAGE_SCHEMAS,
   IMAGE_TYPES,
@@ -237,6 +238,72 @@ export const imageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       );
       for (const row of rows) request.audit('read', 'imaging_image', row.id);
       return { items: rows.map(view), nextCursor: null };
+    },
+  );
+
+  // The uploader is told about an image the scan blocked (#926): their own, until dismissed.
+  app.get(
+    '/radiology/images/blocked',
+    {
+      config: { permissions: [PERFORM], feature: FEATURE },
+      schema: {
+        operationId: 'listBlockedImagingImages',
+        tags: ['radiology'],
+        description:
+          'The images the caller uploaded that the malware scan blocked (infected, or not scannable, or never sent) and that they have not dismissed, newest first, at most 50. Only the caller’s own uploads, whatever the study. Requires imagingStudy:perform.',
+        response: { 200: ref(BlockedImages), ...errors(401, 403, 429) },
+      },
+    },
+    async (request) => {
+      const userId = request.session?.userId;
+      if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
+      const { rows } = await request.txClient.query<{
+        id: string;
+        file_name: string;
+        status: 'infected' | 'failed';
+        blocked_at: Date;
+      }>(
+        `select id, file_name, status, coalesce(scanned_at, created_at) as blocked_at
+         from imaging_images
+         where created_by = $1 and status in ('infected', 'failed') and blocked_seen_at is null
+         order by created_at desc, id desc limit 50`,
+        [userId],
+      );
+      return {
+        items: rows.map((row) => ({
+          id: row.id,
+          fileName: row.file_name,
+          status: row.status,
+          blockedAt: row.blocked_at.toISOString(),
+        })),
+      };
+    },
+  );
+
+  app.post(
+    '/radiology/images/:imageId/dismiss-blocked',
+    {
+      config: { permissions: [PERFORM], feature: FEATURE },
+      schema: {
+        operationId: 'dismissBlockedImagingImage',
+        tags: ['radiology'],
+        description:
+          'The uploader has seen that an image was blocked: it leaves their list. The row stays. 404 for an image that is not the caller’s own, or not blocked. Requires imagingStudy:perform.',
+        params: ImageParams,
+        response: { 204: Type.Null(), ...errors(401, 403, 404, 429) },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.session?.userId;
+      if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
+      const { rowCount } = await request.txClient.query(
+        `update imaging_images set blocked_seen_at = now()
+         where id = $1 and created_by = $2 and status in ('infected', 'failed')
+           and blocked_seen_at is null`,
+        [request.params.imageId, userId],
+      );
+      if (!rowCount) throw imageNotFound();
+      return reply.status(204).send(null);
     },
   );
 
@@ -483,16 +550,53 @@ export async function scanImage(app: FastifyInstance, job: ScanJob): Promise<voi
     if (!found.clean) result = found.signature.replace(/[^A-Za-z0-9._:-]/g, '_').slice(0, 100);
   }
   if (status !== 'clean') await app.files.delete(row.file_key).catch(() => undefined);
-  await asWorker(app, (client) =>
-    client.query(
+  // The status and the notice to the uploader are one transaction: a retry after a failure finds
+  // the row still `scanning`, so neither is lost or written twice.
+  await asWorker(app, async (client) => {
+    const moved = await client.query(
       `update imaging_images set status = $2, scan_result = $3, scanned_at = now()
        where id = $1 and status = 'scanning'`,
       [job.imageId, status, result],
-    ),
-  );
+    );
+    if (moved.rowCount && status !== 'clean') {
+      await recordBlocked(client, { imageId: job.imageId, status });
+    }
+  });
   if (status === 'infected') {
     app.log.warn({ event: 'imaging_image_infected', imageId: job.imageId }, 'imaging file blocked');
   }
+}
+
+/**
+ * A blocked image is told to its uploader (#926): an audit entry (the reason code, never the
+ * file) and an `imaging.blocked` event, written in one transaction as the worker role for the
+ * image's own hospital. The uploader sees it on the home page.
+ */
+async function recordBlocked(
+  client: pg.PoolClient,
+  blocked: { imageId: string; status: string },
+): Promise<void> {
+  const { rows } = await client.query<{
+    tenant_id: string;
+    created_by: string;
+    scan_result: string | null;
+  }>(
+    `select tenant_id, created_by, scan_result from imaging_images
+       where id = $1 and status = $2 and blocked_seen_at is null`,
+    [blocked.imageId, blocked.status],
+  );
+  const row = rows[0];
+  if (!row) return;
+  await client.query(
+    `insert into audit_log (tenant_id, actor_id, action, entity, entity_id, detail)
+       values ($1, null, 'scan_blocked', 'imaging_image', $2, $3)`,
+    [row.tenant_id, blocked.imageId, row.scan_result?.slice(0, 127) ?? blocked.status],
+  );
+  await client.query(
+    `insert into outbox (tenant_id, event, entity_id, actor_id, payload)
+       values ($1, 'imaging.blocked', $2, $3, $4)`,
+    [row.tenant_id, blocked.imageId, row.created_by, JSON.stringify({ status: blocked.status })],
+  );
 }
 
 /**

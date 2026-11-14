@@ -51,6 +51,8 @@ export const DOMAIN_EVENTS = [
   'imaging.unscheduled',
   'imaging.performed',
   // A report signed (#97), and an addendum to a signed one: ids only, never the text.
+  // A scan blocked an uploaded radiology image (#926): the image id and its status, the uploader as actor.
+  'imaging.blocked',
   'imaging.reported',
   'imaging.addendum_added',
   'pharmacy.dispensed',

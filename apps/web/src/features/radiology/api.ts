@@ -1,8 +1,14 @@
 import { api, isApiError, requireData } from '@/shared/api';
 import type { RichTextDocument } from '@/shared/ui/rich-text';
-import { imagingReportSchema, imagingStudySchema, imagingWorkItemPageSchema } from './schemas';
+import {
+  blockedImagesSchema,
+  imagingReportSchema,
+  imagingStudySchema,
+  imagingWorkItemPageSchema,
+} from './schemas';
 import type {
   AddendumReason,
+  BlockedImage,
   ImagingReport,
   ImagingReportDraft,
   ImagingModality,
@@ -141,4 +147,18 @@ export async function addAddendum(
     body: { body: body.body as unknown as Record<string, unknown>, reason: body.reason },
   });
   return imagingReportSchema.parse(requireData(result));
+}
+
+/** The images the caller uploaded that the scan blocked and they have not dismissed (#926). */
+export async function fetchBlockedImages(signal?: AbortSignal): Promise<BlockedImage[]> {
+  const result = await api.GET('/radiology/images/blocked', { signal });
+  return blockedImagesSchema.parse(requireData(result)).items;
+}
+
+/** The uploader has seen it: it leaves their list. */
+export async function dismissBlockedImage(imageId: string): Promise<void> {
+  // A refusal is thrown by the client; a 204 has no body to read.
+  await api.POST('/radiology/images/{imageId}/dismiss-blocked', {
+    params: { path: { imageId } },
+  });
 }

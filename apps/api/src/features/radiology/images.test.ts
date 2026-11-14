@@ -315,6 +315,56 @@ describe('receiving the file and the scan', () => {
     expect(errorOf(blocked)).toEqual([409, 'image_blocked']);
   });
 
+  it('tells the uploader about a blocked image until they dismiss it (#926)', async () => {
+    const orderId = await performedOrder();
+    const upload = await uploaded(orderId, EICAR, 'application/pdf');
+    await queue.drain();
+    const id = upload.image.id;
+
+    expect(await actions(id)).toContain('scan_blocked');
+    const event = await pool.query<{ actor_id: string; payload: object }>(
+      "select actor_id, payload from outbox where event = 'imaging.blocked' and entity_id = $1",
+      [id],
+    );
+    expect(event.rows).toEqual([{ actor_id: radiologist.id, payload: { status: 'infected' } }]);
+
+    type Blocked = { items: { id: string; status: string; fileName: string }[] };
+    const list = async (options: Options = {}) =>
+      (await get('/radiology/images/blocked', options)).json<Blocked>();
+    expect((await list()).items.map((one) => [one.id, one.status])).toContainEqual([
+      id,
+      'infected',
+    ]);
+    // Only the uploader's own: another hospital's radiologist sees nothing.
+    expect((await list({ tenant: clinic, user: clinicRadiologist })).items).toEqual([]);
+    expect(errorOf(await get('/radiology/images/blocked', { user: reader }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
+
+    // Not theirs, or another hospital's: the same 404. Theirs: gone from the list, the row stays.
+    const dismiss = (options: Options) =>
+      post(`/radiology/images/${id}/dismiss-blocked`, {}, options);
+    expect((await dismiss({ user: doctor })).statusCode).toBe(403);
+    expect((await dismiss({ tenant: clinic, user: clinicRadiologist })).statusCode).toBe(404);
+    expect((await dismiss({})).statusCode).toBe(204);
+    expect((await dismiss({})).statusCode).toBe(404);
+    expect((await list()).items.map((one) => one.id)).not.toContain(id);
+    expect(await statusOf(id)).toBe('infected');
+  });
+
+  it('writes nothing for a clean image', async () => {
+    const orderId = await performedOrder();
+    const upload = await uploaded(orderId);
+    await queue.drain();
+    expect(await actions(upload.image.id)).not.toContain('scan_blocked');
+    const event = await pool.query(
+      "select 1 from outbox where event = 'imaging.blocked' and entity_id = $1",
+      [upload.image.id],
+    );
+    expect(event.rowCount).toBe(0);
+  });
+
   it('refuses a wrong size, a wrong type, a forged link and a second use', async () => {
     const orderId = await performedOrder();
     const asked = (
@@ -546,5 +596,22 @@ describe('uploads asked for and never sent (#560)', () => {
     expect(await statusOf(recent.image.id)).toBe('pending');
     expect(await statusOf(received.image.id)).toBe('scanning');
     expect(await closeUnsentImages(app)).toBe(0);
+  });
+});
+
+describe('the blocked image notice with the module off (#926)', () => {
+  it('is refused while radiology is off for the hospital', async () => {
+    await pool.query(
+      `update tenant_features set enabled = false where tenant_id = $1 and feature = 'radiology'`,
+      [hospital.id],
+    );
+    try {
+      expect((await get('/radiology/images/blocked')).statusCode).toBeGreaterThanOrEqual(403);
+    } finally {
+      await pool.query(
+        `update tenant_features set enabled = true where tenant_id = $1 and feature = 'radiology'`,
+        [hospital.id],
+      );
+    }
   });
 });

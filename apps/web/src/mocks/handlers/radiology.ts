@@ -52,10 +52,22 @@ const DAYS_AHEAD = 90;
 function seed() {
   return {
     studies: [] as ImagingStudy[],
+    // Images the scan blocked (#926), as the API lists them for their uploader.
+    blockedImages: [] as BlockedMockImage[],
     reports: [] as ImagingReport[],
     answered: new Map<string, string>(),
     counter: 0,
   };
+}
+
+interface BlockedMockImage {
+  id: string;
+  tenantId: string;
+  uploaderId: string;
+  fileName: string;
+  status: 'infected' | 'failed';
+  blockedAt: string;
+  seen: boolean;
 }
 
 let state = seed();
@@ -209,7 +221,59 @@ function changeHandler(
   });
 }
 
+/** A scan blocks an image that `uploaderId` uploaded, as the API's job does (#926). */
+export function blockMockImage(
+  tenantId: string,
+  uploaderId: string,
+  fileName: string,
+  status: 'infected' | 'failed' = 'infected',
+): string {
+  const id = 'img_b' + String(state.blockedImages.length + 1);
+  state.blockedImages.push({
+    id,
+    tenantId,
+    uploaderId,
+    fileName,
+    status,
+    blockedAt: new Date().toISOString(),
+    seen: false,
+  });
+  return id;
+}
+
 export const radiologyHandlers = [
+  http.get('*/api/radiology/images/blocked', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'imagingStudy:perform',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const me = currentSession()?.user.id;
+    return HttpResponse.json({
+      items: state.blockedImages
+        .filter((one) => one.tenantId === access.tenantId && one.uploaderId === me && !one.seen)
+        .map(({ id, fileName, status, blockedAt }) => ({ id, fileName, status, blockedAt })),
+    });
+  }),
+
+  http.post('*/api/radiology/images/:imageId/dismiss-blocked', ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'imagingStudy:perform',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const found = state.blockedImages.find(
+      (one) =>
+        one.id === params.imageId &&
+        one.tenantId === access.tenantId &&
+        one.uploaderId === currentSession()?.user.id &&
+        !one.seen,
+    );
+    if (!found) return error(404, 'image_not_found', 'No such image');
+    found.seen = true;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.get('*/api/radiology/worklist', ({ request }) => {
     const access = authorize(request, {
       permission: 'imagingStudy:read',
