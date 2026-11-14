@@ -181,6 +181,10 @@ describe('assembling the bill', () => {
     expect(within(charges()).getByText('Service no longer offered: last price')).toBeVisible();
     expect(within(charges()).getByText('No price set: check it')).toBeVisible();
     expect(within(charges()).getByText('Medicine brought back: credit it')).toBeVisible();
+    // Each flag is a badge with an icon, not text alone (#911).
+    const badge = within(charges()).getByText('No price set: check it');
+    expect(badge.querySelector('svg')).not.toBeNull();
+    await expectNoAxeViolations();
   });
 
   it('keeps the same key when a failed request is sent again', async () => {
