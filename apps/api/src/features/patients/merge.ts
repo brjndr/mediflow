@@ -37,6 +37,16 @@ const PatientMerge = Type.Object(
     ),
     unmergedAt: Type.Optional(Type.String({ format: 'date-time' })),
     unmergeReason: Type.Optional(Type.String()),
+    sourceName: Type.Optional(
+      Type.String({
+        description: 'Name of the record merged away; on the merge list only (#877).',
+      }),
+    ),
+    sourceMrn: Type.Optional(Type.String()),
+    targetName: Type.Optional(
+      Type.String({ description: 'Name of the record that stays; on the merge list only (#877).' }),
+    ),
+    targetMrn: Type.Optional(Type.String()),
   },
   { $id: 'PatientMerge' },
 );
@@ -328,7 +338,28 @@ export const mergeRoutes: FastifyPluginAsyncTypebox = async (app) => {
         [request.params.patientId],
       );
       for (const row of rows) request.audit('read', 'patient_merge', row.id);
-      return { items: rows.map(view), nextCursor: null };
+      // The names come from the same hospital's patients (RLS), under the same read and audit.
+      const ids = [...new Set(rows.flatMap((r) => [r.source_patient_id, r.target_patient_id]))];
+      const people = new Map<string, { name: string; mrn: string }>();
+      if (ids.length > 0) {
+        const found = await request.txClient.query<{ id: string; name: string; mrn: string }>(
+          `select id, first_name || ' ' || last_name as name, mrn from patients where id = any($1::uuid[])`,
+          [ids],
+        );
+        for (const p of found.rows) people.set(p.id, p);
+      }
+      return {
+        items: rows.map((row) => {
+          const source = people.get(row.source_patient_id);
+          const target = people.get(row.target_patient_id);
+          return {
+            ...view(row),
+            ...(source ? { sourceName: source.name, sourceMrn: source.mrn } : {}),
+            ...(target ? { targetName: target.name, targetMrn: target.mrn } : {}),
+          };
+        }),
+        nextCursor: null,
+      };
     },
   );
 

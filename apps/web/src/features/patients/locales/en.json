@@ -158,6 +158,8 @@
       "tab": "Merge history",
       "heading": "Records merged into this one",
       "when": "Merged",
+      "patient": "Merged record",
+      "kept": "Kept record",
       "reason": "Reason",
       "by": "By",
       "moved": "Moved",
@@ -176,6 +178,7 @@
     "toSurvivor": "Open the record to use",
     "undo": {
       "title": "Undo this merge?",
+      "who": "Separating {{source}} (MRN {{sourceMrn}}) from {{target}} (MRN {{targetMrn}}).",
       "body": "This record becomes a separate record again: searchable and editable. What moved to the record that stayed is given back where it can be; anything recorded on that record since stays there.",
       "reason": "Why the merge is being undone",
       "confirm": "Undo merge",

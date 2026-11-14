@@ -118,6 +118,10 @@ export const patientMergeSchema: z.ZodType<PatientMerge> = z.object({
   unmergedBy: z.string().optional(),
   unmergedAt: z.iso.datetime().optional(),
   unmergeReason: z.string().optional(),
+  sourceName: z.string().optional(),
+  sourceMrn: z.string().optional(),
+  targetName: z.string().optional(),
+  targetMrn: z.string().optional(),
 });
 
 export const patientMergePreviewSchema: z.ZodType<PatientMergePreview> = z.object({

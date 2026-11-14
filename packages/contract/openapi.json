@@ -1024,6 +1024,20 @@
           },
           "unmergeReason": {
             "type": "string"
+          },
+          "sourceName": {
+            "description": "Name of the record merged away; on the merge list only (#877).",
+            "type": "string"
+          },
+          "sourceMrn": {
+            "type": "string"
+          },
+          "targetName": {
+            "description": "Name of the record that stays; on the merge list only (#877).",
+            "type": "string"
+          },
+          "targetMrn": {
+            "type": "string"
           }
         }
       },

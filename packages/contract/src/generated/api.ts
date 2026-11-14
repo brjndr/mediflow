@@ -7498,6 +7498,12 @@ export interface components {
             /** Format: date-time */
             unmergedAt?: string;
             unmergeReason?: string;
+            /** @description Name of the record merged away; on the merge list only (#877). */
+            sourceName?: string;
+            sourceMrn?: string;
+            /** @description Name of the record that stays; on the merge list only (#877). */
+            targetName?: string;
+            targetMrn?: string;
         };
         PatientMergeCreate: {
             /** Format: uuid */

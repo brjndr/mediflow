@@ -255,6 +255,27 @@ describe('unmerging patients', () => {
     expect((await unmerge(source)).statusCode).toBe(200);
   });
 
+  it('names both patients on the merge list, inside the hospital only (#877)', async () => {
+    const target = await patient(hospital, admin);
+    const source = await patient(hospital, admin);
+    expect((await merge(target, source)).statusCode).toBe(201);
+    const list = await app.inject({
+      url: `/patients/${target}/merges`,
+      headers: as(hospital.id, admin.id),
+    });
+    expect(list.json().items[0]).toMatchObject({
+      sourceName: 'Un Merge',
+      targetName: 'Un Merge',
+      sourceMrn: expect.stringMatching(/^UM-/),
+      targetMrn: expect.stringMatching(/^UM-/),
+    });
+    const foreign = await app.inject({
+      url: `/patients/${target}/merges`,
+      headers: as(other.id, otherAdmin.id),
+    });
+    expect(foreign.statusCode).toBe(404);
+  });
+
   it('keeps the database from clearing a merge any other way', async () => {
     const target = await patient(hospital, admin);
     const source = await patient(hospital, admin);
