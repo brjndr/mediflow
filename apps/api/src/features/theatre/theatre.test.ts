@@ -1370,6 +1370,61 @@ describe('the operation note, the visit and the charges', () => {
     expect(await onHand(batch)).toBe(5);
   });
 
+  it('moves the charges to the new visit when the surgery is linked to another (#900)', async () => {
+    const surgery = await booked({});
+    const first = await addEncounter(hospital, surgery.patientId);
+    const second = await addEncounter(hospital, surgery.patientId);
+    const batches = [await stockIn(10), await stockIn(10)];
+    await pool.query('update stock_batches set mrp_minor = 700 where id = any($1)', [batches]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const link = `/theatre/surgeries/${surgery.id}/encounter`;
+    await ok(await put(link, { encounterId: first }));
+    for (const [index, batchId] of batches.entries()) {
+      await ok(
+        await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+          drugId,
+          locationId: place,
+          lines: [{ batchId, quantity: index + 1 }],
+        }),
+        201,
+      );
+    }
+    expect(await chargesOf(first)).toHaveLength(2);
+    // One charge is already on a draft bill: it stays and is flagged for the billing desk.
+    const draft = await pool.query<{ id: string }>(
+      `insert into invoices (tenant_id, encounter_id, patient_id, status, currency, created_by)
+       values ($1, $2, $3, 'draft', 'INR', $4) returning id`,
+      [hospital.id, first, surgery.patientId, admin.id],
+    );
+    await pool.query(
+      'update charges set invoice_id = $2 where encounter_id = $1 and quantity = 2',
+      [first, draft.rows[0]?.id],
+    );
+
+    await ok(await put(link, { encounterId: second }));
+    await chargesOf(first);
+    const left = await pool.query(
+      'select quantity, status, flag from charges where encounter_id = $1 order by quantity',
+      [first],
+    );
+    expect(left.rows).toEqual([
+      { quantity: 1, status: 'void', flag: null },
+      { quantity: 2, status: 'pending', flag: 'return_review' },
+    ]);
+    const moved = await chargesOf(second);
+    expect(moved.map((row) => row.quantity)).toEqual([1]);
+    // Linking again charges nothing twice; another hospital's ledger is untouched.
+    await ok(await put(link, { encounterId: second }));
+    expect(await chargesOf(second)).toHaveLength(1);
+    const foreign = await pool.query('select 1 from charges where tenant_id = $1', [clinic.id]);
+    expect(foreign.rowCount).toBe(0);
+    // The draft bill would block removing the hospital.
+    await pool.query('update charges set invoice_id = null where invoice_id = $1', [
+      draft.rows[0]?.id,
+    ]);
+    await pool.query('delete from invoices where id = $1', [draft.rows[0]?.id]);
+  });
+
   it('posts no charge for a surgery with no visit', async () => {
     const surgery = await booked({ serviceId: procedureService });
     const batch = await stockIn(5);
