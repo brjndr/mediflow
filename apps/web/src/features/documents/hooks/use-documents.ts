@@ -2,6 +2,7 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { useRef } from 'react';
@@ -9,6 +10,8 @@ import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  dismissBlocked,
+  fetchBlockedDocuments,
   fetchDocuments,
   fetchDownloadUrl,
   requestUpload,
@@ -16,7 +19,7 @@ import {
   sendFile,
   type DocumentFilters,
 } from '../api';
-import { DOCUMENT_PAGE_SIZE, SCAN_POLL_MS } from '../schemas';
+import { BLOCKED_POLL_MS, DOCUMENT_PAGE_SIZE, SCAN_POLL_MS } from '../schemas';
 import type { PatientDocument, PatientDocumentCreate } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's documents never show in another. */
@@ -97,6 +100,25 @@ export function useUploadDocument(patientId: string) {
       attempt.current = undefined;
       return asked.document;
     },
+    onSettled: () => refresh(),
+  });
+}
+
+/** The caller's own blocked files (#673), read again now and then so a scan that ends is seen. */
+export function useBlockedDocuments() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: documentKeys.list(tenantId ?? '', { blocked: true }),
+    queryFn: ({ signal }) => fetchBlockedDocuments(signal),
+    refetchInterval: BLOCKED_POLL_MS,
+    enabled: tenantId !== undefined,
+  });
+}
+
+export function useDismissBlocked() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (documentId: string) => dismissBlocked(documentId),
     onSettled: () => refresh(),
   });
 }

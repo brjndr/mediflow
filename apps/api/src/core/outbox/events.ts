@@ -14,6 +14,8 @@ export const DOMAIN_EVENTS = [
   'correction.requested',
   'correction.approved',
   'correction.rejected',
+  // A scan blocked an uploaded document (#673): the document id and its status, the uploader as actor.
+  'document.blocked',
   'appointment.created',
   'appointment.rescheduled',
   'appointment.cancelled',

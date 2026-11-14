@@ -30,6 +30,14 @@ export const documentsFeature: FeatureManifest = {
     'documentRetention:read',
     'documentRetention:manage',
   ],
+  dashboardWidgets: [
+    {
+      id: 'blocked-files',
+      component: () => import('./components/BlockedFilesWidget'),
+      requires: ['document:upload'],
+      size: 'sm',
+    },
+  ],
   extensions: [
     {
       slot: 'patient.detail.tabs',

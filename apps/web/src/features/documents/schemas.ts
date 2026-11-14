@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
+  BlockedDocument,
   DocumentCategory,
   DocumentStatus,
   LegalHold,
@@ -66,6 +67,18 @@ export const uploadSchema = z.object({
   expiresAt: z.string(),
 });
 
+export const blockedSchema: z.ZodType<{ items: BlockedDocument[] }> = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      fileName: z.string(),
+      status: z.enum(['infected', 'failed']),
+      blockedAt: z.string(),
+    }),
+  ),
+});
+
 export const downloadSchema = z.object({ url: z.string(), expiresAt: z.string() });
 
 /** The file's type and size, checked before anything is sent; the API checks both again. */
@@ -99,6 +112,8 @@ export type RetireValues = z.infer<typeof retireFormSchema>;
 
 /** How often the list is read again while a file waits for its malware scan. */
 export const SCAN_POLL_MS = 5000;
+/** How often the home page asks again for files the scan blocked (#673). */
+export const BLOCKED_POLL_MS = 30_000;
 
 export const RETENTION_MAX_YEARS = 100;
 

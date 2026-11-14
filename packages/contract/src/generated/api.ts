@@ -3722,6 +3722,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents/blocked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The files the caller attached that the malware scan blocked (infected, or not scannable, or never sent) and that they have not dismissed, newest first, at most 50. Only the caller’s own uploads, whatever the patient. Requires document:upload. */
+        get: operations["listBlockedDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}/dismiss-blocked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The uploader has seen that a file was blocked: it leaves their list. The row stays. 404 for a file that is not the caller’s own, or not blocked. Requires document:upload. */
+        post: operations["dismissBlockedDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{documentId}/download-url": {
         parameters: {
             query?: never;
@@ -10357,6 +10391,20 @@ export interface components {
             url: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        /** @description A file the caller attached that the scan blocked, not yet dismissed. */
+        BlockedDocument: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            fileName: string;
+            /** @enum {string} */
+            status: "infected" | "failed";
+            /** Format: date-time */
+            blockedAt: string;
+        };
+        BlockedDocuments: {
+            items: components["schemas"]["BlockedDocument"][];
         };
         /** @description A file kept on a patient’s record. */
         PatientDocument: {
@@ -33770,6 +33818,109 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBlockedDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockedDocuments"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    dismissBlockedDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -9344,6 +9344,43 @@
           }
         }
       },
+      "BlockedDocument": {
+        "description": "A file the caller attached that the scan blocked, not yet dismissed.",
+        "type": "object",
+        "required": ["id", "title", "fileName", "status", "blockedAt"],
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["infected", "failed"]
+          },
+          "blockedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "BlockedDocuments": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BlockedDocument"
+            }
+          }
+        }
+      },
       "PatientDocument": {
         "description": "A file kept on a patient’s record.",
         "type": "object",
@@ -46350,6 +46387,118 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/blocked": {
+      "get": {
+        "operationId": "listBlockedDocuments",
+        "tags": ["documents"],
+        "description": "The files the caller attached that the malware scan blocked (infected, or not scannable, or never sent) and that they have not dismissed, newest first, at most 50. Only the caller’s own uploads, whatever the patient. Requires document:upload.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockedDocuments"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{documentId}/dismiss-blocked": {
+      "post": {
+        "operationId": "dismissBlockedDocument",
+        "tags": ["documents"],
+        "description": "The uploader has seen that a file was blocked: it leaves their list. The row stays. 404 for a file that is not the caller’s own, or not blocked. Requires document:upload.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
           },
           "401": {
             "description": "Standard error body.",

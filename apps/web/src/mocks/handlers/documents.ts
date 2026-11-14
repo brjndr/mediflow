@@ -1,6 +1,6 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { onMockReset, TENANT_IDS } from '../db';
+import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockPatient, registerMockMergeCounter } from './patients';
 
@@ -13,6 +13,10 @@ const MAX_BYTES = 25 * 1024 * 1024;
 
 interface Stored extends Omit<PatientDocument, 'held'> {
   tenantId: string;
+  /** Who attached it, for the blocked-file notice (#673). */
+  createdBy?: string;
+  /** The uploader has dismissed the notice that it was blocked. */
+  blockedSeen?: boolean;
 }
 interface State {
   documents: Stored[];
@@ -94,6 +98,17 @@ export function finishMockScan(id: string, status: PatientDocument['status'] = '
   found.status = status;
 }
 
+/** A scan blocks a document that `uploaderId` attached, as the API's job does (#673). */
+export function blockMockDocument(
+  id: string,
+  uploaderId: string,
+  status: 'infected' | 'failed' = 'infected',
+): void {
+  finishMockScan(id, status);
+  const found = state.documents.find((one) => one.id === id) as Stored;
+  found.createdBy = uploaderId;
+}
+
 /** A hold placed straight in the mock, as another hospital's staff would (tests). */
 export function holdMockDocument(tenantId: string, patientId: string, documentId?: string): void {
   state.holds.push({
@@ -172,6 +187,45 @@ function otherRuleCount(tenantId: string, category: string): number {
 }
 
 export const documentsHandlers = [
+  http.get('*/api/documents/blocked', ({ request }) => {
+    const access = authorize(request, { permission: 'document:upload', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const me = currentSession()?.user.id;
+    return HttpResponse.json({
+      items: state.documents
+        .filter(
+          (one) =>
+            one.tenantId === access.tenantId &&
+            one.createdBy === me &&
+            (one.status === 'infected' || one.status === 'failed') &&
+            !one.blockedSeen &&
+            !one.retiredAt,
+        )
+        .map((one) => ({
+          id: one.id,
+          title: one.title,
+          fileName: one.fileName,
+          status: one.status,
+          blockedAt: one.createdAt,
+        })),
+    });
+  }),
+
+  http.post('*/api/documents/:documentId/dismiss-blocked', ({ request, params }) => {
+    const access = authorize(request, { permission: 'document:upload', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const found = state.documents.find(
+      (one) =>
+        one.id === params.documentId &&
+        one.tenantId === access.tenantId &&
+        one.createdBy === currentSession()?.user.id &&
+        (one.status === 'infected' || one.status === 'failed'),
+    );
+    if (!found) return error(404, 'document_not_found', 'No such document');
+    found.blockedSeen = true;
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.get('*/api/document-retention', ({ request }) => {
     const access = authorize(request, {
       permission: 'documentRetention:read',
@@ -283,6 +337,7 @@ export const documentsHandlers = [
         status: 'pending',
         version: 1,
         createdAt: new Date().toISOString(),
+        createdBy: currentSession()?.user.id ?? '',
       });
     }
     const document = state.documents.find((one) => one.id === id) as Stored;
