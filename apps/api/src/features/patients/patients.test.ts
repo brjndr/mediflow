@@ -846,12 +846,34 @@ describe('a large register', () => {
     expect(pages).toBeLessThan(20);
   });
 
-  it('has no trigram index on patients, since row-level security keeps one from being used', async () => {
-    const { rows } = await pool.query<{ indexname: string }>(
-      "select indexname from pg_indexes where tablename = 'patients' and indexdef ilike '%trgm%'",
+  it('has gin trigram indexes for the definer search, and no gist one', async () => {
+    const { rows } = await pool.query<{ indexname: string; indexdef: string }>(
+      "select indexname, indexdef from pg_indexes where tablename = 'patients' and indexdef ilike '%trgm%'",
     );
 
-    expect(rows).toEqual([]);
+    expect(rows.map((row) => row.indexname).sort()).toEqual([
+      'patients_tenant_phone_search_gin',
+      'patients_tenant_search_gin',
+    ]);
+    expect(rows.every((row) => / gin /i.test(row.indexdef))).toBe(true);
+  });
+
+  it('finds ids only inside the active hospital, and none without one (#864)', async () => {
+    const ids = (tenantId: string, words: string[]) =>
+      asTenantSql(pool, tenantId, (client) =>
+        client.query<{ id: string }>(
+          'select patient_search_ids($1::text[], null, null, false) as id',
+          [words],
+        ),
+      );
+
+    // LH-004321 exists only in the large hospital.
+    expect((await ids(large.id, ['%lh-004321%'])).rowCount).toBe(1);
+    expect((await ids(clinic.id, ['%lh-004321%'])).rowCount).toBe(0);
+    const bare = await pool.query(
+      "select * from patient_search_ids(array['%lh-%'], null, null, false)",
+    );
+    expect(bare.rowCount).toBe(0);
   });
 });
 
