@@ -48,7 +48,7 @@
     "required": "required",
     "upload": "Send and check",
     "sending": "Sending rows: {{sent}} of {{total}}",
-    "patientsNotice": "A file of patients holds patient data. It is read on this device and sent only to this hospital, and the rows are deleted once the batch is written or given up. Every patient written is recorded in the audit log."
+    "patientsNotice": "A file of patients holds patient data. It is read on this device and sent only to this hospital, and the rows are deleted once the batch is written or given up. Every patient written is recorded in the audit log. A file of a million patients or more writes slowly, because every patient is added to the search index: it can take minutes, so load it outside working hours."
   },
   "values": {
     "text": "Text",
