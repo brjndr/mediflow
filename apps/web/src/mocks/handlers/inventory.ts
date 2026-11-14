@@ -451,7 +451,7 @@ export function mockStockIn(
   movement: {
     locationId: string;
     /** A sale's return (the default) or a dispense's (#104), whose wasted lines go out again. */
-    source?: 'sale_return' | 'dispense_return';
+    source?: 'sale_return' | 'dispense_return' | 'theatre';
     sourceId: string;
     actorName: string;
     lines: { batchId: string; quantity: number; wasted?: boolean }[];
@@ -481,7 +481,11 @@ export function mockStockIn(
       sourceId: movement.sourceId,
       actorName: movement.actorName,
     };
-    post(state, { ...change, quantity: line.quantity, reason: source });
+    post(state, {
+      ...change,
+      quantity: line.quantity,
+      reason: source === 'theatre' ? 'theatre_return' : source,
+    });
     // Wasted units are brought back and destroyed: in, then out again.
     if (line.wasted) post(state, { ...change, quantity: -line.quantity, reason: 'wastage' });
   });

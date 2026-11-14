@@ -326,3 +326,17 @@ export const visitFormSchema = z.object({
   encounterId: z.string().min(1, 'validation.required'),
 });
 export type VisitFormValues = z.infer<typeof visitFormSchema>;
+
+export const returnFormSchema = z.object({
+  quantity: z
+    .string()
+    .trim()
+    .regex(/^[1-9]\d{0,4}$/, 'validation.invalid_value'),
+  reason: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(300, 'validation.invalid_value')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+});
+export type ReturnFormValues = z.infer<typeof returnFormSchema>;

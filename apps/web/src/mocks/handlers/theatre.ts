@@ -4,7 +4,7 @@ import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockEncounter } from './clinical';
 import { mockDrug } from './drugs';
-import { mockStockOut } from './inventory';
+import { mockStockIn, mockStockOut } from './inventory';
 
 type Room = components['schemas']['OtRoom'];
 type Surgery = components['schemas']['Surgery'];
@@ -500,6 +500,72 @@ export const theatreHandlers = [
       { status: 201 },
     );
   }),
+
+  http.post(
+    '*/api/theatre/surgeries/:surgeryId/consumables/:consumableId/return',
+    async ({ request, params }) => {
+      const access = authorize(request, {
+        permission: 'surgery:perform',
+        featureFlag: FEATURE_FLAG,
+      });
+      if ('denied' in access) return access.denied;
+      const key = withKey(request);
+      if (!key) return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+      const body = (await request
+        .clone()
+        .json()
+        .catch(() => null)) as { quantity?: unknown; reason?: unknown } | null;
+      if (
+        typeof body?.quantity !== 'number' ||
+        !Number.isInteger(body.quantity) ||
+        body.quantity < 1 ||
+        !isString(body.reason)
+      ) {
+        return invalid();
+      }
+      const quantity = body.quantity;
+      const surgery = surgeries.find(
+        (s) => s.id === params.surgeryId && s.tenantId === access.tenantId,
+      );
+      if (!surgery) return error(404, 'surgery_not_found', 'No such surgery');
+      const row = consumables.find(
+        (c) =>
+          c.id === params.consumableId &&
+          c.surgeryId === surgery.id &&
+          c.tenantId === access.tenantId,
+      );
+      if (!row) return error(404, 'consumable_not_found', 'No such recording');
+      const replyKey = `${access.tenantId}:return:${key}`;
+      if (replies.has(replyKey)) {
+        return HttpResponse.json(
+          { items: [stripConsumable(row)], nextCursor: null },
+          { status: 201 },
+        );
+      }
+      if (surgery.status !== 'in_progress' && surgery.status !== 'completed') {
+        return error(409, 'invalid_transition', 'Stock is returned once the surgery has started');
+      }
+      if (quantity > row.quantity - row.returnedQuantity) {
+        return error(409, 'over_return', 'More than was used');
+      }
+      const refused = mockStockIn(access.tenantId, {
+        locationId: row.locationId,
+        source: 'theatre',
+        sourceId: row.id,
+        actorName: signer().name,
+        lines: [{ batchId: row.batchId, quantity }],
+      });
+      if (refused) {
+        return error(refused.refused === 'batch_expired' ? 409 : 422, refused.refused, 'Refused');
+      }
+      row.returnedQuantity += quantity;
+      replies.set(replyKey, row.id);
+      return HttpResponse.json(
+        { items: [stripConsumable(row)], nextCursor: null },
+        { status: 201 },
+      );
+    },
+  ),
 
   http.get('*/api/theatre/rooms', ({ request }) => {
     const access = authorize(request, { permission: 'theatre:read', featureFlag: FEATURE_FLAG });
