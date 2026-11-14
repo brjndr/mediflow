@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import { SerializerSelector } from '@fastify/fast-json-stringify-compiler';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { auditPlugin } from './core/audit/plugin.js';
 import { authPlugin } from './core/auth/plugin.js';
@@ -95,6 +96,13 @@ export interface AppOptions {
   rateLimiter?: RateLimiter;
   /** What tells open screens that something changed. Defaults to Postgres LISTEN/NOTIFY. */
   liveBus?: LiveBus;
+  /**
+   * Compile a route's response serializer on its first reply, not at startup. Tests only: compiling
+   * every route's serializer is most of the time `ready()` takes (about 3 s of 4), and a test file
+   * uses a few routes. The serializer is the same one, so output is unchanged; a malformed response
+   * schema shows on the first reply, and `pnpm gen:api` still builds every one at startup.
+   */
+  lazySerializers?: boolean;
 }
 
 /**
@@ -114,6 +122,21 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
     bodyLimit: 1_048_576,
     // Behind a load balancer the client address comes from the forwarded header.
     trustProxy: config.TRUST_PROXY,
+    ...(options.lazySerializers
+      ? {
+          schemaController: {
+            compilersFactory: {
+              buildSerializer: (...args: Parameters<ReturnType<typeof SerializerSelector>>) => {
+                const compile = SerializerSelector()(...args);
+                return (...route: Parameters<typeof compile>) => {
+                  let serialize: ReturnType<typeof compile> | undefined;
+                  return (data: unknown) => (serialize ??= compile(...route))(data);
+                };
+              },
+            },
+          },
+        }
+      : {}),
     // An address the router cannot read is refused before any hook runs, so the answer is made
     // here: the standard body, which does not repeat the address, and not to be stored.
     frameworkErrors: (_error, request, reply) => {
