@@ -174,3 +174,32 @@ describe('two hospitals', () => {
     expect(grid().textContent).not.toContain('PTH');
   });
 });
+
+describe('patient list, old registration number', () => {
+  it('shows the old number masked beside the MRN', async () => {
+    server.use(
+      http.post('*/api/patients/search', () =>
+        Response.json({
+          items: [
+            {
+              id: 'p-legacy',
+              tenantId: TENANT_IDS.hospital,
+              mrn: 'MRN-000777',
+              firstName: 'Old',
+              lastName: 'Number',
+              dob: '1980-02-03',
+              gender: 'female',
+              phone: '••••••1234',
+              legacyId: 'REG/1998/0042',
+            },
+          ],
+          nextCursor: null,
+        }),
+      ),
+    );
+    renderApp({ entry: '/patients' });
+    await waitFor(() => expect(dataRows()).toHaveLength(1));
+    expect(within(dataRows()[0]!).getByText('••••••••••042')).toBeInTheDocument();
+    expect(grid().textContent).not.toContain('REG/1998/0042');
+  });
+});
