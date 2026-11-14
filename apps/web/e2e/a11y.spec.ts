@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoAxeViolations, expectNoSidewaysScroll, gridIsStacked } from './support';
+import {
+  expectModalHidesLandmarks,
+  expectNoAxeViolations,
+  expectNoSidewaysScroll,
+  gridIsStacked,
+  goTo,
+} from './support';
 
 /**
  * axe on every route a feature registers, in a real browser with colour contrast checked
@@ -357,6 +363,15 @@ test.describe('screens in other states pass axe', () => {
     await settled(page);
     await page.locator('main summary').filter({ hasText: 'Columns' }).click();
     await expect(page.locator('main details[open] fieldset')).toBeVisible();
+    await expectNoAxeViolations(page);
+  });
+
+  test('a modal leaves no live region exposed inside a landmark', async ({ page }) => {
+    await page.goto('/');
+    await goTo(page, 'Housekeeping');
+    await settled(page);
+    await page.getByRole('button', { name: 'Request a cleaning' }).click();
+    await expectModalHidesLandmarks(page);
     await expectNoAxeViolations(page);
   });
 
