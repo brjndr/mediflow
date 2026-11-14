@@ -16,6 +16,8 @@ ALTER TABLE patient_merges
 ALTER TABLE patient_merges DROP CONSTRAINT patient_merges_source_once;
 CREATE UNIQUE INDEX patient_merges_source_once ON patient_merges (tenant_id, source_patient_id)
   WHERE unmerged_at IS NULL;
+-- A partial index cannot serve the foreign key's lookups (deleting a patient scanned the table).
+CREATE INDEX patient_merges_tenant_source ON patient_merges (tenant_id, source_patient_id);
 GRANT UPDATE (unmerged_at, unmerged_by, unmerge_reason) ON patient_merges TO mediflow_app;
 
 CREATE FUNCTION patient_merges_guard_update() RETURNS trigger LANGUAGE plpgsql AS $$
