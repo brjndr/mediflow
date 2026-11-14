@@ -1,5 +1,7 @@
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   DeleteObjectCommand,
+  HeadObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -21,10 +23,10 @@ export interface S3StoreOptions {
 }
 
 /**
- * Files in a bucket of an S3-compatible service. Objects are never public: they are read and
- * written by the API only, which serves them through its own signed links (`signing.ts`), so the
- * size and type limits and the hospital checks stay in one place. Keys carry the hospital's id
- * as their first part, as with the local store.
+ * Files in a bucket of an S3-compatible service. Objects are never public. The API reads and
+ * writes them, and hands the browser a presigned address only after its own checks (hospital,
+ * permission, scan status, announced size and type). Keys carry the hospital's id as their first
+ * part, as with the local store.
  */
 export class S3FileStore implements FileStore {
   private readonly client: S3Client;
@@ -70,6 +72,60 @@ export class S3FileStore implements FileStore {
   async delete(key: string): Promise<void> {
     assertKey(key);
     await this.client.send(new DeleteObjectCommand({ Bucket: this.options.bucket, Key: key }));
+  }
+
+  async presign(
+    key: string,
+    ttlSeconds: number,
+    options: { fileName?: string; contentType?: string } = {},
+  ): Promise<string> {
+    assertKey(key);
+    const safeName = options.fileName?.replace(/[^A-Za-z0-9._ -]/g, '_');
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({
+        Bucket: this.options.bucket,
+        Key: key,
+        ResponseContentType: options.contentType,
+        ResponseContentDisposition: safeName ? `attachment; filename="${safeName}"` : undefined,
+      }),
+      { expiresIn: ttlSeconds },
+    );
+  }
+
+  async presignUpload(
+    key: string,
+    options: { contentType: string; size: number; ttlSeconds: number },
+  ): Promise<string> {
+    assertKey(key);
+    return getSignedUrl(
+      this.client,
+      new PutObjectCommand({
+        Bucket: this.options.bucket,
+        Key: key,
+        ContentType: options.contentType,
+        ContentLength: options.size,
+        ServerSideEncryption: this.options.serverSideEncryption,
+      }),
+      {
+        expiresIn: options.ttlSeconds,
+        signableHeaders: new Set(['content-type', 'content-length']),
+      },
+    );
+  }
+
+  async size(key: string): Promise<number | null> {
+    assertKey(key);
+    try {
+      const result = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.options.bucket, Key: key }),
+      );
+      return result.ContentLength ?? null;
+    } catch (error) {
+      const name = (error as { name?: string }).name;
+      if (name === 'NotFound' || name === 'NoSuchKey') return null;
+      throw error;
+    }
   }
 
   close(): void {
