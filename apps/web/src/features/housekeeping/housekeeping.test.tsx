@@ -85,6 +85,29 @@ describe('housekeeping tasks', () => {
   });
 });
 
+describe('ward filter', () => {
+  it('narrows the list to one ward', async () => {
+    await open();
+    const select = await screen.findByRole('combobox', { name: 'Ward' });
+    await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(2));
+    const other = within(select)
+      .getAllByRole('option')
+      .find(
+        (o) => o.textContent !== 'All wards' && o.textContent?.toLowerCase() !== 'general ward a',
+      );
+    await userEvent.selectOptions(select, other as HTMLOptionElement);
+    await waitFor(() => expect(within(grid()).queryByText('GW-A-03')).not.toBeInTheDocument());
+    await userEvent.selectOptions(select, 'All wards');
+    await waitFor(() => expect(rowOf('GW-A-03')).toBeDefined());
+  }, 20_000);
+
+  it('has no ward filter without ward:read', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'ward:read');
+    await open();
+    expect(screen.queryByRole('combobox', { name: 'Ward' })).not.toBeInTheDocument();
+  });
+});
+
 describe('requesting a routine cleaning', () => {
   const chooseFreeBed = async (dialog: HTMLElement) => {
     await within(dialog).findByRole('option', { name: 'General ward A' });

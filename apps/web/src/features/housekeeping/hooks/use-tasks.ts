@@ -21,12 +21,16 @@ export const TASK_PAGE_SIZE = 50;
 /** The list is read again this often: others work the same tasks. */
 export const REFRESH_MS = 15_000;
 
-export function useTasks(status: CleaningTaskStatus) {
+/** `wardId` empty means every ward. */
+export function useTasks(status: CleaningTaskStatus, wardId = '') {
   const tenantId = useTenant()?.id;
   return useInfiniteQuery({
-    queryKey: taskKeys.list(tenantId ?? '', { status, limit: TASK_PAGE_SIZE }),
+    queryKey: taskKeys.list(tenantId ?? '', { status, wardId, limit: TASK_PAGE_SIZE }),
     queryFn: ({ pageParam, signal }) =>
-      fetchTasks({ status, cursor: pageParam, limit: TASK_PAGE_SIZE }, signal),
+      fetchTasks(
+        { status, wardId: wardId || undefined, cursor: pageParam, limit: TASK_PAGE_SIZE },
+        signal,
+      ),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: tenantId !== undefined,

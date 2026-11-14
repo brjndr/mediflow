@@ -8,7 +8,7 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { useFormatters } from '@/tenancy';
 import type { TaskMove } from '../api';
 import { RequestCleaning } from '../components/RequestCleaning';
-import { useMoveTask, useTasks } from '../hooks/use-tasks';
+import { useMoveTask, useTasks, useWardOptions } from '../hooks/use-tasks';
 import { allowedMoves, TASK_STATUSES } from '../schemas';
 import type { CleaningTask, CleaningTaskStatus } from '../types';
 
@@ -30,7 +30,10 @@ export default function CleaningTasks() {
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const [status, setStatus] = useState<CleaningTaskStatus>('open');
-  const tasks = useTasks(status);
+  const [wardId, setWardId] = useState('');
+  const tasks = useTasks(status, wardId);
+  // Needs ward:read: a role without it simply gets no ward filter.
+  const wards = useWardOptions(true);
   const move = useMoveTask();
   const [done, setDone] = useState<{ text: string; at: number }>();
   const [requesting, setRequesting] = useState(false);
@@ -127,20 +130,39 @@ export default function CleaningTasks() {
         />
       )}
 
-      <label className="flex min-w-52 flex-col gap-1 text-sm font-medium sm:w-60">
-        {t('filters.status')}
-        <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value as CleaningTaskStatus)}
-          className={control}
-        >
-          {TASK_STATUSES.map((value) => (
-            <option key={value} value={value}>
-              {t(`status.${value}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="flex flex-wrap gap-3">
+        <label className="flex min-w-52 flex-col gap-1 text-sm font-medium sm:w-60">
+          {t('filters.status')}
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as CleaningTaskStatus)}
+            className={control}
+          >
+            {TASK_STATUSES.map((value) => (
+              <option key={value} value={value}>
+                {t(`status.${value}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {wards.data && (
+          <label className="flex min-w-52 flex-col gap-1 text-sm font-medium sm:w-60">
+            {t('filters.ward')}
+            <select
+              value={wardId}
+              onChange={(event) => setWardId(event.target.value)}
+              className={control}
+            >
+              <option value="">{t('filters.allWards')}</option>
+              {wards.data.map((ward) => (
+                <option key={ward.id} value={ward.id}>
+                  {ward.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
 
       {move.isError && (
         <p role="alert" className="text-sm text-destructive">

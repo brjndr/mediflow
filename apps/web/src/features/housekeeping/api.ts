@@ -4,11 +4,16 @@ import type { CleaningTask, CleaningTaskPage, CleaningTaskStatus } from './types
 
 /** Oldest first, as the server orders them. */
 export async function fetchTasks(
-  { status, cursor, limit }: { status: CleaningTaskStatus; cursor?: string; limit: number },
+  {
+    status,
+    wardId,
+    cursor,
+    limit,
+  }: { status: CleaningTaskStatus; wardId?: string; cursor?: string; limit: number },
   signal?: AbortSignal,
 ): Promise<CleaningTaskPage> {
   const result = await api.GET('/cleaning-tasks', {
-    params: { query: { status, cursor, limit } },
+    params: { query: { status, wardId, cursor, limit } },
     signal,
   });
   return taskPageSchema.parse(requireData(result));
