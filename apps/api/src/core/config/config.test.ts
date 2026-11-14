@@ -49,6 +49,7 @@ describe('loadConfig', () => {
       S3_BUCKET: 'mediflow-files',
       S3_REGION: 'ap-south-1',
       FILE_STORE_DIR: '.data/files',
+      S3_DIRECT_LINKS: false,
       REPORT_SYNC_TIMEOUT_MS: 10000,
       REPORT_RUN_TIMEOUT_MS: 120000,
     });

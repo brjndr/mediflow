@@ -432,3 +432,96 @@ describe('the hospital boundary', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('direct links to the bucket (#765)', () => {
+  const direct = async <T>(run: () => Promise<T>): Promise<T> => {
+    app.config.S3_DIRECT_LINKS = true;
+    try {
+      return await run();
+    } finally {
+      app.config.S3_DIRECT_LINKS = false;
+    }
+  };
+
+  it('uploads straight to the bucket, is checked on completion and downloads from the bucket', async () => {
+    if (!files.isS3) return; // needs an S3-compatible service (S3_TEST_ENDPOINT)
+    await direct(async () => {
+      const orderId = await performedOrder();
+      const asked = (
+        await request(orderId, {
+          fileName: 'chest.jpg',
+          contentType: 'image/jpeg',
+          size: JPEG.length,
+        })
+      ).json<Upload & { direct?: boolean }>();
+      expect(asked.direct).toBe(true);
+      expect(asked.uploadUrl).toMatch(/^https?:\/\/.*X-Amz-Signature=/);
+      expect(await statusOf(asked.image.id)).toBe('pending');
+      const complete = `/radiology/images/${asked.image.id}/complete`;
+
+      // Nothing has arrived yet.
+      expect(errorOf(await post(complete, {}))).toEqual([409, 'image_not_received']);
+
+      // The signature covers the type and the size: the bucket refuses anything else.
+      const wrongType = await fetch(asked.uploadUrl, {
+        method: 'PUT',
+        headers: { 'content-type': 'image/png' },
+        body: JPEG,
+      });
+      expect(wrongType.ok).toBe(false);
+      const wrongSize = await fetch(asked.uploadUrl, {
+        method: 'PUT',
+        headers: { 'content-type': 'image/jpeg' },
+        body: Buffer.concat([JPEG, JPEG]),
+      });
+      expect(wrongSize.ok).toBe(false);
+
+      const sent = await fetch(asked.uploadUrl, {
+        method: 'PUT',
+        headers: { 'content-type': 'image/jpeg' },
+        body: JPEG,
+      });
+      expect(sent.ok).toBe(true);
+
+      // Another hospital cannot complete it; the owner can, and twice is harmless.
+      expect(
+        (await post(complete, {}, { tenant: clinic, user: clinicRadiologist })).statusCode,
+      ).toBe(404);
+      expect((await post(complete, {})).statusCode).toBe(200);
+
+      expect(await statusOf(asked.image.id)).toBe('scanning');
+      expect((await post(complete, {})).statusCode).toBe(200);
+      await queue.drain();
+      expect(await statusOf(asked.image.id)).toBe('clean');
+
+      const link = (await get(`/radiology/images/${asked.image.id}/download-url`)).json<{
+        url: string;
+      }>();
+      expect(link.url).toMatch(/^https?:\/\/.*X-Amz-Signature=/);
+      const file = await fetch(link.url);
+      expect(Buffer.from(await file.arrayBuffer()).equals(JPEG)).toBe(true);
+      expect(file.headers.get('content-type')).toBe('image/jpeg');
+      expect(file.headers.get('content-disposition')).toContain('chest.jpg');
+    });
+  });
+
+  it('deletes a file that is not what was announced and lets it be sent again', async () => {
+    if (!files.isS3) return;
+    await direct(async () => {
+      const orderId = await performedOrder();
+      const fake = Buffer.alloc(JPEG.length, 7);
+      const asked = (
+        await request(orderId, { fileName: 'x.jpg', contentType: 'image/jpeg', size: fake.length })
+      ).json<Upload>();
+      await fetch(asked.uploadUrl, {
+        method: 'PUT',
+        headers: { 'content-type': 'image/jpeg' },
+        body: fake,
+      });
+      const complete = `/radiology/images/${asked.image.id}/complete`;
+      expect(errorOf(await post(complete, {}))).toEqual([415, 'file_type_mismatch']);
+      expect(await statusOf(asked.image.id)).toBe('pending');
+      expect(errorOf(await post(complete, {}))).toEqual([409, 'image_not_received']);
+    });
+  });
+});

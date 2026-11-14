@@ -52,3 +52,50 @@ describe.skipIf(!endpoint)('S3FileStore against an S3-compatible service', () =>
     expect(verifyImageDownload(secret, 'image-a', now + 60, sig, now + 61)).toBe(false);
   });
 });
+
+describe.skipIf(!endpoint)('presigned addresses', () => {
+  const bucket = `presign-${randomUUID().slice(0, 8)}`;
+  let store: S3FileStore;
+
+  beforeAll(async () => {
+    const admin = new S3Client({
+      region: 'us-east-1',
+      endpoint,
+      forcePathStyle: true,
+      credentials,
+    });
+    await admin.send(new CreateBucketCommand({ Bucket: bucket }));
+    admin.destroy();
+    store = new S3FileStore({ bucket, region: 'us-east-1', endpoint, ...credentials });
+  });
+
+  it('uploads with the signed type and size only, and reports the size', async () => {
+    const key = 'tenant-a/up/1';
+    const url = await store.presignUpload(key, {
+      contentType: 'image/png',
+      size: 4,
+      ttlSeconds: 60,
+    });
+    const put = (type: string, body: string) =>
+      fetch(url, { method: 'PUT', headers: { 'content-type': type }, body });
+    expect((await put('image/jpeg', 'abcd')).ok).toBe(false);
+    expect((await put('image/png', 'abcde')).ok).toBe(false);
+    expect(await store.size(key)).toBeNull();
+    expect((await put('image/png', 'abcd')).ok).toBe(true);
+    expect(await store.size(key)).toBe(4);
+  });
+
+  it('downloads with the given name and type, and not another key', async () => {
+    await store.put('tenant-a/down/1', Buffer.from('hello'));
+    const url = await store.presign('tenant-a/down/1', 60, {
+      fileName: 'a b"c.txt',
+      contentType: 'text/plain',
+    });
+    const response = await fetch(url);
+    expect(await response.text()).toBe('hello');
+    expect(response.headers.get('content-disposition')).toBe('attachment; filename="a b_c.txt"');
+    const other = await fetch(url.replace('tenant-a/down/1', 'tenant-b/down/1'));
+    expect(other.ok).toBe(false);
+    await expect(store.presign('../x', 60)).rejects.toThrow('invalid_file_key');
+  });
+});

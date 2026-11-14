@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type, type Static } from '@sinclair/typebox';
 import type { FastifyRequest } from 'fastify';
 import { insertAuditEntries } from '../../core/audit/plugin.js';
+import { directLinks } from '../../core/files/direct.js';
 import { signDownload, verifyDownload } from '../../core/files/signing.js';
 import { HttpError } from '../../core/http/errors.js';
 import {
@@ -362,7 +363,11 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'report_not_ready', 'The report has no file yet');
       }
       const expires = Math.floor(Date.now() / 1000) + app.config.REPORT_URL_TTL_SECONDS;
-      const presigned = await app.files.presign?.(row.file_key, app.config.REPORT_URL_TTL_SECONDS);
+      const presigned = await (directLinks(app) ? app.files.presign : undefined)?.call(
+        app.files,
+        row.file_key,
+        app.config.REPORT_URL_TTL_SECONDS,
+      );
       const signature = signDownload(app.config.REPORT_URL_SECRET, row.id, expires);
       request.audit('export', 'report_run', row.id);
       return {

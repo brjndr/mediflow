@@ -17,9 +17,24 @@ export interface FileStore {
   /**
    * A time-limited address the provider serves itself, when it has such a thing (an S3 presigned
    * URL). The local store has none: the API serves its files from a route that checks a signature
-   * (`core/files/signing.ts`).
+   * (`core/files/signing.ts`). Only a caller that already checked the hospital and the scan status
+   * asks for one. `fileName` and `contentType` set how the browser treats the download.
    */
-  presign?(key: string, ttlSeconds: number): Promise<string>;
+  presign?(
+    key: string,
+    ttlSeconds: number,
+    options?: { fileName?: string; contentType?: string },
+  ): Promise<string>;
+  /**
+   * An address to PUT the file to directly, valid for `ttlSeconds`. The content type and the exact
+   * size are part of the signature, so the bucket refuses anything else.
+   */
+  presignUpload?(
+    key: string,
+    options: { contentType: string; size: number; ttlSeconds: number },
+  ): Promise<string>;
+  /** The size in bytes of a stored file, or null when there is none. */
+  size?(key: string): Promise<number | null>;
 }
 
 const KEY = /^[a-z0-9][a-z0-9/_.-]{0,199}$/;

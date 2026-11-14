@@ -4,6 +4,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 import type { Permission } from '../../core/access/registry.js';
+import { directLinks } from '../../core/files/direct.js';
 import { asWorker, looksLike } from '../../core/files/worker.js';
 import {
   signImageDownload,
@@ -22,6 +23,7 @@ import {
   IMAGE_TYPES,
   IMAGES_PER_STUDY,
   ImageParams,
+  ImagingImage,
   ImagingImageCreate,
   ImagingImageDownload,
   ImagingImagePage,
@@ -44,6 +46,7 @@ export interface ScanJob {
 
 interface ImageRow {
   id: string;
+  tenant_id: string;
   study_id: string;
   file_name: string;
   content_type: string;
@@ -54,7 +57,7 @@ interface ImageRow {
 }
 
 const COLUMNS =
-  'id, study_id, file_name, content_type, size_bytes, status, created_at, uploaded_at';
+  'id, tenant_id, study_id, file_name, content_type, size_bytes, status, created_at, uploaded_at';
 
 const view = (row: ImageRow) => ({
   id: row.id,
@@ -97,8 +100,23 @@ export const imageRoutes: FastifyPluginAsyncTypebox = async (app) => {
   const reaches = (request: FastifyRequest, permission: Permission) =>
     request.access.scope(permission) === 'all';
 
-  const uploadOf = (row: ImageRow) => {
+  const uploadOf = async (row: ImageRow) => {
     const expires = Math.floor(Date.now() / 1000) + UPLOAD_TTL_SECONDS;
+    // A bucket that can presign takes the file itself (size and type are in the signature); the
+    // API then checks it in `complete`. Otherwise the file goes through the API's own link.
+    if (directLinks(app) && app.files.presignUpload) {
+      const uploadUrl = await app.files.presignUpload(fileKeyOf(row.tenant_id, row.id), {
+        contentType: row.content_type,
+        size: row.size_bytes,
+        ttlSeconds: UPLOAD_TTL_SECONDS,
+      });
+      return {
+        image: view(row),
+        uploadUrl,
+        direct: true,
+        expiresAt: new Date(expires * 1000).toISOString(),
+      };
+    }
     const signature = signImageUpload(app.config.REPORT_URL_SECRET, row.id, expires);
     return {
       image: view(row),
@@ -137,7 +155,7 @@ export const imageRoutes: FastifyPluginAsyncTypebox = async (app) => {
           : null;
         if (!again) throw orderNotFound();
         request.audit('read', 'imaging_image', again.id);
-        return reply.status(201).send(uploadOf(again));
+        return reply.status(201).send(await uploadOf(again));
       }
 
       if (!IMAGE_TYPES.includes(body.contentType as ImageType)) {
@@ -191,7 +209,7 @@ export const imageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const row = rows[0]!;
       request.idempotentId = row.id;
       request.audit('create', 'imaging_image', row.id);
-      return reply.status(201).send(uploadOf(row));
+      return reply.status(201).send(await uploadOf(row));
     },
   );
 
@@ -247,10 +265,77 @@ export const imageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const expires = Math.floor(Date.now() / 1000) + app.config.REPORT_URL_TTL_SECONDS;
       const signature = signImageDownload(app.config.REPORT_URL_SECRET, row.id, expires);
       request.audit('export', 'imaging_image', row.id);
+      // The scan status and the hospital were checked above; a bucket then serves the file itself.
+      const direct = await (directLinks(app) ? app.files.presign : undefined)?.call(
+        app.files,
+        fileKeyOf(row.tenant_id, row.id),
+        app.config.REPORT_URL_TTL_SECONDS,
+        { fileName: row.file_name, contentType: row.content_type },
+      );
       return {
-        url: `/imaging-files/${row.id}?expires=${expires}&signature=${signature}`,
+        url: direct ?? `/imaging-files/${row.id}?expires=${expires}&signature=${signature}`,
         expiresAt: new Date(expires * 1000).toISOString(),
       };
+    },
+  );
+
+  app.post(
+    '/radiology/images/:imageId/complete',
+    {
+      config: { permissions: [PERFORM], feature: FEATURE },
+      schema: {
+        operationId: 'completeImagingImageUpload',
+        tags: ['radiology'],
+        description:
+          'Tells the API that a file was sent straight to the bucket (the upload answer had `direct: true`). The file is checked against the announced size (400 `size_mismatch`, 409 `image_not_received` when nothing arrived) and its first bytes (415 `file_type_mismatch`); a file that fails is deleted and the upload can be sent again. It is then held until the malware scan clears it. Calling it again for a file already received changes nothing. Requires imagingStudy:perform and the radiology feature flag.',
+        params: ImageParams,
+        response: { 200: ref(ImagingImage), ...errors(400, 401, 403, 404, 409, 415, 429) },
+      },
+    },
+    async (request) => {
+      if (!reaches(request, PERFORM)) throw imageNotFound();
+      const row = await imageById(request.txClient, request.params.imageId);
+      if (!row) throw imageNotFound();
+      if (row.status !== 'pending') return view(row);
+      if (!app.files.size) throw new HttpError(409, 'image_not_received', 'No direct upload here');
+      const key = fileKeyOf(row.tenant_id, row.id);
+      const size = await app.files.size(key);
+      if (size === null) throw new HttpError(409, 'image_not_received', 'The file has not arrived');
+      const data = size === row.size_bytes ? await app.files.get(key) : null;
+      const fail = async (error: HttpError): Promise<never> => {
+        await app.files.delete(key).catch(() => undefined);
+        throw error;
+      };
+      if (!data) {
+        return fail(new HttpError(400, 'size_mismatch', 'The file is not the size announced'));
+      }
+      if (!looksLike(row.content_type as ImageType, data)) {
+        return fail(
+          new HttpError(415, 'file_type_mismatch', 'The file is not of the type announced'),
+        );
+      }
+      // The app role only reads images; the state change is the worker role's, by this id, after
+      // the hospital-scoped read above found the row.
+      const sha = createHash('sha256').update(data).digest('hex');
+      const moved = await asWorker(app, async (client) => {
+        const result = await client.query(
+          `update imaging_images set status = 'scanning', file_key = $2, sha256 = $3,
+             uploaded_at = now() where id = $1 and status = 'pending'`,
+          [row.id, key, sha],
+        );
+        return result.rowCount === 1;
+      });
+      const updated = await imageById(request.txClient, row.id);
+      if (!moved || !updated) return view(updated ?? row);
+      request.audit('update', 'imaging_image', row.id);
+      await app.jobs.send(SCAN_JOB, { imageId: row.id } satisfies ScanJob, {
+        id: `scan-${row.id}`,
+      });
+      request.log.info(
+        { event: 'imaging_image_received', imageId: row.id },
+        'imaging file received',
+      );
+      return view(updated);
     },
   );
 

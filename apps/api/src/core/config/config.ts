@@ -110,6 +110,12 @@ const ConfigSchema = Type.Object({
   S3_SERVER_SIDE_ENCRYPTION: Type.Optional(
     Type.Union([Type.Literal('AES256'), Type.Literal('aws:kms')]),
   ),
+  /**
+   * For `s3`: hand the browser presigned bucket addresses for uploads and downloads (#765) instead
+   * of the API's own links. The bucket then needs a CORS rule for the app's origin, so it is off
+   * until that is set up.
+   */
+  S3_DIRECT_LINKS: Type.Boolean({ default: false }),
   /** A report answered on the spot gives up after this long, so it cannot hold a connection. */
   REPORT_SYNC_TIMEOUT_MS: Type.Integer({ minimum: 1000, maximum: 60_000, default: 10_000 }),
   /** A report made by a job gives up after this long. */

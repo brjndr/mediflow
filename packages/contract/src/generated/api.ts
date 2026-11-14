@@ -3653,6 +3653,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/radiology/images/{imageId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Tells the API that a file was sent straight to the bucket (the upload answer had `direct: true`). The file is checked against the announced size (400 `size_mismatch`, 409 `image_not_received` when nothing arrived) and its first bytes (415 `file_type_mismatch`); a file that fails is deleted and the upload can be sent again. It is then held until the malware scan clears it. Calling it again for a file already received changes nothing. Requires imagingStudy:perform and the radiology feature flag. */
+        post: operations["completeImagingImageUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/imaging-uploads/{imageId}": {
         parameters: {
             query?: never;
@@ -10181,6 +10198,8 @@ export interface components {
             image: components["schemas"]["ImagingImage"];
             /** @description A signed, short-lived address to PUT the file to with the same Content-Type. The signature is the only credential. */
             uploadUrl: string;
+            /** @description True when `uploadUrl` is the bucket itself: PUT the file there with the same Content-Type, then call `completeImagingImageUpload`. */
+            direct?: boolean;
             /** Format: date-time */
             expiresAt: string;
         };
@@ -33133,6 +33152,91 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    completeImagingImageUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A file attached to a performed imaging study. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImagingImage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

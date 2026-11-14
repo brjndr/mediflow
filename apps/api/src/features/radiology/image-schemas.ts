@@ -58,6 +58,12 @@ export const ImagingImageUpload = Type.Object(
       description:
         'A signed, short-lived address to PUT the file to with the same Content-Type. The signature is the only credential.',
     }),
+    direct: Type.Optional(
+      Type.Boolean({
+        description:
+          'True when `uploadUrl` is the bucket itself: PUT the file there with the same Content-Type, then call `completeImagingImageUpload`.',
+      }),
+    ),
     expiresAt: Type.String({ format: 'date-time' }),
   },
   { $id: 'ImagingImageUpload' },
