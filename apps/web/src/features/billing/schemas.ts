@@ -41,7 +41,9 @@ export const chargeSchema: z.ZodType<Charge> = z.object({
   totalMinor: z.number().int(),
   status: z.enum(['pending', 'invoiced', 'void']),
   invoiceId: z.string().optional(),
-  flag: z.enum(['service_archived', 'no_price', 'return_review', 'package_covered']).optional(),
+  flag: z
+    .enum(['service_archived', 'no_price', 'return_review', 'package_covered', 'relink_review'])
+    .optional(),
   taxClass: z.enum(TAX_CLASSES).optional(),
   postedAt: z.string(),
 });

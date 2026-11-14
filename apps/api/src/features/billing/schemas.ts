@@ -41,10 +41,13 @@ export const Charge = Type.Object(
       Type.String({ description: 'The draft invoice holding the charge, when one does.' }),
     ),
     flag: Type.Optional(
-      StringEnum(['service_archived', 'no_price', 'return_review', 'package_covered'], {
-        description:
-          'For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, or (on a void charge) already paid for by a package on the visit.',
-      }),
+      StringEnum(
+        ['service_archived', 'no_price', 'return_review', 'package_covered', 'relink_review'],
+        {
+          description:
+            'For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, left on the old visit when a surgery was linked to another (relink_review), or (on a void charge) already paid for by a package on the visit.',
+        },
+      ),
     ),
     taxClass: Type.Optional(
       StringEnum(TAX_CLASSES, {
