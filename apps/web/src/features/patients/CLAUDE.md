@@ -19,3 +19,5 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 - Patient search finds a name by its exact letters, in any word order. It does not find a misspelled name; that needs the search design in #259.
 - Patient search matches text against the hospital's rows without a trigram index, because row-level security keeps Postgres from using one (see `apps/api/CLAUDE.md`). It is fast at tens of thousands of patients per hospital; a very large hospital needs a dedicated search design.
 - **Old registration number (#694):** an optional "Old registration number" field on the registration and edit forms (cleared by emptying it, sent as `null`), a row on the patient's details only when set, and found by the search box on the whole number. The mock matches it exactly, as the API does.
+
+- The list has an "Old number" column and `PatientSearch` options show the old registration number (`legacyId`), both masked like the MRN, so a search by it shows why the row matched (#760).

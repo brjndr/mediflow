@@ -66,6 +66,13 @@ export default function PatientList() {
         mask: maskMrn,
         sortable: true,
       },
+      // The number from the older register: shows why a search by it found this row.
+      {
+        id: 'legacyId',
+        header: t('columns.legacyId'),
+        value: (row) => row.legacyId ?? '',
+        mask: maskMrn,
+      },
       ...(mergedAway
         ? [
             {

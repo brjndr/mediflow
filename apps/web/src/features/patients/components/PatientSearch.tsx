@@ -5,6 +5,7 @@ import { useFormatters } from '@/tenancy';
 import { usePatientSuggestions } from '../hooks/use-patients';
 import type { PatientSummary } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { maskMrn } from '@/shared/utils/mask';
 import { SearchInput } from '@/shared/ui/search-input';
 
 /**
@@ -167,8 +168,9 @@ export function PatientSearch({
                   </span>
                   {/* The desk tells two patients of one name apart by these. */}
                   <span className="text-xs text-muted-foreground">
-                    {t('picker.details', {
+                    {t(option.legacyId ? 'picker.detailsLegacy' : 'picker.details', {
                       mrn: option.mrn,
+                      legacyId: option.legacyId ? maskMrn(option.legacyId) : '',
                       dob: format.calendarDate(option.dob),
                     })}
                   </span>

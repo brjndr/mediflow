@@ -19,6 +19,7 @@
     "mergedInto": "Replaced by",
     "name": "Name",
     "mrn": "MRN",
+    "legacyId": "Old number",
     "phone": "Phone",
     "gender": "Gender",
     "dob": "Date of birth"
@@ -119,6 +120,7 @@
     "found_one": "{{count}} patient found",
     "found_other": "{{count}} patients found",
     "details": "MRN {{mrn}} · born {{dob}}",
+    "detailsLegacy": "MRN {{mrn}} · old number {{legacyId}} · born {{dob}}",
     "unavailable": "Finding a patient needs access to patient records."
   },
   "merge": {
