@@ -129,6 +129,16 @@ const CHANGEABLE = new Set([
   'contactConsent',
 ]);
 
+/** Whether another patient of the hospital already has this old registration number (#694). */
+function legacyIdTaken(tenantId: string, legacyId: string, exceptId?: string): boolean {
+  for (const record of records.values()) {
+    if (record.tenantId === tenantId && record.id !== exceptId && record.legacyId === legacyId) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Applies a change as the server does: the version goes up, and the list shows the new values. */
 function applyChange(
   record: PatientRecord,
@@ -354,6 +364,9 @@ export const patientsHandlers = [
     ) {
       return error(400, 'validation_failed', 'Some details are not valid');
     }
+    if (isText(body.legacyId) && legacyIdTaken(access.tenantId, body.legacyId)) {
+      return error(409, 'legacy_id_taken', 'That old registration number is already in use');
+    }
     // The server assigns the MRN, unique per tenant, and records who gave consent and when.
     const prefix = access.tenantId === TENANT_IDS.hospital ? 'pth' : 'ptc';
     const next =
@@ -531,6 +544,10 @@ export const patientsHandlers = [
     // Someone else changed the record since the caller read it.
     if (record.version !== expectedVersion) {
       return error(409, 'conflict', 'The record has changed since it was read');
+    }
+    const wanted = (changes as PatientChanges).legacyId;
+    if (typeof wanted === 'string' && legacyIdTaken(access.tenantId, wanted, record.id)) {
+      return error(409, 'legacy_id_taken', 'That old registration number is already in use');
     }
     // As on the real API: values the record already has change nothing and count for nothing.
     const real = Object.entries(changes).some(([field, value]) =>

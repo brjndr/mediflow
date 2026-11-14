@@ -5,7 +5,7 @@ import { setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { api } from '@/shared/api';
 import { renderApp } from '@/test/render';
-import { createPatient } from './api';
+import { createPatient, updatePatient } from './api';
 import { patientKeys } from './hooks/use-patients';
 
 const NO_ACCESS = { name: 'You do not have access to this page' };
@@ -215,6 +215,36 @@ describe('patient registration', () => {
 
     expect(first.mrn).toMatch(/^MRN-/);
     expect(again).toEqual(first);
+  });
+
+  it('refuses a repeated old registration number with 409 legacy_id_taken, on create and change', async () => {
+    renderApp({ entry: '/patients/new' });
+    await screen.findByRole('heading', HEADING);
+    const details = {
+      firstName: 'Old',
+      lastName: 'File',
+      dob: '1970-01-01',
+      gender: 'male',
+      phone: '98000 77777',
+      legacyId: 'REG/1999/0001',
+    } as const;
+    const first = await createPatient(details, 'key-legacy-0001');
+    await expect(createPatient(details, 'key-legacy-0002')).rejects.toMatchObject({
+      status: 409,
+      serverCode: 'legacy_id_taken',
+    });
+
+    const other = await createPatient(
+      { ...details, legacyId: undefined, phone: '98000 88888' },
+      'key-legacy-0003',
+    );
+    await expect(
+      updatePatient(other.id, { expectedVersion: other.version, legacyId: 'REG/1999/0001' }),
+    ).rejects.toMatchObject({ status: 409, serverCode: 'legacy_id_taken' });
+    // A patient may keep its own number.
+    await expect(
+      updatePatient(first.id, { expectedVersion: first.version, legacyId: 'REG/1999/0001' }),
+    ).resolves.toBeTruthy();
   });
 
   it('uses a new idempotency key when the details are edited', async () => {
