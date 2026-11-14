@@ -12,6 +12,7 @@ type Status = Surgery['status'];
 type Periop = components['schemas']['PeriopRecord'];
 type StepCode = components['schemas']['ChecklistStepCode'];
 type Operation = components['schemas']['OperationRecord'];
+type Recovery = components['schemas']['RecoveryRecord'];
 type Consumable = components['schemas']['SurgeryConsumable'];
 type StoredConsumable = Consumable & { tenantId: string; surgeryId: string };
 
@@ -48,10 +49,13 @@ let periops = new Map<string, Periop>();
 // The stock used in surgeries, and the notes, by tenant and surgery id.
 let consumables: StoredConsumable[] = [];
 let operations = new Map<string, Operation>();
+// Recovery-room notes (OT-04, planned contract), by tenant and surgery id.
+let recoveries = new Map<string, Recovery>();
 const replies = new Map<string, string>();
 onMockReset(() => {
   consumables = [];
   operations = new Map();
+  recoveries = new Map();
   rooms = seedRooms();
   surgeries = seedSurgeries();
   created = 0;
@@ -197,7 +201,72 @@ function operationRoute(
   return HttpResponse.json(record);
 }
 
+/** The recovery notes of a surgery; the visit is the one the surgery is charged to. */
+function recoveryRoute(
+  request: Request,
+  surgeryId: unknown,
+  permission: string,
+  change?: (record: Recovery, surgery: Surgery) => Response | undefined,
+): Response {
+  const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+  if ('denied' in access) return access.denied;
+  const surgery = surgeries.find((s) => s.id === surgeryId && s.tenantId === access.tenantId);
+  if (!surgery) return error(404, 'surgery_not_found', 'No such surgery');
+  const key = `${access.tenantId}:${surgery.id}`;
+  let record = recoveries.get(key);
+  if (!record) {
+    record = { surgeryId: surgery.id, encounterId: null, notes: [] };
+    recoveries.set(key, record);
+  }
+  record.encounterId = surgery.encounterId ?? null;
+  if (change) {
+    const refused = change(record, surgery);
+    if (refused) return refused;
+  }
+  return HttpResponse.json(record, { status: change ? 201 : 200 });
+}
+
 export const theatreHandlers = [
+  http.get('*/api/theatre/surgeries/:surgeryId/recovery', ({ request, params }) =>
+    recoveryRoute(request, params.surgeryId, 'theatre:read'),
+  ),
+
+  http.post('*/api/theatre/surgeries/:surgeryId/recovery', async ({ request, params }) => {
+    if (!withKey(request)) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => null)) as { text?: unknown; painScore?: unknown; readiness?: unknown } | null;
+    const pain = body?.painScore;
+    if (
+      !isString(body?.text) ||
+      (body.readiness !== 'in_recovery' && body.readiness !== 'ready_for_ward') ||
+      (pain !== undefined &&
+        (typeof pain !== 'number' || !Number.isInteger(pain) || pain < 0 || pain > 10))
+    ) {
+      return invalid();
+    }
+    const readiness = body.readiness;
+    return recoveryRoute(request, params.surgeryId, 'surgery:perform', (record, surgery) => {
+      if (surgery.status !== 'in_progress' && surgery.status !== 'completed') {
+        return error(409, 'invalid_state', 'The surgery has not started');
+      }
+      const who = signer();
+      record.notes.push({
+        id: `rec_${record.notes.length + 1}`,
+        text: body.text as string,
+        painScore: typeof pain === 'number' ? pain : null,
+        readiness,
+        addedBy: who.id,
+        addedByName: who.name,
+        addedAt: new Date().toISOString(),
+      });
+      return undefined;
+    });
+  }),
+
   http.get('*/api/theatre/surgeries/:surgeryId/periop', ({ request, params }) =>
     periopRoute(request, params.surgeryId, 'theatre:read'),
   ),

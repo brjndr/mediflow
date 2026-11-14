@@ -17,3 +17,7 @@ export type OperationNote = components['schemas']['OperationNote'];
 export type OperationNoteInput = components['schemas']['OperationNoteInput'];
 export type SurgeryConsumable = components['schemas']['SurgeryConsumable'];
 export type SurgeryConsumablePage = components['schemas']['SurgeryConsumablePage'];
+export type RecoveryRecord = components['schemas']['RecoveryRecord'];
+export type RecoveryNote = components['schemas']['RecoveryNote'];
+export type RecoveryNoteInput = components['schemas']['RecoveryNoteInput'];
+export type RecoveryReadiness = components['schemas']['RecoveryReadiness'];

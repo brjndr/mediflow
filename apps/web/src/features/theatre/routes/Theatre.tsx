@@ -11,6 +11,7 @@ import { nextDay, todayIn } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
 import { RoomDialog } from '../components/RoomDialog';
 import { OperationDialog } from '../components/OperationDialog';
+import { RecoveryDialog } from '../components/RecoveryDialog';
 import { PeriopDialog } from '../components/PeriopDialog';
 import { BookDialog, CancelDialog, RescheduleDialog } from '../components/SurgeryDialogs';
 import { useDaySurgeries, useMoveSurgery, useRooms, useUpdateRoom } from '../hooks/use-theatre';
@@ -38,6 +39,7 @@ function SurgeryPatient({ patientId }: { patientId: string }) {
 type Dialog =
   | { periop: Surgery }
   | { operation: Surgery }
+  | { recovery: Surgery }
   | { book: true }
   | { reschedule: Surgery }
   | { cancel: Surgery }
@@ -125,6 +127,13 @@ export default function Theatre() {
       requires: 'theatre:read',
       disabled: (row) => row.status === 'cancelled',
       onSelect: (row) => setDialog({ operation: row }),
+    },
+    {
+      id: 'recovery',
+      label: t('actions.recovery'),
+      requires: 'theatre:read',
+      disabled: (row) => row.status === 'cancelled',
+      onSelect: (row) => setDialog({ recovery: row }),
     },
     {
       id: 'start',
@@ -340,6 +349,9 @@ export default function Theatre() {
 
       {dialog && 'periop' in dialog && (
         <PeriopDialog surgery={dialog.periop} onClose={closeDialog} />
+      )}
+      {dialog && 'recovery' in dialog && (
+        <RecoveryDialog surgery={dialog.recovery} onClose={closeDialog} />
       )}
       {dialog && 'operation' in dialog && (
         <OperationDialog surgery={dialog.operation} onClose={closeDialog} />

@@ -3,6 +3,7 @@ import {
   consumablePageSchema,
   operationSchema,
   periopSchema,
+  recoverySchema,
   roomPageSchema,
   roomSchema,
   surgeryPageSchema,
@@ -17,6 +18,8 @@ import type {
   OtRoom,
   OtRoomPage,
   PeriopRecord,
+  RecoveryNoteInput,
+  RecoveryRecord,
   Surgery,
   SurgeryConsumablePage,
   SurgeryPage,
@@ -284,4 +287,27 @@ export async function returnConsumable(
     { params: { path: { surgeryId, consumableId }, header: { 'idempotency-key': key } }, body },
   );
   return consumablePageSchema.parse(requireData(result));
+}
+
+export async function fetchRecovery(
+  surgeryId: string,
+  signal?: AbortSignal,
+): Promise<RecoveryRecord> {
+  const result = await api.GET('/theatre/surgeries/{surgeryId}/recovery', {
+    params: { path: { surgeryId } },
+    signal,
+  });
+  return recoverySchema.parse(requireData(result));
+}
+
+export async function addRecoveryNote(
+  surgeryId: string,
+  body: RecoveryNoteInput,
+  key: string,
+): Promise<RecoveryRecord> {
+  const result = await api.POST('/theatre/surgeries/{surgeryId}/recovery', {
+    params: { path: { surgeryId }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return recoverySchema.parse(requireData(result));
 }

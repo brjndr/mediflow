@@ -7191,6 +7191,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/theatre/surgeries/{surgeryId}/recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Recovery-room notes of one surgery, oldest first, with the visit it is charged to so the web can show its orders (OT-04, #179). Needs theatre:read and the theatre feature flag. Planned: the web app is built against the mock. */
+        get: operations["getRecovery"];
+        put?: never;
+        /** @description Adds a recovery note once the surgery has started. Needs surgery:perform. Notes are append-only: there is no update or delete; a correction is a new note. The server takes the author and time. */
+        post: operations["addRecoveryNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -13799,6 +13817,28 @@ export interface components {
         };
         IncompleteRecordAssign: {
             doctorId: string | null;
+        };
+        /** @enum {string} */
+        RecoveryReadiness: "in_recovery" | "ready_for_ward";
+        RecoveryNoteInput: {
+            text: string;
+            painScore?: number;
+            readiness: components["schemas"]["RecoveryReadiness"];
+        };
+        RecoveryNote: {
+            id: string;
+            text: string;
+            painScore: number | null;
+            readiness: components["schemas"]["RecoveryReadiness"];
+            addedBy: string;
+            addedByName: string;
+            /** Format: date-time */
+            addedAt: string;
+        };
+        RecoveryRecord: {
+            surgeryId: string;
+            encounterId: string | null;
+            notes: components["schemas"]["RecoveryNote"][];
         };
     };
     responses: {
@@ -52705,6 +52745,69 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getRecovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recovery record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    addRecoveryNote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryNoteInput"];
+            };
+        };
+        responses: {
+            /** @description The whole recovery record */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

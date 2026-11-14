@@ -33,3 +33,10 @@ What was decided for OT-01 (#176). The root `CLAUDE.md` wins where the two disag
 - Each stock-used line with units left has a **Return to stock** button (`surgery:perform`, surgery started) that opens a small inline form: units (1 up to used less returned, checked in the form, and by the server as `over_return`) and a reason. It calls `POST .../consumables/{id}/return` with an idempotency key; the used list and the inventory keys are read again. Focus goes to the status line on success and back to the button on cancel.
 - A line shows "N units returned to stock" or "All returned to stock" with an icon, from `returnedQuantity`. The billing `return_review` flag lives on the charge, not on the consumable, so it is not shown here (follow-up: the API would have to expose it).
 - Mock: the return handler moves stock back through `mockStockIn` (source `theatre`, reason `theatre_return`); no charge is voided in the mock. Not in `e2e/responsive.spec.ts`: the dialog needs a started surgery on the seeded day; the unit test runs axe on it.
+
+## Recovery and orders (OT-04, #179)
+
+- A third row action, **Recovery and orders** (`theatre:read`, not for a cancelled surgery), opens `RecoveryDialog`: **recovery notes** and **orders**. Mock only: `GET` and `POST /theatre/surgeries/{id}/recovery` are in `planned.openapi.json` (`RecoveryRecord`, `RecoveryNote`), so the real policy still works but the call fails against the real API until it is built (follow-up).
+- **Notes** are append-only (no edit, no delete; a correction is a new note), written with `surgery:perform` once the surgery has started: text, an optional pain score 0 to 10 and a condition (`in_recovery`, `ready_for_ward`). The server takes the author and time. Newest last; re-read every 30 seconds.
+- **Orders** are not rebuilt: the dialog shows clinical's `EncounterOrders` (lab, imaging, procedure panels, each with its own permissions) for the visit the surgery is charged to. With no visit linked it says to link one under Operation note and stock.
+- Not in `e2e/responsive.spec.ts` (needs a started surgery); the unit test runs axe on the dialog.
