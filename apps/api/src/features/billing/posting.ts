@@ -308,9 +308,64 @@ export function subscribeToPostings(app: FastifyInstance): void {
               and r.returned >= c.quantity then 'void' else c.status end
           from (select coalesce(sum(quantity), 0) as returned from ot_consumable_returns
                 where consumable_id = ${consumableId}) r
-          where c.source_ref = 'theatre:' || ${consumableId}::text and r.returned > 0
-            and c.status <> 'void'`,
+          where (c.source_ref = 'theatre:' || ${consumableId}::text
+              or c.source_ref like 'theatre:' || ${consumableId}::text || ':%')
+            and r.returned > 0 and c.status <> 'void'`,
     );
+  });
+
+  // A surgery linked to another visit (#900). A charge never changes its visit, so those of its
+  // consumables still pending and on no invoice are voided and posted again on the new visit
+  // (source_ref `theatre:<row>:<event id>`, once for each event); any other is flagged for the
+  // billing desk to credit.
+  app.events.subscribe('surgery.encounter_changed', async (message, tx) => {
+    const surgeryId = idOf(message.entityId);
+    const from = idOf(message.payload.fromEncounterId);
+    const to = idOf(message.payload.encounterId);
+    const patientId = idOf(message.payload.patientId);
+    if (!surgeryId || !from || !to || !patientId || from === to) return;
+    const { rows } = await tx.execute<{
+      id: string;
+      description: string;
+      quantity: number;
+      unit_price_minor: string;
+      flag: 'no_price' | null;
+      source_ref: string;
+      movable: boolean;
+    }>(
+      sql`select c.id, c.description, c.quantity, c.unit_price_minor::text, c.flag, c.source_ref,
+            (c.status = 'pending' and c.invoice_id is null and c.flag is distinct from 'return_review') as movable
+          from charges c join ot_consumables o on c.source_ref = 'theatre:' || o.id::text
+            or c.source_ref like 'theatre:' || o.id::text || ':%'
+          where o.booking_id = ${surgeryId} and c.encounter_id = ${from} and c.status <> 'void'
+          order by c.id`,
+    );
+    for (const charge of rows) {
+      if (!charge.movable) {
+        await tx.execute(sql`update charges set flag = 'return_review' where id = ${charge.id}`);
+        continue;
+      }
+      await tx.execute(sql`update charges set status = 'void' where id = ${charge.id}`);
+      // What came back to stock before the move is not charged again.
+      const base = charge.source_ref.split(':').slice(0, 2).join(':');
+      const { rows: back } = await tx.execute<{ returned: number }>(
+        sql`select coalesce(sum(quantity), 0)::int as returned from ot_consumable_returns
+            where consumable_id = ${base.slice('theatre:'.length)}`,
+      );
+      const quantity = charge.quantity - (back[0]?.returned ?? 0);
+      if (quantity <= 0) continue;
+      await postCharge(tx, {
+        encounterId: to,
+        patientId,
+        serviceId: null,
+        source: 'dispense',
+        sourceRef: `${base}:${message.eventId}`,
+        description: charge.description,
+        quantity,
+        unitPriceMinor: Number(charge.unit_price_minor),
+        flag: charge.flag,
+      });
+    }
   });
 
   // A dispense is charged for each batch it took from, at that batch's price.

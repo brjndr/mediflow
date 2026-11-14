@@ -124,6 +124,8 @@ export const DOMAIN_EVENTS = [
   'surgery.consumables_used',
   // Units of consumables brought back to stock (#892): ids only, never a quantity or a reason.
   'surgery.consumables_returned',
+  // A surgery linked to another visit (#900): ids only; billing moves its consumable charges.
+  'surgery.encounter_changed',
   'surgery.checklist_step_completed',
   'claim.submitted',
   'claim.settled',
