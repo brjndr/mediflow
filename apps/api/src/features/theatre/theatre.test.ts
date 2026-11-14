@@ -191,6 +191,9 @@ async function wipe(final = false) {
     await client.query('begin');
     await client.query('set local session_replication_role = replica');
     for (const table of [
+      'ot_anaesthesia',
+      'ot_checklist_steps',
+      'ot_fitness',
       'ot_consumables',
       'ot_bookings',
       'ot_rooms',
@@ -903,5 +906,166 @@ describe('boundaries', () => {
         .statusCode,
     ).toBe(403);
     expect((await book({}, { user: surgeonUser })).statusCode).toBe(201);
+  });
+});
+
+describe('the peri-operative record', () => {
+  const STEPS = [
+    ['consent_confirmed', 'site_marked', 'fasting_confirmed'],
+    ['identity_confirmed', 'anaesthesia_check_done', 'allergies_checked'],
+  ];
+  interface Periop {
+    surgeryId: string;
+    checklist: { step: string; completedBy: string; completedByName: string }[];
+    fitness: { status: string; assessedBy: string; assessedByName: string } | null;
+    anaesthesia: { technique: string; signedAt?: string; signedByName?: string } | null;
+  }
+  const put = (url: string, body: object, options: Options = {}) =>
+    app.inject({ method: 'PUT', url, headers: headers(options), payload: body });
+  const step = (id: string, name: string, options: Options = {}) =>
+    post(`/theatre/surgeries/${id}/checklist/${name}`, {}, options);
+  const anaesthesia = { technique: 'general', asaClass: 2, drugs: 'Propofol 100 mg' };
+
+  it('starts empty and is read as a patient record read', async () => {
+    const surgery = await booked({});
+    const empty = await ok<Periop>(await get(`/theatre/surgeries/${surgery.id}/periop`));
+    expect(empty).toEqual({
+      surgeryId: surgery.id,
+      checklist: [],
+      fitness: null,
+      anaesthesia: null,
+    });
+    expect(await audited(surgery.id)).toContain('read');
+    expect(errorOf(await get(`/theatre/surgeries/${randomUUID()}/periop`))).toEqual([
+      404,
+      'surgery_not_found',
+    ]);
+  });
+
+  it('replaces the fitness assessment and names the assessor', async () => {
+    const surgery = await booked({});
+    const url = `/theatre/surgeries/${surgery.id}/fitness`;
+    await ok(await put(url, { status: 'conditional', notes: 'Stop aspirin' }));
+    const record = await ok<Periop>(await put(url, { status: 'fit' }, { user: surgeonUser }));
+    expect(record.fitness).toMatchObject({
+      status: 'fit',
+      assessedBy: surgeonUser.id,
+      assessedByName: 'OT Surgeon',
+    });
+    expect(errorOf(await put(url, { status: 'maybe' }))[0]).toBe(400);
+    expect((await audited(surgery.id)).filter((action) => action === 'update')).toHaveLength(2);
+  });
+
+  it('completes steps in phase order, once, signed by the server', async () => {
+    const surgery = await booked({});
+    expect(errorOf(await step(surgery.id, 'identity_confirmed'))).toEqual([
+      409,
+      'phase_incomplete',
+    ]);
+    expect((await step(surgery.id, 'nonsense')).statusCode).toBe(400);
+    for (const name of STEPS[0] as string[]) await ok(await step(surgery.id, name));
+    const first = await ok<Periop>(
+      await step(surgery.id, 'identity_confirmed', { user: surgeonUser }),
+    );
+    const entry = first.checklist.find((c) => c.step === 'identity_confirmed');
+    expect(entry).toMatchObject({ completedBy: surgeonUser.id, completedByName: 'OT Surgeon' });
+    // A repeat by someone else, with a new key, answers with the first entry and adds nothing.
+    const again = await ok<Periop>(await step(surgery.id, 'identity_confirmed'));
+    expect(again.checklist).toHaveLength(4);
+    expect(again.checklist.find((c) => c.step === 'identity_confirmed')).toEqual(entry);
+    expect(errorOf(await step(surgery.id, 'counts_correct'))).toEqual([409, 'phase_incomplete']);
+    const events = (await eventsOf(surgery.id)).filter(
+      (row) => row.event === 'surgery.checklist_step_completed',
+    );
+    expect(events).toHaveLength(4);
+    expect(events[3]?.payload).toMatchObject({
+      patientId: surgery.patientId,
+      step: 'identity_confirmed',
+    });
+  });
+
+  it('does a step once for one idempotency key', async () => {
+    const surgery = await booked({});
+    const key = fresh();
+    await ok(await step(surgery.id, 'consent_confirmed', { key }));
+    await ok(await step(surgery.id, 'consent_confirmed', { key }));
+    expect(
+      (await eventsOf(surgery.id)).filter((r) => r.event === 'surgery.checklist_step_completed'),
+    ).toHaveLength(1);
+  });
+
+  it('keeps a draft until it is signed once, then never changes it', async () => {
+    const surgery = await booked({});
+    const base = `/theatre/surgeries/${surgery.id}/anaesthesia`;
+    expect(errorOf(await post(`${base}/sign`, {}))).toEqual([404, 'anaesthesia_not_found']);
+    await ok(await put(base, anaesthesia));
+    const draft = await ok<Periop>(
+      await put(base, { ...anaesthesia, technique: 'spinal', asaClass: 3 }),
+    );
+    expect(draft.anaesthesia).toMatchObject({ technique: 'spinal' });
+    expect(draft.anaesthesia?.signedAt).toBeUndefined();
+    const signed = await ok<Periop>(await post(`${base}/sign`, {}, { user: surgeonUser }));
+    expect(signed.anaesthesia).toMatchObject({ technique: 'spinal', signedByName: 'OT Surgeon' });
+    expect(signed.anaesthesia?.signedAt).toBeTruthy();
+    expect(errorOf(await put(base, anaesthesia))).toEqual([409, 'already_signed']);
+    expect(errorOf(await post(`${base}/sign`, {}))).toEqual([409, 'already_signed']);
+    await expect(
+      asTenantSql(pool, hospital.id, (client) =>
+        client.query("update ot_anaesthesia set notes = 'x' where booking_id = $1", [surgery.id]),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('is read-only once the surgery is completed or cancelled', async () => {
+    const done = await booked({});
+    await ok(await post(`/theatre/surgeries/${done.id}/start`, { version: 1 }));
+    await ok(await step(done.id, 'consent_confirmed'));
+    await ok(await post(`/theatre/surgeries/${done.id}/complete`, { version: 2 }));
+    const cancelled = await booked({});
+    await ok(await post(`/theatre/surgeries/${cancelled.id}/cancel`, { reason: 'x', version: 1 }));
+    for (const id of [done.id, cancelled.id]) {
+      expect(errorOf(await put(`/theatre/surgeries/${id}/fitness`, { status: 'fit' }))).toEqual([
+        409,
+        'invalid_state',
+      ]);
+      expect(errorOf(await step(id, 'site_marked'))).toEqual([409, 'invalid_state']);
+      expect(errorOf(await put(`/theatre/surgeries/${id}/anaesthesia`, anaesthesia))).toEqual([
+        409,
+        'invalid_state',
+      ]);
+      await ok(await get(`/theatre/surgeries/${id}/periop`));
+    }
+    const record = await ok<Periop>(await get(`/theatre/surgeries/${done.id}/periop`));
+    expect(record.checklist).toHaveLength(1);
+  });
+
+  it('needs the right permission and the module, and stays inside the hospital', async () => {
+    const surgery = await booked({});
+    const url = `/theatre/surgeries/${surgery.id}`;
+    await ok(await put(`${url}/fitness`, { status: 'fit' }));
+    await ok(await step(surgery.id, 'consent_confirmed'));
+    expect((await get(`${url}/periop`, { user: pharmacist })).statusCode).toBe(403);
+    expect((await put(`${url}/fitness`, { status: 'fit' }, { user: pharmacist })).statusCode).toBe(
+      403,
+    );
+    expect((await step(surgery.id, 'site_marked', { user: pharmacist })).statusCode).toBe(403);
+    expect((await get(`${url}/periop`, { tenant: closed })).statusCode).toBe(403);
+    // Another hospital cannot see or change it.
+    const other = { tenant: clinic, user: clinicAdmin };
+    expect(errorOf(await get(`${url}/periop`, other))).toEqual([404, 'surgery_not_found']);
+    expect(errorOf(await put(`${url}/fitness`, { status: 'unfit' }, other))).toEqual([
+      404,
+      'surgery_not_found',
+    ]);
+    expect(errorOf(await step(surgery.id, 'site_marked', other))).toEqual([
+      404,
+      'surgery_not_found',
+    ]);
+    for (const table of ['ot_fitness', 'ot_checklist_steps', 'ot_anaesthesia']) {
+      const rows = await asTenantSql(pool, clinic.id, (client) =>
+        client.query(`select 1 from ${table}`),
+      );
+      expect(rows.rowCount).toBe(0);
+    }
   });
 });

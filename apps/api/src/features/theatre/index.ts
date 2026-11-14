@@ -1,5 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { THEATRE_PERMISSIONS } from './permissions.js';
+import { periopRoutes } from './periop.js';
+import { PERIOP_SCHEMAS } from './periop-schemas.js';
 import { theatreRoutes } from './routes.js';
 import { THEATRE_SCHEMAS } from './schemas.js';
 
@@ -13,5 +15,7 @@ import { THEATRE_SCHEMAS } from './schemas.js';
 export const theatreFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('theatre', THEATRE_PERMISSIONS);
   for (const schema of THEATRE_SCHEMAS) app.addSchema(schema);
+  for (const schema of PERIOP_SCHEMAS) app.addSchema(schema);
   await app.register(theatreRoutes);
+  await app.register(periopRoutes);
 };

@@ -14,7 +14,7 @@ What was decided for OT-01 (#176). The root `CLAUDE.md` wins where the two disag
 
 ## Checklist and anaesthesia record (OT-02, #177)
 
-- **Mock only.** The endpoints are in `packages/contract/planned.openapi.json` (`getPeriop`, `recordFitness`, `completeChecklistStep`, `saveAnaesthesia`, `signAnaesthesia`); delete them there when the API has them. Against the real API the dialog shows the shared error with a retry.
+- **Against the real API** since #872 (`periop` in `apps/api/src/features/theatre`); the mock keeps the same shape.
 - **A row action** ("Checklist and anaesthesia", `theatre:read`, hidden for cancelled surgeries) opens `PeriopDialog`: one record per surgery, three sections (fitness, checklist, anaesthesia). Writing needs `surgery:perform` and a scheduled or in-progress surgery; otherwise the dialog is read-only. No new permission: a separate anaesthetist permission is a follow-up.
 - **Checklist:** twelve steps in four phases (`CHECKLIST_PHASES` in `schemas.ts`): before the day (consent, site marked, fasting), sign in, time out, sign out (WHO). A phase opens when every step of the earlier ones is done (the server answers 409 `phase_incomplete`; the UI shows the button as `aria-disabled`). The time and the signer are taken by the server; a step is never undone, a repeat returns the first entry. Consent here is a confirmed step, not a link to a signed consent from the consents feature.
 - **Anaesthesia:** a draft replaced on each save, then signed once (`already_signed` after that). Signing needs a saved draft with no unsaved edits. Start and end times and a vitals chart are not built.
