@@ -1,0 +1,10 @@
+{
+  "widget": {
+    "title": "Medical records",
+    "open": "Open the desk",
+    "unknown": "not yet known"
+  },
+  "stat": {
+    "incomplete": "Incomplete records"
+  }
+}

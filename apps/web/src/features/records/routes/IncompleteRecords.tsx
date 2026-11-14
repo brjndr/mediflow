@@ -1,11 +1,13 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { usePermission } from '@/access';
 import { errorMessageKey } from '@/shared/api';
+import { focusIfLost } from '@/shared/lib/focus';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
+import { AssignDialog } from '../components/AssignDialog';
 import { RecordsNav } from '../components/RecordsNav';
 import { useIncompleteRecords } from '../hooks/use-records';
 import { GAPS, KINDS } from '../schemas';
@@ -32,11 +34,19 @@ export default function IncompleteRecords() {
   const [gap, setGap] = useState<RecordGap | ''>('');
   const [kind, setKind] = useState<EncounterKind | ''>('');
   const records = useIncompleteRecords({ gap, kind });
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const status = useRef<HTMLParagraphElement>(null);
+  const [message, setMessage] = useState({ text: '', count: 0 });
+  useLayoutEffect(() => {
+    if (message.count > 0) focusIfLost(status.current);
+  }, [message]);
   const rows = useMemo(
     () => records.data?.pages.flatMap((page) => page.items) ?? [],
     [records.data],
   );
   const total = records.isPlaceholderData ? undefined : records.data?.pages[0]?.total;
+  const assigning =
+    assigningId === null ? undefined : rows.find((row) => row.encounterId === assigningId);
 
   const columns = useMemo<GridColumn<IncompleteRecord>[]>(
     () => [
@@ -64,6 +74,11 @@ export default function IncompleteRecords() {
       },
       { id: 'doctor', header: t('incomplete.columns.doctor'), value: (row) => row.doctorName },
       {
+        id: 'assigned',
+        header: t('incomplete.columns.assigned'),
+        value: (row) => row.assignedDoctorName ?? t('incomplete.assigned.none'),
+      },
+      {
         id: 'gaps',
         header: t('incomplete.columns.gaps'),
         value: (row) => row.gaps.map((each) => t(`gap.${each}`)).join(', '),
@@ -74,6 +89,12 @@ export default function IncompleteRecords() {
 
   const actions = useMemo<GridAction<IncompleteRecord>[]>(
     () => [
+      {
+        id: 'assign',
+        label: t('incomplete.assign'),
+        requires: 'medicalRecord:assign',
+        onSelect: (row: IncompleteRecord) => setAssigningId(row.encounterId),
+      } satisfies GridAction<IncompleteRecord>,
       ...(canEncounter
         ? [
             {
@@ -139,8 +160,15 @@ export default function IncompleteRecords() {
           </select>
         </div>
       </div>
-      <p role="status" className="text-sm text-muted-foreground">
-        {total === undefined ? '' : t('incomplete.count', { count: total })}
+      <p
+        ref={status}
+        tabIndex={-1}
+        role="status"
+        className="text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        {[message.text, total === undefined ? '' : t('incomplete.count', { count: total })]
+          .filter(Boolean)
+          .join(' ')}
       </p>
       <DataGrid
         label={t('incomplete.heading')}
@@ -158,6 +186,24 @@ export default function IncompleteRecords() {
         loadingMore={records.isFetchingNextPage}
         onLoadMore={() => void records.fetchNextPage()}
       />
+      {assigning && (
+        <AssignDialog
+          record={assigning}
+          onClose={() => setAssigningId(null)}
+          onAssigned={(updated) => {
+            setAssigningId(null);
+            setMessage((now) => ({
+              text: updated.assignedDoctorName
+                ? t('assign.done', {
+                    name: updated.patientName,
+                    doctor: updated.assignedDoctorName,
+                  })
+                : t('assign.removed', { name: updated.patientName }),
+              count: now.count + 1,
+            }));
+          }}
+        />
+      )}
     </div>
   );
 }

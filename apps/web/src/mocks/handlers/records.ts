@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockCode } from './codes';
+import { mockDoctor } from './doctors';
 import { mockPatient } from './patients';
 
 type Schemas = components['schemas'];
@@ -275,6 +276,35 @@ export const recordsHandlers = [
     }
     found.code = { ...code, favourite: false };
     found.version += 1;
+    return HttpResponse.json(strip(found));
+  }),
+
+  http.post('*/api/records/incomplete/:encounterId/assign', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'medicalRecord:assign',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    if (!request.headers.get('Idempotency-Key')) {
+      return error(400, 'validation_failed', 'Idempotency-Key is required');
+    }
+    const body = (await request.json().catch(() => null)) as { doctorId?: unknown } | null;
+    if (!body || (body.doctorId !== null && typeof body.doctorId !== 'string')) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const found = state.incomplete.find(
+      (one) => one.encounterId === params.encounterId && one.tenantId === access.tenantId,
+    );
+    if (!found) return error(404, 'record_not_found', 'No such incomplete record');
+    if (body.doctorId === null) {
+      delete found.assignedDoctorId;
+      delete found.assignedDoctorName;
+    } else {
+      const doctor = mockDoctor(access.tenantId, body.doctorId);
+      if (!doctor) return error(422, 'doctor_invalid', 'Not a doctor of this hospital');
+      found.assignedDoctorId = doctor.id;
+      found.assignedDoctorName = doctor.name;
+    }
     return HttpResponse.json(strip(found));
   }),
 

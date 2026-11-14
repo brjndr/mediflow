@@ -139,3 +139,14 @@ describe('dashboard widgets: flow, capacity, collected today', () => {
     expect(keys.filter((key) => /^(reports|admissions|billing):/.test(key))).toEqual([]);
   });
 });
+
+describe('dashboard widget: incomplete records', () => {
+  it('shows the count of incomplete records to a reader and nothing without the switch', async () => {
+    signIn(USER_IDS.admin);
+    renderApp();
+    await home();
+    const tile = await screen.findByRole('region', { name: 'Medical records' });
+    expect(await within(tile).findByText('3')).toBeInTheDocument();
+    expect(within(tile).getByText('Incomplete records')).toBeInTheDocument();
+  });
+});

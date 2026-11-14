@@ -936,6 +936,73 @@
           }
         }
       }
+    },
+    "/records/incomplete/{encounterId}/assign": {
+      "post": {
+        "operationId": "assignIncompleteRecord",
+        "description": "Assigns an incomplete record to a doctor to complete, or takes the assignment off (doctorId null). Needs medicalRecord:assign and the records feature flag. 404 when the encounter is not an incomplete record of this hospital, 422 when the doctor is not one of its practising doctors. Audited.",
+        "parameters": [
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            },
+            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncompleteRecordAssign"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record with its assignment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncompleteRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1262,6 +1329,12 @@
             "items": {
               "$ref": "#/components/schemas/RecordGap"
             }
+          },
+          "assignedDoctorId": {
+            "type": "string"
+          },
+          "assignedDoctorName": {
+            "type": "string"
           }
         }
       },
@@ -1571,6 +1644,15 @@
             "items": {
               "$ref": "#/components/schemas/CertificateFieldDef"
             }
+          }
+        }
+      },
+      "IncompleteRecordAssign": {
+        "type": "object",
+        "required": ["doctorId"],
+        "properties": {
+          "doctorId": {
+            "type": ["string", "null"]
           }
         }
       }

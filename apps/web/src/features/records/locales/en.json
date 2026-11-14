@@ -50,7 +50,12 @@
       "kind": "Visit",
       "closed": "Closed",
       "doctor": "Doctor",
-      "gaps": "Missing"
+      "gaps": "Missing",
+      "assigned": "Assigned to"
+    },
+    "assign": "Assign to a doctor",
+    "assigned": {
+      "none": "Not assigned"
     }
   },
   "coding": {
@@ -131,6 +136,30 @@
       "due": "Due",
       "state": "Status",
       "note": "Note"
+    },
+    "print": "Print covering letter",
+    "letter": {
+      "title": "Copy of medical record: request fulfilled",
+      "patient": "Patient",
+      "requester": "Requested by",
+      "purpose": "Purpose",
+      "requested": "Requested on",
+      "fulfilled": "Fulfilled on",
+      "fulfilledBy": "Fulfilled by",
+      "note": "Note",
+      "body": "The request above for a copy of this patient's medical record was fulfilled. This letter is a covering note: it does not contain the record."
     }
+  },
+  "assign": {
+    "title": "Assign {{name}} to a doctor",
+    "description": "The doctor is asked to finish this record. Choose no one to take the assignment off.",
+    "doctor": "Doctor",
+    "nobody": "No one",
+    "submit": "Assign",
+    "submitting": "Assigning",
+    "done": "Assigned {{name}} to {{doctor}}.",
+    "removed": "Took the assignment off {{name}}.",
+    "failed": "That doctor cannot be assigned. Choose another.",
+    "noDoctors": "Doctors cannot be listed here."
   }
 }

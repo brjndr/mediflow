@@ -7,8 +7,10 @@ import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
 import { todayIn } from '@/shared/utils/timezone';
+import { PrintSheet } from '@/shared/ui/print-sheet';
 import { useFormatters, useTenant } from '@/tenancy';
 import { RecordsNav } from '../components/RecordsNav';
+import { RequestLetter } from '../components/RequestLetter';
 import { CloseRequestDialog, NewRequestDialog } from '../components/RequestDialogs';
 import { useRecordRequests } from '../hooks/use-records';
 import { REQUEST_STATES } from '../schemas';
@@ -38,6 +40,7 @@ export default function RecordRequests() {
   const total = requests.isPlaceholderData ? undefined : requests.data?.pages[0]?.total;
   const [logging, setLogging] = useState(false);
   const [closingId, setClosingId] = useState<string | null>(null);
+  const [printing, setPrinting] = useState<{ request: RecordRequest; key: number } | null>(null);
   const closing = closingId === null ? undefined : rows.find((row) => row.id === closingId);
   const status = useRef<HTMLParagraphElement>(null);
   const [message, setMessage] = useState({ text: '', count: 0 });
@@ -97,6 +100,12 @@ export default function RecordRequests() {
         requires: 'recordRequest:manage',
         disabled: (row) => row.state !== 'open',
         onSelect: (row) => setClosingId(row.id),
+      },
+      {
+        id: 'print',
+        label: t('requests.print'),
+        disabled: (row) => row.state !== 'fulfilled',
+        onSelect: (row) => setPrinting((now) => ({ request: row, key: (now?.key ?? 0) + 1 })),
       },
     ],
     [t],
@@ -164,6 +173,11 @@ export default function RecordRequests() {
             say(t('requests.logged', { name: created.patientName }));
           }}
         />
+      )}
+      {printing && (
+        <PrintSheet key={printing.key} onDone={() => setPrinting(null)}>
+          <RequestLetter request={printing.request} />
+        </PrintSheet>
       )}
       {closing && (
         <CloseRequestDialog
