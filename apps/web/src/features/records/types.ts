@@ -5,6 +5,7 @@ type Schemas = components['schemas'];
 /** A closed encounter whose record is not complete, and what is missing (MR-04, #192). */
 export type IncompleteRecord = Schemas['IncompleteRecord'];
 export type IncompleteRecordPage = Schemas['IncompleteRecordPage'];
+export type IncompleteRecordAssign = Schemas['IncompleteRecordAssign'];
 export type RecordGap = Schemas['RecordGap'];
 export type EncounterKind = Schemas['EncounterType'];
 

@@ -3,6 +3,7 @@ import {
   codingItemPageSchema,
   codingItemSchema,
   incompleteRecordPageSchema,
+  incompleteRecordSchema,
   recordRequestPageSchema,
   recordRequestSchema,
 } from './schemas';
@@ -11,6 +12,8 @@ import type {
   CodingItemPage,
   CodingState,
   EncounterKind,
+  IncompleteRecord,
+  IncompleteRecordAssign,
   IncompleteRecordPage,
   RecordGap,
   RecordRequest,
@@ -37,6 +40,18 @@ export async function fetchIncompleteRecords(
     signal,
   });
   return incompleteRecordPageSchema.parse(requireData(result));
+}
+
+export async function assignIncompleteRecord(
+  encounterId: string,
+  body: IncompleteRecordAssign,
+  idempotencyKey: string,
+): Promise<IncompleteRecord> {
+  const result = await api.POST('/records/incomplete/{encounterId}/assign', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return incompleteRecordSchema.parse(requireData(result));
 }
 
 export async function fetchCodingQueue(

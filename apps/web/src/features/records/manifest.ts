@@ -37,10 +37,18 @@ export const recordsFeature: FeatureManifest = {
       requires: ['recordRequest:read'],
     },
   ],
+  dashboardWidgets: [
+    {
+      id: 'open',
+      component: () => import('./components/RecordsWidget'),
+      requires: ['medicalRecord:read'],
+    },
+  ],
   nav: { icon: FolderCheck, order: 29.95, requires: ['medicalRecord:read'] },
   permissions: [
     'medicalRecord:read',
     'medicalRecord:code',
+    'medicalRecord:assign',
     'recordRequest:read',
     'recordRequest:manage',
   ],

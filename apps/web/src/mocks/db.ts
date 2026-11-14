@@ -202,6 +202,7 @@ const ADMIN: PermissionGrantDto[] = [
   // The records desk (MR-04).
   { permission: 'medicalRecord:read' },
   { permission: 'medicalRecord:code' },
+  { permission: 'medicalRecord:assign' },
   { permission: 'recordRequest:read' },
   { permission: 'recordRequest:manage' },
   // Inventory (#102): stock, adjustments asked for and approved, and the places.

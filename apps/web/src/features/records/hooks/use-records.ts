@@ -9,6 +9,7 @@ import { sessionKey, useSession, type Session } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  assignIncompleteRecord,
   closeRecordRequest,
   codeDiagnosis,
   createRecordRequest,
@@ -20,6 +21,7 @@ import { RECORDS_PAGE_SIZE } from '../schemas';
 import type {
   CodingState,
   EncounterKind,
+  IncompleteRecordAssign,
   RecordGap,
   RecordRequestClose,
   RecordRequestCreate,
@@ -67,16 +69,36 @@ function useAttempt() {
   };
 }
 
-export function useIncompleteRecords(filters: { gap: RecordGap | ''; kind: EncounterKind | '' }) {
+export function useIncompleteRecords(
+  filters: { gap: RecordGap | ''; kind: EncounterKind | '' },
+  limit = RECORDS_PAGE_SIZE,
+) {
   const tenantId = useTenant()?.id;
   return useInfiniteQuery({
-    queryKey: recordKeys.list(tenantId ?? '', { ...filters, limit: RECORDS_PAGE_SIZE }),
+    queryKey: recordKeys.list(tenantId ?? '', { ...filters, limit }),
     queryFn: ({ pageParam, signal }) =>
-      fetchIncompleteRecords({ ...filters, cursor: pageParam, limit: RECORDS_PAGE_SIZE }, signal),
+      fetchIncompleteRecords({ ...filters, cursor: pageParam, limit }, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
     enabled: tenantId !== undefined,
+  });
+}
+
+export function useAssignRecord(encounterId: string) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const attempt = useAttempt();
+  return useMutation({
+    mutationFn: async (body: IncompleteRecordAssign) => {
+      const assigned = await assignIncompleteRecord(encounterId, body, attempt.keyFor(body));
+      attempt.done();
+      return assigned;
+    },
+    onSettled: () => {
+      const tenantId = stillHere();
+      if (tenantId) return queryClient.invalidateQueries({ queryKey: recordKeys.all(tenantId) });
+    },
   });
 }
 
@@ -110,12 +132,12 @@ export function useCodeDiagnosis(diagnosisId: string) {
   });
 }
 
-export function useRecordRequests(state: RecordRequestState | '') {
+export function useRecordRequests(state: RecordRequestState | '', limit = RECORDS_PAGE_SIZE) {
   const tenantId = useTenant()?.id;
   return useInfiniteQuery({
-    queryKey: requestKeys.list(tenantId ?? '', { state, limit: RECORDS_PAGE_SIZE }),
+    queryKey: requestKeys.list(tenantId ?? '', { state, limit }),
     queryFn: ({ pageParam, signal }) =>
-      fetchRecordRequests({ state, cursor: pageParam, limit: RECORDS_PAGE_SIZE }, signal),
+      fetchRecordRequests({ state, cursor: pageParam, limit }, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     placeholderData: keepPreviousData,

@@ -7157,6 +7157,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/records/incomplete/{encounterId}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Assigns an incomplete record to a doctor to complete, or takes the assignment off (doctorId null). Needs medicalRecord:assign and the records feature flag. 404 when the encounter is not an incomplete record of this hospital, 422 when the doctor is not one of its practising doctors. Audited. */
+        post: operations["assignIncompleteRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -13663,6 +13680,8 @@ export interface components {
             closedAt: string;
             doctorName: string;
             gaps: components["schemas"]["RecordGap"][];
+            assignedDoctorId?: string;
+            assignedDoctorName?: string;
         };
         IncompleteRecordPage: {
             items: components["schemas"]["IncompleteRecord"][];
@@ -13756,6 +13775,9 @@ export interface components {
         };
         CertificateFormatUpdate: {
             fields: components["schemas"]["CertificateFieldDef"][];
+        };
+        IncompleteRecordAssign: {
+            doctorId: string | null;
         };
     };
     responses: {
@@ -52548,6 +52570,41 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    assignIncompleteRecord: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncompleteRecordAssign"];
+            };
+        };
+        responses: {
+            /** @description The record with its assignment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncompleteRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

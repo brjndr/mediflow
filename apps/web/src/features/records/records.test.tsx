@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   grantPermission,
   revokePermission,
@@ -66,6 +66,38 @@ describe('incomplete records', () => {
   });
 });
 
+describe('assigning an incomplete record', () => {
+  it('assigns a doctor and shows who it is with', async () => {
+    renderApp({ entry: '/records' });
+    const table = await screen.findByRole('table', { name: 'Incomplete records' });
+    const row = (await within(table).findByText('No discharge summary')).closest(
+      'tr',
+    ) as HTMLElement;
+    expect(within(row).getByText('Not assigned')).toBeInTheDocument();
+    await userEvent.click(within(row).getByRole('button', { name: /^Assign to a doctor/ }));
+    const dialog = await screen.findByRole('dialog');
+    const select = within(dialog).getByLabelText('Doctor');
+    const doctor = await waitFor(() => {
+      const option = within(select).getAllByRole('option').at(1);
+      expect(option).toBeDefined();
+      return (option as HTMLOptionElement).value;
+    });
+    await userEvent.selectOptions(select, doctor);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Assign' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(within(row).queryByText('Not assigned')).not.toBeInTheDocument());
+    expect(await screen.findByRole('status')).toHaveTextContent(/^Assigned /);
+  });
+
+  it('offers no assignment without medicalRecord:assign', async () => {
+    revokePermission(HOSPITAL, 'admin', 'medicalRecord:assign');
+    renderApp({ entry: '/records' });
+    const table = await screen.findByRole('table', { name: 'Incomplete records' });
+    await within(table).findByText('No signed consent');
+    expect(within(table).queryByRole('button', { name: /Assign to a doctor/ })).toBeNull();
+  });
+});
+
 describe('the coding queue', () => {
   it('codes a diagnosis from the code search and takes it off the queue', async () => {
     renderApp({ entry: '/records/coding' });
@@ -95,6 +127,24 @@ describe('the coding queue', () => {
     const table = await screen.findByRole('table', { name: 'Coding queue' });
     await within(table).findByText('Viral fever with body ache');
     expect(within(table).queryByRole('button', { name: /Add or change code/ })).toBeNull();
+  });
+});
+
+describe('the record request log: covering letter', () => {
+  it('prints a letter for a fulfilled request only', async () => {
+    const print = vi.fn();
+    vi.stubGlobal('print', print);
+    renderApp({ entry: '/records/requests' });
+    await userEvent.selectOptions(await screen.findByLabelText('Show'), 'Fulfilled');
+    const table = await screen.findByRole('table', { name: 'Record requests' });
+    await waitFor(() =>
+      expect(within(table).getAllByRole('button', { name: /^Print covering letter/ })).toHaveLength(
+        1,
+      ),
+    );
+    await userEvent.click(within(table).getByRole('button', { name: /^Print covering letter/ }));
+    await waitFor(() => expect(print).toHaveBeenCalled());
+    vi.unstubAllGlobals();
   });
 });
 

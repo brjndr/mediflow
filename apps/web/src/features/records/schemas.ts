@@ -53,6 +53,8 @@ export const incompleteRecordSchema: z.ZodType<IncompleteRecord> = z.object({
   kind: z.enum(KINDS),
   closedAt: z.string(),
   doctorName: z.string(),
+  assignedDoctorId: z.string().optional(),
+  assignedDoctorName: z.string().optional(),
   gaps: z.array(z.enum(GAPS)),
 });
 export const incompleteRecordPageSchema: z.ZodType<IncompleteRecordPage> =
