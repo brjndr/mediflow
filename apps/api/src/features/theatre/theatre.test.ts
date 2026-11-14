@@ -1210,6 +1210,39 @@ describe('the operation note, the visit and the charges', () => {
     expect(await chargesOf(encounter)).toHaveLength(2);
   });
 
+  it('charges stock recorded before the visit was linked, once', async () => {
+    const surgery = await booked({});
+    const encounter = await addEncounter(hospital, surgery.patientId);
+    const first = await stockIn(10);
+    const second = await stockIn(10);
+    await pool.query('update stock_batches set mrp_minor = 700 where id = any($1)', [
+      [first, second],
+    ]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const line = (batchId: string, quantity: number) => ({
+      drugId,
+      locationId: place,
+      lines: [{ batchId, quantity }],
+    });
+    await ok(await post(`/theatre/surgeries/${surgery.id}/consumables`, line(first, 2)), 201);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/consumables`, line(second, 3)), 201);
+    expect(await chargesOf(encounter)).toHaveLength(0);
+
+    const link = `/theatre/surgeries/${surgery.id}/encounter`;
+    await ok(await put(link, { encounterId: encounter }));
+    let charges = await chargesOf(encounter);
+    expect(charges.map((row) => row.quantity).sort()).toEqual([2, 3]);
+    expect(charges.every((row) => row.unit_price_minor === '700')).toBe(true);
+    // Linking again, and recording more afterwards, never charges a batch twice.
+    await ok(await put(link, { encounterId: encounter }));
+    await ok(await post(`/theatre/surgeries/${surgery.id}/consumables`, line(first, 1)), 201);
+    charges = await chargesOf(encounter);
+    expect(charges).toHaveLength(3);
+    // Another hospital's ledger is untouched.
+    const foreign = await pool.query('select 1 from charges where tenant_id = $1', [clinic.id]);
+    expect(foreign.rowCount).toBe(0);
+  });
+
   it('posts no charge for a surgery with no visit', async () => {
     const surgery = await booked({ serviceId: procedureService });
     const batch = await stockIn(5);

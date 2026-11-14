@@ -317,6 +317,19 @@ export const operationRoutes: FastifyPluginAsyncTypebox = async (app) => {
         booking.id,
         encounterId,
       ]);
+      // Stock recorded before the link was never charged: let billing post it now. Its charges
+      // are keyed on the consumable row, so a repeat or a second link posts nothing twice.
+      const { rows: uses } = await client.query<{ use_id: string }>(
+        'select use_id from ot_consumables where booking_id = $1 group by use_id order by min(recorded_at), use_id',
+        [booking.id],
+      );
+      for (const use of uses) {
+        await request.emit('surgery.consumables_used', booking.id, {
+          patientId: booking.patient_id,
+          useId: use.use_id,
+          encounterId,
+        });
+      }
       request.audit('update', 'surgery', booking.id);
       return record(client, { ...booking, encounter_id: encounterId });
     },
