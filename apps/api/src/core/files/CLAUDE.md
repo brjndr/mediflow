@@ -5,7 +5,7 @@
 - `local` (default): a folder (`FILE_STORE_DIR`). Development and tests only; **production refuses to start with it** (`core/config`), since a container loses its disk on redeploy and several containers would each have their own.
 - `s3` (#695): `S3FileStore`, any S3-compatible service. Needs `S3_BUCKET` and `S3_REGION`; `S3_ENDPOINT` for a service other than AWS (path-style addressing is then used); `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` both or neither (neither means the task or instance role); `S3_SERVER_SIDE_ENCRYPTION` (`AES256` or `aws:kms`) when the bucket does not encrypt by default.
 
-Malware scanning (#560): `MALWARE_SCANNER=test|clamav`. `clamav` needs `CLAMAV_HOST` (`CLAMAV_PORT` 3310, `CLAMAV_TIMEOUT_MS`); the daemon's `StreamMaxLength` must be at least 100 MB (imaging). Production with `test` logs a warning at start.
+Malware scanning (#560): `MALWARE_SCANNER=test|clamav`. `clamav` needs `CLAMAV_HOST` (`CLAMAV_PORT` 3310, `CLAMAV_TIMEOUT_MS`); the daemon's `StreamMaxLength` must be at least 100 MB (imaging). Production refuses to start unless it is `clamav` with a host (#890).
 
 Decisions:
 
