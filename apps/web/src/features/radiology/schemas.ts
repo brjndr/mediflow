@@ -3,6 +3,7 @@ import { PLAIN_TEXT } from '@/shared/utils/text';
 import { nextDay } from '@/shared/utils/timezone';
 import type {
   AddendumReason,
+  BlockedImage,
   ImagingReport,
   ImagingReportStatus,
   ImagingModality,
@@ -66,6 +67,20 @@ export const SLOT_TIMES: readonly string[] = Array.from(
 );
 
 // Responses are validated where they enter the app, so screens can trust their shape.
+
+/** How often the home page asks again, so a scan that ends is seen (#926). */
+export const BLOCKED_POLL_MS = 30_000;
+
+export const blockedImagesSchema: z.ZodType<{ items: BlockedImage[] }> = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      fileName: z.string(),
+      status: z.enum(['infected', 'failed']),
+      blockedAt: z.string(),
+    }),
+  ),
+});
 
 export const imagingStudySchema: z.ZodType<ImagingStudy> = z.object({
   id: z.string(),

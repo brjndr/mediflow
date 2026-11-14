@@ -76,6 +76,23 @@ export const ImagingImageDownload = Type.Object(
   { $id: 'ImagingImageDownload' },
 );
 
+export const BlockedImage = Type.Object(
+  {
+    id: Type.String(),
+    fileName: Type.String(),
+    status: StringEnum(['infected', 'failed']),
+    blockedAt: Type.String({ format: 'date-time' }),
+  },
+  {
+    $id: 'BlockedImage',
+    description: 'A radiology image the caller uploaded that the scan blocked, not yet dismissed.',
+  },
+);
+export const BlockedImages = Type.Object(
+  { items: Type.Array(ref(BlockedImage)) },
+  { $id: 'BlockedImages' },
+);
+
 export const ImageParams = Type.Object({ imageId: Type.String({ format: 'uuid' }) });
 export const SignedQuery = Type.Object({
   expires: Type.Integer({ minimum: 0 }),
@@ -83,6 +100,8 @@ export const SignedQuery = Type.Object({
 });
 
 export const IMAGE_SCHEMAS = [
+  BlockedImage,
+  BlockedImages,
   ImagingImage,
   ImagingImageCreate,
   ImagingImageUpload,

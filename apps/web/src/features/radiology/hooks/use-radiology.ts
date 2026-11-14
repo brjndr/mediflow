@@ -12,6 +12,8 @@ import type { RichTextDocument } from '@/shared/ui/rich-text';
 import { useTenant } from '@/tenancy';
 import {
   addAddendum,
+  dismissBlockedImage,
+  fetchBlockedImages,
   fetchReport,
   fetchWorklist,
   saveReport,
@@ -21,6 +23,7 @@ import {
   unscheduleStudy,
   type WorklistFilters,
 } from '../api';
+import { BLOCKED_POLL_MS } from '../schemas';
 import type {
   AddendumReason,
   ImagingReport,
@@ -205,3 +208,22 @@ export const useAddAddendum = () =>
       keyFor,
     ) => addAddendum(orderId, { body, reason }, keyFor({ id: orderId, body, reason })),
   );
+
+/** The caller's own blocked images (#926), read again now and then so a scan that ends is seen. */
+export function useBlockedImages() {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: radiologyKeys.list(tenantId ?? '', { blocked: true }),
+    queryFn: ({ signal }) => fetchBlockedImages(signal),
+    refetchInterval: BLOCKED_POLL_MS,
+    enabled: tenantId !== undefined,
+  });
+}
+
+export function useDismissBlockedImage() {
+  const refresh = useRefreshWorklist();
+  return useMutation({
+    mutationFn: (imageId: string) => dismissBlockedImage(imageId),
+    onSettled: () => refresh(),
+  });
+}

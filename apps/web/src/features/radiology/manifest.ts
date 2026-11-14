@@ -24,6 +24,14 @@ export const radiologyFeature: FeatureManifest = {
     },
   ],
   nav: { icon: ScanLine, order: 29.7, requires: ['imagingStudy:read'] },
+  dashboardWidgets: [
+    {
+      id: 'blocked-images',
+      component: () => import('./components/BlockedImagesWidget'),
+      requires: ['imagingStudy:perform'],
+      size: 'sm',
+    },
+  ],
   permissions: [
     'imagingStudy:read',
     'imagingStudy:schedule',

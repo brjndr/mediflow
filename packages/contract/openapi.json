@@ -9226,6 +9226,39 @@
           }
         }
       },
+      "BlockedImage": {
+        "description": "A radiology image the caller uploaded that the scan blocked, not yet dismissed.",
+        "type": "object",
+        "required": ["id", "fileName", "status", "blockedAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["infected", "failed"]
+          },
+          "blockedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "BlockedImages": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BlockedImage"
+            }
+          }
+        }
+      },
       "ImagingImage": {
         "description": "A file attached to a performed imaging study.",
         "type": "object",
@@ -45782,6 +45815,118 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/radiology/images/blocked": {
+      "get": {
+        "operationId": "listBlockedImagingImages",
+        "tags": ["radiology"],
+        "description": "The images the caller uploaded that the malware scan blocked (infected, or not scannable, or never sent) and that they have not dismissed, newest first, at most 50. Only the caller’s own uploads, whatever the study. Requires imagingStudy:perform.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockedImages"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/radiology/images/{imageId}/dismiss-blocked": {
+      "post": {
+        "operationId": "dismissBlockedImagingImage",
+        "tags": ["radiology"],
+        "description": "The uploader has seen that an image was blocked: it leaves their list. The row stays. 404 for an image that is not the caller’s own, or not blocked. Requires imagingStudy:perform.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "imageId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
           },
           "401": {
             "description": "Standard error body.",

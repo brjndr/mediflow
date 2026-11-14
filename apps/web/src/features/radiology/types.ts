@@ -9,6 +9,8 @@ type Schemas = components['schemas'];
 export type ImagingWorkItem = Schemas['ImagingWorkItem'];
 export type ImagingWorkItemPage = Schemas['ImagingWorkItemPage'];
 export type ImagingStudy = Schemas['ImagingStudy'];
+/** A radiology image the caller uploaded that the scan blocked (#926). */
+export type BlockedImage = Schemas['BlockedImage'];
 export type ImagingStage = Schemas['ImagingStage'];
 export type ImagingModality = Schemas['ImagingModality'];
 export type OrderPriority = Schemas['OrderPriority'];
