@@ -116,6 +116,14 @@ const ConfigSchema = Type.Object({
    * until that is set up.
    */
   S3_DIRECT_LINKS: Type.Boolean({ default: false }),
+  /**
+   * What checks uploads for malware. `test` finds only the EICAR test file and is for development
+   * and tests; `clamav` talks to a ClamAV daemon (`CLAMAV_HOST`, `CLAMAV_PORT`).
+   */
+  MALWARE_SCANNER: Type.Union([Type.Literal('test'), Type.Literal('clamav')], { default: 'test' }),
+  CLAMAV_HOST: Type.Optional(Type.String({ minLength: 1 })),
+  CLAMAV_PORT: Type.Integer({ minimum: 1, maximum: 65535, default: 3310 }),
+  CLAMAV_TIMEOUT_MS: Type.Integer({ minimum: 1000, maximum: 300_000, default: 60_000 }),
   /** A report answered on the spot gives up after this long, so it cannot hold a connection. */
   REPORT_SYNC_TIMEOUT_MS: Type.Integer({ minimum: 1000, maximum: 60_000, default: 10_000 }),
   /** A report made by a job gives up after this long. */
@@ -182,6 +190,9 @@ export function loadConfig(env: Env = process.env): Config {
   // The all-zero key is the development default: links signed with it can be forged by anyone.
   if (mode === 'production' && candidate.REPORT_URL_SECRET === LOCAL_SERVICES.REPORT_URL_SECRET) {
     throw new ConfigError(['REPORT_URL_SECRET: the development key cannot be used in production']);
+  }
+  if (candidate.MALWARE_SCANNER === 'clamav' && !candidate.CLAMAV_HOST) {
+    throw new ConfigError(['CLAMAV_HOST: required when MALWARE_SCANNER is clamav']);
   }
   if (candidate.FILE_STORE === 's3' || mode === 'production') {
     const problems: string[] = [];

@@ -525,3 +525,26 @@ describe('direct links to the bucket (#765)', () => {
     });
   });
 });
+
+describe('uploads asked for and never sent (#560)', () => {
+  it('closes an old pending request and leaves a recent one and a received file alone', async () => {
+    const orderId = await performedOrder();
+    const ask = async () =>
+      (
+        await request(orderId, { fileName: 'a.jpg', contentType: 'image/jpeg', size: JPEG.length })
+      ).json<Upload>();
+    const old = await ask();
+    const recent = await ask();
+    const received = await uploaded(orderId);
+    await pool.query(
+      "update imaging_images set created_at = now() - interval '2 hours' where id = $1",
+      [old.image.id],
+    );
+    const { closeUnsentImages } = await import('./images.js');
+    expect(await closeUnsentImages(app)).toBe(1);
+    expect(await statusOf(old.image.id)).toBe('failed');
+    expect(await statusOf(recent.image.id)).toBe('pending');
+    expect(await statusOf(received.image.id)).toBe('scanning');
+    expect(await closeUnsentImages(app)).toBe(0);
+  });
+});

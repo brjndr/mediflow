@@ -816,3 +816,27 @@ describe('merging two records', () => {
     }
   });
 });
+
+describe('uploads asked for and never sent (#560)', () => {
+  it('closes an old pending request, leaves a recent one and a received file alone', async () => {
+    const old = (await ask(ids.a)).json<Upload>();
+    const recent = (await ask(ids.a)).json<Upload>();
+    const received = await uploaded(ids.a);
+    await pool.query(
+      "update patient_documents set created_at = now() - interval '2 hours' where id = $1",
+      [old.document.id],
+    );
+    const { closeUnsentDocuments } = await import('./files.js');
+    expect(await closeUnsentDocuments(app)).toBe(1);
+    expect(await statusOf(old.document.id)).toBe('failed');
+    expect(await statusOf(recent.document.id)).toBe('pending');
+    expect(await statusOf(received.document.id)).toBe('scanning');
+    expect(await closeUnsentDocuments(app)).toBe(0);
+
+    // The document cannot be downloaded.
+    expect(errorOf(await get(`/documents/${old.document.id}/download-url`))).toEqual([
+      409,
+      'document_blocked',
+    ]);
+  });
+});
