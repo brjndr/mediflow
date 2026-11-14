@@ -15,7 +15,8 @@ const METHODS = ['get', 'put', 'post', 'delete', 'patch'] as const;
 describe('generated OpenAPI document', () => {
   let app: FastifyInstance;
   beforeAll(async () => {
-    app = await buildTestApp();
+    // The document is only stable once every serializer is built (they normalise type lists).
+    app = await buildTestApp({ lazySerializers: false });
   });
   afterAll(() => app.close());
 

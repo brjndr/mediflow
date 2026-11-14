@@ -27,7 +27,7 @@ interface TestAppOptions extends AppOptions {
 /** The real app, driven in-process with `app.inject`. Close it when the test file is done. */
 export async function buildTestApp(options: TestAppOptions = {}): Promise<FastifyInstance> {
   const { config, extend, ...appOptions } = options;
-  const app = await buildApp(testConfig(config), appOptions);
+  const app = await buildApp(testConfig(config), { lazySerializers: true, ...appOptions });
   await extend?.(app);
   await app.ready();
   return app;
