@@ -1,5 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { imageRoutes, scanImage, SCAN_JOB, type ScanJob } from './images.js';
+import {
+  closeUnsentImages,
+  imageRoutes,
+  scanImage,
+  SCAN_JOB,
+  UNSENT_JOB,
+  type ScanJob,
+} from './images.js';
 import { RADIOLOGY_PERMISSIONS } from './permissions.js';
 import { radiologyRoutes } from './routes.js';
 
@@ -16,4 +23,8 @@ export const radiologyFeature: FastifyPluginAsync = async (app) => {
   await app.register(radiologyRoutes);
   await app.register(imageRoutes);
   app.jobs.work<ScanJob>(SCAN_JOB, (job) => scanImage(app, job));
+  app.jobs.work(UNSENT_JOB, async () => {
+    await closeUnsentImages(app);
+  });
+  app.jobs.schedule(UNSENT_JOB, '15 * * * *');
 };

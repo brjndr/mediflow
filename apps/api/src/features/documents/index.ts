@@ -3,7 +3,9 @@ import {
   documentFileRoutes,
   scanDocument,
   SCAN_JOB,
+  closeUnsentDocuments,
   sweepDocuments,
+  UNSENT_JOB,
   SWEEP_JOB,
   type ScanJob,
 } from './files.js';
@@ -99,4 +101,8 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
     }
   });
   app.jobs.schedule(SWEEP_JOB, '30 3 * * *');
+  app.jobs.work(UNSENT_JOB, async () => {
+    await closeUnsentDocuments(app);
+  });
+  app.jobs.schedule(UNSENT_JOB, '15 * * * *');
 };

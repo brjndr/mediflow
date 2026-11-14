@@ -50,6 +50,9 @@ describe('loadConfig', () => {
       S3_REGION: 'ap-south-1',
       FILE_STORE_DIR: '.data/files',
       S3_DIRECT_LINKS: false,
+      MALWARE_SCANNER: 'test',
+      CLAMAV_PORT: 3310,
+      CLAMAV_TIMEOUT_MS: 60000,
       REPORT_SYNC_TIMEOUT_MS: 10000,
       REPORT_RUN_TIMEOUT_MS: 120000,
     });
@@ -96,6 +99,13 @@ describe('loadConfig', () => {
       const { [name]: _omitted, ...rest } = production as Record<string, string>;
       expect(() => loadConfig(rest)).toThrow(new RegExp(name));
     }
+  });
+
+  it('needs a host for the ClamAV scanner', () => {
+    expect(() => loadConfig({ ...production, MALWARE_SCANNER: 'clamav' })).toThrow(/CLAMAV_HOST/);
+    expect(
+      loadConfig({ ...production, MALWARE_SCANNER: 'clamav', CLAMAV_HOST: 'clamav' }).CLAMAV_HOST,
+    ).toBe('clamav');
   });
 
   it('refuses the local file store in production and an incomplete s3 setup', () => {

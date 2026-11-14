@@ -10,6 +10,7 @@ import { DOCUMENT_MAX_BYTES, DOCUMENT_TYPES, DocumentParams, SignedQuery } from 
 
 export const SCAN_JOB = 'documents.scan';
 export const SWEEP_JOB = 'documents.sweep';
+export const UNSENT_JOB = 'documents.unsent';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface ScanJob {
@@ -260,3 +261,23 @@ const NOT_HELD = `not exists (
   select 1 from document_legal_holds h
   where h.tenant_id = d.tenant_id and h.released_at is null
     and (h.document_id = d.id or (h.document_id is null and h.patient_id = d.patient_id)))`;
+
+/**
+ * The sweep of uploads asked for and never sent, hourly across hospitals as the worker role: a
+ * `pending` document older than an hour (its link lasts 15 minutes) is marked `failed` with the
+ * result `never_sent`, so none waits for a file that cannot arrive. A file sent in the same
+ * moment is not lost: only a row still `pending` is changed. Returns how many it closed.
+ */
+export async function closeUnsentDocuments(app: FastifyInstance): Promise<number> {
+  const closed = await asWorker(app, async (client) => {
+    const result = await client.query(
+      `update patient_documents set status = 'failed', scan_result = 'never_sent'
+       where status = 'pending' and created_at < now() - interval '1 hour'`,
+    );
+    return result.rowCount ?? 0;
+  });
+  if (closed > 0) {
+    app.log.info({ event: 'documents_unsent_closed', count: closed }, 'unsent uploads closed');
+  }
+  return closed;
+}

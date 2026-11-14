@@ -1,4 +1,5 @@
 import fp from 'fastify-plugin';
+import { ClamAvScanner } from './clamav.js';
 import { TestSignatureScanner, type MalwareScanner } from './scanner.js';
 import { S3FileStore } from './s3-store.js';
 import { LocalFileStore, type FileStore } from './store.js';
@@ -29,7 +30,19 @@ export const filesPlugin = fp<{ store?: FileStore; scanner?: MalwareScanner }>(
         : new LocalFileStore(config.FILE_STORE_DIR));
     app.decorate('files', store);
     if (store instanceof S3FileStore) app.addHook('onClose', async () => store.close());
-    app.decorate('scanner', options.scanner ?? new TestSignatureScanner());
+    const scanner =
+      options.scanner ??
+      (config.MALWARE_SCANNER === 'clamav'
+        ? new ClamAvScanner({
+            host: config.CLAMAV_HOST!,
+            port: config.CLAMAV_PORT,
+            timeoutMs: config.CLAMAV_TIMEOUT_MS,
+          })
+        : new TestSignatureScanner());
+    if (scanner instanceof TestSignatureScanner && config.NODE_ENV === 'production') {
+      app.log.warn({ event: 'test_scanner_in_use' }, 'MALWARE_SCANNER=test is not protection');
+    }
+    app.decorate('scanner', scanner);
   },
   { name: 'files' },
 );
