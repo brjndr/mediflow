@@ -49,4 +49,10 @@ export const PATIENT_PERMISSIONS = [
     description: 'Merge two records of the same patient into one',
     defaults: { admin: 'all' },
   },
+  {
+    // Undoes a merge inside the hospital's window and sets the window (#555).
+    id: 'patient:unmerge',
+    description: 'Undo a patient merge inside its window and set the window',
+    defaults: { admin: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];
