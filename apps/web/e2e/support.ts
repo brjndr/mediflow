@@ -74,3 +74,36 @@ export async function expectNoAxeViolations(
     ),
   ).toEqual([]);
 }
+
+/**
+ * With a modal open, no live region may sit inside a landmark the modal is meant to hide (#763).
+ * Radix `hideOthers` leaves an `aria-live` element, `role="status"` or `role="alert"` and all of
+ * its ancestors visible, so a live region in the header kept the whole header exposed under a
+ * dialog (#730) and axe failed on tablet. `main` is left out: a screen's own live regions (a
+ * list's result count) sit in it and Radix keeps them, which axe accepts. Call it with a dialog open: a live region that is
+ * still exposed inside a landmark is named. Put such a region outside the landmarks, or inside
+ * the dialog.
+ */
+export async function expectModalHidesLandmarks(page: Page): Promise<void> {
+  await expect(page.getByRole('dialog')).toBeVisible();
+  const exposed = await page.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    const landmarks =
+      'header, nav, aside, footer, [role="banner"], [role="navigation"], [role="complementary"]';
+    const hidden = (el: Element) => !!el.closest('[aria-hidden="true"], [inert]');
+    return [
+      ...document.querySelectorAll(
+        '[aria-live]:not([aria-live="off"]), [role="status"], [role="alert"]',
+      ),
+    ]
+      .filter((el) => !dialog?.contains(el) && !hidden(el) && el.closest(landmarks))
+      .map((el) => {
+        const id = el.id ? `#${el.id}` : '';
+        return `${el.tagName.toLowerCase()}${id} in ${el.closest(landmarks)?.tagName.toLowerCase() ?? ''}`;
+      });
+  });
+  expect(
+    exposed,
+    'a live region inside a landmark stays exposed under a modal: move it out of the landmark',
+  ).toEqual([]);
+}
