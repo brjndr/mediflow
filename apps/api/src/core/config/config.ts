@@ -191,6 +191,11 @@ export function loadConfig(env: Env = process.env): Config {
   if (mode === 'production' && candidate.REPORT_URL_SECRET === LOCAL_SERVICES.REPORT_URL_SECRET) {
     throw new ConfigError(['REPORT_URL_SECRET: the development key cannot be used in production']);
   }
+  if (mode === 'production' && candidate.MALWARE_SCANNER !== 'clamav') {
+    throw new ConfigError([
+      'MALWARE_SCANNER: production must use clamav, the test scanner finds only EICAR',
+    ]);
+  }
   if (candidate.MALWARE_SCANNER === 'clamav' && !candidate.CLAMAV_HOST) {
     throw new ConfigError(['CLAMAV_HOST: required when MALWARE_SCANNER is clamav']);
   }

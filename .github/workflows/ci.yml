@@ -281,7 +281,7 @@ jobs:
       - run: docker build -f apps/api/Dockerfile -t mediflow-api:ci .
       - name: Container starts and answers its health check
         run: |
-          docker run -d --name api --network host             -e DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow_test             -e SMTP_URL=smtp://localhost:1025             -e "MAIL_FROM=Mediflow <no-reply@mediflow.test>"             -e APP_BASE_URL=http://localhost:5173             -e MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=             -e REPORT_URL_SECRET=Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=             -e FILE_STORE=s3 -e S3_BUCKET=mediflow-ci -e S3_REGION=us-east-1             mediflow-api:ci
+          docker run -d --name api --network host             -e DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow_test             -e SMTP_URL=smtp://localhost:1025             -e "MAIL_FROM=Mediflow <no-reply@mediflow.test>"             -e APP_BASE_URL=http://localhost:5173             -e MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=             -e REPORT_URL_SECRET=Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=             -e FILE_STORE=s3 -e S3_BUCKET=mediflow-ci -e S3_REGION=us-east-1             -e MALWARE_SCANNER=clamav -e CLAMAV_HOST=localhost             mediflow-api:ci
           for attempt in $(seq 1 20); do
             if curl -fsS http://localhost:3000/health/ready; then exit 0; fi
             sleep 1

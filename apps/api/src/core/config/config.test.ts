@@ -12,6 +12,8 @@ const production = {
   FILE_STORE: 's3',
   S3_BUCKET: 'mediflow-files',
   S3_REGION: 'ap-south-1',
+  MALWARE_SCANNER: 'clamav',
+  CLAMAV_HOST: 'clamav',
 };
 
 describe('loadConfig', () => {
@@ -50,7 +52,8 @@ describe('loadConfig', () => {
       S3_REGION: 'ap-south-1',
       FILE_STORE_DIR: '.data/files',
       S3_DIRECT_LINKS: false,
-      MALWARE_SCANNER: 'test',
+      MALWARE_SCANNER: 'clamav',
+      CLAMAV_HOST: 'clamav',
       CLAMAV_PORT: 3310,
       CLAMAV_TIMEOUT_MS: 60000,
       REPORT_SYNC_TIMEOUT_MS: 10000,
@@ -101,8 +104,12 @@ describe('loadConfig', () => {
     }
   });
 
+  it('refuses the test scanner in production', () => {
+    expect(() => loadConfig({ ...production, MALWARE_SCANNER: 'test' })).toThrow(/MALWARE_SCANNER/);
+  });
+
   it('needs a host for the ClamAV scanner', () => {
-    expect(() => loadConfig({ ...production, MALWARE_SCANNER: 'clamav' })).toThrow(/CLAMAV_HOST/);
+    expect(() => loadConfig({ ...production, CLAMAV_HOST: undefined })).toThrow(/CLAMAV_HOST/);
     expect(
       loadConfig({ ...production, MALWARE_SCANNER: 'clamav', CLAMAV_HOST: 'clamav' }).CLAMAV_HOST,
     ).toBe('clamav');
