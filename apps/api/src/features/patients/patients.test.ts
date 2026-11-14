@@ -893,6 +893,27 @@ describe('a large register', () => {
     );
     expect(bare.rowCount).toBe(0);
   });
+
+  it('counts with the search function the same total as counting the rows (#880)', async () => {
+    const count = (tenantId: string, words: string[]) =>
+      asTenantSql(pool, tenantId, async (client) => {
+        const viaFunction = await client.query<{ n: string }>(
+          'select patient_search_count($1::text[], null, null, false) as n',
+          [words],
+        );
+        const viaRows = await client.query<{ n: string }>(
+          'select count(*) as n from patients where merged_into_id is null and id in (select patient_search_ids($1::text[], null, null, false))',
+          [words],
+        );
+        return [Number(viaFunction.rows[0]?.n), Number(viaRows.rows[0]?.n)];
+      });
+
+    const [large1, large2] = await count(large.id, ['%lh-%']);
+    expect(large1).toBe(large2);
+    expect(large1).toBeGreaterThan(0);
+    // Another hospital's rows are never counted.
+    expect(await count(clinic.id, ['%lh-%'])).toEqual([0, 0]);
+  });
 });
 
 describe('what the reviews asked for', () => {
