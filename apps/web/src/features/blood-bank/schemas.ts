@@ -67,6 +67,7 @@ const unitSchema: z.ZodType<BloodUnit> = z.object({
   collectedAt: z.string(),
   expiresAt: z.string(),
   status: z.enum(UNIT_STATUSES),
+  screeningStatus: z.enum(['pending', 'cleared', 'reactive']),
   patientId: z.string().optional(),
   version: z.number().int().min(1),
 });
