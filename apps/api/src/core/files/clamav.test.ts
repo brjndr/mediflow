@@ -49,7 +49,7 @@ describe('ClamAvScanner', () => {
     });
     expect(await scanner(port).scan(data)).toEqual({ clean: true });
     expect(seen.subarray(0, 10).toString()).toBe('zINSTREAM\0');
-    expect(seen.length).toBe(10 + 3 * 4 + data.length + 4);
+    expect(seen.length).toBe(10 + Math.ceil(data.length / (64 * 1024)) * 4 + data.length + 4);
     expect(seen.readUInt32BE(10)).toBe(64 * 1024);
   });
 
