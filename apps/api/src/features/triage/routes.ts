@@ -12,6 +12,7 @@ import { tokenOfPatientToday } from '../queue/index.js';
 import {
   findAllergen,
   findAllergies,
+  mergedAllergies,
   findVitals,
   ageBasis,
   bandOf,
@@ -233,13 +234,33 @@ function allergyView(
   patientId: string,
   tenantId: string,
   row: Awaited<ReturnType<typeof findAllergies>>,
+  merged: Allergy[] = [],
 ) {
-  if (!row) return { patientId, tenantId, status: 'unknown' as const, items: [], version: 0 };
+  const own = row?.items ?? [];
+  const seen = new Set(own.map((item) => item.substance.toLowerCase()));
+  const items = [
+    ...own,
+    ...merged.filter((item) => {
+      const key = item.substance.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }),
+  ];
+  if (!row) {
+    return {
+      patientId,
+      tenantId,
+      status: items.length > 0 ? ('listed' as const) : ('unknown' as const),
+      items,
+      version: 0,
+    };
+  }
   return {
     patientId: row.patient_id,
     tenantId: row.tenant_id,
-    status: row.status,
-    items: row.items,
+    status: items.length > 0 ? ('listed' as const) : row.status,
+    items,
     version: row.version,
     updatedAt: row.updated_at.toISOString(),
     ...(row.updated_by_name === null ? {} : { updatedByName: row.updated_by_name }),
@@ -595,6 +616,7 @@ export const triageRoutes: FastifyPluginAsyncTypebox = async (app) => {
         patientId,
         tenantIdOf(request),
         await findAllergies(request.txClient, patientId),
+        await mergedAllergies(request.txClient, patientId),
       );
     },
   );

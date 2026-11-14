@@ -460,6 +460,24 @@ export async function findAllergies(
 }
 
 /**
+ * The allergies written on the records merged into this patient (#843), newest list first, so a
+ * survivor's allergy list shows them. Read only: saving the list adopts what the person kept.
+ */
+export async function mergedAllergies(
+  client: pg.ClientBase,
+  patientId: string,
+): Promise<Allergy[]> {
+  const family = (await patientFamily(client, patientId)).filter((id) => id !== patientId);
+  if (family.length === 0) return [];
+  const { rows } = await client.query<{ items: Allergy[] }>(
+    `select items from allergy_lists where patient_id = any($1::uuid[]) and status = 'listed'
+     order by updated_at desc, patient_id`,
+    [family],
+  );
+  return rows.flatMap((row) => row.items);
+}
+
+/**
  * Replaces the patient's allergies from the version the edit started from: 0 creates the list,
  * any other replaces it at that version. False, changing nothing, when someone else's change came
  * first (the row lock or the primary key decides between two at once). Each version is also kept
