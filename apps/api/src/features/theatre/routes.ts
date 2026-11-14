@@ -72,6 +72,7 @@ interface SurgeryRow {
   surgeon_id: string;
   patient_id: string;
   service_id: string | null;
+  encounter_id: string | null;
   procedure: string;
   notes: string | null;
   starts_at: Date;
@@ -82,7 +83,7 @@ interface SurgeryRow {
   cancelled_at: Date | null;
   version: number;
 }
-const COLUMNS = `s.id, s.tenant_id, s.room_id, s.surgeon_id, s.patient_id, s.service_id, s.procedure,
+const COLUMNS = `s.id, s.tenant_id, s.room_id, s.surgeon_id, s.patient_id, s.service_id, s.encounter_id, s.procedure,
        s.notes, s.starts_at, s.ends_at, s.status, s.started_at, s.completed_at, s.cancelled_at,
        s.version`;
 const iso = (value: Date) => value.toISOString();
@@ -93,6 +94,7 @@ const view = (row: SurgeryRow): Surgery => ({
   surgeonId: row.surgeon_id,
   patientId: row.patient_id,
   ...(row.service_id === null ? {} : { serviceId: row.service_id }),
+  ...(row.encounter_id === null ? {} : { encounterId: row.encounter_id }),
   procedure: row.procedure,
   ...(row.notes === null ? {} : { notes: row.notes }),
   startsAt: iso(row.starts_at),
@@ -231,11 +233,17 @@ interface ConsumableRow {
   location_id: string;
   quantity: number;
   ledger_entry_id: string;
+  item_name: string;
+  batch_number: string;
+  location_name: string;
   recorded_by: string;
   recorded_at: Date;
 }
 const CONSUMABLE_COLUMNS = `c.id, c.use_id, c.drug_id, c.batch_id, c.location_id, c.quantity,
-       c.ledger_entry_id, c.recorded_by, c.recorded_at`;
+       c.ledger_entry_id, c.recorded_by, c.recorded_at,
+       (select d.generic_name from drugs d where d.id = c.drug_id) as item_name,
+       (select b.batch_number from stock_batches b where b.id = c.batch_id) as batch_number,
+       (select l.name from stock_locations l where l.id = c.location_id) as location_name`;
 const consumableView = (row: ConsumableRow): SurgeryConsumable => ({
   id: row.id,
   useId: row.use_id,
@@ -244,6 +252,9 @@ const consumableView = (row: ConsumableRow): SurgeryConsumable => ({
   locationId: row.location_id,
   quantity: row.quantity,
   ledgerEntryId: row.ledger_entry_id,
+  itemName: row.item_name,
+  batchNumber: row.batch_number,
+  locationName: row.location_name,
   recordedBy: row.recorded_by,
   recordedAt: iso(row.recorded_at),
 });
@@ -726,6 +737,7 @@ export const theatreRoutes: FastifyPluginAsyncTypebox = async (app) => {
         surgeonId: row.surgeon_id,
         roomId: row.room_id,
         ...(row.service_id === null ? {} : { serviceId: row.service_id }),
+        ...(row.encounter_id === null ? {} : { encounterId: row.encounter_id }),
       });
       return replyWith(client, row.id);
     },
@@ -864,6 +876,11 @@ export const theatreRoutes: FastifyPluginAsyncTypebox = async (app) => {
         );
       }
       request.idempotentId = useId;
+      await request.emit('surgery.consumables_used', surgery.id, {
+        patientId: surgery.patient_id,
+        useId,
+        ...(surgery.encounter_id === null ? {} : { encounterId: surgery.encounter_id }),
+      });
       request.audit('update', 'surgery', surgery.id);
       const { rows } = await client.query<ConsumableRow>(
         `select ${CONSUMABLE_COLUMNS} from ot_consumables c where c.use_id = $1 order by c.recorded_at, c.id`,

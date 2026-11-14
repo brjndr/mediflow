@@ -121,6 +121,7 @@ export const DOMAIN_EVENTS = [
   'surgery.started',
   'surgery.completed',
   'surgery.cancelled',
+  'surgery.consumables_used',
   'surgery.checklist_step_completed',
   'claim.submitted',
   'claim.settled',

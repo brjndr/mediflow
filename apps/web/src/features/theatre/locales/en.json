@@ -50,7 +50,8 @@
     "cancel": "Cancel surgery",
     "rename": "Rename",
     "archive": "Archive or restore",
-    "periop": "Checklist and anaesthesia"
+    "periop": "Checklist and anaesthesia",
+    "operation": "Operation note and stock"
   },
   "done": {
     "booked": "Surgery booked.",
@@ -201,6 +202,99 @@
       "phase_incomplete": "Finish the steps of the earlier phases first.",
       "invalid_state": "This surgery is finished or cancelled, so its record cannot change.",
       "already_signed": "The anaesthesia record is signed and cannot change."
+    }
+  },
+  "operation": {
+    "title": "Operation: {{procedure}}",
+    "description": "The operation note, the stock used and the visit this surgery is charged to.",
+    "loading": "Loading the operation record.",
+    "retry": "Try again",
+    "errors": {
+      "invalid_state": "This cannot be changed at this stage of the surgery.",
+      "invalid_transition": "Stock is recorded once the surgery has started.",
+      "already_signed": "The note is already signed. Add an addendum to correct it.",
+      "not_signed": "An addendum goes to a signed note.",
+      "note_not_found": "Save the note before signing it.",
+      "unknown_encounter": "That is not an open visit of this patient.",
+      "insufficient_stock": "The batch does not hold that many units.",
+      "batch_expired": "That batch is past its expiry date.",
+      "unknown_batch": "That batch is not a batch of this item.",
+      "unknown_location": "That place is not in use.",
+      "unknown_item": "That item is not in use.",
+      "duplicate_batch": "A batch can be named once.",
+      "feature_disabled": "Stock is not switched on for this hospital."
+    },
+    "done": {
+      "linked": "Visit linked. Charges for this surgery go to it.",
+      "noteSaved": "Operation note saved as a draft.",
+      "noteSigned": "Operation note signed.",
+      "addendum": "Addendum added.",
+      "stock": "Stock recorded: {{name}}."
+    },
+    "visit": {
+      "heading": "Visit and charges",
+      "linked": "This surgery is charged to a visit. The procedure and the stock used go to its bill.",
+      "none": "No visit is linked, so nothing is charged for this surgery.",
+      "label": "Open visit of this patient",
+      "choose": "Choose a visit",
+      "noneOpen": "No open visit",
+      "option": "{{type}}, opened {{time}}",
+      "save": "Link visit",
+      "types": {
+        "opd": "Outpatient",
+        "ipd": "Inpatient",
+        "er": "Emergency",
+        "daycare": "Day care"
+      }
+    },
+    "note": {
+      "heading": "Operation note",
+      "notStarted": "The note is written once the surgery has started.",
+      "none": "There is no operation note yet.",
+      "unsigned": "The note is a draft and has not been signed.",
+      "draftSaved": "Draft saved {{time}}. It can be changed until it is signed.",
+      "procedureDone": "Procedure performed",
+      "findings": "Findings",
+      "technique": "Steps and technique",
+      "complications": "Complications",
+      "bloodLoss": "Blood loss (ml)",
+      "specimens": "Specimens sent",
+      "postOpPlan": "Post-operative plan",
+      "save": "Save draft",
+      "sign": "Sign note",
+      "saveFirst": "Save the changes before signing.",
+      "signedBy": "Signed by {{name}}, {{time}}"
+    },
+    "addenda": {
+      "heading": "Addenda",
+      "by": "{{name}}, {{time}}",
+      "label": "Addendum",
+      "description": "A signed note is not changed. Add what was missing or wrong here.",
+      "add": "Add addendum"
+    },
+    "stock": {
+      "heading": "Implants and consumables",
+      "description": "Units used leave stock when recorded and are charged to the visit.",
+      "listLabel": "Stock used in this surgery",
+      "none": "No stock has been recorded for this surgery.",
+      "line": "{{name}}: {{count}} used",
+      "lineDetail": "Batch {{batch}} from {{place}}, {{time}}",
+      "more": "Show more",
+      "addHeading": "Record stock used",
+      "item": "Item used",
+      "pick": "Search for the item first.",
+      "chosen": "Item: {{name}}",
+      "itemFirst": "Choose the item above before recording.",
+      "place": "Take from",
+      "choosePlace": "Choose a place",
+      "batch": "Batch",
+      "placeFirst": "Choose a place first",
+      "chooseBatch": "Choose a batch",
+      "noBatches": "No stock of this item here",
+      "batchOption_one": "{{number}}, expires {{expiry}}, {{count}} unit here",
+      "batchOption_other": "{{number}}, expires {{expiry}}, {{count}} units here",
+      "quantity": "Units used",
+      "record": "Record stock used"
     }
   }
 }

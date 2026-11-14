@@ -2,12 +2,18 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
+import { mockEncounter } from './clinical';
+import { mockDrug } from './drugs';
+import { mockStockOut } from './inventory';
 
 type Room = components['schemas']['OtRoom'];
 type Surgery = components['schemas']['Surgery'];
 type Status = Surgery['status'];
 type Periop = components['schemas']['PeriopRecord'];
 type StepCode = components['schemas']['ChecklistStepCode'];
+type Operation = components['schemas']['OperationRecord'];
+type Consumable = components['schemas']['SurgeryConsumable'];
+type StoredConsumable = Consumable & { tenantId: string; surgeryId: string };
 
 const FEATURE_FLAG = 'theatre';
 
@@ -39,8 +45,13 @@ let surgeries = seedSurgeries();
 let created = 0;
 // The pre-operative record of each surgery, by tenant and surgery id.
 let periops = new Map<string, Periop>();
+// The stock used in surgeries, and the notes, by tenant and surgery id.
+let consumables: StoredConsumable[] = [];
+let operations = new Map<string, Operation>();
 const replies = new Map<string, string>();
 onMockReset(() => {
+  consumables = [];
+  operations = new Map();
   rooms = seedRooms();
   surgeries = seedSurgeries();
   created = 0;
@@ -153,6 +164,39 @@ function periopRoute(
   return HttpResponse.json(record);
 }
 
+function operationOf(tenantId: string, surgery: Surgery): Operation {
+  const key = `${tenantId}:${surgery.id}`;
+  let record = operations.get(key);
+  if (!record) {
+    record = { surgeryId: surgery.id, encounterId: null, note: null, addenda: [] };
+    operations.set(key, record);
+  }
+  record.encounterId = surgery.encounterId ?? null;
+  return record;
+}
+
+const stripConsumable = ({ tenantId: _tenant, surgeryId: _surgery, ...row }: StoredConsumable) =>
+  row;
+
+/** Reads and changes of one surgery's operation note, with the refusals the real API gives. */
+function operationRoute(
+  request: Request,
+  surgeryId: unknown,
+  permission: string,
+  change?: (record: Operation, surgery: Surgery) => Response | undefined,
+): Response {
+  const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+  if ('denied' in access) return access.denied;
+  const surgery = surgeries.find((s) => s.id === surgeryId && s.tenantId === access.tenantId);
+  if (!surgery) return error(404, 'surgery_not_found', 'No such surgery');
+  const record = operationOf(access.tenantId, surgery);
+  if (change) {
+    const refused = change(record, surgery);
+    if (refused) return refused;
+  }
+  return HttpResponse.json(record);
+}
+
 export const theatreHandlers = [
   http.get('*/api/theatre/surgeries/:surgeryId/periop', ({ request, params }) =>
     periopRoute(request, params.surgeryId, 'theatre:read'),
@@ -259,6 +303,201 @@ export const theatreHandlers = [
       });
       return undefined;
     });
+  }),
+
+  // --- the operation note, the visit and the stock used (#178) -----------------------------------
+
+  http.get('*/api/theatre/surgeries/:surgeryId/operation-note', ({ request, params }) =>
+    operationRoute(request, params.surgeryId, 'theatre:read'),
+  ),
+
+  http.put('*/api/theatre/surgeries/:surgeryId/operation-note', async ({ request, params }) => {
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => null)) as Record<string, unknown> | null;
+    if (!isString(body?.procedureDone)) return invalid();
+    return operationRoute(request, params.surgeryId, 'surgery:perform', (record, surgery) => {
+      if (surgery.status !== 'in_progress' && surgery.status !== 'completed') {
+        return error(409, 'invalid_state', 'The surgery has not started');
+      }
+      if (record.note?.signedAt) return error(409, 'already_signed', 'The note is signed');
+      const text = (key: string) => (isString(body?.[key]) ? { [key]: body?.[key] as string } : {});
+      record.note = {
+        procedureDone: body.procedureDone as string,
+        ...text('findings'),
+        ...text('technique'),
+        ...text('complications'),
+        ...(typeof body.bloodLossMl === 'number' ? { bloodLossMl: body.bloodLossMl } : {}),
+        ...text('specimens'),
+        ...text('postOpPlan'),
+        savedAt: new Date().toISOString(),
+        savedBy: signer().id,
+      };
+      return undefined;
+    });
+  }),
+
+  http.post('*/api/theatre/surgeries/:surgeryId/operation-note/sign', ({ request, params }) => {
+    if (!withKey(request)) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    return operationRoute(request, params.surgeryId, 'surgery:perform', (record) => {
+      if (!record.note) return error(404, 'note_not_found', 'No note to sign');
+      if (record.note.signedAt) return error(409, 'already_signed', 'The note is signed');
+      const who = signer();
+      Object.assign(record.note, {
+        signedAt: new Date().toISOString(),
+        signedBy: who.id,
+        signedByName: who.name,
+      });
+      return undefined;
+    });
+  }),
+
+  http.post(
+    '*/api/theatre/surgeries/:surgeryId/operation-note/addenda',
+    async ({ request, params }) => {
+      if (!withKey(request)) {
+        return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+      }
+      const body = (await request
+        .clone()
+        .json()
+        .catch(() => null)) as { text?: unknown } | null;
+      if (!isString(body?.text)) return invalid();
+      return operationRoute(request, params.surgeryId, 'surgery:perform', (record) => {
+        if (!record.note?.signedAt) return error(409, 'not_signed', 'The note is not signed');
+        const who = signer();
+        record.addenda.push({
+          id: `add_${record.addenda.length + 1}`,
+          text: body.text as string,
+          addedBy: who.id,
+          addedByName: who.name,
+          addedAt: new Date().toISOString(),
+        });
+        return undefined;
+      });
+    },
+  ),
+
+  http.put('*/api/theatre/surgeries/:surgeryId/encounter', async ({ request, params }) => {
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => null)) as { encounterId?: unknown } | null;
+    if (!isString(body?.encounterId)) return invalid();
+    const access = authorize(request, {
+      permission: 'surgery:schedule',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const surgery = surgeries.find(
+      (s) => s.id === params.surgeryId && s.tenantId === access.tenantId,
+    );
+    if (!surgery) return error(404, 'surgery_not_found', 'No such surgery');
+    if (!live(surgery)) return error(409, 'invalid_state', 'The surgery is finished or cancelled');
+    const visit = mockEncounter(body.encounterId);
+    if (!visit || visit.patientId !== surgery.patientId || visit.status !== 'open') {
+      return error(422, 'unknown_encounter', 'No such open visit of this patient');
+    }
+    surgery.encounterId = visit.id;
+    surgery.version += 1;
+    return HttpResponse.json(operationOf(access.tenantId, surgery));
+  }),
+
+  http.get('*/api/theatre/surgeries/:surgeryId/consumables', ({ request, params }) => {
+    const access = authorize(request, { permission: 'theatre:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    if (!surgeries.some((s) => s.id === params.surgeryId && s.tenantId === access.tenantId)) {
+      return error(404, 'surgery_not_found', 'No such surgery');
+    }
+    return page(
+      consumables
+        .filter((c) => c.tenantId === access.tenantId && c.surgeryId === params.surgeryId)
+        .map(({ tenantId: _tenant, surgeryId: _surgery, ...row }) => row),
+      new URL(request.url).searchParams,
+    );
+  }),
+
+  http.post('*/api/theatre/surgeries/:surgeryId/consumables', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'surgery:perform', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const key = withKey(request);
+    if (!key) return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => null)) as {
+      drugId?: unknown;
+      locationId?: unknown;
+      lines?: { batchId?: unknown; quantity?: unknown }[];
+    } | null;
+    if (
+      !isString(body?.drugId) ||
+      !isString(body.locationId) ||
+      !Array.isArray(body.lines) ||
+      body.lines.length === 0 ||
+      body.lines.some((l) => !isString(l.batchId) || !Number.isInteger(l.quantity))
+    ) {
+      return invalid();
+    }
+    const surgery = surgeries.find(
+      (s) => s.id === params.surgeryId && s.tenantId === access.tenantId,
+    );
+    if (!surgery) return error(404, 'surgery_not_found', 'No such surgery');
+    const replyKey = `${access.tenantId}:consumables:${key}`;
+    const known = replies.get(replyKey);
+    if (known) {
+      const items = consumables.filter((c) => c.useId === known).map(stripConsumable);
+      return HttpResponse.json({ items, nextCursor: null }, { status: 201 });
+    }
+    if (surgery.status !== 'in_progress' && surgery.status !== 'completed') {
+      return error(409, 'invalid_transition', 'Stock is recorded once the surgery has started');
+    }
+    const drug = mockDrug(access.tenantId, body.drugId);
+    if (!drug) return error(422, 'unknown_item', 'No such item in use');
+    const lines = body.lines.map((l) => ({
+      batchId: l.batchId as string,
+      quantity: l.quantity as number,
+    }));
+    const useId = `use_${consumables.length + 1}`;
+    const taken = mockStockOut(access.tenantId, {
+      locationId: body.locationId,
+      drugId: drug.id,
+      sourceId: useId,
+      actorName: signer().name,
+      lines,
+    });
+    if ('refused' in taken) {
+      return error(
+        taken.refused === 'insufficient_stock' || taken.refused === 'batch_expired' ? 409 : 422,
+        taken.refused,
+        'Refused',
+      );
+    }
+    const added = taken.batches.map((batch, index) => ({
+      id: `con_${consumables.length + index + 1}`,
+      tenantId: access.tenantId,
+      surgeryId: surgery.id,
+      useId,
+      drugId: drug.id,
+      batchId: batch.batchId,
+      locationId: body.locationId as string,
+      quantity: batch.quantity,
+      ledgerEntryId: `led_${consumables.length + index + 1}`,
+      itemName: drug.genericName,
+      batchNumber: batch.batchNumber,
+      locationName: taken.locationName,
+      recordedBy: signer().id,
+      recordedAt: new Date().toISOString(),
+    }));
+    consumables.push(...added);
+    replies.set(replyKey, useId);
+    return HttpResponse.json(
+      { items: added.map(stripConsumable), nextCursor: null },
+      { status: 201 },
+    );
   }),
 
   http.get('*/api/theatre/rooms', ({ request }) => {

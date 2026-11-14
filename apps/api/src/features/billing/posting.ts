@@ -238,6 +238,64 @@ export function subscribeToPostings(app: FastifyInstance): void {
     });
   });
 
+  // A surgery completed on a visit is charged as its procedure service (#178), once. A surgery
+  // with no visit or no service has nothing to post; the price is the list's, never the surgery's.
+  app.events.subscribe('surgery.completed', async (message, tx) => {
+    const { payload } = message;
+    const surgeryId = idOf(message.entityId);
+    const encounterId = idOf(payload.encounterId);
+    const patientId = idOf(payload.patientId);
+    const serviceId = idOf(payload.serviceId);
+    if (!surgeryId || !encounterId || !patientId || !serviceId) return;
+    await postCharge(tx, {
+      encounterId,
+      patientId,
+      serviceId,
+      source: 'procedure',
+      sourceRef: `surgery:${surgeryId}`,
+      description: '',
+      quantity: 1,
+      unitPriceMinor: 0,
+      flag: null,
+    });
+  });
+
+  // Consumables and implants used in a surgery are charged for each batch taken, at that
+  // batch's price, as a dispense is (#178). With no visit linked nothing is posted.
+  app.events.subscribe('surgery.consumables_used', async (message, tx) => {
+    const { payload } = message;
+    const useId = idOf(payload.useId);
+    const encounterId = idOf(payload.encounterId);
+    const patientId = idOf(payload.patientId);
+    if (!useId || !encounterId || !patientId) return;
+    const { rows } = await tx.execute<{
+      id: string;
+      quantity: number;
+      item_name: string;
+      mrp_minor: string | null;
+    }>(
+      sql`select c.id, c.quantity, d.generic_name as item_name, b.mrp_minor::text as mrp_minor
+          from ot_consumables c
+          join drugs d on d.tenant_id = c.tenant_id and d.id = c.drug_id
+          join stock_batches b on b.tenant_id = c.tenant_id and b.id = c.batch_id
+          where c.use_id = ${useId}
+          order by c.id`,
+    );
+    for (const line of rows) {
+      await postCharge(tx, {
+        encounterId,
+        patientId,
+        serviceId: null,
+        source: 'dispense',
+        sourceRef: `theatre:${line.id}`,
+        description: line.item_name,
+        quantity: line.quantity,
+        unitPriceMinor: line.mrp_minor === null ? 0 : Number(line.mrp_minor),
+        flag: line.mrp_minor === null ? 'no_price' : null,
+      });
+    }
+  });
+
   // A dispense is charged for each batch it took from, at that batch's price.
   app.events.subscribe('pharmacy.dispensed', async (message, tx) => {
     const dispenseId = idOf(message.entityId);

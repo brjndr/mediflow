@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
   addMembership,
   as,
@@ -25,6 +26,7 @@ import {
  */
 
 let app: FastifyInstance;
+let jobs: MemoryQueue;
 let pool: pg.Pool;
 let hospital: TestTenant;
 let clinic: TestTenant;
@@ -181,6 +183,7 @@ const FINAL_TABLES = [
   'stock_batches',
   'stock_locations',
   'drugs',
+  'service_prices',
   'services',
   'doctors',
   'departments',
@@ -190,7 +193,11 @@ async function wipe(final = false) {
   try {
     await client.query('begin');
     await client.query('set local session_replication_role = replica');
+    await client.query('delete from charges where tenant_id = any($1)', [tenants()]);
+    await client.query('delete from encounters where tenant_id = any($1)', [tenants()]);
     for (const table of [
+      'ot_note_addenda',
+      'ot_notes',
       'ot_anaesthesia',
       'ot_checklist_steps',
       'ot_fitness',
@@ -225,12 +232,14 @@ async function addDoctor(tenant: TestTenant, user: TestUser) {
 }
 
 beforeAll(async () => {
+  jobs = new MemoryQueue();
   app = await buildTestApp({
     resolveSession: resolveTestSession,
+    jobQueue: jobs,
     config: { RATE_LIMIT_USER_PER_MINUTE: 100_000, RATE_LIMIT_TENANT_PER_MINUTE: 100_000 },
   });
   pool = app.database.pool;
-  const features = { theatre: true, patients: true, inventory: true };
+  const features = { theatre: true, patients: true, inventory: true, billing: true };
   hospital = await createTenant(pool, 'OT Hospital', { features });
   clinic = await createTenant(pool, 'OT Clinic', { features });
   closed = await createTenant(pool, 'OT Closed', { features: { theatre: false } });
@@ -1062,6 +1071,188 @@ describe('the peri-operative record', () => {
       'surgery_not_found',
     ]);
     for (const table of ['ot_fitness', 'ot_checklist_steps', 'ot_anaesthesia']) {
+      const rows = await asTenantSql(pool, clinic.id, (client) =>
+        client.query(`select 1 from ${table}`),
+      );
+      expect(rows.rowCount).toBe(0);
+    }
+  });
+});
+
+describe('the operation note, the visit and the charges', () => {
+  interface Operation {
+    surgeryId: string;
+    encounterId: string | null;
+    note: { procedureDone: string; signedAt?: string; signedByName?: string } | null;
+    addenda: { text: string; addedByName: string }[];
+  }
+  interface ChargeRow {
+    source: string;
+    source_ref: string;
+    quantity: number;
+    unit_price_minor: string;
+    service_id: string | null;
+  }
+  const put = (url: string, body: object, options: Options = {}) =>
+    app.inject({ method: 'PUT', url, headers: headers(options), payload: body });
+  const note = { procedureDone: 'Laparoscopic appendectomy', findings: 'Inflamed appendix' };
+  const addEncounter = async (tenant: TestTenant, patientId: string, status = 'open') =>
+    (
+      await pool.query<{ id: string }>(
+        `insert into encounters (tenant_id, patient_id, type, opened_by, status, cancel_reason, ended_at, ended_by)
+         values ($1, $2, 'ipd', $3, $4, $5, $6, $7) returning id`,
+        [
+          tenant.id,
+          patientId,
+          admin.id,
+          status,
+          status === 'cancelled' ? 'Entered in error' : null,
+          status === 'open' ? null : new Date(),
+          status === 'open' ? null : admin.id,
+        ],
+      )
+    ).rows[0]?.id ?? '';
+  const chargesOf = async (encounterId: string) => {
+    await app.events.dispatch();
+    await jobs.drain();
+    return (
+      await pool.query<ChargeRow>(
+        'select source, source_ref, quantity, unit_price_minor::text, service_id from charges where encounter_id = $1 order by source_ref',
+        [encounterId],
+      )
+    ).rows;
+  };
+
+  it('keeps a draft, signs it once and corrects it only by addenda', async () => {
+    const surgery = await booked({});
+    const url = `/theatre/surgeries/${surgery.id}/operation-note`;
+    expect(errorOf(await put(url, note))).toEqual([409, 'invalid_state']);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const empty = await ok<Operation>(await get(url));
+    expect(empty).toMatchObject({
+      surgeryId: surgery.id,
+      encounterId: null,
+      note: null,
+      addenda: [],
+    });
+    expect(errorOf(await post(`${url}/sign`, {}))).toEqual([404, 'note_not_found']);
+    expect(errorOf(await post(`${url}/addenda`, { text: 'Early' }))).toEqual([409, 'not_signed']);
+    await ok(await put(url, note));
+    const changed = await ok<Operation>(await put(url, { ...note, bloodLossMl: 50 }));
+    expect(changed.note).toMatchObject({ procedureDone: note.procedureDone });
+    expect((await put(url, { procedureDone: '' })).statusCode).toBe(400);
+    const key = fresh();
+    const signed = await ok<Operation>(await post(`${url}/sign`, {}, { key }));
+    expect(signed.note?.signedAt).toBeDefined();
+    expect(signed.note?.signedByName).toBe('OT Admin');
+    expect((await post(`${url}/sign`, {}, { key })).statusCode).toBe(200);
+    expect(errorOf(await post(`${url}/sign`, {}))).toEqual([409, 'already_signed']);
+    expect(errorOf(await put(url, note))).toEqual([409, 'already_signed']);
+    const withAddendum = await ok<Operation>(
+      await post(`${url}/addenda`, { text: 'Drain removed' }),
+    );
+    expect(withAddendum.addenda).toMatchObject([
+      { text: 'Drain removed', addedByName: 'OT Admin' },
+    ]);
+    await expect(
+      pool.query("update ot_notes set findings = 'x' where booking_id = $1", [surgery.id]),
+    ).rejects.toThrow(/never changed/);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/complete`, { version: 2 }));
+    await ok(await post(`${url}/addenda`, { text: 'Second' }));
+    expect(await audited(surgery.id)).toContain('read');
+    const events = await pool.query<{ p: string }>(
+      'select payload::text as p from outbox where entity_id = $1',
+      [surgery.id],
+    );
+    expect(events.rows.map((row) => row.p).join()).not.toContain('appendix');
+  });
+
+  it('links an open visit of the patient and charges the procedure and consumables to it', async () => {
+    const surgery = await booked({ serviceId: procedureService });
+    const encounter = await addEncounter(hospital, surgery.patientId);
+    await pool.query(
+      `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
+       select $1, $2, id, 250000, current_date - 10 from price_lists where tenant_id = $1 and standard
+       on conflict do nothing`,
+      [hospital.id, procedureService],
+    );
+    const link = `/theatre/surgeries/${surgery.id}/encounter`;
+    expect(errorOf(await put(link, { encounterId: randomUUID() }))).toEqual([
+      422,
+      'unknown_encounter',
+    ]);
+    const otherPatient = patients.find((id) => id !== surgery.patientId) as string;
+    const other = await addEncounter(hospital, otherPatient);
+    expect(errorOf(await put(link, { encounterId: other }))).toEqual([422, 'unknown_encounter']);
+    const finished = await addEncounter(hospital, surgery.patientId, 'closed');
+    expect(errorOf(await put(link, { encounterId: finished }))).toEqual([422, 'unknown_encounter']);
+    const linked = await ok<Operation>(await put(link, { encounterId: encounter }));
+    expect(linked.encounterId).toBe(encounter);
+
+    const batch = await stockIn(10);
+    await pool.query('update stock_batches set mrp_minor = 1500 where id = $1', [batch]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 2 }));
+    const line = { drugId, locationId: place, lines: [{ batchId: batch, quantity: 4 }] };
+    await ok(await post(`/theatre/surgeries/${surgery.id}/consumables`, line), 201);
+    expect(await onHand(batch)).toBe(6);
+    let charges = await chargesOf(encounter);
+    expect(charges).toHaveLength(1);
+    expect(charges[0]).toMatchObject({ source: 'dispense', quantity: 4, unit_price_minor: '1500' });
+    await ok(await post(`/theatre/surgeries/${surgery.id}/complete`, { version: 3 }));
+    charges = await chargesOf(encounter);
+    expect(charges.map((row) => row.source).sort()).toEqual(['dispense', 'procedure']);
+    expect(charges.find((row) => row.source === 'procedure')).toMatchObject({
+      source_ref: `surgery:${surgery.id}`,
+      service_id: procedureService,
+      unit_price_minor: '250000',
+    });
+    expect(errorOf(await put(link, { encounterId: encounter }))).toEqual([409, 'invalid_state']);
+    expect(await chargesOf(encounter)).toHaveLength(2);
+  });
+
+  it('posts no charge for a surgery with no visit', async () => {
+    const surgery = await booked({ serviceId: procedureService });
+    const batch = await stockIn(5);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    await ok(
+      await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+        drugId,
+        locationId: place,
+        lines: [{ batchId: batch, quantity: 1 }],
+      }),
+      201,
+    );
+    await ok(await post(`/theatre/surgeries/${surgery.id}/complete`, { version: 2 }));
+    await app.events.dispatch();
+    await jobs.drain();
+    const rows = await pool.query('select 1 from charges where source_ref like $1', [
+      `%${surgery.id}%`,
+    ]);
+    expect(rows.rowCount).toBe(0);
+  });
+
+  it('needs the right permission and the module, and stays inside the hospital', async () => {
+    const surgery = await booked({});
+    const url = `/theatre/surgeries/${surgery.id}`;
+    await ok(await post(`${url}/start`, { version: 1 }));
+    await ok(await put(`${url}/operation-note`, note));
+    expect((await get(`${url}/operation-note`, { user: pharmacist })).statusCode).toBe(403);
+    expect((await put(`${url}/operation-note`, note, { user: pharmacist })).statusCode).toBe(403);
+    expect((await post(`${url}/operation-note/sign`, {}, { user: pharmacist })).statusCode).toBe(
+      403,
+    );
+    expect((await get(`${url}/operation-note`, { tenant: closed })).statusCode).toBe(403);
+    const other = { tenant: clinic, user: clinicAdmin };
+    expect(errorOf(await get(`${url}/operation-note`, other))).toEqual([404, 'surgery_not_found']);
+    expect(errorOf(await put(`${url}/operation-note`, note, other))).toEqual([
+      404,
+      'surgery_not_found',
+    ]);
+    expect(errorOf(await put(`${url}/encounter`, { encounterId: randomUUID() }, other))).toEqual([
+      404,
+      'surgery_not_found',
+    ]);
+    for (const table of ['ot_notes', 'ot_note_addenda']) {
       const rows = await asTenantSql(pool, clinic.id, (client) =>
         client.query(`select 1 from ${table}`),
       );
