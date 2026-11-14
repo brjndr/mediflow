@@ -30,6 +30,23 @@ describe('the retention rules screen', () => {
     await expectNoAxeViolations();
   });
 
+  it('counts the documents kept under an earlier rule, and the count follows a change', async () => {
+    const table = await openPage();
+    await within(table).findByText('10 years');
+    expect(within(rowOf(table, 'Consent')).getByText('None')).toBeInTheDocument();
+    await userEvent.click(within(rowOf(table, 'Consent')).getByRole('button', { name: /^Change/ }));
+    const field = await screen.findByLabelText(/Years kept/);
+    await userEvent.clear(field);
+    await userEvent.type(field, '7');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Retention of Consent saved.')).toBeInTheDocument();
+    expect(
+      await within(
+        rowOf(screen.getByRole('table', { name: 'Document retention' }), 'Consent'),
+      ).findByText('1 document'),
+    ).toBeInTheDocument();
+  });
+
   it('changes a category to a number of years, and back to for ever', async () => {
     const table = await openPage();
     await within(table).findByText('10 years');

@@ -94,8 +94,12 @@
     "heading": "Document retention",
     "note": "How long each kind of document is kept. A change applies to documents attached from now on; documents already kept keep their date.",
     "columns": {
-      "kept": "Kept for"
+      "kept": "Kept for",
+      "otherRule": "Under an earlier rule"
     },
+    "otherRuleNone": "None",
+    "otherRule_one": "{{value}} document",
+    "otherRule_other": "{{value}} documents",
     "years_one": "{{value}} year",
     "years_other": "{{value}} years",
     "change": "Change",

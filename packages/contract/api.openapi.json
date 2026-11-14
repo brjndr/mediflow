@@ -9556,6 +9556,11 @@
                 "type": "null"
               }
             ]
+          },
+          "otherRuleCount": {
+            "minimum": 0,
+            "description": "Only in the list: documents of the category not yet purged whose retention date is not the one the rule would give today, kept under an earlier rule (#674).",
+            "type": "integer"
           }
         }
       },
@@ -45375,7 +45380,7 @@
       "get": {
         "operationId": "listDocumentRetention",
         "tags": ["documents"],
-        "description": "How long the hospital keeps the documents of each category (#194): every category, with `years` null where it is kept for ever. Requires documentRetention:read.",
+        "description": "How long the hospital keeps the documents of each category (#194): every category, with `years` null where it is kept for ever, and `otherRuleCount`: the documents not yet purged that keep a date from an earlier rule (#674). Requires documentRetention:read.",
         "responses": {
           "200": {
             "description": "Default Response",

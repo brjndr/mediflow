@@ -157,6 +157,20 @@ async function placeMockHold(
   return HttpResponse.json(hold, { status: 201 });
 }
 
+/** Documents not purged whose date is not the one today's rule gives (roughly: the year count). */
+function otherRuleCount(tenantId: string, category: string): number {
+  const years = state.retention.get(tenantId + ':' + category) ?? null;
+  return state.documents.filter((doc) => {
+    if (doc.tenantId !== tenantId || doc.category !== category || doc.status === 'purged') {
+      return false;
+    }
+    if (years === null) return doc.retainUntil !== undefined;
+    const due = new Date(doc.createdAt);
+    due.setUTCFullYear(due.getUTCFullYear() + years);
+    return doc.retainUntil !== due.toISOString().slice(0, 10);
+  }).length;
+}
+
 export const documentsHandlers = [
   http.get('*/api/document-retention', ({ request }) => {
     const access = authorize(request, {
@@ -168,6 +182,7 @@ export const documentsHandlers = [
       items: CATEGORIES.map((category) => ({
         category,
         years: state.retention.get(access.tenantId + ':' + category) ?? null,
+        otherRuleCount: otherRuleCount(access.tenantId, category),
       })),
     });
   }),

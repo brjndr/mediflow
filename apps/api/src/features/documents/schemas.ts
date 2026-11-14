@@ -126,6 +126,13 @@ export const RetentionRule = Type.Object(
     years: Type.Union([Type.Integer({ minimum: 1, maximum: 100 }), Type.Null()], {
       description: 'Years a document of the category is kept; null keeps it for ever.',
     }),
+    otherRuleCount: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        description:
+          'Only in the list: documents of the category not yet purged whose retention date is not the one the rule would give today, kept under an earlier rule (#674).',
+      }),
+    ),
   },
   { $id: 'DocumentRetentionRule' },
 );

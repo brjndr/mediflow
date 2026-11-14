@@ -107,6 +107,7 @@ export const retentionRulesSchema: z.ZodType<{ items: RetentionRule[] }> = z.obj
     z.object({
       category: z.enum(DOCUMENT_CATEGORIES),
       years: z.number().int().nullable(),
+      otherRuleCount: z.number().int().optional(),
     }),
   ),
 });

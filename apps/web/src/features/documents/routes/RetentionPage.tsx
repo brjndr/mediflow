@@ -49,6 +49,17 @@ export default function RetentionPage() {
             ? t('keptForEver')
             : t('retention.years', { count: row.years, value: format.number(row.years) }),
       },
+      {
+        id: 'otherRule',
+        header: t('retention.columns.otherRule'),
+        value: (row) =>
+          (row.otherRuleCount ?? 0) === 0
+            ? t('retention.otherRuleNone')
+            : t('retention.otherRule', {
+                count: row.otherRuleCount ?? 0,
+                value: format.number(row.otherRuleCount ?? 0),
+              }),
+      },
     ],
     [t, format],
   );

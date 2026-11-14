@@ -3763,7 +3763,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description How long the hospital keeps the documents of each category (#194): every category, with `years` null where it is kept for ever. Requires documentRetention:read. */
+        /** @description How long the hospital keeps the documents of each category (#194): every category, with `years` null where it is kept for ever, and `otherRuleCount`: the documents not yet purged that keep a date from an earlier rule (#674). Requires documentRetention:read. */
         get: operations["listDocumentRetention"];
         put?: never;
         post?: never;
@@ -10283,6 +10283,8 @@ export interface components {
             category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
             /** @description Years a document of the category is kept; null keeps it for ever. */
             years: number | null;
+            /** @description Only in the list: documents of the category not yet purged whose retention date is not the one the rule would give today, kept under an earlier rule (#674). */
+            otherRuleCount?: number;
         };
         DocumentRetentionRules: {
             items: components["schemas"]["DocumentRetentionRule"][];

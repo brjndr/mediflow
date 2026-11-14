@@ -355,7 +355,7 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listDocumentRetention',
         tags: ['documents'],
         description:
-          'How long the hospital keeps the documents of each category (#194): every category, with `years` null where it is kept for ever. Requires documentRetention:read.',
+          'How long the hospital keeps the documents of each category (#194): every category, with `years` null where it is kept for ever, and `otherRuleCount`: the documents not yet purged that keep a date from an earlier rule (#674). Requires documentRetention:read.',
         response: { 200: ref(RetentionRules), ...errors(401, 403, 429) },
       },
     },
@@ -364,10 +364,24 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         'select category, years from document_retention_rules',
       );
       const years = new Map(rows.map((row) => [row.category, row.years]));
+      // The date today's rule would have given each document, at the hospital's date of upload.
+      const { rows: counts } = await request.txClient.query<{ category: string; n: number }>(
+        `select d.category, count(*)::int as n
+         from patient_documents d
+         join tenants t on t.id = d.tenant_id
+         left join document_retention_rules r on r.category = d.category
+         where d.status <> 'purged'
+           and d.retain_until is distinct from
+             (case when r.years is null then null
+                   else (d.created_at at time zone t.timezone)::date + make_interval(years => r.years::int) end)
+         group by d.category`,
+      );
+      const other = new Map(counts.map((row) => [row.category, row.n]));
       return {
         items: DOCUMENT_CATEGORIES.map((category) => ({
           category,
           years: years.get(category) ?? null,
+          otherRuleCount: other.get(category) ?? 0,
         })),
       };
     },
