@@ -41,3 +41,7 @@ Moved out of the root `CLAUDE.md` (#370), which keeps the rule; Claude Code load
 ## Records and operations screens (#565)
 
 `records-operations.spec.ts` covers the patient's Documents and Consents tabs, housekeeping, the blood bank and document retention: fit at every width, axe on the forms, and the keyboard alone (tabs move with the arrow keys, since they use a roving tabindex). Known gap: closing the housekeeping "Request a cleaning" dialog leaves focus on the page body, so that spec does not assert the return of focus (the blood bank one does).
+
+## Records flow (#193)
+
+`records-flow.spec.ts` chains the records screens in one session at all three widths: add a document to a patient, sign a consent (typed signature) and merge a duplicate, then read the reason in Merge history. Corrections and unmerge are not covered (#191 open).
