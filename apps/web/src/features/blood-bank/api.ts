@@ -1,5 +1,11 @@
 import { api, requireData } from '@/shared/api';
 import {
+  bloodCollectionSchema,
+  donorPageSchema,
+  donorSchema,
+  donorTraceSchema,
+} from './donor-schemas';
+import {
   bloodUnitSchema,
   compatibleUnitsSchema,
   crossmatchSchema,
@@ -12,6 +18,15 @@ import {
   unitPageSchema,
 } from './schemas';
 import type {
+  BloodCollection,
+  BloodCollectionCreate,
+  BloodDonor,
+  BloodDonorCreate,
+  BloodDonorDefer,
+  BloodDonorPage,
+  BloodDonorTrace,
+  DonorStatus,
+  PatientBloodGroupSet,
   BloodComponent,
   BloodCrossmatch,
   BloodGroup,
@@ -169,4 +184,85 @@ export async function fetchTrace(unitId: string, signal?: AbortSignal): Promise<
     signal,
   });
   return traceSchema.parse(requireData(result));
+}
+
+export interface DonorFilters {
+  q?: string;
+  bloodGroup?: BloodGroup;
+  status?: DonorStatus;
+}
+
+/** The term travels in the body of a search, never in the address. */
+export async function searchDonors(
+  { filters, cursor, limit }: { filters: DonorFilters; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<BloodDonorPage> {
+  const result = await api.POST('/blood/donors/search', {
+    body: { ...filters, ...(cursor ? { cursor } : {}), limit },
+    signal,
+  });
+  return donorPageSchema.parse(requireData(result));
+}
+
+/** The full record, name and phone included. The server audits this as a read. */
+export async function fetchDonor(donorId: string, signal?: AbortSignal): Promise<BloodDonor> {
+  const result = await api.GET('/blood/donors/{donorId}', {
+    params: { path: { donorId } },
+    signal,
+  });
+  return donorSchema.parse(requireData(result));
+}
+
+export async function fetchDonorTrace(
+  donorId: string,
+  signal?: AbortSignal,
+): Promise<BloodDonorTrace> {
+  const result = await api.GET('/blood/donors/{donorId}/trace', {
+    params: { path: { donorId } },
+    signal,
+  });
+  return donorTraceSchema.parse(requireData(result));
+}
+
+export async function registerDonor(body: BloodDonorCreate, key: string): Promise<BloodDonor> {
+  const result = await api.POST('/blood/donors', {
+    params: { header: { 'idempotency-key': key } },
+    body,
+  });
+  return donorSchema.parse(requireData(result));
+}
+
+export async function deferDonor(
+  donorId: string,
+  body: BloodDonorDefer,
+  key: string,
+): Promise<BloodDonor> {
+  const result = await api.POST('/blood/donors/{donorId}/defer', {
+    params: { path: { donorId }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return donorSchema.parse(requireData(result));
+}
+
+export async function recordCollection(
+  body: BloodCollectionCreate,
+  key: string,
+): Promise<BloodCollection> {
+  const result = await api.POST('/blood/collections', {
+    params: { header: { 'idempotency-key': key } },
+    body,
+  });
+  return bloodCollectionSchema.parse(requireData(result));
+}
+
+export async function setPatientBloodGroup(
+  patientId: string,
+  body: PatientBloodGroupSet,
+  key: string,
+): Promise<PatientBloodGroup> {
+  const result = await api.POST('/patients/{patientId}/blood-group', {
+    params: { path: { patientId }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return patientBloodGroupSchema.parse(requireData(result));
 }

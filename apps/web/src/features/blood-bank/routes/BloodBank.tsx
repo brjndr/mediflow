@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Can } from '@/access';
+import { Can, usePermission } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
@@ -8,6 +8,7 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { useFormatters } from '@/tenancy';
 import type { UnitFilters, UnitMove } from '../api';
 import { refusalKey } from '../components/refusal';
+import { DonorsPanel } from '../components/DonorsPanel';
 import { CompatiblePanel } from '../components/CompatiblePanel';
 import { DiscardDialog, HistoryDialog, RegisterDialog, ReserveDialog } from '../components/Dialogs';
 import { ReactionDialog, TraceDialog } from '../components/ReactionDialogs';
@@ -26,8 +27,7 @@ type Dialogs =
     }
   | null;
 
-// Default export: route modules are loaded by the manifest with a dynamic import.
-export default function BloodBank() {
+function UnitsPanel() {
   const { t } = useTranslation('blood-bank');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
@@ -212,12 +212,9 @@ export default function BloodBank() {
   const refused = refusalKey(move.error);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
-          <p className="text-muted-foreground">{t('description')}</p>
-        </div>
+        <h2 className="text-lg font-semibold">{t('units.heading')}</h2>
         <Can permission="bloodUnit:manage">
           <Button onClick={() => setOpen({ kind: 'register' })}>{t('register.open')}</Button>
         </Can>
@@ -407,6 +404,86 @@ export default function BloodBank() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+type Tab = 'units' | 'donors';
+
+// Default export: route modules are loaded by the manifest with a dynamic import.
+export default function BloodBank() {
+  const { t } = useTranslation('blood-bank');
+  const canDonors = usePermission('bloodDonor:read');
+  const [tab, setTab] = useState<Tab>('units');
+  const tabs: Tab[] = canDonors ? ['units', 'donors'] : ['units'];
+  const active = tabs.includes(tab) ? tab : 'units';
+  const buttons = useRef(new Map<Tab, HTMLButtonElement>());
+
+  // Arrow keys move between tabs and open them, as the tabs pattern expects.
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const index = tabs.indexOf(active);
+    const next =
+      event.key === 'ArrowRight'
+        ? tabs[(index + 1) % tabs.length]
+        : event.key === 'ArrowLeft'
+          ? tabs[(index - 1 + tabs.length) % tabs.length]
+          : event.key === 'Home'
+            ? tabs[0]
+            : event.key === 'End'
+              ? tabs[tabs.length - 1]
+              : undefined;
+    if (!next) return;
+    event.preventDefault();
+    setTab(next);
+    buttons.current.get(next)?.focus();
+  };
+
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
+        <p className="text-muted-foreground">{t('description')}</p>
+      </div>
+      {tabs.length > 1 && (
+        // eslint-disable-next-line jsx-a11y/interactive-supports-focus -- the tabs are focusable, not the list
+        <div
+          role="tablist"
+          aria-label={t('tabs.label')}
+          onKeyDown={onKeyDown}
+          className="flex gap-1 overflow-x-auto border-b"
+        >
+          {tabs.map((id) => (
+            <button
+              key={id}
+              ref={(element) => {
+                if (element) buttons.current.set(id, element);
+                else buttons.current.delete(id);
+              }}
+              type="button"
+              role="tab"
+              id={`blood-tab-${id}`}
+              aria-selected={active === id}
+              aria-controls={`blood-panel-${id}`}
+              tabIndex={active === id ? 0 : -1}
+              onClick={() => setTab(id)}
+              className={`-mb-px h-10 shrink-0 border-b-2 px-4 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-11 ${
+                active === id
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t(`tabs.${id}`)}
+            </button>
+          ))}
+        </div>
+      )}
+      <div
+        role={tabs.length > 1 ? 'tabpanel' : undefined}
+        id={`blood-panel-${active}`}
+        aria-labelledby={tabs.length > 1 ? `blood-tab-${active}` : undefined}
+      >
+        {active === 'donors' ? <DonorsPanel /> : <UnitsPanel />}
+      </div>
     </div>
   );
 }
