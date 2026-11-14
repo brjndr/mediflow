@@ -47,6 +47,18 @@ describe('the permission matrix', () => {
     expect(role?.permissions.map((g) => g.permission)).toContain('patient:delete');
   });
 
+  it('lets patient:unmerge be granted to a role (#878)', async () => {
+    await openMatrix();
+
+    expect(box('patient:unmerge')).not.toBeChecked();
+    box('patient:unmerge').focus();
+    await userEvent.keyboard(' ');
+    await userEvent.click(save());
+    await waitFor(() => expect(status()).toHaveTextContent('Saved the permissions of Doctor.'));
+    const role = await roleOf('doctor');
+    expect(role?.permissions.map((g) => g.permission)).toContain('patient:unmerge');
+  });
+
   it('offers a scope only where the catalog allows one', async () => {
     await openMatrix();
 
