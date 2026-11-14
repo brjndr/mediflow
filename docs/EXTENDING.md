@@ -55,7 +55,7 @@ Core modules publish events through a transactional outbox (written in the same 
 - `pharmacy.dispensed`, `pharmacy.sold` and `pharmacy.sale_returned` (#101: the sale, its place, the patient when named, the return; ids only), `pharmacy.dispense_returned` (#104: the return, its dispense, order, encounter, patient, item and place; ids only), `stock.adjusted`, `stock.low` (#102), `stock.expiring`, `purchase.order_approved`, `stock.received` and `stock.returned` (#103: the order, the receipt or the return, its supplier and place; ids only), `stock.issued` (#105: the indent, the voucher and the two places; ids only)
 - `charge.posted`, `invoice.issued`, `invoice.paid`, `payment.refunded`
 - `admission.created`, `bed.assigned`, `bed.released`, `medication.administered`, `discharge.completed`
-- `er.triaged`, `surgery.completed`, `claim.submitted`, `claim.settled`
+- `er.triaged`, `surgery.completed`, `surgery.consumables_used`, `claim.submitted`, `claim.settled`
 - `master.changed` (a record of a catalog was added or changed: the kind of record, what happened and its id)
 
 New features subscribe to events in their own module. They do not modify the module that emits them. Handlers must be idempotent.

@@ -106,6 +106,8 @@ export async function searchPatients(
 ): Promise<{ rows: PatientRow[]; nextCursor: string | null; total?: number }> {
   const params: unknown[] = [];
   const where: string[] = [];
+  // The arguments of the search function, kept to count with it for a caller who sees all (#880).
+  let searchArgs: unknown[] | null = null;
 
   const visible = visibilityClause(visibility, params);
   if (visible) where.push(visible);
@@ -125,7 +127,8 @@ export async function searchPatients(
     // The ids come from a definer function over a trigram index (#864). The rows are read again
     // here under row-level security and the caller's scope, so the function cannot widen what
     // is shown. The last argument is an exact legacy registration number (#694).
-    params.push(words, phone, tidy(input.q ?? ''), Boolean(input.mergedAway));
+    searchArgs = [words, phone, tidy(input.q ?? ''), Boolean(input.mergedAway)];
+    params.push(...searchArgs);
     const n = params.length;
     where.push(
       `id in (select patient_search_ids($${n - 3}::text[], $${n - 2}::text, $${n - 1}::text, $${n}::boolean))`,
@@ -134,7 +137,15 @@ export async function searchPatients(
 
   // Counted on the first page only: the number does not change while someone pages through.
   let total: number | undefined;
-  if (!input.cursor) {
+  if (!input.cursor && searchArgs && visibility.scope === 'all') {
+    // Nothing narrows the match but the hospital, which the function applies itself, so it can
+    // count without the outer query building a hash join on a common word (#880).
+    const counted = await client.query<{ total: string }>(
+      'select patient_search_count($1::text[], $2::text, $3::text, $4::boolean) as total',
+      searchArgs,
+    );
+    total = Number(counted.rows[0]?.total ?? 0);
+  } else if (!input.cursor) {
     const counted = await client.query<{ total: string }>(
       `select count(*) as total from patients ${where.length ? `where ${where.join(' and ')}` : ''}`,
       params,

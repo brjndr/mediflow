@@ -1,5 +1,7 @@
 import { api, requireData } from '@/shared/api';
 import {
+  consumablePageSchema,
+  operationSchema,
   periopSchema,
   roomPageSchema,
   roomSchema,
@@ -10,10 +12,13 @@ import type {
   AnaesthesiaInput,
   ChecklistStepCode,
   FitnessStatus,
+  OperationNoteInput,
+  OperationRecord,
   OtRoom,
   OtRoomPage,
   PeriopRecord,
   Surgery,
+  SurgeryConsumablePage,
   SurgeryPage,
   SurgeryStatus,
 } from './types';
@@ -179,4 +184,85 @@ export async function signAnaesthesia(surgeryId: string, key: string): Promise<P
     params: { path: { surgeryId }, header: { 'idempotency-key': key } },
   });
   return periopSchema.parse(requireData(result));
+}
+
+export async function fetchOperation(
+  surgeryId: string,
+  signal?: AbortSignal,
+): Promise<OperationRecord> {
+  const result = await api.GET('/theatre/surgeries/{surgeryId}/operation-note', {
+    params: { path: { surgeryId } },
+    signal,
+  });
+  return operationSchema.parse(requireData(result));
+}
+
+export async function saveOperationNote(
+  surgeryId: string,
+  body: OperationNoteInput,
+): Promise<OperationRecord> {
+  const result = await api.PUT('/theatre/surgeries/{surgeryId}/operation-note', {
+    params: { path: { surgeryId } },
+    body,
+  });
+  return operationSchema.parse(requireData(result));
+}
+
+export async function signOperationNote(surgeryId: string, key: string): Promise<OperationRecord> {
+  const result = await api.POST('/theatre/surgeries/{surgeryId}/operation-note/sign', {
+    params: { path: { surgeryId }, header: { 'idempotency-key': key } },
+  });
+  return operationSchema.parse(requireData(result));
+}
+
+export async function addAddendum(
+  change: { surgeryId: string; text: string },
+  key: string,
+): Promise<OperationRecord> {
+  const result = await api.POST('/theatre/surgeries/{surgeryId}/operation-note/addenda', {
+    params: { path: { surgeryId: change.surgeryId }, header: { 'idempotency-key': key } },
+    body: { text: change.text },
+  });
+  return operationSchema.parse(requireData(result));
+}
+
+export async function linkEncounter(
+  surgeryId: string,
+  encounterId: string,
+): Promise<OperationRecord> {
+  const result = await api.PUT('/theatre/surgeries/{surgeryId}/encounter', {
+    params: { path: { surgeryId } },
+    body: { encounterId },
+  });
+  return operationSchema.parse(requireData(result));
+}
+
+export async function fetchConsumables(
+  surgeryId: string,
+  query: { cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<SurgeryConsumablePage> {
+  const result = await api.GET('/theatre/surgeries/{surgeryId}/consumables', {
+    params: { path: { surgeryId }, query },
+    signal,
+  });
+  return consumablePageSchema.parse(requireData(result));
+}
+
+export interface RecordConsumables {
+  surgeryId: string;
+  drugId: string;
+  locationId: string;
+  lines: { batchId: string; quantity: number }[];
+}
+
+export async function recordConsumables(
+  { surgeryId, ...body }: RecordConsumables,
+  key: string,
+): Promise<SurgeryConsumablePage> {
+  const result = await api.POST('/theatre/surgeries/{surgeryId}/consumables', {
+    params: { path: { surgeryId }, header: { 'idempotency-key': key } },
+    body,
+  });
+  return consumablePageSchema.parse(requireData(result));
 }
