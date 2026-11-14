@@ -315,9 +315,9 @@ export function subscribeToPostings(app: FastifyInstance): void {
   });
 
   // A surgery linked to another visit (#900). A charge never changes its visit, so those of its
-  // consumables still pending and on no invoice are voided and posted again on the new visit
-  // (source_ref `theatre:<row>:<event id>`, once for each event); any other is flagged for the
-  // billing desk to credit.
+  // consumables still pending and on no invoice are voided; all are posted on the new visit
+  // (source_ref `theatre:<row>:<event id>`, once for each event). A charge on an invoice or a
+  // draft stays on the old visit, flagged `relink_review` for the billing desk to credit.
   app.events.subscribe('surgery.encounter_changed', async (message, tx) => {
     const surgeryId = idOf(message.entityId);
     const from = idOf(message.payload.fromEncounterId);
@@ -334,18 +334,21 @@ export function subscribeToPostings(app: FastifyInstance): void {
       movable: boolean;
     }>(
       sql`select c.id, c.description, c.quantity, c.unit_price_minor::text, c.flag, c.source_ref,
-            (c.status = 'pending' and c.invoice_id is null and c.flag is distinct from 'return_review') as movable
+            (c.status = 'pending' and c.invoice_id is null) as movable
           from charges c join ot_consumables o on c.source_ref = 'theatre:' || o.id::text
             or c.source_ref like 'theatre:' || o.id::text || ':%'
           where o.booking_id = ${surgeryId} and c.encounter_id = ${from} and c.status <> 'void'
+            and c.flag is distinct from 'relink_review'
           order by c.id`,
     );
     for (const charge of rows) {
-      if (!charge.movable) {
-        await tx.execute(sql`update charges set flag = 'return_review' where id = ${charge.id}`);
-        continue;
-      }
-      await tx.execute(sql`update charges set status = 'void' where id = ${charge.id}`);
+      // Either way the new visit is charged; an old charge that cannot be voided stays, flagged
+      // for the billing desk to credit, so the work is billed once on the right visit.
+      await tx.execute(
+        charge.movable
+          ? sql`update charges set status = 'void' where id = ${charge.id}`
+          : sql`update charges set flag = 'relink_review' where id = ${charge.id}`,
+      );
       // What came back to stock before the move is not charged again.
       const base = charge.source_ref.split(':').slice(0, 2).join(':');
       const { rows: back } = await tx.execute<{ returned: number }>(
@@ -363,7 +366,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
         description: charge.description,
         quantity,
         unitPriceMinor: Number(charge.unit_price_minor),
-        flag: charge.flag,
+        flag: charge.flag === 'no_price' ? 'no_price' : null,
       });
     }
   });

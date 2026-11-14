@@ -1409,13 +1409,28 @@ describe('the operation note, the visit and the charges', () => {
     );
     expect(left.rows).toEqual([
       { quantity: 1, status: 'void', flag: null },
-      { quantity: 2, status: 'pending', flag: 'return_review' },
+      { quantity: 2, status: 'pending', flag: 'relink_review' },
     ]);
+    // The draft-bill charge is billed on the new visit too, and the old one waits for a credit.
     const moved = await chargesOf(second);
-    expect(moved.map((row) => row.quantity)).toEqual([1]);
+    expect(moved.map((row) => row.quantity).sort()).toEqual([1, 2]);
     // Linking again charges nothing twice; another hospital's ledger is untouched.
     await ok(await put(link, { encounterId: second }));
-    expect(await chargesOf(second)).toHaveLength(1);
+    expect(await chargesOf(second)).toHaveLength(2);
+    // Relinking on to a third visit and back moves what is on the second; the flagged charge on
+    // the first is not carried again.
+    const third = await addEncounter(hospital, surgery.patientId);
+    await ok(await put(link, { encounterId: third }));
+    expect((await chargesOf(third)).map((row) => row.quantity).sort()).toEqual([1, 2]);
+    await ok(await put(link, { encounterId: first }));
+    await ok(await put(link, { encounterId: third }));
+    const live = await pool.query(
+      "select encounter_id, quantity, flag from charges where status <> 'void' and encounter_id = any($1) order by quantity",
+      [[first, second, third]],
+    );
+    const onThird = live.rows.filter((row) => row.encounter_id === third);
+    expect(onThird.map((row) => row.quantity).sort()).toEqual([1, 2]);
+    expect(live.rows.filter((row) => row.flag === 'relink_review')).toHaveLength(1);
     const foreign = await pool.query('select 1 from charges where tenant_id = $1', [clinic.id]);
     expect(foreign.rowCount).toBe(0);
     // The draft bill would block removing the hospital.
@@ -1423,6 +1438,47 @@ describe('the operation note, the visit and the charges', () => {
       draft.rows[0]?.id,
     ]);
     await pool.query('delete from invoices where id = $1', [draft.rows[0]?.id]);
+  });
+
+  it('charges the new visit and flags an invoiced charge on the old one (#906)', async () => {
+    const surgery = await booked({});
+    const first = await addEncounter(hospital, surgery.patientId);
+    const second = await addEncounter(hospital, surgery.patientId);
+    const batch = await stockIn(5);
+    await pool.query('update stock_batches set mrp_minor = 700 where id = $1', [batch]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const link = `/theatre/surgeries/${surgery.id}/encounter`;
+    await ok(await put(link, { encounterId: first }));
+    await ok(
+      await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+        drugId,
+        locationId: place,
+        lines: [{ batchId: batch, quantity: 3 }],
+      }),
+      201,
+    );
+    await chargesOf(first);
+    const client = await pool.connect();
+    try {
+      await client.query("set session_replication_role = 'replica'");
+      await client.query(
+        "update charges set status = 'invoiced', invoice_id = $2 where encounter_id = $1",
+        [first, randomUUID()],
+      );
+    } finally {
+      await client.query("set session_replication_role = 'origin'");
+      client.release();
+    }
+    await ok(await put(link, { encounterId: second }));
+    await chargesOf(first);
+    const old = await pool.query('select status, flag from charges where encounter_id = $1', [
+      first,
+    ]);
+    expect(old.rows).toEqual([{ status: 'invoiced', flag: 'relink_review' }]);
+    expect((await chargesOf(second)).map((row) => row.quantity)).toEqual([3]);
+    // No hospital sees another's charges.
+    const foreign = await pool.query('select 1 from charges where tenant_id = $1', [clinic.id]);
+    expect(foreign.rowCount).toBe(0);
   });
 
   it('posts no charge for a surgery with no visit', async () => {

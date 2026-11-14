@@ -62,6 +62,7 @@
       "service_archived": "Service no longer offered: last price",
       "no_price": "No price set: check it",
       "return_review": "Medicine brought back: credit it",
+      "relink_review": "Billed on another visit: credit it",
       "package_covered": "Covered by a package"
     },
     "noFlag": "None"

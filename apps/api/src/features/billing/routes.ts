@@ -561,11 +561,15 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'invoice_empty', 'An invoice with no lines is not issued');
       }
       const returned = await client.query(
-        "select 1 from charges where invoice_id = $1 and flag = 'return_review'",
+        "select 1 from charges where invoice_id = $1 and flag in ('return_review', 'relink_review')",
         [locked.id],
       );
       if ((returned.rowCount ?? 0) > 0) {
-        throw new HttpError(409, 'charge_returned', 'A charge on the invoice was brought back');
+        throw new HttpError(
+          409,
+          'charge_returned',
+          'A charge on the invoice was brought back or left by a changed visit',
+        );
       }
       const { number, fiscalYear } = await nextNumber(client, 'invoice');
       const nothingToPay = num(locked.total_minor) === 0;

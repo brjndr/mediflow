@@ -12564,10 +12564,10 @@ export interface components {
             /** @description The draft invoice holding the charge, when one does. */
             invoiceId?: string;
             /**
-             * @description For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, or (on a void charge) already paid for by a package on the visit.
+             * @description For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, left on the old visit when a surgery was linked to another (relink_review), or (on a void charge) already paid for by a package on the visit.
              * @enum {string}
              */
-            flag?: "service_archived" | "no_price" | "return_review" | "package_covered";
+            flag?: "service_archived" | "no_price" | "return_review" | "package_covered" | "relink_review";
             /**
              * @description The tax class the work was posted with; none for a dispensed medicine, whose price holds the tax.
              * @enum {string}
