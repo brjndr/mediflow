@@ -55,6 +55,7 @@ export const patientsFeature: FeatureManifest = {
     'patient:update',
     'patient.contact:read',
     'patient:merge',
+    'patient:unmerge',
   ],
   // This feature's own button on its own screen, added the way any feature would add one.
   extensions: [

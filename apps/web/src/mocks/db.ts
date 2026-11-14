@@ -123,6 +123,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'patient:import' },
   // Merges a duplicate record into another (#558); the admin's alone by default.
   { permission: 'patient:merge' },
+  // Undoes a merge within the hospital's window (#870); the admin's alone by default.
+  { permission: 'patient:unmerge' },
   { permission: 'appointment:read' },
   { permission: 'appointment:create' },
   { permission: 'appointment:update' },

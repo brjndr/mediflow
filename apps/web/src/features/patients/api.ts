@@ -4,6 +4,7 @@ import {
   patientMergeListSchema,
   patientMergePreviewSchema,
   patientMergeSchema,
+  patientSettingsSchema,
   patientPageSchema,
   patientRecordSchema,
 } from './schemas';
@@ -14,6 +15,7 @@ import type {
   PatientMerge,
   PatientMergeCreate,
   PatientMergePreview,
+  PatientSettings,
   PatientPage,
   PatientRecord,
   PatientSort,
@@ -125,4 +127,31 @@ export async function fetchPatientMerges(
     signal,
   });
   return patientMergeListSchema.parse(requireData(result)).items;
+}
+
+/**
+ * Undoes the merge of `sourceId`, the record that was merged away (#870). The key makes a retry
+ * return the first result.
+ */
+export async function unmergePatient(
+  sourceId: string,
+  reason: string,
+  idempotencyKey: string,
+): Promise<PatientMerge> {
+  const result = await api.POST('/patients/{patientId}/unmerge', {
+    params: { path: { patientId: sourceId }, header: { 'idempotency-key': idempotencyKey } },
+    body: { reason },
+  });
+  return patientMergeSchema.parse(requireData(result));
+}
+
+/** The hospital's days for undoing a merge. Needs `patient:unmerge`. */
+export async function fetchPatientSettings(signal?: AbortSignal): Promise<PatientSettings> {
+  const result = await api.GET('/patient-settings', { signal });
+  return patientSettingsSchema.parse(requireData(result));
+}
+
+export async function savePatientSettings(body: PatientSettings): Promise<PatientSettings> {
+  const result = await api.PUT('/patient-settings', { body });
+  return patientSettingsSchema.parse(requireData(result));
 }

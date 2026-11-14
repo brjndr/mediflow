@@ -134,7 +134,7 @@
     "moves": "What moves to the record that stays",
     "movesLoading": "Counting what would move…",
     "movesNothing": "Nothing recorded on the duplicate would move.",
-    "permanent": "A merge cannot be undone.",
+    "permanent": "A merge can be undone only for a limited time, set by the hospital.",
     "reason": "Why these records are the same patient",
     "submit": "Merge records",
     "submitting": "Merging…",
@@ -142,7 +142,7 @@
     "cancel": "Cancel",
     "confirm": "Merge",
     "confirmTitle": "Merge these records?",
-    "confirmBody": "{{source}} will be merged into {{target}}. This cannot be undone.",
+    "confirmBody": "{{source}} will be merged into {{target}}.",
     "done": "The records were merged.",
     "toRecord": "Open the patient",
     "modules": {
@@ -163,9 +163,39 @@
       "moved": "Moved",
       "nothing": "Nothing to move",
       "empty": "No record has been merged into this one.",
-      "rowLabel": "Merge on {{when}}"
+      "rowLabel": "Merge on {{when}}",
+      "status": "Status",
+      "active": "Merged",
+      "undone": "Undone on {{when}} by {{by}}: {{reason}}",
+      "undo": "Undo merge",
+      "windowClosed": "The window for undoing this merge has closed.",
+      "windowOff": "Undoing merges is turned off for this hospital.",
+      "windowOpen": "Can be undone until {{when}}."
     },
     "mergedNotice": "This record was merged into another and can no longer be changed.",
-    "toSurvivor": "Open the record to use"
+    "toSurvivor": "Open the record to use",
+    "undo": {
+      "title": "Undo this merge?",
+      "body": "This record becomes a separate record again: searchable and editable. What moved to the record that stayed is given back where it can be; anything recorded on that record since stays there.",
+      "reason": "Why the merge is being undone",
+      "confirm": "Undo merge",
+      "cancel": "Cancel",
+      "done": "The merge was undone.",
+      "errors": {
+        "not_merged": "This record is not merged.",
+        "patient_merged": "The record it was merged into has itself been merged into another, so this merge cannot be undone.",
+        "unmerge_window_closed": "The window for undoing this merge has closed.",
+        "unmerge_unsupported": "This merge cannot be undone: a part of the system that took rows from this record cannot give them back."
+      }
+    },
+    "settings": {
+      "heading": "Undoing merges",
+      "description": "How many days after a merge it may be undone. 0 turns undoing off. Merges already made use the new value.",
+      "days": "Days a merge can be undone",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "The setting was saved.",
+      "invalid": "Enter a whole number of days from 0 to 365."
+    }
   }
 }
