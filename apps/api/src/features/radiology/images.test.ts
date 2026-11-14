@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FileStore } from '../../core/files/store.js';
+import { makeTestFileStore, type TestFileStore } from '../../../test/file-store.js';
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
   addMembership,
@@ -25,20 +26,9 @@ import {
  * permissions and audit.
  */
 
-class MemoryStore implements FileStore {
-  readonly files = new Map<string, Buffer>();
-  async put(key: string, data: Buffer) {
-    this.files.set(key, data);
-  }
-  async get(key: string) {
-    return this.files.get(key) ?? null;
-  }
-  async delete(key: string) {
-    this.files.delete(key);
-  }
-}
+let files: TestFileStore;
+let store: FileStore;
 
-const store = new MemoryStore();
 const queue = new MemoryQueue();
 let app: FastifyInstance;
 let pool: pg.Pool;
@@ -144,6 +134,8 @@ const actions = async (id: string) =>
   ).rows.map((row) => row.action);
 
 beforeAll(async () => {
+  files = await makeTestFileStore('imaging');
+  store = files.store;
   app = await buildTestApp({
     resolveSession: resolveTestSession,
     fileStore: store,
@@ -230,6 +222,7 @@ afterAll(async () => {
   await deleteUsers(pool, [radiologist, clinicRadiologist, doctor, reader]);
   await deleteTenants(pool, [hospital, clinic]);
   await app.close();
+  await files.cleanup();
 });
 
 describe('asking for an upload', () => {

@@ -1,12 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { LocalFileStore, type FileStore } from '../../core/files/store.js';
+import type { FileStore } from '../../core/files/store.js';
 import { signDownload, verifyDownload } from '../../core/files/signing.js';
+import { makeTestFileStore, type TestFileStore } from '../../../test/file-store.js';
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
   addMembership,
@@ -36,7 +34,8 @@ import type { ReportResult } from './schemas.js';
 
 let app: FastifyInstance;
 let pool: pg.Pool;
-let folder: string;
+let files: TestFileStore;
+let store: FileStore;
 const queue = new MemoryQueue();
 let hospital: TestTenant;
 let clinic: TestTenant;
@@ -386,11 +385,12 @@ async function removeHospitalData(tenants: TestTenant[]): Promise<void> {
 }
 
 beforeAll(async () => {
-  folder = await mkdtemp(path.join(tmpdir(), 'mediflow-reports-'));
+  files = await makeTestFileStore('reports');
+  store = files.store;
   app = await buildTestApp({
     resolveSession: resolveTestSession,
     jobQueue: queue,
-    fileStore: new LocalFileStore(folder),
+    fileStore: store,
   });
   pool = app.database.pool;
   hospital = await createTenant(pool, 'Reports Hospital', { features: { reports: true } });
@@ -414,7 +414,7 @@ afterAll(async () => {
   await deleteTenants(pool, [hospital, clinic, closed]);
   await deleteUsers(pool, [admin, clinicAdmin, desk]);
   await app.close();
-  await rm(folder, { recursive: true, force: true });
+  await files.cleanup();
 });
 
 describe('the reports answered on the spot', () => {
@@ -915,7 +915,6 @@ describe('the quota', () => {
 
 describe('the hourly sweep', () => {
   it('gives up a run stuck for an hour and deletes expired runs with their files', async () => {
-    const store = new LocalFileStore(folder);
     const stuck = randomUUID();
     const old = randomUUID();
     const key = `reports/${hospital.id}/${old}.csv`;
@@ -1009,7 +1008,7 @@ describe('jobs and limits under pressure', () => {
       [id],
     );
 
-    await runReport(app.database, new LocalFileStore(folder), 10_000, jobOf(id));
+    await runReport(app.database, store, 10_000, jobOf(id));
 
     const after = await pool.query(
       'select finished_at, started_at from report_runs where id = $1',
@@ -1032,7 +1031,6 @@ describe('jobs and limits under pressure', () => {
       'status, started_at',
       "'running', now() - interval '1 minute'",
     );
-    const store = new LocalFileStore(folder);
 
     await runReport(app.database, store, 10_000, jobOf(silent));
     await runReport(app.database, store, 10_000, jobOf(live));
@@ -1048,7 +1046,6 @@ describe('jobs and limits under pressure', () => {
   });
 
   it('removes the file of an expired run that never named one', async () => {
-    const store = new LocalFileStore(folder);
     const id = randomUUID();
     const key = fileKeyOf(hospital.id, id);
     await store.put(key, Buffer.from('left behind'));
@@ -1088,9 +1085,7 @@ describe('jobs and limits under pressure', () => {
     expect(await sweepReports(app, stuck)).toContain(fileKeyOf(hospital.id, id));
     expect(await statusOf(id)).toBe('failed');
 
-    expect(await sweepReports(app, new LocalFileStore(folder))).not.toContain(
-      fileKeyOf(hospital.id, id),
-    );
+    expect(await sweepReports(app, store)).not.toContain(fileKeyOf(hospital.id, id));
     expect(await statusOf(id)).toBeUndefined();
   });
 
@@ -1203,7 +1198,6 @@ describe('the parts', () => {
   });
 
   it('keeps a file’s key inside its folder', async () => {
-    const store = new LocalFileStore(folder);
     for (const key of ['../outside.csv', 'a/../../b', '/abs', 'UPPER.csv', 'a//b', '']) {
       await expect(store.put(key, Buffer.from('x'))).rejects.toThrow('invalid_file_key');
     }
