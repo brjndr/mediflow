@@ -315,6 +315,18 @@ describe('registry queries', () => {
     expect(sections(null)).toEqual([]);
   });
 
+  it('treats a manifest with no featureFlag as on, and still applies its permissions', () => {
+    const { laboratory } = makeFeatures();
+    const { featureFlag: _flag, ...ungated } = { ...laboratory, id: 'ungated' };
+    const registry = createRegistry([ungated]);
+    const noFlags = policy({ features: {}, permissions: [{ permission: 'clinical:read' }] });
+    expect(registry.enabledFeatures(noFlags).map((f) => f.id)).toEqual(['ungated']);
+    expect(registry.navItems(noFlags)).toHaveLength(1);
+    expect(registry.routes[0]?.featureFlag).toBeUndefined();
+    expect(registry.navItems(policy({ features: {}, permissions: [] }))).toEqual([]);
+    expect(registry.navItems(null)).toEqual([]);
+  });
+
   it('denies everything without a policy', () => {
     const { laboratory, billing } = makeFeatures();
     const registry = createRegistry([laboratory, billing]);
@@ -424,7 +436,7 @@ describe('manifest validation', () => {
     expect(problems).toContain('route "login/sso" uses a path reserved by the app');
     expect(problems).toContain('Feature "d" nav must link to one of its own routes');
     expect(problems).toContain('A feature has no id');
-    expect(problems).toContain('Feature "e" has no featureFlag');
+    expect(problems).toContain('Feature "e" has an empty featureFlag');
   });
 
   it('rejects a link kind that is malformed or claimed twice', () => {

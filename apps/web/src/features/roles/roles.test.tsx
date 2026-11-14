@@ -170,12 +170,12 @@ describe('access', () => {
     expect(screen.queryByRole('button', { name: 'Add role' })).not.toBeInTheDocument();
   });
 
-  it('does not exist for a hospital that has the module off', async () => {
+  it('is not gated by a module switch: only the permission decides', async () => {
     setTenantFeature(TENANT_IDS.hospital, 'roles', false);
     renderApp({ entry: '/roles' });
 
-    expect(await screen.findByRole('heading', NO_ACCESS)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Roles' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Roles' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', NO_ACCESS)).not.toBeInTheDocument();
   });
 });
 

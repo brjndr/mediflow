@@ -69,7 +69,11 @@ describe('every registered route', () => {
     },
   );
 
-  it.each(routes.map((route) => [route.address, route.featureFlag] as const))(
+  it.each(
+    routes.flatMap((route) =>
+      route.featureFlag ? [[route.address, route.featureFlag] as const] : [],
+    ),
+  )(
     '%s is closed when the hospital has its module (%s) off, whatever the role holds',
     async (address, featureFlag) => {
       setTenantFeature(TENANT_IDS.hospital, featureFlag, false);

@@ -4,8 +4,8 @@ import type { FeatureManifest } from '@/registry';
 /**
  * Roles: the hospital's built-in roles and its own. An admin lists them, adds, renames and
  * deletes custom roles; built-in roles are shown and protected. What each role may do (the
- * permission matrix) is the next screen. The roles API has no module switch of its own: the
- * `roles` switch only decides whether the screen is offered.
+ * permission matrix) is the next screen. The roles API has no module switch of its own, so the
+ * manifest declares no flag: only the permissions apply.
  */
 export const rolesFeature: FeatureManifest = {
   id: 'roles',
@@ -14,8 +14,6 @@ export const rolesFeature: FeatureManifest = {
     titles: { en: { title: 'Roles', matrix: 'Role permissions' } },
     load: (language) => import(`./locales/${language}.json`),
   },
-  // Off by default. A platform admin enables it per hospital.
-  featureFlag: 'roles',
   routes: [
     { path: 'roles', lazy: () => import('./routes/RolesPage'), requires: ['role:read'] },
     {

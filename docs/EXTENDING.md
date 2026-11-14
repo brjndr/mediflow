@@ -10,7 +10,7 @@ Every feature is a self-contained module that declares itself in `manifest.ts`:
 export const patientsFeature: FeatureManifest = {
   id: 'patients',
   titleKey: 'nav.patients',
-  featureFlag: 'patients', // tenant-level on/off
+  featureFlag: 'patients', // tenant-level on/off; leave out for a module the API does not gate
   routes: [
     { path: 'patients', lazy: () => import('./routes/PatientList'), requires: ['patient:read'] },
     {
