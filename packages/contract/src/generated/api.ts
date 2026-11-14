@@ -4401,7 +4401,7 @@ export interface paths {
         /** @description The screening of a unit, with each test. Audited as a read. 404 `blood_unit_not_found`, or `blood_screening_not_found` before it is screened. Requires bloodUnit:test. */
         get: operations["getBloodUnitScreening"];
         put?: never;
-        /** @description Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction. Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` and `blood.donor_deferred`. Requires bloodUnit:test. */
+        /** @description Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction; the donor’s other units still collected or in testing are discarded too (reason "Donor had a reactive screening"). Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` and `blood.donor_deferred`. Requires bloodUnit:test. */
         post: operations["screenBloodUnit"];
         delete?: never;
         options?: never;
