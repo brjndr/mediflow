@@ -114,6 +114,7 @@ export const DOMAIN_EVENTS = [
   'blood.collection_recorded',
   'blood.unit_screened',
   'blood.crossmatch_recorded',
+  'blood.reaction_recorded',
   'ambulance.trip_requested',
   'ambulance.trip_status_changed',
   'cleaning.task_created',

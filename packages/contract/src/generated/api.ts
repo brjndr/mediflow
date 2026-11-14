@@ -4401,7 +4401,7 @@ export interface paths {
         /** @description The screening of a unit, with each test. Audited as a read. 404 `blood_unit_not_found`, or `blood_screening_not_found` before it is screened. Requires bloodUnit:test. */
         get: operations["getBloodUnitScreening"];
         put?: never;
-        /** @description Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction. Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` and `blood.donor_deferred`. Requires bloodUnit:test. */
+        /** @description Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction; the donor’s other units still collected or in testing are discarded too (reason "Donor had a reactive screening"). Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` and `blood.donor_deferred`. Requires bloodUnit:test. */
         post: operations["screenBloodUnit"];
         delete?: never;
         options?: never;
@@ -4455,6 +4455,92 @@ export interface paths {
         put?: never;
         /** @description The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. Requires bloodUnit:read. */
         post: operations["listCompatibleBloodUnits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transfusion-reactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Transfusion reactions, newest first, with their updates; filter by unit, patient or the severity first reported. Cursor paging. Requires transfusionReaction:read. */
+        get: operations["listTransfusionReactions"];
+        put?: never;
+        /** @description Records a reaction to a transfused unit, for the patient the unit was given to. The unit is issued or transfused (409 `unit_not_given`), the patient is the unit’s (422 `patient_mismatch`) and one the caller may read (422 `unknown_patient`), the visit, when named, is that patient’s (422 `unknown_encounter`), and the times are not in the future and the onset not before the transfusion (422 `invalid_period`). A severe or hemolytic reaction holds the other units of the same collection: each still in stock or issued is discarded with the reason "Held after a transfusion reaction", and their ids come back in `heldUnitIds`. The Idempotency-Key header is required. Audited; emits `blood.reaction_recorded` (ids and severity only), and `blood.unit_status_changed` for each held unit. Requires transfusionReaction:record. */
+        post: operations["recordTransfusionReaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transfusion-reactions/{reactionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A reaction with its updates, oldest first. Audited as a read. 404 `transfusion_reaction_not_found`. Requires transfusionReaction:read. */
+        get: operations["getTransfusionReaction"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transfusion-reactions/{reactionId}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a note to a reaction, and may raise its severity (a severity that is not higher than the current one is 422 `severity_not_raised`). Updates are never edited or removed. Raising it to severe holds the unit’s siblings as recording a severe reaction does. Audited; emits `blood.reaction_recorded` again when the severity was raised. Requires transfusionReaction:record. */
+        post: operations["updateTransfusionReaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood-units/{unitId}/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description From a unit to the donor who gave it and the patient who received it: the donor (the name only for a caller who also holds bloodDonor:read), the collection, the screening outcome, every move, the cross-matches, the recipient as a patient id (never a name) and the reactions reported. Audited as a read. 404 `blood_unit_not_found`. Requires transfusionReaction:read. */
+        get: operations["traceBloodUnit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/donors/{donorId}/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description From a donor to every unit made from their donations, newest first (at most 200): where each unit is now, the patient it went to as an id (never a name) and how many reactions were reported against it, with the worst severity. Audited as a read. 404 `blood_donor_not_found`. Requires bloodDonor:read and transfusionReaction:read (403 `permission_denied`). */
+        get: operations["traceBloodDonor"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11219,6 +11305,105 @@ export interface components {
             patientBloodGroup: components["schemas"]["BloodGroup"];
             /** @description Soonest expiry first. */
             items: components["schemas"]["CompatibleUnit"][];
+        };
+        /**
+         * @description How bad a transfusion reaction is. It can be raised later, never lowered.
+         * @enum {string}
+         */
+        ReactionSeverity: "mild" | "moderate" | "severe";
+        /**
+         * @description The kind of reaction: febrile, allergic, hemolytic, transfusion-related acute lung injury (trali), transfusion-associated circulatory overload (taco) or other.
+         * @enum {string}
+         */
+        ReactionKind: "febrile" | "allergic" | "hemolytic" | "trali" | "taco" | "other";
+        TransfusionReactionUpdate: {
+            id: string;
+            note: string;
+            severity?: components["schemas"]["ReactionSeverity"];
+            recordedBy: string;
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        TransfusionReaction: {
+            id: string;
+            unitId: string;
+            patientId: string;
+            encounterId?: string;
+            /** Format: date-time */
+            transfusedAt: string;
+            /** Format: date-time */
+            onsetAt: string;
+            kind: components["schemas"]["ReactionKind"];
+            severity: components["schemas"]["ReactionSeverity"];
+            currentSeverity: components["schemas"]["ReactionSeverity"];
+            actions: string;
+            reportedBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Oldest first. */
+            updates: components["schemas"]["TransfusionReactionUpdate"][];
+            /** @description Only in the answer to recording or updating: the sibling units of the same collection that were discarded by this call. */
+            heldUnitIds?: string[];
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        TransfusionReactionPage: {
+            items: components["schemas"]["TransfusionReaction"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        TransfusionReactionCreate: {
+            unitId: string;
+            patientId: string;
+            encounterId?: string;
+            /** Format: date-time */
+            transfusedAt: string;
+            /**
+             * Format: date-time
+             * @description Not before `transfusedAt`.
+             */
+            onsetAt: string;
+            kind: components["schemas"]["ReactionKind"];
+            severity: components["schemas"]["ReactionSeverity"];
+            actions: string;
+        };
+        TransfusionReactionUpdateCreate: {
+            note: string;
+            severity?: components["schemas"]["ReactionSeverity"];
+        };
+        TraceDonor: {
+            id: string;
+            donorNumber: string;
+            bloodGroup: components["schemas"]["BloodGroup"];
+            /** @description Only for a caller who holds bloodDonor:read. */
+            fullName?: string;
+        };
+        BloodUnitTrace: {
+            unit: components["schemas"]["BloodUnit"];
+            donor?: components["schemas"]["TraceDonor"];
+            collectionId?: string;
+            /** Format: date-time */
+            collectedAt?: string;
+            screeningOutcome?: "cleared" | "reactive";
+            /** @description Every move, oldest first. */
+            history: components["schemas"]["BloodUnitEntry"][];
+            /** @description Newest first. */
+            crossmatches: components["schemas"]["BloodCrossmatch"][];
+            /** @description The patient the unit went to: an id, never a name. */
+            recipientPatientId?: string;
+            /** @description Oldest first. */
+            reactions: components["schemas"]["TransfusionReaction"][];
+        };
+        TraceUnit: {
+            unit: components["schemas"]["BloodUnit"];
+            collectionId?: string;
+            recipientPatientId?: string;
+            reactionCount: number;
+            worstSeverity?: components["schemas"]["ReactionSeverity"];
+        };
+        BloodDonorTrace: {
+            donor: components["schemas"]["TraceDonor"];
+            /** @description Newest collection first, at most 200. */
+            units: components["schemas"]["TraceUnit"][];
         };
         /**
          * @description How well equipped an ambulance is.
@@ -37924,6 +38109,432 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listTransfusionReactions: {
+        parameters: {
+            query?: {
+                unitId?: string;
+                patientId?: string;
+                severity?: components["schemas"]["ReactionSeverity"];
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransfusionReactionPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordTransfusionReaction: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    unitId: string;
+                    patientId: string;
+                    encounterId?: string;
+                    /** Format: date-time */
+                    transfusedAt: string;
+                    /**
+                     * Format: date-time
+                     * @description Not before `transfusedAt`.
+                     */
+                    onsetAt: string;
+                    kind: components["schemas"]["ReactionKind"];
+                    severity: components["schemas"]["ReactionSeverity"];
+                    actions: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransfusionReaction"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTransfusionReaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransfusionReaction"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateTransfusionReaction: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                reactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                    severity?: components["schemas"]["ReactionSeverity"];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransfusionReaction"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    traceBloodUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodUnitTrace"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    traceBloodDonor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                donorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodDonorTrace"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -642,6 +642,114 @@ export type BloodCollection = Static<typeof BloodCollection>;
 export type PatientBloodGroup = Static<typeof PatientBloodGroup>;
 export type BloodCrossmatch = Static<typeof BloodCrossmatch>;
 
+// --- transfusion reactions and the trace (#585, part B) --------------------------------------
+
+export const REACTION_SEVERITIES = ['mild', 'moderate', 'severe'] as const;
+export const ReactionSeverity = Enum(
+  'ReactionSeverity',
+  REACTION_SEVERITIES,
+  'How bad a transfusion reaction is. It can be raised later, never lowered.',
+);
+export const ReactionKind = Enum(
+  'ReactionKind',
+  ['febrile', 'allergic', 'hemolytic', 'trali', 'taco', 'other'] as const,
+  'The kind of reaction: febrile, allergic, hemolytic, transfusion-related acute lung injury (trali), transfusion-associated circulatory overload (taco) or other.',
+);
+const ActionsText = Type.String({ minLength: 1, maxLength: 2000, pattern: PLAIN_TEXT });
+
+export const TransfusionReactionUpdate = Obj('TransfusionReactionUpdate', {
+  id: Type.String(),
+  note: Type.String(),
+  severity: Type.Optional(ref(ReactionSeverity)),
+  recordedBy: Type.String(),
+  recordedAt: When,
+});
+export const TransfusionReaction = Obj('TransfusionReaction', {
+  id: Type.String(),
+  unitId: Type.String(),
+  patientId: Type.String(),
+  encounterId: Type.Optional(Type.String()),
+  transfusedAt: When,
+  onsetAt: When,
+  kind: ref(ReactionKind),
+  severity: ref(ReactionSeverity),
+  currentSeverity: ref(ReactionSeverity),
+  actions: Type.String(),
+  reportedBy: Type.String(),
+  createdAt: When,
+  updates: Type.Array(ref(TransfusionReactionUpdate), { description: 'Oldest first.' }),
+  heldUnitIds: Type.Optional(
+    Type.Array(Type.String(), {
+      description:
+        'Only in the answer to recording or updating: the sibling units of the same collection that were discarded by this call.',
+    }),
+  ),
+});
+export const TransfusionReactionPage = CursorPage(ref(TransfusionReaction), {
+  $id: 'TransfusionReactionPage',
+});
+export const TransfusionReactionCreate = Type.Object(
+  {
+    unitId: Id,
+    patientId: Id,
+    encounterId: Type.Optional(Id),
+    transfusedAt: When,
+    onsetAt: Type.String({ format: 'date-time', description: 'Not before `transfusedAt`.' }),
+    kind: ref(ReactionKind),
+    severity: ref(ReactionSeverity),
+    actions: ActionsText,
+  },
+  { $id: 'TransfusionReactionCreate', additionalProperties: false },
+);
+export type TransfusionReactionCreate = Static<typeof TransfusionReactionCreate>;
+export const TransfusionReactionUpdateCreate = Type.Object(
+  { note: ActionsText, severity: Type.Optional(ref(ReactionSeverity)) },
+  { $id: 'TransfusionReactionUpdateCreate', additionalProperties: false },
+);
+export type TransfusionReactionUpdateCreate = Static<typeof TransfusionReactionUpdateCreate>;
+export const TransfusionReactionListQuery = Type.Object({
+  unitId: Type.Optional(Id),
+  patientId: Type.Optional(Id),
+  severity: Type.Optional(ref(ReactionSeverity)),
+  cursor: Cursor,
+  limit: Limit,
+});
+export const ReactionParams = Type.Object({ reactionId: Id });
+
+export const TraceDonor = Obj('TraceDonor', {
+  id: Type.String(),
+  donorNumber: Type.String(),
+  bloodGroup: ref(BloodGroup),
+  fullName: Type.Optional(
+    Type.String({ description: 'Only for a caller who holds bloodDonor:read.' }),
+  ),
+});
+export const BloodUnitTrace = Obj('BloodUnitTrace', {
+  unit: ref(BloodUnit),
+  donor: Type.Optional(ref(TraceDonor)),
+  collectionId: Type.Optional(Type.String()),
+  collectedAt: Type.Optional(When),
+  screeningOutcome: Type.Optional(Type.Union([Type.Literal('cleared'), Type.Literal('reactive')])),
+  history: Type.Array(ref(BloodUnitEntry), { description: 'Every move, oldest first.' }),
+  crossmatches: Type.Array(ref(BloodCrossmatch), { description: 'Newest first.' }),
+  recipientPatientId: Type.Optional(
+    Type.String({ description: 'The patient the unit went to: an id, never a name.' }),
+  ),
+  reactions: Type.Array(ref(TransfusionReaction), { description: 'Oldest first.' }),
+});
+export const TraceUnit = Obj('TraceUnit', {
+  unit: ref(BloodUnit),
+  collectionId: Type.Optional(Type.String()),
+  recipientPatientId: Type.Optional(Type.String()),
+  reactionCount: Type.Integer({ minimum: 0 }),
+  worstSeverity: Type.Optional(ref(ReactionSeverity)),
+});
+export const BloodDonorTrace = Obj('BloodDonorTrace', {
+  donor: ref(TraceDonor),
+  units: Type.Array(ref(TraceUnit), { description: 'Newest collection first, at most 200.' }),
+});
+export type TransfusionReaction = Static<typeof TransfusionReaction>;
+
 // --- ambulances --------------------------------------------------------------------------------
 
 export const AmbulanceKind = Enum(
@@ -896,6 +1004,17 @@ export const OPERATIONS_SCHEMAS = [
   CompatibleUnitsRequest,
   CompatibleUnit,
   CompatibleUnits,
+  ReactionSeverity,
+  ReactionKind,
+  TransfusionReactionUpdate,
+  TransfusionReaction,
+  TransfusionReactionPage,
+  TransfusionReactionCreate,
+  TransfusionReactionUpdateCreate,
+  TraceDonor,
+  BloodUnitTrace,
+  TraceUnit,
+  BloodDonorTrace,
   AmbulanceKind,
   AmbulanceStatus,
   CrewRole,
