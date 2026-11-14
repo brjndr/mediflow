@@ -52,6 +52,15 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
       );
       return Number(rows[0]?.n ?? 0);
     },
+    // An unmerge (#555): documents that came from the source go back to it. A whole-record legal
+    // hold copied to the survivor stays there (over-holding is the safe side; release it by hand).
+    async (client, { sourceId, targetId }) => {
+      const back = await client.query(
+        'update patient_documents set patient_id = $1 where patient_id = $2 and original_patient_id = $1',
+        [sourceId, targetId],
+      );
+      return back.rowCount ?? 0;
+    },
   );
   await app.register(documentRoutes);
   await app.register(documentFileRoutes);
