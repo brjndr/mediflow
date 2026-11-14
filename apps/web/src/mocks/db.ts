@@ -329,6 +329,11 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'bloodUnit:read' },
   { permission: 'bloodUnit:manage' },
   { permission: 'bloodUnit:issue' },
+  { permission: 'bloodUnit:test' },
+  { permission: 'bloodDonor:read' },
+  { permission: 'patient.bloodGroup:read' },
+  { permission: 'transfusionReaction:read' },
+  { permission: 'transfusionReaction:record' },
   // Insurers, TPAs and corporates (IN-01).
   { permission: 'payer:read' },
   { permission: 'payer:manage' },

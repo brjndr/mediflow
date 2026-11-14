@@ -8,7 +8,10 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { useFormatters } from '@/tenancy';
 import type { UnitFilters, UnitMove } from '../api';
 import { refusalKey } from '../components/refusal';
+import { CompatiblePanel } from '../components/CompatiblePanel';
 import { DiscardDialog, HistoryDialog, RegisterDialog, ReserveDialog } from '../components/Dialogs';
+import { ReactionDialog, TraceDialog } from '../components/ReactionDialogs';
+import { CrossmatchDialog, ScreeningDialog } from '../components/TestingDialogs';
 import { useMoveUnit, useStock, useUnits } from '../hooks/use-blood';
 import { allowedMoves, BLOOD_COMPONENTS, BLOOD_GROUPS, UNIT_STATUSES } from '../schemas';
 import type { BloodComponent, BloodGroup, BloodUnit, BloodUnitStatus } from '../types';
@@ -16,7 +19,12 @@ import type { BloodComponent, BloodGroup, BloodUnit, BloodUnitStatus } from '../
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 
 type Dialogs =
-  { kind: 'register' } | { kind: 'reserve' | 'discard' | 'history'; unit: BloodUnit } | null;
+  | { kind: 'register' }
+  | {
+      kind: 'reserve' | 'discard' | 'history' | 'screen' | 'crossmatch' | 'react' | 'trace';
+      unit: BloodUnit;
+    }
+  | null;
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function BloodBank() {
@@ -74,8 +82,29 @@ export default function BloodBank() {
       id: 'clear',
       label: t('actions.clear'),
       requires: 'bloodUnit:manage',
+      // Not before the screening came back clear: the server refuses it too.
       disabled: (row) => pending || !allowedMoves(row).clear,
       onSelect: (row) => void run({ unit: row, to: 'available' }),
+    },
+    {
+      id: 'screen',
+      label: t('actions.screen'),
+      requires: 'bloodUnit:test',
+      disabled: (row) => pending || !allowedMoves(row).screen,
+      onSelect: (row) => {
+        move.reset();
+        setOpen({ kind: 'screen', unit: row });
+      },
+    },
+    {
+      id: 'crossmatch',
+      label: t('actions.crossmatch'),
+      requires: 'bloodUnit:test',
+      disabled: (row) => pending || !allowedMoves(row).crossmatch,
+      onSelect: (row) => {
+        move.reset();
+        setOpen({ kind: 'crossmatch', unit: row });
+      },
     },
     {
       id: 'reserve',
@@ -124,6 +153,23 @@ export default function BloodBank() {
         move.reset();
         setOpen({ kind: 'discard', unit: row });
       },
+    },
+    {
+      id: 'react',
+      label: t('actions.react'),
+      requires: 'transfusionReaction:record',
+      disabled: (row) => pending || !allowedMoves(row).react,
+      onSelect: (row) => {
+        move.reset();
+        setOpen({ kind: 'react', unit: row });
+      },
+    },
+    {
+      id: 'trace',
+      label: t('actions.trace'),
+      requires: 'transfusionReaction:read',
+      disabled: () => false,
+      onSelect: (row) => setOpen({ kind: 'trace', unit: row }),
     },
     {
       id: 'history',
@@ -216,6 +262,10 @@ export default function BloodBank() {
           </ul>
         )}
       </section>
+
+      <Can permission="bloodUnit:issue">
+        <CompatiblePanel />
+      </Can>
 
       <div className="flex flex-wrap gap-3">
         <label className="flex min-w-40 flex-col gap-1 text-sm font-medium">
@@ -317,6 +367,46 @@ export default function BloodBank() {
         <DiscardDialog unit={open.unit} onClose={() => setOpen(null)} onDone={finish} />
       )}
       {open?.kind === 'history' && <HistoryDialog unit={open.unit} onClose={() => setOpen(null)} />}
+      {open?.kind === 'trace' && <TraceDialog unit={open.unit} onClose={() => setOpen(null)} />}
+      {open?.kind === 'screen' && (
+        <ScreeningDialog
+          unit={open.unit}
+          onClose={() => setOpen(null)}
+          onDone={(screening) => {
+            const number = open.unit.unitNumber;
+            setOpen(null);
+            setDone(t(`done.screened_${screening.outcome}`, { number }));
+          }}
+        />
+      )}
+      {open?.kind === 'crossmatch' && (
+        <CrossmatchDialog
+          unit={open.unit}
+          onClose={() => setOpen(null)}
+          onDone={(match) => {
+            const number = open.unit.unitNumber;
+            setOpen(null);
+            setDone(
+              t(`done.crossmatch_${match.result}`, {
+                number,
+                until: format.dateTime(match.validUntil),
+              }),
+            );
+          }}
+        />
+      )}
+      {open?.kind === 'react' && (
+        <ReactionDialog
+          unit={open.unit}
+          onClose={() => setOpen(null)}
+          onDone={(reaction) => {
+            const number = open.unit.unitNumber;
+            const held = reaction.heldUnitIds?.length ?? 0;
+            setOpen(null);
+            setDone(t(held > 0 ? 'done.reactionHeld' : 'done.reaction', { number, count: held }));
+          }}
+        />
+      )}
     </div>
   );
 }

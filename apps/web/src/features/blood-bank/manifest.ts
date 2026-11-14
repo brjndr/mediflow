@@ -22,5 +22,12 @@ export const bloodBankFeature: FeatureManifest = {
     },
   ],
   nav: { icon: Droplets, order: 84, requires: ['bloodUnit:read'] },
-  permissions: ['bloodUnit:read', 'bloodUnit:manage', 'bloodUnit:issue'],
+  permissions: [
+    'bloodUnit:read',
+    'bloodUnit:manage',
+    'bloodUnit:issue',
+    'bloodUnit:test',
+    'transfusionReaction:read',
+    'transfusionReaction:record',
+  ],
 };

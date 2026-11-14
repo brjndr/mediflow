@@ -11,11 +11,19 @@ test('reserve a blood unit for a patient and issue it', async ({ page }) => {
   await goTo(page, 'Blood bank');
   await expect(page.getByRole('heading', { name: 'Blood bank', level: 1 })).toBeVisible();
 
+  // A unit is cross-matched with the patient before it can be reserved for them.
+  await page.getByRole('button', { name: /^Cross-match.*BU-0001/ }).click();
+  const match = page.getByRole('dialog', { name: 'Cross-match unit BU-0001' });
+  await match.getByRole('combobox', { name: /Patient/ }).fill('Asha Verma1');
+  await match.getByRole('option', { name: /Asha Verma1(?![0-9])/ }).click();
+  await match.getByRole('button', { name: 'Record cross-match' }).click();
+  await expect(page.getByText(/Cross-match of unit BU-0001 recorded: compatible/)).toBeVisible();
+
   await page.getByRole('button', { name: /^Reserve.*BU-0001/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Reserve unit BU-0001' });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('combobox', { name: /Patient/ }).fill('a');
-  await dialog.getByRole('option').first().click();
+  await dialog.getByRole('combobox', { name: /Patient/ }).fill('Asha Verma1');
+  await dialog.getByRole('option', { name: /Asha Verma1(?![0-9])/ }).click();
   await dialog.getByRole('button', { name: 'Reserve', exact: true }).click();
   await expect(page.getByText('Unit BU-0001 reserved.')).toBeVisible();
 

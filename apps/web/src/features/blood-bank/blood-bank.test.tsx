@@ -31,6 +31,22 @@ const open = async (unit = 'BU-0001') => {
   await waitFor(() => expect(rowOf(unit)).toBeDefined());
 };
 
+/** Cross-matches a unit against the first sample patient (blood group O+ in the mock). */
+const crossmatch = async (unit: string) => {
+  await userEvent.click(within(rowOf(unit)).getByRole('button', { name: /Cross-match/ }));
+  const dialog = await screen.findByRole('dialog', { name: `Cross-match unit ${unit}` });
+  await userEvent.type(within(dialog).getByRole('combobox', { name: /Patient/ }), 'Asha Verma1');
+  await userEvent.click(
+    await within(dialog).findByRole('option', { name: /Asha Verma1(?![0-9])/ }),
+  );
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Record cross-match' }));
+  await waitFor(() =>
+    expect(screen.getByRole('status', { name: '' })).toHaveTextContent(
+      `Cross-match of unit ${unit} recorded: compatible`,
+    ),
+  );
+};
+
 const filterStatus = async (label: string) => {
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Status' }), label);
 };
@@ -53,10 +69,24 @@ describe('blood bank', () => {
     expect(await screen.findByRole('heading', HEADING)).toBeInTheDocument();
   });
 
-  it('clears a unit in testing for stock', async () => {
+  it('clears a unit in testing for stock once it is screened clear', async () => {
     await open();
     await filterStatus('In testing');
     await waitFor(() => expect(rowOf('BU-0002')).toBeDefined());
+    // Not before the screening: the action is there but says it does nothing.
+    expect(
+      within(rowOf('BU-0002')).getByRole('button', { name: /Clear for stock/ }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(
+      within(rowOf('BU-0002')).getByRole('button', { name: /Record screening/ }),
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Screening of unit BU-0002' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Record screening' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: '' })).toHaveTextContent(
+        'Screening of unit BU-0002 recorded: cleared',
+      ),
+    );
     await userEvent.click(
       within(rowOf('BU-0002')).getByRole('button', { name: /Clear for stock/ }),
     );
@@ -84,10 +114,25 @@ describe('blood bank', () => {
     await open();
     await userEvent.click(within(rowOf('BU-0001')).getByRole('button', { name: /Reserve/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Reserve unit BU-0001' });
-    await userEvent.type(within(dialog).getByRole('combobox', { name: /Patient/ }), 'a');
-    const option = await within(dialog).findAllByRole('option');
-    await userEvent.click(option[0] as HTMLElement);
+    await userEvent.type(within(dialog).getByRole('combobox', { name: /Patient/ }), 'Asha Verma1');
+    await userEvent.click(
+      await within(dialog).findByRole('option', { name: /Asha Verma1(?![0-9])/ }),
+    );
+    // The mock has a valid cross-match for this patient and BU-0001 only once one is recorded.
     await userEvent.click(within(dialog).getByRole('button', { name: 'Reserve' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'needs a compatible cross-match',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await crossmatch('BU-0001');
+    await userEvent.click(within(rowOf('BU-0001')).getByRole('button', { name: /Reserve/ }));
+    const second = await screen.findByRole('dialog', { name: 'Reserve unit BU-0001' });
+    await userEvent.type(within(second).getByRole('combobox', { name: /Patient/ }), 'Asha Verma1');
+    await userEvent.click(
+      await within(second).findByRole('option', { name: /Asha Verma1(?![0-9])/ }),
+    );
+    expect(await within(second).findByText(/Cross-matched compatible, valid until/)).toBeVisible();
+    await userEvent.click(within(second).getByRole('button', { name: 'Reserve' }));
     await waitFor(() =>
       expect(
         screen.queryByRole('dialog', { name: 'Reserve unit BU-0001' }),
