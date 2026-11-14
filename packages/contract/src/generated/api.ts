@@ -6934,6 +6934,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/theatre/surgeries/{surgeryId}/periop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The pre-operative and peri-operative record of one surgery (OT-02, #177): fitness for surgery, the checklist steps done so far and the anaesthesia record. Needs theatre:read and the theatre feature flag. Audited as a read of the patient record. */
+        get: operations["getPeriop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/theatre/surgeries/{surgeryId}/fitness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Records the assessment of fitness for surgery, replacing the one before it (each is audited). Needs surgery:perform. Refused with 409 invalid_state once the surgery is completed or cancelled. */
+        put: operations["recordFitness"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/theatre/surgeries/{surgeryId}/checklist/{step}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Completes one step of the pre-operative or WHO surgical safety checklist. The server takes the time and the signed-in user as the signer; a step is never undone or redone (a repeat answers with the first entry). Steps of a phase need every step of the phases before it (409 phase_incomplete). Needs surgery:perform; 409 invalid_state once the surgery is completed or cancelled. */
+        post: operations["completeChecklistStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/theatre/surgeries/{surgeryId}/anaesthesia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Saves the anaesthesia record as a draft, replacing the draft before it. Needs surgery:perform. 409 already_signed once signed. */
+        put: operations["saveAnaesthesia"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/theatre/surgeries/{surgeryId}/anaesthesia/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Signs the anaesthesia record: the server takes the time and the signed-in user. A signed record is never changed. Needs surgery:perform; 404 anaesthesia_not_found without a draft. */
+        post: operations["signAnaesthesia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -13400,6 +13485,48 @@ export interface components {
         };
         CertificateFormatUpdate: {
             fields: components["schemas"]["CertificateFieldDef"][];
+        };
+        /** @enum {string} */
+        FitnessStatus: "fit" | "conditional" | "unfit";
+        /** @enum {string} */
+        ChecklistStepCode: "consent_confirmed" | "site_marked" | "fasting_confirmed" | "identity_confirmed" | "anaesthesia_check_done" | "allergies_checked" | "team_introduced" | "procedure_confirmed" | "antibiotic_given" | "counts_correct" | "specimens_labelled" | "concerns_handed_over";
+        ChecklistEntry: {
+            step: components["schemas"]["ChecklistStepCode"];
+            completedAt: string;
+            completedBy: string;
+            completedByName: string;
+            note?: string;
+        };
+        Fitness: {
+            status: components["schemas"]["FitnessStatus"];
+            notes?: string;
+            assessedAt: string;
+            assessedBy: string;
+            assessedByName: string;
+        };
+        AnaesthesiaInput: {
+            /** @enum {string} */
+            technique: "general" | "spinal" | "epidural" | "regional" | "local" | "sedation";
+            asaClass: number;
+            drugs?: string;
+            notes?: string;
+        };
+        Anaesthesia: {
+            /** @enum {string} */
+            technique: "general" | "spinal" | "epidural" | "regional" | "local" | "sedation";
+            asaClass: number;
+            drugs?: string;
+            notes?: string;
+            savedAt: string;
+            signedAt?: string;
+            signedBy?: string;
+            signedByName?: string;
+        };
+        PeriopRecord: {
+            surgeryId: string;
+            checklist: components["schemas"]["ChecklistEntry"][];
+            fitness: components["schemas"]["Fitness"] | null;
+            anaesthesia: components["schemas"]["Anaesthesia"] | null;
         };
     };
     responses: {
@@ -51010,6 +51137,170 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getPeriop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriopRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    recordFitness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    status: components["schemas"]["FitnessStatus"];
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriopRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    completeChecklistStep: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                surgeryId: string;
+                step: components["schemas"]["ChecklistStepCode"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriopRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    saveAnaesthesia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnaesthesiaInput"];
+            };
+        };
+        responses: {
+            /** @description The record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriopRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    signAnaesthesia: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
+                "idempotency-key": string;
+            };
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriopRecord"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

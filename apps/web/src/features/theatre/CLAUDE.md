@@ -10,4 +10,12 @@ What was decided for OT-01 (#176). The root `CLAUDE.md` wins where the two disag
 - **Idempotency:** every POST sends one key per identical body (`useAttempt`). Moves send the `version` read; room updates (PATCH) send the version and no key.
 - **Refresh:** the day is read again every 30 seconds; every mutation invalidates the tenant's surgery (or theatre) keys.
 - **Mock:** `mocks/handlers/theatre.ts` seeds two theatres and one surgery on `SEEDED_DAY` (2030-01-15, 09:30 to 11:00 on the hospital's clock) so it is never in the past, and refuses overlaps like the database does. The clinic has the switch off.
-- **Not built:** the team (anaesthetists, nurses; the API has only a surgeon), consumables (`/consumables` has no screen), linking to the admission, turnover time between cases, the procedure charge, the checklist, anaesthesia record and operation notes (OT-02 to OT-04), a week view.
+- **Not built:** the team (anaesthetists, nurses; the API has only a surgeon), consumables (`/consumables` has no screen), linking to the admission, turnover time between cases, the procedure charge, operation notes (OT-03, OT-04), a week view.
+
+## Checklist and anaesthesia record (OT-02, #177)
+
+- **Mock only.** The endpoints are in `packages/contract/planned.openapi.json` (`getPeriop`, `recordFitness`, `completeChecklistStep`, `saveAnaesthesia`, `signAnaesthesia`); delete them there when the API has them. Against the real API the dialog shows the shared error with a retry.
+- **A row action** ("Checklist and anaesthesia", `theatre:read`, hidden for cancelled surgeries) opens `PeriopDialog`: one record per surgery, three sections (fitness, checklist, anaesthesia). Writing needs `surgery:perform` and a scheduled or in-progress surgery; otherwise the dialog is read-only. No new permission: a separate anaesthetist permission is a follow-up.
+- **Checklist:** twelve steps in four phases (`CHECKLIST_PHASES` in `schemas.ts`): before the day (consent, site marked, fasting), sign in, time out, sign out (WHO). A phase opens when every step of the earlier ones is done (the server answers 409 `phase_incomplete`; the UI shows the button as `aria-disabled`). The time and the signer are taken by the server; a step is never undone, a repeat returns the first entry. Consent here is a confirmed step, not a link to a signed consent from the consents feature.
+- **Anaesthesia:** a draft replaced on each save, then signed once (`already_signed` after that). Signing needs a saved draft with no unsaved edits. Start and end times and a vitals chart are not built.
+- Every write answers with the whole record, which replaces the cached one (`periopKeys`); the record is re-read every 30 seconds.

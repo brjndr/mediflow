@@ -1,11 +1,13 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { onMockReset, TENANT_IDS } from '../db';
+import { currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 
 type Room = components['schemas']['OtRoom'];
 type Surgery = components['schemas']['Surgery'];
 type Status = Surgery['status'];
+type Periop = components['schemas']['PeriopRecord'];
+type StepCode = components['schemas']['ChecklistStepCode'];
 
 const FEATURE_FLAG = 'theatre';
 
@@ -35,11 +37,14 @@ const seedSurgeries = (): Surgery[] => [
 let rooms = seedRooms();
 let surgeries = seedSurgeries();
 let created = 0;
+// The pre-operative record of each surgery, by tenant and surgery id.
+let periops = new Map<string, Periop>();
 const replies = new Map<string, string>();
 onMockReset(() => {
   rooms = seedRooms();
   surgeries = seedSurgeries();
   created = 0;
+  periops = new Map();
   replies.clear();
 });
 
@@ -103,7 +108,159 @@ function timesOk(startsAt: unknown, endsAt: unknown): boolean {
   );
 }
 
+/** The steps in the order of their phases, as the real API holds them. */
+const PHASES: StepCode[][] = [
+  ['consent_confirmed', 'site_marked', 'fasting_confirmed'],
+  ['identity_confirmed', 'anaesthesia_check_done', 'allergies_checked'],
+  ['team_introduced', 'procedure_confirmed', 'antibiotic_given'],
+  ['counts_correct', 'specimens_labelled', 'concerns_handed_over'],
+];
+
+function periopOf(tenantId: string, surgeryId: string): Periop {
+  const key = `${tenantId}:${surgeryId}`;
+  let record = periops.get(key);
+  if (!record) {
+    record = { surgeryId, checklist: [], fitness: null, anaesthesia: null };
+    periops.set(key, record);
+  }
+  return record;
+}
+
+const signer = () => {
+  const user = currentSession()?.user;
+  return { id: user?.id ?? 'usr_unknown', name: user?.name ?? 'Unknown' };
+};
+
+/** Reads and changes of one surgery's record, with the refusals the real API gives. */
+function periopRoute(
+  request: Request,
+  surgeryId: unknown,
+  permission: string,
+  change?: (record: Periop, surgery: Surgery) => Response | undefined,
+): Response {
+  const access = authorize(request, { permission, featureFlag: FEATURE_FLAG });
+  if ('denied' in access) return access.denied;
+  const surgery = surgeries.find((s) => s.id === surgeryId && s.tenantId === access.tenantId);
+  if (!surgery) return error(404, 'surgery_not_found', 'No such surgery');
+  const record = periopOf(access.tenantId, surgery.id);
+  if (change) {
+    if (surgery.status !== 'scheduled' && surgery.status !== 'in_progress') {
+      return error(409, 'invalid_state', 'The surgery is finished or cancelled');
+    }
+    const refused = change(record, surgery);
+    if (refused) return refused;
+  }
+  return HttpResponse.json(record);
+}
+
 export const theatreHandlers = [
+  http.get('*/api/theatre/surgeries/:surgeryId/periop', ({ request, params }) =>
+    periopRoute(request, params.surgeryId, 'theatre:read'),
+  ),
+
+  http.put('*/api/theatre/surgeries/:surgeryId/fitness', async ({ request, params }) => {
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => null)) as {
+      status?: unknown;
+      notes?: unknown;
+    } | null;
+    if (!['fit', 'conditional', 'unfit'].includes(String(body?.status))) return invalid();
+    return periopRoute(request, params.surgeryId, 'surgery:perform', (record) => {
+      const who = signer();
+      record.fitness = {
+        status: body?.status as 'fit',
+        ...(isString(body?.notes) ? { notes: body.notes } : {}),
+        assessedAt: new Date().toISOString(),
+        assessedBy: who.id,
+        assessedByName: who.name,
+      };
+      return undefined;
+    });
+  }),
+
+  http.post('*/api/theatre/surgeries/:surgeryId/checklist/:step', async ({ request, params }) => {
+    const step = params.step as StepCode;
+    const phase = PHASES.findIndex((steps) => steps.includes(step));
+    if (phase < 0) return invalid();
+    if (!withKey(request)) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => null)) as { note?: unknown } | null;
+    return periopRoute(request, params.surgeryId, 'surgery:perform', (record) => {
+      if (record.checklist.some((entry) => entry.step === step)) return undefined;
+      const done = new Set(record.checklist.map((entry) => entry.step));
+      if (!PHASES.slice(0, phase).every((steps) => steps.every((s) => done.has(s)))) {
+        return error(409, 'phase_incomplete', 'Earlier steps are not done');
+      }
+      const who = signer();
+      record.checklist.push({
+        step,
+        completedAt: new Date().toISOString(),
+        completedBy: who.id,
+        completedByName: who.name,
+        ...(isString(body?.note) ? { note: body.note } : {}),
+      });
+      return undefined;
+    });
+  }),
+
+  http.put('*/api/theatre/surgeries/:surgeryId/anaesthesia', async ({ request, params }) => {
+    const body = (await request
+      .clone()
+      .json()
+      .catch(() => null)) as {
+      technique?: unknown;
+      asaClass?: unknown;
+      drugs?: unknown;
+      notes?: unknown;
+    } | null;
+    if (
+      !['general', 'spinal', 'epidural', 'regional', 'local', 'sedation'].includes(
+        String(body?.technique),
+      ) ||
+      typeof body?.asaClass !== 'number' ||
+      body.asaClass < 1 ||
+      body.asaClass > 6
+    ) {
+      return invalid();
+    }
+    return periopRoute(request, params.surgeryId, 'surgery:perform', (record) => {
+      if (record.anaesthesia?.signedAt) {
+        return error(409, 'already_signed', 'The record is signed');
+      }
+      record.anaesthesia = {
+        technique: body.technique as 'general',
+        asaClass: body.asaClass as number,
+        ...(isString(body.drugs) ? { drugs: body.drugs } : {}),
+        ...(isString(body.notes) ? { notes: body.notes } : {}),
+        savedAt: new Date().toISOString(),
+      };
+      return undefined;
+    });
+  }),
+
+  http.post('*/api/theatre/surgeries/:surgeryId/anaesthesia/sign', ({ request, params }) => {
+    if (!withKey(request)) {
+      return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    }
+    return periopRoute(request, params.surgeryId, 'surgery:perform', (record) => {
+      if (!record.anaesthesia) return error(404, 'anaesthesia_not_found', 'No record to sign');
+      if (record.anaesthesia.signedAt) return undefined;
+      const who = signer();
+      Object.assign(record.anaesthesia, {
+        signedAt: new Date().toISOString(),
+        signedBy: who.id,
+        signedByName: who.name,
+      });
+      return undefined;
+    });
+  }),
+
   http.get('*/api/theatre/rooms', ({ request }) => {
     const access = authorize(request, { permission: 'theatre:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;

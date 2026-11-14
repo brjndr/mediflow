@@ -10,6 +10,7 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { nextDay, todayIn } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
 import { RoomDialog } from '../components/RoomDialog';
+import { PeriopDialog } from '../components/PeriopDialog';
 import { BookDialog, CancelDialog, RescheduleDialog } from '../components/SurgeryDialogs';
 import { useDaySurgeries, useMoveSurgery, useRooms, useUpdateRoom } from '../hooks/use-theatre';
 import { allowedMoves } from '../schemas';
@@ -34,7 +35,11 @@ function SurgeryPatient({ patientId }: { patientId: string }) {
 }
 
 type Dialog =
-  { book: true } | { reschedule: Surgery } | { cancel: Surgery } | { room: OtRoom | 'new' };
+  | { periop: Surgery }
+  | { book: true }
+  | { reschedule: Surgery }
+  | { cancel: Surgery }
+  | { room: OtRoom | 'new' };
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function Theatre() {
@@ -105,6 +110,13 @@ export default function Theatre() {
 
   const busy = move.isPending || updateRoom.isPending;
   const surgeryActions: GridAction<Surgery>[] = [
+    {
+      id: 'periop',
+      label: t('actions.periop'),
+      requires: 'theatre:read',
+      disabled: (row) => row.status === 'cancelled',
+      onSelect: (row) => setDialog({ periop: row }),
+    },
     {
       id: 'start',
       label: t('actions.start'),
@@ -317,6 +329,9 @@ export default function Theatre() {
         />
       </section>
 
+      {dialog && 'periop' in dialog && (
+        <PeriopDialog surgery={dialog.periop} onClose={closeDialog} />
+      )}
       {dialog && 'book' in dialog && (
         <BookDialog
           day={day}
