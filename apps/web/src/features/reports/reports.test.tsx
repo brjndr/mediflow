@@ -306,3 +306,48 @@ describe('who may do what', () => {
     expect(within(runs()).queryByText('Laboratory turnaround')).toBeNull();
   });
 });
+
+describe('the invoices behind an age band', () => {
+  async function showOutstanding() {
+    await open();
+    await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'outstanding');
+    await userEvent.click(screen.getByRole('button', { name: 'Show report' }));
+    return screen.findByRole('table', { name: 'Outstanding invoices' });
+  }
+
+  it('opens a band to its invoices, a page at a time, with no patient', async () => {
+    const owed = await showOutstanding();
+    const row = within(owed).getByText('0 to 7 days').closest('tr');
+    await userEvent.click(
+      within(row as HTMLElement).getByRole('button', { name: /Show invoices/ }),
+    );
+
+    const list = await screen.findByRole('table', {
+      name: 'Invoices outstanding: 0 to 7 days',
+    });
+    await within(list).findByText('INV/days_0_7/001');
+    expect(within(list).queryByText('INV/days_0_7/026')).toBeNull();
+    expect(within(list).queryByText(/patient/i)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /load more|show more/i }));
+    expect(await within(list).findByText('INV/days_0_7/026')).toBeInTheDocument();
+  });
+
+  it('shows only the hospital’s own invoices', async () => {
+    setTenantFeature(CLINIC, 'reports', true);
+    grantPermission(CLINIC, 'doctor', 'report:read');
+    signIn(USER_IDS.doctor, CLINIC);
+    renderApp({ entry: '/reports' });
+    await screen.findByRole('heading', PAGE);
+    await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'outstanding');
+    await userEvent.click(screen.getByRole('button', { name: 'Show report' }));
+    const owed = await screen.findByRole('table', { name: 'Outstanding invoices' });
+    const row = within(owed).getByText('Over 30 days').closest('tr');
+    await userEvent.click(
+      within(row as HTMLElement).getByRole('button', { name: /Show invoices/ }),
+    );
+
+    const list = await screen.findByRole('table', { name: 'Invoices outstanding: Over 30 days' });
+    expect(await within(list).findByText('CL/over_30/001')).toBeInTheDocument();
+    expect(within(list).queryByText(/^INV\//)).toBeNull();
+  });
+});

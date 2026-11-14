@@ -15,6 +15,7 @@ import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { WORKER_ROLE } from '../../core/outbox/dispatcher.js';
 import { computeReport, isSnapshot, readAtHospital, SYNC_MAX_ROWS, TooLarge } from './compute.js';
 import { ReportGate } from './gate.js';
+import { listOutstanding } from './outstanding.js';
 import { RUN_JOB, type RunJob } from './jobs.js';
 import {
   findRun,
@@ -29,6 +30,8 @@ import {
 import {
   MAX_RANGE_DAYS,
   MAX_SYNC_RANGE_DAYS,
+  OutstandingInvoicePage,
+  OutstandingInvoicesRequest,
   REPORT_KINDS,
   REPORT_SCHEMAS,
   ReportDownload,
@@ -139,6 +142,32 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       requireAll(request, READ);
       return limitsOf(request.txClient);
+    },
+  );
+
+  app.post(
+    '/reports/outstanding/invoices',
+    {
+      config: { permissions: [READ], feature: FEATURE },
+      schema: {
+        operationId: 'listOutstandingInvoices',
+        tags: ['reports'],
+        description:
+          'The invoices behind one age band of the `outstanding` report, oldest first, paged by cursor: number, issue time, age in days, total and amount due. No patient is named. Read from the primary so it agrees with the invoice list. The body is a POST so the paging stays out of logs. Requires report:read with the scope `all` and the reports feature flag. Audited as a read of `report`.',
+        body: ref(OutstandingInvoicesRequest),
+        response: { 200: ref(OutstandingInvoicePage), ...errors(400, 401, 403, 409) },
+      },
+    },
+    async (request) => {
+      requireAll(request, READ);
+      const body = request.body as Static<typeof OutstandingInvoicesRequest>;
+      const page = await listOutstanding(request.txClient, body.band, {
+        ...(body.cursor === undefined ? {} : { cursor: body.cursor }),
+        limit: body.limit ?? DEFAULT_PAGE_SIZE,
+      });
+      if (!page) throw new HttpError(400, 'invalid_cursor', 'Unknown cursor');
+      request.audit('read', 'report');
+      return page;
     },
   );
 

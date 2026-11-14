@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
+import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import type { ReportColumn, ReportResult } from '../types';
 
@@ -16,7 +16,18 @@ interface Line {
  * line. Money is in minor units and shown in the hospital's currency. A report holds counts,
  * money and catalog names, never a patient, so nothing here is masked.
  */
-export function ReportTable({ result, label }: { result: ReportResult; label: string }) {
+export function ReportTable({
+  result,
+  label,
+  onOpenRow,
+  openLabel,
+}: {
+  result: ReportResult;
+  label: string;
+  /** A drill-down: given the first cell of a row (never the totals line). */
+  onOpenRow?: (key: string) => void;
+  openLabel?: string;
+}) {
   const { t } = useTranslation('reports');
   const format = useFormatters();
 
@@ -61,9 +72,25 @@ export function ReportTable({ result, label }: { result: ReportResult; label: st
     [result.columns, t, format],
   );
 
+  const actions = useMemo<GridAction<Line>[] | undefined>(
+    () =>
+      onOpenRow && openLabel
+        ? [
+            {
+              id: 'open',
+              label: openLabel,
+              disabled: (line) => line.total,
+              onSelect: (line) => onOpenRow(String(line.cells[0] ?? '')),
+            },
+          ]
+        : undefined,
+    [onOpenRow, openLabel],
+  );
+
   return (
     <DataGrid
       label={label}
+      actions={actions}
       columns={columns}
       rows={lines}
       rowId={(line) => line.id}

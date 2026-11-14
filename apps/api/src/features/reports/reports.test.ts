@@ -533,6 +533,62 @@ describe('the reports answered on the spot', () => {
     expect(report.columns.map((c) => c.key)).toEqual(['ageBucket', 'invoices', 'dueMinor']);
   });
 
+  it('opens a band to its invoices, paged, with numbers and amounts only', async () => {
+    const drill = (tenant: TestTenant, user: TestUser, body: object) =>
+      app.inject({
+        method: 'POST',
+        url: '/reports/outstanding/invoices',
+        headers: headers(tenant, user),
+        payload: body,
+      });
+    type Page = {
+      items: { number: string; dueMinor: number; ageDays: number; patientId?: string }[];
+      nextCursor: string | null;
+    };
+
+    const old = (await drill(hospital, admin, { band: 'over_30' })).json<Page>();
+    expect(old.items.map((i) => i.dueMinor)).toEqual([5_000]);
+    expect(old.items[0]?.ageDays).toBeGreaterThan(30);
+    expect(old.items[0]).not.toHaveProperty('patientId');
+    expect(old.nextCursor).toBeNull();
+    expect((await drill(hospital, admin, { band: 'days_0_7' })).json<Page>().items).toEqual([]);
+    // Another hospital sees only its own invoice.
+    const hers = (await drill(clinic, clinicAdmin, { band: 'over_30' })).json<Page>();
+    expect(hers.items.map((i) => i.dueMinor)).toEqual([10_000]);
+
+    const ids: string[] = [];
+    await plant(async (client) => {
+      for (let n = 0; n < 3; n++) {
+        const id = randomUUID();
+        ids.push(id);
+        await client.query(
+          `insert into invoices (id, tenant_id, encounter_id, patient_id, number, fiscal_year, status,
+                                 total_minor, currency, created_by, issued_at, issued_by)
+           values ($1, $2, $3, $4, $5, '2025-26', 'issued', 700, 'INR', $6, now() - $7::interval, $6)`,
+          [id, hospital.id, randomUUID(), randomUUID(), `PAGE-${n}`, admin.id, `${n} minutes`],
+        );
+      }
+    });
+    try {
+      const first = (await drill(hospital, admin, { band: 'days_0_7', limit: 2 })).json<Page>();
+      expect(first.items.map((i) => i.number)).toEqual(['PAGE-2', 'PAGE-1']);
+      expect(first.nextCursor).not.toBeNull();
+      const second = (
+        await drill(hospital, admin, { band: 'days_0_7', limit: 2, cursor: first.nextCursor })
+      ).json<Page>();
+      expect(second.items.map((i) => i.number)).toEqual(['PAGE-0']);
+      expect(second.nextCursor).toBeNull();
+      expect(errorCode(await drill(hospital, admin, { band: 'days_0_7', cursor: 'nope' }))).toBe(
+        'invalid_cursor',
+      );
+      expect((await drill(hospital, desk, { band: 'over_30' })).statusCode).toBe(403);
+    } finally {
+      await plant(async (client) => {
+        await client.query('delete from invoices where id = any($1::uuid[])', [ids]);
+      });
+    }
+  });
+
   it('measures laboratory turnaround from collection to the verified result', async () => {
     const report = (await runSync('lab_turnaround', MARCH_10)).json<ReportResult>();
 

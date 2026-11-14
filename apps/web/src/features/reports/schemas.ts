@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import type {
+  AgeBand,
+  OutstandingInvoicePage,
   ReportDownload,
   ReportKind,
   ReportLimits,
@@ -67,6 +69,23 @@ export const reportRunSchema: z.ZodType<ReportRun> = z.object({
 
 export const reportRunPageSchema: z.ZodType<ReportRunPage> = z.object({
   items: z.array(reportRunSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().optional(),
+});
+
+export const AGE_BANDS = ['days_0_7', 'days_8_30', 'over_30'] as const satisfies readonly AgeBand[];
+
+export const outstandingInvoicePageSchema: z.ZodType<OutstandingInvoicePage> = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      number: z.string(),
+      issuedAt: z.string(),
+      ageDays: z.number(),
+      totalMinor: z.number(),
+      dueMinor: z.number(),
+    }),
+  ),
   nextCursor: z.string().nullable(),
   total: z.number().optional(),
 });

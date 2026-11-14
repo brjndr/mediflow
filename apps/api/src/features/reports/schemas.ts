@@ -1,5 +1,11 @@
 import { Type, type Static } from '@sinclair/typebox';
-import { CursorPage, StringEnum, ref } from '../../core/http/schemas.js';
+import {
+  CursorPage,
+  MAX_PAGE_SIZE,
+  DEFAULT_PAGE_SIZE,
+  StringEnum,
+  ref,
+} from '../../core/http/schemas.js';
 
 export const REPORT_KINDS = [
   'opd_census',
@@ -128,7 +134,40 @@ export const ReportDownload = Type.Object(
   { $id: 'ReportDownload' },
 );
 
+export const OutstandingInvoicesRequest = Type.Object(
+  {
+    band: StringEnum(['days_0_7', 'days_8_30', 'over_30']),
+    cursor: Type.Optional(Type.String({ maxLength: 500 })),
+    limit: Type.Optional(
+      Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
+    ),
+  },
+  { $id: 'OutstandingInvoicesRequest', additionalProperties: false },
+);
+
+export const OutstandingInvoice = Type.Object(
+  {
+    id: Type.String(),
+    number: Type.String(),
+    issuedAt: Type.String({ format: 'date-time' }),
+    ageDays: Type.Integer({ minimum: 0 }),
+    totalMinor: Type.Integer(),
+    dueMinor: Type.Integer(),
+  },
+  {
+    $id: 'OutstandingInvoice',
+    description: 'An invoice behind an age band of the outstanding report. No patient is named.',
+  },
+);
+
+export const OutstandingInvoicePage = CursorPage(ref(OutstandingInvoice), {
+  $id: 'OutstandingInvoicePage',
+});
+
 export const REPORT_SCHEMAS = [
+  OutstandingInvoicesRequest,
+  OutstandingInvoice,
+  OutstandingInvoicePage,
   ReportRequest,
   ReportColumn,
   ReportResult,
