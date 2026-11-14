@@ -8,12 +8,18 @@ import {
   createRoom,
   fetchRooms,
   fetchSurgeries,
+  completeStep,
+  fetchPeriop,
   moveSurgery,
+  recordFitness,
+  saveAnaesthesia,
+  signAnaesthesia,
   rescheduleSurgery,
   updateRoom,
   type MoveSurgery,
 } from '../api';
 import { PAGE_SIZE } from '../schemas';
+import type { AnaesthesiaInput, ChecklistStepCode, PeriopRecord } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's theatres never show in another. */
 export const roomKeys = createTenantKeys('ot-rooms');
@@ -144,3 +150,61 @@ export function useUpdateRoom() {
     onSettled: refresh,
   });
 }
+
+export const periopKeys = createTenantKeys('periop');
+
+/** The pre-operative record of one surgery. Another person may be ticking steps, so it is re-read. */
+export function usePeriop(surgeryId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: periopKeys.detail(tenantId ?? '', surgeryId),
+    queryFn: ({ signal }) => fetchPeriop(surgeryId, signal),
+    enabled: tenantId !== undefined,
+    refetchInterval: REFRESH_MS,
+  });
+}
+
+/** Every change answers with the whole record, which replaces what is cached. */
+function usePeriopWrite<Input>(
+  surgeryId: string,
+  write: (input: Input, key: string) => Promise<PeriopRecord>,
+  identity: (input: Input) => unknown,
+) {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: Input) => write(input, attempt.keyFor([surgeryId, identity(input)])),
+    onSuccess: (record) => {
+      attempt.done();
+      if (tenantId) queryClient.setQueryData(periopKeys.detail(tenantId, surgeryId), record);
+    },
+  });
+}
+
+export const useRecordFitness = (surgeryId: string) =>
+  usePeriopWrite(
+    surgeryId,
+    (body: Parameters<typeof recordFitness>[1]) => recordFitness(surgeryId, body),
+    (body) => body,
+  );
+export const useCompleteStep = (surgeryId: string) =>
+  usePeriopWrite(
+    surgeryId,
+    (change: { step: ChecklistStepCode; note?: string }, key) =>
+      completeStep({ surgeryId, ...change }, key),
+    (change) => change,
+  );
+export const useSaveAnaesthesia = (surgeryId: string) =>
+  usePeriopWrite(
+    surgeryId,
+    (body: AnaesthesiaInput) => saveAnaesthesia(surgeryId, body),
+    (body) => body,
+  );
+export const useSignAnaesthesia = (surgeryId: string) =>
+  usePeriopWrite(
+    surgeryId,
+    (_: void, key) => signAnaesthesia(surgeryId, key),
+    () => 'sign',
+  );

@@ -1,6 +1,22 @@
 import { api, requireData } from '@/shared/api';
-import { roomPageSchema, roomSchema, surgeryPageSchema, surgerySchema } from './schemas';
-import type { OtRoom, OtRoomPage, Surgery, SurgeryPage, SurgeryStatus } from './types';
+import {
+  periopSchema,
+  roomPageSchema,
+  roomSchema,
+  surgeryPageSchema,
+  surgerySchema,
+} from './schemas';
+import type {
+  AnaesthesiaInput,
+  ChecklistStepCode,
+  FitnessStatus,
+  OtRoom,
+  OtRoomPage,
+  PeriopRecord,
+  Surgery,
+  SurgeryPage,
+  SurgeryStatus,
+} from './types';
 
 export async function fetchRooms(
   { archived, cursor, limit }: { archived?: boolean; cursor?: string; limit: number },
@@ -112,4 +128,55 @@ export async function moveSurgery(move: MoveSurgery, key: string): Promise<Surge
         ? await api.POST('/theatre/surgeries/{surgeryId}/start', { params, body: { version } })
         : await api.POST('/theatre/surgeries/{surgeryId}/complete', { params, body: { version } });
   return surgerySchema.parse(requireData(result));
+}
+
+export async function fetchPeriop(surgeryId: string, signal?: AbortSignal): Promise<PeriopRecord> {
+  const result = await api.GET('/theatre/surgeries/{surgeryId}/periop', {
+    params: { path: { surgeryId } },
+    signal,
+  });
+  return periopSchema.parse(requireData(result));
+}
+
+export async function recordFitness(
+  surgeryId: string,
+  body: { status: FitnessStatus; notes?: string },
+): Promise<PeriopRecord> {
+  const result = await api.PUT('/theatre/surgeries/{surgeryId}/fitness', {
+    params: { path: { surgeryId } },
+    body,
+  });
+  return periopSchema.parse(requireData(result));
+}
+
+export async function completeStep(
+  change: { surgeryId: string; step: ChecklistStepCode; note?: string },
+  key: string,
+): Promise<PeriopRecord> {
+  const result = await api.POST('/theatre/surgeries/{surgeryId}/checklist/{step}', {
+    params: {
+      path: { surgeryId: change.surgeryId, step: change.step },
+      header: { 'idempotency-key': key },
+    },
+    body: change.note ? { note: change.note } : {},
+  });
+  return periopSchema.parse(requireData(result));
+}
+
+export async function saveAnaesthesia(
+  surgeryId: string,
+  body: AnaesthesiaInput,
+): Promise<PeriopRecord> {
+  const result = await api.PUT('/theatre/surgeries/{surgeryId}/anaesthesia', {
+    params: { path: { surgeryId } },
+    body,
+  });
+  return periopSchema.parse(requireData(result));
+}
+
+export async function signAnaesthesia(surgeryId: string, key: string): Promise<PeriopRecord> {
+  const result = await api.POST('/theatre/surgeries/{surgeryId}/anaesthesia/sign', {
+    params: { path: { surgeryId }, header: { 'idempotency-key': key } },
+  });
+  return periopSchema.parse(requireData(result));
 }

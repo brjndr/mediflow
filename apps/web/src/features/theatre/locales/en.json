@@ -49,7 +49,8 @@
     "reschedule": "Reschedule",
     "cancel": "Cancel surgery",
     "rename": "Rename",
-    "archive": "Archive or restore"
+    "archive": "Archive or restore",
+    "periop": "Checklist and anaesthesia"
   },
   "done": {
     "booked": "Surgery booked.",
@@ -116,5 +117,90 @@
     "time": "The time is not valid. A surgery ends after it starts, within a day.",
     "changed": "Someone else changed this first. The list has been refreshed; try again.",
     "roomName": "A theatre with that name already exists."
+  },
+  "periop": {
+    "title": "Checklist and anaesthesia: {{procedure}}",
+    "description": "Fitness, the safety checklist and the anaesthesia record. Every step is timed and signed by whoever records it.",
+    "loading": "Loading the record.",
+    "retry": "Try again",
+    "readOnly": "You can read this record but not change it.",
+    "phases": {
+      "preop": "Before the day",
+      "sign_in": "Sign in (before anaesthesia)",
+      "time_out": "Time out (before the incision)",
+      "sign_out": "Sign out (before the patient leaves)"
+    },
+    "steps": {
+      "consent_confirmed": "Consent for the procedure is signed",
+      "site_marked": "Site is marked",
+      "fasting_confirmed": "Fasting is confirmed",
+      "identity_confirmed": "Patient identity, site and procedure confirmed",
+      "anaesthesia_check_done": "Anaesthesia machine and medicines checked",
+      "allergies_checked": "Known allergies checked",
+      "team_introduced": "Team members have introduced themselves",
+      "procedure_confirmed": "Patient, site and procedure confirmed aloud",
+      "antibiotic_given": "Antibiotic prophylaxis given, or not needed",
+      "counts_correct": "Instrument, swab and needle counts are correct",
+      "specimens_labelled": "Specimens are labelled",
+      "concerns_handed_over": "Concerns for recovery are handed over"
+    },
+    "checklist": {
+      "heading": "Safety checklist",
+      "description": "A phase opens when every step of the phase before it is done. A step cannot be undone.",
+      "waiting": "Opens when the earlier phases are done.",
+      "mark": "Mark done",
+      "markLabel": "Mark done: {{step}}",
+      "pending": "Not done yet",
+      "signed": "Signed by {{name}}, {{time}}"
+    },
+    "fitness": {
+      "heading": "Consent and fitness",
+      "none": "Fitness for surgery has not been assessed.",
+      "current": "Assessed as {{status}} by {{name}}, {{time}}.",
+      "label": "Fitness for surgery",
+      "choose": "Choose",
+      "notes": "Notes",
+      "save": "Save assessment",
+      "status": {
+        "fit": "Fit",
+        "conditional": "Fit with conditions",
+        "unfit": "Not fit"
+      }
+    },
+    "anaesthesia": {
+      "heading": "Anaesthesia record",
+      "none": "No anaesthesia record yet.",
+      "unsigned": "A draft is saved and not yet signed.",
+      "draftSaved": "Draft saved {{time}}. It is not final until signed.",
+      "technique": "Technique",
+      "chooseTechnique": "Choose a technique",
+      "asa": "ASA class",
+      "chooseAsa": "Choose a class",
+      "drugs": "Drugs and doses",
+      "notes": "Notes",
+      "save": "Save draft",
+      "sign": "Sign record",
+      "saveFirst": "Save the draft before signing it.",
+      "signedBy": "Signed by {{name}}, {{time}}. A signed record is not changed.",
+      "techniques": {
+        "general": "General",
+        "spinal": "Spinal",
+        "epidural": "Epidural",
+        "regional": "Regional block",
+        "local": "Local",
+        "sedation": "Sedation"
+      }
+    },
+    "done": {
+      "fitness": "Fitness assessment saved.",
+      "step": "Done: {{step}}",
+      "anaesthesiaSaved": "Anaesthesia draft saved.",
+      "anaesthesiaSigned": "Anaesthesia record signed."
+    },
+    "errors": {
+      "phase_incomplete": "Finish the steps of the earlier phases first.",
+      "invalid_state": "This surgery is finished or cancelled, so its record cannot change.",
+      "already_signed": "The anaesthesia record is signed and cannot change."
+    }
   }
 }

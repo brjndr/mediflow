@@ -1,6 +1,17 @@
 import { z } from 'zod';
-import { PLAIN_TEXT } from '@/shared/utils/text';
-import type { OtRoom, OtRoomPage, Surgery, SurgeryPage, SurgeryStatus } from './types';
+import { PLAIN_LINES, PLAIN_TEXT } from '@/shared/utils/text';
+import type {
+  ChecklistEntry,
+  ChecklistStepCode,
+  FitnessStatus,
+  AnaesthesiaInput,
+  OtRoom,
+  OtRoomPage,
+  PeriopRecord,
+  Surgery,
+  SurgeryPage,
+  SurgeryStatus,
+} from './types';
 
 export const PAGE_SIZE = 100;
 export const STATUSES = [
@@ -115,4 +126,96 @@ export const surgeryPageSchema: z.ZodType<SurgeryPage> = z.object({
   items: z.array(surgerySchema),
   nextCursor: z.string().nullable(),
   total: z.number().int().optional(),
+});
+
+/**
+ * The checklist as phases in the order they are done: the hospital's pre-operative steps, then
+ * the three pauses of the WHO surgical safety checklist. A step of a phase waits for every step
+ * of the phases before it (the server refuses otherwise; this only decides what is offered).
+ */
+export const CHECKLIST_PHASES = [
+  { phase: 'preop', steps: ['consent_confirmed', 'site_marked', 'fasting_confirmed'] },
+  {
+    phase: 'sign_in',
+    steps: ['identity_confirmed', 'anaesthesia_check_done', 'allergies_checked'],
+  },
+  { phase: 'time_out', steps: ['team_introduced', 'procedure_confirmed', 'antibiotic_given'] },
+  { phase: 'sign_out', steps: ['counts_correct', 'specimens_labelled', 'concerns_handed_over'] },
+] as const satisfies readonly { phase: string; steps: readonly ChecklistStepCode[] }[];
+
+/** True when every step of the phases before this one is done. */
+export function phaseOpen(phaseIndex: number, done: ReadonlySet<ChecklistStepCode>): boolean {
+  return CHECKLIST_PHASES.slice(0, phaseIndex).every((p) => p.steps.every((s) => done.has(s)));
+}
+
+export const FITNESS = ['fit', 'conditional', 'unfit'] as const satisfies readonly FitnessStatus[];
+export const TECHNIQUES = [
+  'general',
+  'spinal',
+  'epidural',
+  'regional',
+  'local',
+  'sedation',
+] as const satisfies readonly AnaesthesiaInput['technique'][];
+export const ASA_CLASSES = ['1', '2', '3', '4', '5', '6'] as const;
+
+export const fitnessFormSchema = z.object({
+  status: z.enum(FITNESS, { message: 'validation.required' }),
+  notes: z
+    .string()
+    .trim()
+    .max(500, 'validation.invalid_value')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+});
+export type FitnessFormValues = z.infer<typeof fitnessFormSchema>;
+
+export const anaesthesiaFormSchema = z.object({
+  technique: z.enum(TECHNIQUES, { message: 'validation.required' }),
+  asaClass: z.enum(ASA_CLASSES, { message: 'validation.required' }),
+  drugs: z
+    .string()
+    .trim()
+    .max(1000, 'validation.invalid_value')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+  notes: z
+    .string()
+    .trim()
+    .max(1000, 'validation.invalid_value')
+    .regex(PLAIN_LINES, 'validation.plain_text'),
+});
+export type AnaesthesiaFormValues = z.infer<typeof anaesthesiaFormSchema>;
+
+const entrySchema: z.ZodType<ChecklistEntry> = z.object({
+  step: z.enum(
+    CHECKLIST_PHASES.flatMap((p) => p.steps) as [ChecklistStepCode, ...ChecklistStepCode[]],
+  ),
+  completedAt: z.string(),
+  completedBy: z.string(),
+  completedByName: z.string(),
+  note: z.string().optional(),
+});
+export const periopSchema: z.ZodType<PeriopRecord> = z.object({
+  surgeryId: z.string(),
+  checklist: z.array(entrySchema),
+  fitness: z
+    .object({
+      status: z.enum(FITNESS),
+      notes: z.string().optional(),
+      assessedAt: z.string(),
+      assessedBy: z.string(),
+      assessedByName: z.string(),
+    })
+    .nullable(),
+  anaesthesia: z
+    .object({
+      technique: z.enum(TECHNIQUES),
+      asaClass: z.number().int().min(1).max(6),
+      drugs: z.string().optional(),
+      notes: z.string().optional(),
+      savedAt: z.string(),
+      signedAt: z.string().optional(),
+      signedBy: z.string().optional(),
+      signedByName: z.string().optional(),
+    })
+    .nullable(),
 });
