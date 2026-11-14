@@ -11,6 +11,7 @@ import { useTenant } from '@/tenancy';
 import {
   fetchDownloadUrl,
   fetchLimits,
+  fetchOutstandingInvoices,
   fetchReport,
   fetchRun,
   fetchRuns,
@@ -18,7 +19,7 @@ import {
   type ReportDays,
 } from '../api';
 import { WORKING } from '../schemas';
-import type { ReportKind } from '../types';
+import type { AgeBand, ReportKind } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's reports never show in another. */
 export const reportKeys = createTenantKeys('reports');
@@ -71,6 +72,21 @@ export function useRun(runId: string | null) {
       return pollDelay(Math.max(query.state.dataUpdateCount - 1, 0));
     },
     refetchIntervalInBackground: false,
+  });
+}
+
+/** The invoices behind one age band of the outstanding report, a page at a time. */
+export function useOutstandingInvoices(band: AgeBand) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: reportKeys.list(tenantId ?? '', { outstanding: band }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchOutstandingInvoices(band, { cursor: pageParam, limit: RUNS_PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined,
+    // Money owed is read fresh each time a band is opened and kept nowhere afterwards.
+    gcTime: 0,
   });
 }
 

@@ -11,6 +11,8 @@ What was decided for the web screen of reports (#121). The API is `apps/api/src/
 - **Errors:** the two requests a person waits on go through `apiFetchOnce` (no automatic retry of a 429, which would hold the button busy for the length of `Retry-After`); `reportErrorText` gives a sentence for `range_too_long`, `report_too_large`, `report_timeout`, `report_busy`, `report_quota` and `report_not_ready`, with the wait in seconds or minutes, else the general sentence.
 - **The table** (`ReportTable`, a `DataGrid`): columns named by the server's stable keys and translated under `columns.<key>`; money is minor units through `format.money`, minutes in words, dates through `format.calendarDate`; the totals come as a last line. A report holds no patient, so nothing is masked.
 
+- **Drill-down** (#753): on the `outstanding` table each age band has a "Show invoices" action that opens `OutstandingInvoices` under it, a `DataGrid` paged by the server (invoice number, issued, age, total, amount due; no patient, no link to the invoice). Not cached once closed (`gcTime: 0`).
+
 ## Known gaps
 
 - English only; a new column key from the API shows as the key until `columns.<key>` is added.

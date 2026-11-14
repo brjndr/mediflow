@@ -7,6 +7,7 @@ import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-gri
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { todayIn } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
+import { OutstandingInvoices } from '../components/OutstandingInvoices';
 import { ReportForm, type Intent } from '../components/ReportForm';
 import { ReportTable } from '../components/ReportTable';
 import { startDownload } from '../download';
@@ -21,13 +22,14 @@ import {
   useSpotReport,
 } from '../hooks/use-reports';
 import {
+  AGE_BANDS,
   daysIncluded,
   shiftDay,
   SNAPSHOT_KINDS,
   SPOT_MAX_DAYS,
   type RequestValues,
 } from '../schemas';
-import type { ReportResult, ReportRun } from '../types';
+import type { AgeBand, ReportResult, ReportRun } from '../types';
 
 /** What the table below the form shows: the report just worked out, or a stored run's. */
 type Viewing = { type: 'spot' } | { type: 'run'; id: string };
@@ -48,6 +50,8 @@ function Reports() {
   const runs = useRuns();
   const limits = useLimits();
   const [viewing, setViewing] = useState<Viewing | null>(null);
+  // The age band of the outstanding report whose invoices are open under the table.
+  const [band, setBand] = useState<AgeBand | null>(null);
   const run = useRun(viewing?.type === 'run' ? viewing.id : null);
 
   // The status line is always on the page, so a saved, refused or finished state is announced.
@@ -239,7 +243,20 @@ function Reports() {
                 })
               : t('result.snapshot', { at: format.dateTime(shown.generatedAt) })}
           </p>
-          <ReportTable result={shown} label={t(`kinds.${shown.kind}`)} />
+          <ReportTable
+            result={shown}
+            label={t(`kinds.${shown.kind}`)}
+            {...(shown.kind === 'outstanding'
+              ? {
+                  openLabel: t('drilldown.open'),
+                  onOpenRow: (key: string) => {
+                    const next = AGE_BANDS.find((each) => each === key);
+                    if (next) setBand(next);
+                  },
+                }
+              : {})}
+          />
+          {shown.kind === 'outstanding' && band && <OutstandingInvoices band={band} />}
         </section>
       )}
       <section aria-labelledby="report-runs" className="flex flex-col gap-2">

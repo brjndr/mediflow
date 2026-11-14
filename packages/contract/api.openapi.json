@@ -18462,6 +18462,81 @@
           }
         }
       },
+      "OutstandingInvoicesRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["band"],
+        "properties": {
+          "band": {
+            "type": "string",
+            "enum": ["days_0_7", "days_8_30", "over_30"]
+          },
+          "cursor": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "type": "integer"
+          }
+        }
+      },
+      "OutstandingInvoice": {
+        "description": "An invoice behind an age band of the outstanding report. No patient is named.",
+        "type": "object",
+        "required": ["id", "number", "issuedAt", "ageDays", "totalMinor", "dueMinor"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "ageDays": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "dueMinor": {
+            "type": "integer"
+          }
+        }
+      },
+      "OutstandingInvoicePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OutstandingInvoice"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
       "ReportRequest": {
         "additionalProperties": false,
         "type": "object",
@@ -65770,6 +65845,75 @@
             }
           },
           "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/outstanding/invoices": {
+      "post": {
+        "operationId": "listOutstandingInvoices",
+        "tags": ["reports"],
+        "description": "The invoices behind one age band of the `outstanding` report, oldest first, paged by cursor: number, issue time, age in days, total and amount due. No patient is named. Read from the primary so it agrees with the invoice list. The body is a POST so the paging stays out of logs. Requires report:read with the scope `all` and the reports feature flag. Audited as a read of `report`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutstandingInvoicesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutstandingInvoicePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

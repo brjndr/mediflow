@@ -6329,6 +6329,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/outstanding/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The invoices behind one age band of the `outstanding` report, oldest first, paged by cursor: number, issue time, age in days, total and amount due. No patient is named. Read from the primary so it agrees with the invoice list. The body is a POST so the paging stays out of logs. Requires report:read with the scope `all` and the reports feature flag. Audited as a read of `report`. */
+        post: operations["listOutstandingInvoices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/{kind}": {
         parameters: {
             query?: never;
@@ -12902,6 +12919,29 @@ export interface components {
             note?: string;
             /** @description Each receipt line once. */
             lines: components["schemas"]["PurchaseReturnLineInput"][];
+        };
+        OutstandingInvoicesRequest: {
+            /** @enum {string} */
+            band: "days_0_7" | "days_8_30" | "over_30";
+            cursor?: string;
+            /** @default 25 */
+            limit: number;
+        };
+        /** @description An invoice behind an age band of the outstanding report. No patient is named. */
+        OutstandingInvoice: {
+            id: string;
+            number: string;
+            /** Format: date-time */
+            issuedAt: string;
+            ageDays: number;
+            totalMinor: number;
+            dueMinor: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        OutstandingInvoicePage: {
+            items: components["schemas"]["OutstandingInvoice"][];
+            nextCursor: string | null;
+            total?: number;
         };
         ReportRequest: {
             /**
@@ -48444,6 +48484,66 @@ export interface operations {
             };
             /** @description Standard error body. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listOutstandingInvoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutstandingInvoicesRequest"];
+            };
+        };
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutstandingInvoicePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

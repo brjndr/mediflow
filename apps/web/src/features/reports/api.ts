@@ -1,5 +1,6 @@
 import { api, apiFetchOnce, requireData } from '@/shared/api';
 import {
+  outstandingInvoicePageSchema,
   reportDownloadSchema,
   reportLimitsSchema,
   reportResultSchema,
@@ -7,6 +8,8 @@ import {
   reportRunSchema,
 } from './schemas';
 import type {
+  AgeBand,
+  OutstandingInvoicePage,
   ReportDownload,
   ReportKind,
   ReportLimits,
@@ -66,6 +69,19 @@ export async function fetchRuns(
 export async function fetchRun(runId: string, signal?: AbortSignal): Promise<ReportRun> {
   const result = await api.GET('/reports/runs/{runId}', { params: { path: { runId } }, signal });
   return reportRunSchema.parse(requireData(result));
+}
+
+/** The invoices behind an age band of the outstanding report: numbers and amounts, no patient. */
+export async function fetchOutstandingInvoices(
+  band: AgeBand,
+  { cursor, limit }: { cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<OutstandingInvoicePage> {
+  const result = await api.POST('/reports/outstanding/invoices', {
+    body: { band, cursor, limit },
+    signal,
+  });
+  return outstandingInvoicePageSchema.parse(requireData(result));
 }
 
 export async function fetchLimits(signal?: AbortSignal): Promise<ReportLimits> {

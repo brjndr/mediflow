@@ -106,6 +106,20 @@
       "over_30": "Over 30 days"
     }
   },
+  "drilldown": {
+    "open": "Show invoices",
+    "heading": "Invoices outstanding: {{band}}",
+    "empty": "No invoice is outstanding in this band.",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "columns": {
+      "number": "Invoice",
+      "issued": "Issued",
+      "age": "Age",
+      "total": "Total",
+      "due": "Amount due"
+    }
+  },
   "table": {
     "total": "Total",
     "empty": "Nothing in this report for these days.",

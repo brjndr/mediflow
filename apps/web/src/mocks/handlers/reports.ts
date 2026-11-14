@@ -22,6 +22,28 @@ const KINDS: readonly Kind[] = [
   'opd_hourly',
 ];
 const SPOT_MAX_DAYS = 31;
+
+/** The invoices behind each age band, by hospital: numbers and amounts, never a patient. */
+const invoicesOf = (prefix: string, band: string, count: number, age: number) =>
+  Array.from({ length: count }, (_, index) => ({
+    id: `${prefix}-${band}-${index}`,
+    band,
+    number: `${prefix}/${band}/${String(index + 1).padStart(3, '0')}`,
+    issuedAt: new Date(
+      Date.parse('2026-11-05T09:00:00Z') - (age + index) * 86_400_000,
+    ).toISOString(),
+    ageDays: age + index,
+    totalMinor: 50_000,
+    dueMinor: 20_000 + index * 100,
+  }));
+const OUTSTANDING: Record<string, ReturnType<typeof invoicesOf>> = {
+  [TENANT_IDS.hospital]: [
+    ...invoicesOf('INV', 'days_0_7', 30, 1),
+    ...invoicesOf('INV', 'days_8_30', 5, 10),
+    ...invoicesOf('INV', 'over_30', 2, 40),
+  ],
+  [TENANT_IDS.clinic]: invoicesOf('CL', 'over_30', 1, 60),
+};
 const STORED_MAX_DAYS = 366;
 const DAY_MS = 86_400_000;
 const NOW = Date.parse('2026-11-05T09:00:00Z');
@@ -360,6 +382,25 @@ export const reportsHandlers = [
     return HttpResponse.json({
       url: `/report-files/${run.id}?expires=${Math.floor(NOW / 1000) + 300}&signature=mock`,
       expiresAt: new Date(NOW + 300_000).toISOString(),
+    });
+  }),
+
+  http.post('*/api/reports/outstanding/invoices', async ({ request }) => {
+    const access = authorize(request, { permission: 'report:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body = (await request.json().catch(() => ({}))) as {
+      band?: string;
+      cursor?: string;
+      limit?: number;
+    };
+    const all = (OUTSTANDING[access.tenantId] ?? []).filter((each) => each.band === body.band);
+    const limit = Math.min(Math.max(body.limit ?? 25, 1), 100);
+    const start = body.cursor ? Number(body.cursor) : 0;
+    if (!Number.isInteger(start) || start < 0)
+      return error(400, 'invalid_cursor', 'Unknown cursor');
+    return HttpResponse.json({
+      items: all.slice(start, start + limit).map(({ band: _band, ...invoice }) => invoice),
+      nextCursor: start + limit < all.length ? String(start + limit) : null,
     });
   }),
 
