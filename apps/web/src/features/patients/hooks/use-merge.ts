@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useTenant } from '@/tenancy';
-import { fetchMergePreview, fetchPatientMerges, mergePatients } from '../api';
+import {
+  fetchMergePreview,
+  fetchPatientMerges,
+  fetchPatientSettings,
+  mergePatients,
+  savePatientSettings,
+  unmergePatient,
+} from '../api';
 import type { PatientRecord } from '../types';
 import { patientKeys } from './use-patients';
 
@@ -51,6 +58,49 @@ export function useMergePatients(target: PatientRecord) {
         attempt.current = { body: serialized, key: crypto.randomUUID() };
       }
       return mergePatients(target.id, body, attempt.current.key);
+    },
+    onSettled: () => {
+      if (tenantId) return queryClient.invalidateQueries({ queryKey: patientKeys.all(tenantId) });
+    },
+  });
+}
+
+const settingsKey = (tenantId: string) => [...patientKeys.all(tenantId), 'settings'] as const;
+
+/** The days a merge may be undone. Needs `patient:unmerge`; `enabled` is false without it. */
+export function usePatientSettings(enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: settingsKey(tenantId ?? ''),
+    queryFn: ({ signal }) => fetchPatientSettings(signal),
+    enabled: enabled && tenantId !== undefined,
+  });
+}
+
+export function useSavePatientSettings() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  return useMutation({
+    mutationFn: savePatientSettings,
+    onSuccess: (saved) => {
+      if (tenantId) queryClient.setQueryData(settingsKey(tenantId), saved);
+    },
+  });
+}
+
+/**
+ * Undoes a merge. The key is kept for an identical resubmit and changes when the record or the
+ * reason does. Every patient query is read again: the record is back in the list.
+ */
+export function useUnmergePatient() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const attempt = useRef<{ body: string; key: string }>(undefined);
+  return useMutation({
+    mutationFn: ({ sourceId, reason }: { sourceId: string; reason: string }) => {
+      const body = JSON.stringify({ sourceId, reason });
+      if (attempt.current?.body !== body) attempt.current = { body, key: crypto.randomUUID() };
+      return unmergePatient(sourceId, reason, attempt.current.key);
     },
     onSettled: () => {
       if (tenantId) return queryClient.invalidateQueries({ queryKey: patientKeys.all(tenantId) });

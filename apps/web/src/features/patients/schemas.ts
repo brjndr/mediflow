@@ -104,6 +104,9 @@ export const createPatientFormSchema = (today: string, { contact = true } = {}) 
 
 export type PatientFormValues = z.output<ReturnType<typeof createPatientFormSchema>>;
 
+/** Most days a hospital may allow for undoing a merge (the API's limit). */
+export const UNMERGE_WINDOW_MAX = 365;
+
 export const patientMergeSchema: z.ZodType<PatientMerge> = z.object({
   id: z.string(),
   sourcePatientId: z.string(),
@@ -112,6 +115,9 @@ export const patientMergeSchema: z.ZodType<PatientMerge> = z.object({
   moved: z.record(z.string(), z.number().int()),
   mergedBy: z.string(),
   mergedAt: z.iso.datetime(),
+  unmergedBy: z.string().optional(),
+  unmergedAt: z.iso.datetime().optional(),
+  unmergeReason: z.string().optional(),
 });
 
 export const patientMergePreviewSchema: z.ZodType<PatientMergePreview> = z.object({
@@ -139,3 +145,19 @@ export const mergeFormSchema = z.object({
     .regex(PLAIN_TEXT, 'validation.plain_text'),
 });
 export type MergeFormValues = z.infer<typeof mergeFormSchema>;
+
+export const patientSettingsSchema = z.object({
+  unmergeWindowDays: z.number().int().min(0).max(UNMERGE_WINDOW_MAX),
+});
+
+export const unmergeFormSchema = mergeFormSchema;
+
+/** The days a merge may be undone, typed as digits: 0 turns unmerging off. */
+export const windowFormSchema = z.object({
+  days: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{1,3}$/, 'patients:merge.settings.invalid')
+    .refine((value) => Number(value) <= UNMERGE_WINDOW_MAX, 'patients:merge.settings.invalid'),
+});
+export type WindowFormValues = z.infer<typeof windowFormSchema>;

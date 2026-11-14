@@ -58,6 +58,12 @@ let merges: Array<PatientMerge & { tenantId: string }> = [];
 /** Merges already carried out, by tenant and idempotency key: a retry returns the first result. */
 let mergeKeys = new Map<string, PatientMerge>();
 
+/** Summaries taken out of the list by a merge, kept to put back when it is undone (#870). */
+let mergedSummaries = new Map<string, PatientSummary>();
+/** The days a merge may be undone, by tenant (30 until set). */
+let unmergeDays = new Map<string, number>();
+const unmergeKeys = new Map<string, PatientMerge>();
+
 type MergeCounter = (tenantId: string, patientId: string) => number;
 const mergeCounters = new Map<string, MergeCounter>();
 /** A module's mock says how many rows it would move from a patient in a merge (#603). */
@@ -215,6 +221,9 @@ onMockReset(() => {
   records = new Map();
   merges = [];
   mergeKeys = new Map();
+  mergedSummaries = new Map();
+  unmergeDays = new Map();
+  unmergeKeys.clear();
 });
 
 const fullName = (patient: PatientSummary) => `${patient.firstName} ${patient.lastName}`;
@@ -445,6 +454,8 @@ export const patientsHandlers = [
     records.set(source.id, { ...source, mergedInto: target.id, version: source.version + 1 });
     records.set(target.id, { ...target, version: target.version + 1 });
     // The merged record leaves search.
+    const summary = patients.find((patient) => patient.id === source.id);
+    if (summary) mergedSummaries.set(source.id, summary);
     patients = patients.filter((patient) => patient.id !== source.id);
     const merge: PatientMerge = {
       id: `merge_${merges.length + 1}`,
@@ -458,6 +469,63 @@ export const patientsHandlers = [
     merges.unshift({ ...merge, tenantId: access.tenantId });
     mergeKeys.set(`${access.tenantId}:${key}`, merge);
     return HttpResponse.json<PatientMerge>(merge, { status: 201 });
+  }),
+
+  http.post('*/api/patients/:id/unmerge', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'patient:unmerge', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const key = request.headers.get('Idempotency-Key');
+    if (!key) return error(400, 'validation_failed', 'Idempotency-Key is required');
+    const replay = unmergeKeys.get(`${access.tenantId}:${key}`);
+    if (replay) return HttpResponse.json<PatientMerge>(replay);
+    const body = await readObject(request);
+    if (!body || !isText(body.reason)) return error(400, 'validation_failed', 'A reason is needed');
+    const source = recordOf(String(params.id));
+    if (!source || source.tenantId !== access.tenantId) {
+      return error(404, 'not_found', 'No such patient');
+    }
+    const merge = merges.find(
+      (item) =>
+        item.tenantId === access.tenantId &&
+        item.sourcePatientId === source.id &&
+        item.unmergedAt === undefined,
+    );
+    if (!source.mergedInto || !merge) return error(409, 'not_merged', 'This record is not merged');
+    const survivor = recordOf(source.mergedInto);
+    if (survivor?.mergedInto) return error(409, 'patient_merged', 'The survivor was merged too');
+    const days = unmergeDays.get(access.tenantId) ?? 30;
+    if (days === 0 || Date.parse(merge.mergedAt) + days * 86_400_000 < Date.now()) {
+      return error(409, 'unmerge_window_closed', 'The window for undoing this merge has closed');
+    }
+    const { mergedInto: _mergedInto, ...rest } = source;
+    records.set(source.id, { ...rest, version: source.version + 1 });
+    const summary = mergedSummaries.get(source.id);
+    if (summary) patients.push(summary);
+    mergedSummaries.delete(source.id);
+    merge.unmergedAt = new Date().toISOString();
+    merge.unmergedBy = currentSession()?.user.id ?? 'unknown';
+    merge.unmergeReason = body.reason;
+    const { tenantId: _tenantId, ...view } = merge;
+    unmergeKeys.set(`${access.tenantId}:${key}`, view);
+    return HttpResponse.json<PatientMerge>(view);
+  }),
+
+  http.get('*/api/patient-settings', ({ request }) => {
+    const access = authorize(request, { permission: 'patient:unmerge', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    return HttpResponse.json({ unmergeWindowDays: unmergeDays.get(access.tenantId) ?? 30 });
+  }),
+
+  http.put('*/api/patient-settings', async ({ request }) => {
+    const access = authorize(request, { permission: 'patient:unmerge', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const body = await readObject(request);
+    const days = body?.unmergeWindowDays;
+    if (typeof days !== 'number' || !Number.isInteger(days) || days < 0 || days > 365) {
+      return error(400, 'validation_failed', 'Some details are not valid');
+    }
+    unmergeDays.set(access.tenantId, days);
+    return HttpResponse.json({ unmergeWindowDays: days });
   }),
 
   http.get('*/api/patients/:id/merge-preview', ({ request, params }) => {
