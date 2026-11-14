@@ -3,15 +3,29 @@ import { useRef } from 'react';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  addReactionUpdate,
+  fetchCompatibleUnits,
+  fetchPatientBloodGroup,
   fetchStock,
+  fetchTrace,
   fetchUnit,
   fetchUnits,
   moveUnit,
+  recordCrossmatch,
+  recordReaction,
+  recordScreening,
   registerUnit,
   type UnitFilters,
   type UnitMove,
 } from '../api';
-import type { BloodUnitCreate } from '../types';
+import type {
+  BloodComponent,
+  BloodScreeningCreate,
+  BloodUnitCreate,
+  CrossmatchResult,
+  ReactionSeverity,
+  TransfusionReactionCreate,
+} from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's blood never shows in another. */
 export const bloodKeys = createTenantKeys('blood-units');
@@ -103,5 +117,94 @@ export function useRegisterUnit() {
     mutationFn: (body: BloodUnitCreate) => registerUnit(body, attempt.keyFor(JSON.stringify(body))),
     onSuccess: () => attempt.done(),
     onSettled: refresh,
+  });
+}
+
+export function useScreening() {
+  const refresh = useRefreshAll();
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ unitId, body }: { unitId: string; body: BloodScreeningCreate }) =>
+      recordScreening(unitId, body, attempt.keyFor(JSON.stringify([unitId, body]))),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+export function useCrossmatch() {
+  const refresh = useRefreshAll();
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: { unitId: string; patientId: string; result: CrossmatchResult }) =>
+      recordCrossmatch(
+        input.unitId,
+        { patientId: input.patientId, result: input.result },
+        attempt.keyFor(JSON.stringify(input)),
+      ),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+/** Available units that fit a patient, read again whenever a unit or a cross-match changes. */
+export function useCompatibleUnits(patientId: string | undefined, component: BloodComponent) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: bloodKeys.list(tenantId ?? '', { kind: 'compatible', patientId, component }),
+    queryFn: ({ signal }) =>
+      fetchCompatibleUnits({ patientId: patientId ?? '', component }, signal),
+    enabled: tenantId !== undefined && patientId !== undefined,
+    refetchInterval: REFRESH_MS,
+    retry: false,
+  });
+}
+
+/** The patient's blood group, shown beside a cross-match. Not every caller may read it. */
+export function usePatientBloodGroup(patientId: string | undefined) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: bloodKeys.detail(tenantId ?? '', `group:${patientId}`),
+    queryFn: ({ signal }) => fetchPatientBloodGroup(patientId ?? '', signal),
+    enabled: tenantId !== undefined && patientId !== undefined,
+    retry: false,
+  });
+}
+
+export function useRecordReaction() {
+  const refresh = useRefreshAll();
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (body: TransfusionReactionCreate) =>
+      recordReaction(body, attempt.keyFor(JSON.stringify(body))),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+export function useReactionUpdate() {
+  const refresh = useRefreshAll();
+  const attempt = useAttempt();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: { reactionId: string; note: string; severity?: ReactionSeverity }) =>
+      addReactionUpdate(
+        input.reactionId,
+        { note: input.note, ...(input.severity ? { severity: input.severity } : {}) },
+        attempt.keyFor(JSON.stringify(input)),
+      ),
+    onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+export function useTrace(unitId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: bloodKeys.detail(tenantId ?? '', `trace:${unitId}`),
+    queryFn: ({ signal }) => fetchTrace(unitId, signal),
+    enabled: tenantId !== undefined,
   });
 }

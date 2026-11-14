@@ -17,6 +17,25 @@ export function refusalKey(error: unknown): string | null {
       return 'refused.notExpired';
     case 'unknown_patient':
       return 'refused.patient';
+    case 'screening_required':
+      return 'refused.screeningRequired';
+    case 'crossmatch_required':
+      return 'refused.crossmatchRequired';
+    case 'abo_incompatible':
+      return 'refused.aboIncompatible';
+    case 'blood_group_unknown':
+      return 'refused.groupUnknown';
+    case 'already_screened':
+    case 'not_in_testing':
+      return 'refused.screened';
+    case 'not_available':
+      return 'refused.notAvailable';
+    case 'unit_not_given':
+      return 'refused.notGiven';
+    case 'patient_mismatch':
+      return 'refused.patientMismatch';
+    case 'severity_not_raised':
+      return 'refused.severityNotRaised';
     default:
       return null;
   }

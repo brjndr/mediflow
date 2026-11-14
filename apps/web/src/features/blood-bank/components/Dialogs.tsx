@@ -5,10 +5,14 @@ import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
 import { Form, SelectField, TextAreaField, TextField, useZodForm } from '@/shared/ui/form';
-import { zonedToUtc } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
 import type { UnitMove } from '../api';
-import { useMoveUnit, useRegisterUnit, useUnitHistory } from '../hooks/use-blood';
+import {
+  useCompatibleUnits,
+  useMoveUnit,
+  useRegisterUnit,
+  useUnitHistory,
+} from '../hooks/use-blood';
 import {
   BLOOD_COMPONENTS,
   BLOOD_GROUPS,
@@ -20,21 +24,8 @@ import {
   type RegisterFormValues,
 } from '../schemas';
 import type { BloodUnit } from '../types';
+import { instant, useFailure } from './helpers';
 import { refusalKey } from './refusal';
-
-function useFailure(error: unknown) {
-  const { t } = useTranslation('blood-bank');
-  const { t: tCommon } = useTranslation();
-  if (!error) return undefined;
-  const key = refusalKey(error);
-  return key ? t(key) : tCommon(errorMessageKey(error));
-}
-
-/** Splits a date and time typed in one field and reads them on the hospital's clock. */
-function instant(value: string, timezone: string): string {
-  const [day = '', time = '00:00'] = value.split('T');
-  return zonedToUtc(day, time, timezone);
-}
 
 /** Registers a collected unit. The dates are on the hospital's clock. */
 export function RegisterDialog({
@@ -158,6 +149,11 @@ export function ReserveDialog({
   const [patient, setPatient] = useState<PatientSummary | null>(null);
   const [missing, setMissing] = useState(false);
   const failure = useFailure(move.error);
+  const format = useFormatters();
+  // What the server knows of this pair, shown so the refusal is no surprise. The rule itself
+  // (compatible, within 72 hours) is the server's: the client only reads its answer.
+  const match = useCompatibleUnits(patient?.id, unit.component);
+  const found = match.data?.items.find((item) => item.unit.id === unit.id);
 
   const submit = async () => {
     if (!patient) {
@@ -212,6 +208,26 @@ export function ReserveDialog({
               setMissing(false);
             }}
           />
+        )}
+        {patient && (
+          <p role="status" className="text-sm">
+            {match.isPending
+              ? t('reserve.checking')
+              : match.isError
+                ? t(refusalKey(match.error) ?? 'reserve.crossmatchUnknown')
+                : found?.crossmatchValid && found.crossmatch
+                  ? t('reserve.crossmatchValid', {
+                      until: format.dateTime(found.crossmatch.validUntil),
+                    })
+                  : found?.crossmatch
+                    ? t(
+                        found.crossmatch.result === 'incompatible'
+                          ? 'reserve.crossmatchIncompatible'
+                          : 'reserve.crossmatchExpired',
+                        { on: format.dateTime(found.crossmatch.performedAt) },
+                      )
+                    : t('reserve.crossmatchNone')}
+          </p>
         )}
         {missing && (
           <p role="alert" className="text-sm text-destructive">
@@ -295,7 +311,7 @@ export function DiscardDialog({
   );
 }
 
-function PatientLabel({ id }: { id: string }) {
+export function PatientLabel({ id }: { id: string }) {
   const { t } = useTranslation('blood-bank');
   const name = usePatientName(id);
   if (name.data) return <>{`${name.data.firstName} ${name.data.lastName} (${name.data.mrn})`}</>;

@@ -9,7 +9,12 @@
   "close": "Close",
   "cancel": "Cancel",
   "retry": "Try again",
-  "filters": { "status": "Status", "group": "Blood group", "component": "Component", "any": "Any" },
+  "filters": {
+    "status": "Status",
+    "group": "Blood group",
+    "component": "Component",
+    "any": "Any"
+  },
   "columns": {
     "unit": "Unit number",
     "group": "Blood group",
@@ -55,7 +60,11 @@
     "transfuse": "Record transfusion",
     "expire": "Record expiry",
     "discard": "Discard",
-    "history": "History"
+    "history": "History",
+    "screen": "Record screening",
+    "crossmatch": "Cross-match",
+    "react": "Record reaction",
+    "trace": "Trace"
   },
   "done": {
     "registered": "Unit {{number}} registered.",
@@ -65,7 +74,17 @@
     "issued": "Unit {{number}} issued.",
     "transfused": "Transfusion of unit {{number}} recorded.",
     "expired": "Unit {{number}} recorded as expired.",
-    "discarded": "Unit {{number}} discarded."
+    "discarded": "Unit {{number}} discarded.",
+    "screened_cleared": "Screening of unit {{number}} recorded: cleared. The unit can now go to stock.",
+    "screened_reactive": "Screening of unit {{number}} recorded: reactive. The unit was discarded and its donor deferred.",
+    "crossmatch_compatible": "Cross-match of unit {{number}} recorded: compatible, good until {{until}}.",
+    "crossmatch_incompatible": "Cross-match of unit {{number}} recorded: incompatible.",
+    "reaction": "Reaction to unit {{number}} recorded.",
+    "reactionHeld_one": "Reaction to unit {{number}} recorded. {{count}} other unit from the same collection was held and discarded.",
+    "reactionHeld_other": "Reaction to unit {{number}} recorded. {{count}} other units from the same collection were held and discarded.",
+    "updated": "Update recorded.",
+    "updatedHeld_one": "Update recorded. {{count}} other unit from the same collection was held and discarded.",
+    "updatedHeld_other": "Update recorded. {{count}} other units from the same collection were held and discarded."
   },
   "register": {
     "open": "Register a unit",
@@ -84,7 +103,13 @@
     "change": "Change patient",
     "missing": "Choose the patient the unit is for.",
     "submit": "Reserve",
-    "saving": "Reserving..."
+    "saving": "Reserving...",
+    "checking": "Checking the cross-match...",
+    "crossmatchValid": "Cross-matched compatible, valid until {{until}}.",
+    "crossmatchNone": "No cross-match for this patient. Record one first, or the unit cannot be reserved.",
+    "crossmatchExpired": "The last cross-match, on {{on}}, is older than 72 hours. Record a new one.",
+    "crossmatchIncompatible": "The last cross-match, on {{on}}, was incompatible.",
+    "crossmatchUnknown": "The cross-match could not be checked."
   },
   "discard": {
     "title": "Discard unit {{number}}",
@@ -110,6 +135,127 @@
     "period": "A unit must expire after it is collected.",
     "expired": "The unit is past its date.",
     "notExpired": "The unit is still within its date.",
-    "patient": "That patient could not be found."
+    "patient": "That patient could not be found.",
+    "screeningRequired": "The unit has not been screened clear, so it cannot go to stock.",
+    "crossmatchRequired": "This patient needs a compatible cross-match for the unit, made in the last 72 hours.",
+    "aboIncompatible": "That unit can never match this patient: the blood groups are incompatible.",
+    "groupUnknown": "The patient has no blood group on record yet.",
+    "screened": "This unit is not waiting for screening, or has been screened already.",
+    "notAvailable": "The unit is not available.",
+    "notGiven": "Only a unit that was issued or transfused can have a reaction.",
+    "patientMismatch": "The unit was not given to this patient.",
+    "severityNotRaised": "A severity can only be raised, never lowered or repeated."
+  },
+  "severity": {
+    "mild": "Mild",
+    "moderate": "Moderate",
+    "severe": "Severe"
+  },
+  "screening": {
+    "title": "Screening of unit {{number}}",
+    "description": "Record each infection test once. All negative clears the unit for stock.",
+    "tests": {
+      "hiv": "HIV",
+      "hbv": "Hepatitis B",
+      "hcv": "Hepatitis C",
+      "syphilis": "Syphilis",
+      "malaria": "Malaria"
+    },
+    "results": {
+      "negative": "Negative",
+      "reactive": "Reactive"
+    },
+    "reactiveWarning": "A reactive result discards this unit and defers its donor. This cannot be undone.",
+    "submit": "Record screening",
+    "saving": "Recording..."
+  },
+  "crossmatch": {
+    "title": "Cross-match unit {{number}}",
+    "description": "The unit is {{group}}. Choose the patient it is tested against.",
+    "groupLoading": "Looking up the patient's blood group...",
+    "groupIs": "Patient blood group: {{group}}",
+    "groupNone": "The patient has no blood group on record.",
+    "groupUnavailable": "The patient's blood group is not available to you.",
+    "result": "Result",
+    "validity": "A compatible result is good for 72 hours.",
+    "results": {
+      "compatible": "Compatible",
+      "incompatible": "Incompatible"
+    },
+    "submit": "Record cross-match",
+    "saving": "Recording..."
+  },
+  "panel": {
+    "heading": "Compatible units for a patient",
+    "patient": "Patient",
+    "none": "No available unit of this component fits a {{group}} patient.",
+    "count_one": "{{count}} unit fits a {{group}} patient, soonest expiry first.",
+    "count_other": "{{count}} units fit a {{group}} patient, soonest expiry first.",
+    "expires": "Expires {{date}}",
+    "matched": "Cross-matched, valid until {{until}}",
+    "incompatible": "Cross-match incompatible",
+    "expired": "Cross-match expired",
+    "notMatched": "Not cross-matched",
+    "noneNoGroup": "No available unit of this component fits this patient.",
+    "countNoGroup_one": "{{count}} unit fits this patient, soonest expiry first.",
+    "countNoGroup_other": "{{count}} units fit this patient, soonest expiry first."
+  },
+  "reaction": {
+    "title": "Record a reaction to unit {{number}}",
+    "description": "For a unit that was issued or transfused.",
+    "noPatient": "This unit has no patient on record.",
+    "kind": "Kind of reaction",
+    "kinds": {
+      "febrile": "Febrile",
+      "allergic": "Allergic",
+      "hemolytic": "Hemolytic",
+      "trali": "TRALI (acute lung injury)",
+      "taco": "TACO (circulatory overload)",
+      "other": "Other"
+    },
+    "severity": "Severity",
+    "severityHint": "It can be raised later, never lowered.",
+    "transfusedAt": "Transfusion started",
+    "onsetAt": "Reaction began",
+    "actions": "Actions taken",
+    "holdNotice": "A severe or hemolytic reaction holds the other units from the same collection: those not yet transfused are discarded.",
+    "submit": "Record reaction",
+    "saving": "Recording..."
+  },
+  "update": {
+    "title": "Add an update",
+    "description": "The reaction is now {{severity}}. An update can only raise it.",
+    "note": "Update",
+    "severity": "New severity",
+    "severityHint": "Leave as is, or raise it.",
+    "keep": "Keep the current severity",
+    "submit": "Add update",
+    "saving": "Saving..."
+  },
+  "trace": {
+    "title": "Trace of unit {{number}}",
+    "description": "Where the unit came from and where it went.",
+    "loading": "Loading the trace...",
+    "origin": "Donor and collection",
+    "donor": "Donor {{number}}, group {{group}}",
+    "noDonor": "No donor on record for this unit.",
+    "collected": "Collected {{date}}",
+    "screening": "Screening:",
+    "notScreened": "Not screened yet.",
+    "outcome": {
+      "cleared": "Cleared",
+      "reactive": "Reactive"
+    },
+    "moves": "Moves",
+    "crossmatches": "Cross-matches",
+    "noCrossmatches": "No cross-match was made.",
+    "validUntil": "Valid until {{date}}",
+    "recipient": "Recipient",
+    "noRecipient": "The unit has not gone to a patient.",
+    "reactions": "Reactions",
+    "noReactions": "No reaction recorded.",
+    "onset": "Began {{date}}",
+    "raisedTo": "raised to {{severity}}",
+    "addUpdate": "Add update"
   }
 }
