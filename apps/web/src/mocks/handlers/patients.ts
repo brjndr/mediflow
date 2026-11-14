@@ -565,7 +565,15 @@ export const patientsHandlers = [
     }
     const items = merges
       .filter((merge) => merge.tenantId === access.tenantId && merge.targetPatientId === record.id)
-      .map(({ tenantId: _tenantId, ...merge }) => merge);
+      .map(({ tenantId: _tenantId, ...merge }) => {
+        const source = recordOf(merge.sourcePatientId);
+        const target = recordOf(merge.targetPatientId);
+        return {
+          ...merge,
+          ...(source ? { sourceName: fullName(source), sourceMrn: source.mrn } : {}),
+          ...(target ? { targetName: fullName(target), targetMrn: target.mrn } : {}),
+        };
+      });
     return HttpResponse.json({ items, nextCursor: null });
   }),
 

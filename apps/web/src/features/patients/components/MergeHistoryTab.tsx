@@ -49,6 +49,10 @@ const UNMERGE_REFUSALS = new Set([
   'unmerge_unsupported',
 ]);
 
+/** "Name (MRN)", or nothing when the server gave neither. */
+const who = (name?: string, mrn?: string) =>
+  name === undefined ? '' : mrn === undefined ? name : `${name} (${mrn})`;
+
 function MergeHistory({ patientId }: { patientId: string }) {
   const { t } = useTranslation('patients');
   const { t: tCommon } = useTranslation();
@@ -85,6 +89,16 @@ function MergeHistory({ patientId }: { patientId: string }) {
             {text}
           </Link>
         ),
+      },
+      {
+        id: 'source',
+        header: t('merge.history.patient'),
+        value: (row) => who(row.sourceName, row.sourceMrn),
+      },
+      {
+        id: 'target',
+        header: t('merge.history.kept'),
+        value: (row) => who(row.targetName, row.targetMrn),
       },
       { id: 'reason', header: t('merge.history.reason'), value: (row) => row.reason },
       { id: 'by', header: t('merge.history.by'), value: (row) => row.mergedBy },
@@ -178,7 +192,16 @@ function MergeHistory({ patientId }: { patientId: string }) {
         open={undoing !== null}
         onClose={close}
         title={t('merge.undo.title')}
-        description={t('merge.undo.body')}
+        description={
+          undoing?.sourceName !== undefined && undoing.targetName !== undefined
+            ? `${t('merge.undo.who', {
+                source: undoing.sourceName,
+                sourceMrn: undoing.sourceMrn ?? '',
+                target: undoing.targetName,
+                targetMrn: undoing.targetMrn ?? '',
+              })} ${t('merge.undo.body')}`
+            : t('merge.undo.body')
+        }
         cancelLabel={t('merge.undo.cancel')}
         confirmLabel={t('merge.undo.confirm')}
         confirmForm={UNMERGE_FORM}
