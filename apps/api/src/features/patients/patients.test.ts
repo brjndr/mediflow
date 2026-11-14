@@ -397,6 +397,37 @@ describe('searching', () => {
     expect(second.nextCursor).toBeNull();
   });
 
+  it('pages a search of several short words, each starting a name part (#907)', async () => {
+    for (const [firstName, lastName] of [
+      ['Xq', 'Yw-3'],
+      ['Yw', 'Xq-1'],
+      ['Xq', 'Yw-1'],
+      ['Xq', 'Zz-1'],
+    ] as const) {
+      // A different date of birth and phone each, so none is taken for a duplicate.
+      const day = String(10 + lastName.length + firstName.length + Number(lastName.at(-1) ?? 0));
+      const one = await register({
+        ...asha,
+        firstName,
+        lastName,
+        dob: `1990-01-${day}`,
+        phone: `9100${day}${lastName.length}00`,
+      });
+      expect(one.statusCode).toBe(201);
+    }
+    await register({ ...asha, firstName: 'Xq', lastName: 'Yw-clinic' }, { tenant: clinic });
+
+    const first = (await search({ q: 'xq yw', limit: 2 })).json<Page>();
+    expect(first.items.map((item) => item.lastName)).toEqual(['Xq-1', 'Yw-1']);
+    expect(first.total).toBe(3);
+    const second = (await search({ q: 'yw xq', limit: 2, cursor: first.nextCursor! })).json<Page>();
+    expect(second.items.map((item) => item.lastName)).toEqual(['Yw-3']);
+    expect(second.nextCursor).toBeNull();
+    expect((await search({ q: 'xq qq' })).json<Page>().items).toEqual([]);
+    const other = (await search({ q: 'xq yw' }, { tenant: clinic })).json<Page>();
+    expect(other.items.map((item) => item.lastName)).toEqual(['Yw-clinic']);
+  });
+
   it('treats what was typed as text, never as a pattern', async () => {
     const everything = (await search({ q: '%' })).json<Page>();
     const underscore = (await search({ q: '_' })).json<Page>();
