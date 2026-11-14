@@ -1321,6 +1321,27 @@ export const billingHandlers = [
     return HttpResponse.json<Invoice>(invoiceView(found));
   }),
 
+  // The desk takes the review flag off a charge, with a reason (#910).
+  http.post('*/api/charges/:chargeId/review', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'invoice:issue', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const found = state.charges.find(
+      (each) => each.id === String(params.chargeId) && each.tenantId === tenantId,
+    );
+    if (!found) return error(404, 'charge_not_found', 'No such charge');
+    const body: unknown = await request.json().catch(() => null);
+    const reason = isObject(body) ? body.reason : undefined;
+    if (typeof reason !== 'string' || reason.trim() === '' || reason.length > 500) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (found.flag !== 'return_review' && found.flag !== 'relink_review') {
+      return error(409, 'not_flagged', 'This charge is not waiting for a review');
+    }
+    delete found.flag;
+    return HttpResponse.json<Charge>(found);
+  }),
+
   http.post('*/api/invoices/:invoiceId/issue', async ({ request, params }) => {
     const access = authorize(request, { permission: 'invoice:issue', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
@@ -1344,6 +1365,15 @@ export const billingHandlers = [
     }
     if (mockEncounter(found.encounterId)?.status === 'cancelled') {
       return error(409, 'encounter_cancelled', 'The visit was cancelled');
+    }
+    if (
+      state.charges.some(
+        (each) =>
+          each.invoiceId === found.id &&
+          (each.flag === 'return_review' || each.flag === 'relink_review'),
+      )
+    ) {
+      return error(409, 'charge_returned', 'A charge on this bill waits for a review');
     }
     found.status = 'issued';
     found.rates = ratesOf(tenantId);

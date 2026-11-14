@@ -65,7 +65,18 @@
       "relink_review": "Billed on another visit: credit it",
       "package_covered": "Covered by a package"
     },
-    "noFlag": "None"
+    "noFlag": "None",
+    "review": {
+      "action": "Mark as reviewed",
+      "title": "Mark this charge as reviewed",
+      "description": "{{name}} was flagged for a look. Once you mark it as reviewed, it no longer holds the bill back. Raise a credit note first if the bill it is on needs one.",
+      "reason": "What was done",
+      "reasonHint": "For example, the credit note raised, or why it stays as it is. It is kept in the audit log.",
+      "confirm": "Mark as reviewed",
+      "cancel": "Cancel",
+      "done": "{{name}} marked as reviewed.",
+      "notFlagged": "This charge is no longer waiting for a review."
+    }
   },
   "line": {
     "heading": "Other lines",

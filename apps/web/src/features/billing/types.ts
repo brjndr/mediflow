@@ -7,6 +7,7 @@ export type Charge = Schemas['Charge'];
 export type ChargePage = Schemas['ChargePage'];
 /** A service of the price catalog charged to a visit by hand: the server sets the price. */
 export type ChargeCreate = Schemas['ChargeCreate'];
+export type ChargeReview = Schemas['ChargeReview'];
 /** A line typed in by the billing desk: something not in the price catalog. */
 export type ManualLine = Schemas['ManualLine'];
 export type InvoiceLine = Schemas['InvoiceLine'];

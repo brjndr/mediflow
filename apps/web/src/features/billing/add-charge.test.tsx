@@ -10,6 +10,7 @@ import {
   TENANT_IDS,
   USER_IDS,
 } from '@/mocks/db';
+import type { Charge } from './types';
 import { mockCharges } from '@/mocks/handlers/billing';
 import { editMockService, mockServiceNamed } from '@/mocks/handlers/services';
 import { server } from '@/mocks/node';
@@ -264,5 +265,54 @@ describe('who may charge a service', () => {
     // The hospital's services are not the clinic's to find.
     await userEvent.type(screen.getByRole('combobox', { name: 'Service' }), 'Suturing');
     expect((await screen.findAllByText('No service matches.')).length).toBeGreaterThan(0);
+  });
+});
+
+describe('resolving a flagged charge (#910)', () => {
+  const flag = (id: string, value: Charge['flag']) => {
+    const found = (mockCharges() as Charge[]).find((each) => each.id === id);
+    if (found) found.flag = value;
+  };
+  const row = () => within(charges()).getByRole('row', { name: /Complete blood count/ });
+
+  it('takes the flag off with a reason, after a confirmation, and the bill can be issued', async () => {
+    flag('chg_h_2', 'return_review');
+    await openBuilder();
+    expect(within(row()).getByText('Medicine brought back: credit it')).toBeVisible();
+    await userEvent.click(within(row()).getByRole('button', { name: /Mark as reviewed/ }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Mark this charge as reviewed' });
+    await expectNoAxeViolations();
+    // The reason is required.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as reviewed' }));
+    expect(await within(dialog).findByText(/required|Enter/i)).toBeInTheDocument();
+    expect((mockCharges() as Charge[]).find((each) => each.id === 'chg_h_2')?.flag).toBe(
+      'return_review',
+    );
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: /What was done/ }),
+      'Credit note raised',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as reviewed' }));
+    expect(await screen.findByText('Complete blood count marked as reviewed.')).toBeVisible();
+    await waitFor(() =>
+      expect(within(row()).queryByText('Medicine brought back: credit it')).toBeNull(),
+    );
+    expect((mockCharges() as Charge[]).find((each) => each.id === 'chg_h_2')?.flag).toBeUndefined();
+  });
+
+  it('is not offered without invoice:issue', async () => {
+    flag('chg_h_2', 'relink_review');
+    revokePermission(HOSPITAL, 'admin', 'invoice:issue');
+    await openBuilder();
+    expect(within(row()).queryByRole('button', { name: /Mark as reviewed/ })).toBeNull();
+  });
+
+  it('refuses a charge of another hospital', async () => {
+    const response = await fetch('/api/charges/chg_c_1/review', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason: 'x' }),
+    });
+    expect(response.status).toBe(404);
   });
 });

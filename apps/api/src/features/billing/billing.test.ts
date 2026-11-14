@@ -637,6 +637,35 @@ describe('more invoice rules', () => {
       'charge_returned',
     ]);
   });
+
+  it('lets the desk take the review flag off a charge, with a reason, and then issue (#910)', async () => {
+    const charge = await addCharge(encounters.main);
+    await pool.query("update charges set flag = 'return_review' where id = $1", [charge]);
+    const draft = await draftOf([charge]);
+    const review = (body: object, options: Options = {}) =>
+      send('POST', `/charges/${charge}/review`, body, { user: admin, ...options });
+    expect(errorOf(await review({ reason: '' }))[1]).toBe('validation_failed');
+    expect(errorOf(await review({ reason: 'ok' }, { user: doctor }))[1]).toBe('permission_denied');
+    expect(errorOf(await review({ reason: 'ok' }, { tenant: clinic, user: clinicAdmin }))).toEqual([
+      404,
+      'charge_not_found',
+    ]);
+    expect(errorOf(await review({ reason: 'ok' }, { tenant: closed }))[1]).toBe('feature_disabled');
+    const cleared = await ok<{ id: string; flag?: string }>(
+      review({ reason: 'Credit note CN-1 raised' }),
+    );
+    expect(cleared.flag).toBeUndefined();
+    const { rows } = await pool.query<{ detail: string }>(
+      "select detail from audit_log where entity = 'charge' and entity_id = $1 and action = 'review'",
+      [charge],
+    );
+    expect(rows[0]?.detail).toBe('return_review: Credit note CN-1 raised');
+    expect(errorOf(await review({ reason: 'again' }))).toEqual([409, 'not_flagged']);
+    const issuedNow = await ok<Invoice>(
+      post(`/invoices/${draft.id}/issue`, { version: draft.version }),
+    );
+    expect(issuedNow.status).toBe('issued');
+  });
 });
 
 describe('tax', () => {

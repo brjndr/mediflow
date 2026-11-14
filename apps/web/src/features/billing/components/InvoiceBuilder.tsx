@@ -22,6 +22,7 @@ import { bpToPercent } from '../lib/tax';
 import { CHARGES_MAX, MANUAL_LINES_MAX } from '../schemas';
 import type { Charge, Discount, Invoice, InvoiceContent, ManualLine } from '../types';
 import { AddChargePanel } from './AddChargePanel';
+import { ChargeReviewDialog } from './ChargeReviewDialog';
 import { ApplyPackagePanel } from './ApplyPackagePanel';
 import { BILL, DiscountPanel } from './DiscountPanel';
 import { ManualLineForm } from './ManualLineForm';
@@ -82,6 +83,7 @@ export function InvoiceBuilder({
   const issue = useIssueInvoice();
   const status = useRef<HTMLParagraphElement>(null);
   const [said, setSaid] = useState(notice);
+  const [reviewing, setReviewing] = useState<Charge | null>(null);
 
   // The charges this bill may hold: those no other draft holds.
   const available = useMemo(
@@ -311,6 +313,13 @@ export function InvoiceBuilder({
         onSelect: (row) => toggle(row, false),
         disabled: (row) => !included.has(row.id),
       },
+      {
+        id: 'review',
+        label: t('charges.review.action'),
+        requires: 'invoice:issue',
+        onSelect: (row) => setReviewing(row),
+        disabled: (row) => row.flag !== 'return_review' && row.flag !== 'relink_review',
+      },
     ],
     [t, included, toggle],
   );
@@ -391,6 +400,12 @@ export function InvoiceBuilder({
           </p>
         )}
       </section>
+
+      <ChargeReviewDialog
+        charge={reviewing}
+        onClose={() => setReviewing(null)}
+        onResolved={(name) => setSaid(t('charges.review.done', { name }))}
+      />
 
       <AddChargePanel
         encounterId={encounterId}

@@ -10,6 +10,7 @@ import {
   applyPackage,
   approveInvoiceDiscount,
   createCharge,
+  resolveChargeReview,
   fetchPackageContents,
   setPackageContents,
   closeRegister,
@@ -169,6 +170,17 @@ export function useAddCharge(encounterId: string) {
     mutationFn: (body: ChargeCreate): Promise<Charge> =>
       createCharge(encounterId, body, keys.keyFor(body)),
     onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+/** Resolving a flagged charge; the visit's charges and bills are read again whatever the answer. */
+export function useResolveChargeReview() {
+  const refresh = useRefreshBilling();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ chargeId, reason }: { chargeId: string; reason: string }): Promise<Charge> =>
+      resolveChargeReview(chargeId, reason),
     onSettled: refresh,
   });
 }
