@@ -12,7 +12,7 @@ import { billDischargeGate } from './stay-routes.js';
  * sessions and the day-end settlement. Behind the `billing` module flag. Publishes
  * `charge.posted`, `invoice.issued`, `invoice.paid`, `payment.refunded`, `invoice.credited` and
  * `register.closed`; subscribes to `order.completed`, `pharmacy.dispensed` and
- * `pharmacy.dispense_returned`, `surgery.completed` and `surgery.consumables_used`. No other module writes a charge or an invoice.
+ * `pharmacy.dispense_returned`, `surgery.completed`, `surgery.consumables_used` and `surgery.consumables_returned`. No other module writes a charge or an invoice.
  */
 export const billingFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('billing', BILLING_PERMISSIONS);

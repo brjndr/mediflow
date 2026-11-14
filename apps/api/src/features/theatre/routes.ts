@@ -6,7 +6,7 @@ import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { practisingDoctor } from '../doctors/index.js';
 import { stockableDrug } from '../drugs/index.js';
-import { stockOut } from '../inventory/index.js';
+import { stockIn, stockOut } from '../inventory/index.js';
 import { orderableService } from '../services/index.js';
 import type { SurgeryConsumable } from './schemas.js';
 import {
@@ -21,6 +21,8 @@ import {
   SurgeryCancel,
   SurgeryConsumableCreate,
   SurgeryConsumableListQuery,
+  SurgeryConsumableReturnCreate,
+  SurgeryConsumableReturnParams,
   SurgeryConsumablePage,
   SurgeryCreate,
   SurgeryListQuery,
@@ -132,6 +134,8 @@ async function holdResources(client: pg.ClientBase, ids: readonly string[]): Pro
 }
 
 const surgeryGone = () => new HttpError(404, 'surgery_not_found', 'No such surgery');
+const consumableGone = () =>
+  new HttpError(404, 'consumable_not_found', 'No such recorded consumable in this surgery');
 
 /** The surgery to change, locked, at the version the caller read, in one of the statuses. */
 async function lockedSurgery(
@@ -232,6 +236,7 @@ interface ConsumableRow {
   batch_id: string;
   location_id: string;
   quantity: number;
+  returned_quantity: number;
   ledger_entry_id: string;
   item_name: string;
   batch_number: string;
@@ -240,6 +245,7 @@ interface ConsumableRow {
   recorded_at: Date;
 }
 const CONSUMABLE_COLUMNS = `c.id, c.use_id, c.drug_id, c.batch_id, c.location_id, c.quantity,
+       coalesce((select sum(r.quantity)::int from ot_consumable_returns r where r.consumable_id = c.id), 0) as returned_quantity,
        c.ledger_entry_id, c.recorded_by, c.recorded_at,
        (select d.generic_name from drugs d where d.id = c.drug_id) as item_name,
        (select b.batch_number from stock_batches b where b.id = c.batch_id) as batch_number,
@@ -251,6 +257,7 @@ const consumableView = (row: ConsumableRow): SurgeryConsumable => ({
   batchId: row.batch_id,
   locationId: row.location_id,
   quantity: row.quantity,
+  returnedQuantity: row.returned_quantity,
   ledgerEntryId: row.ledger_entry_id,
   itemName: row.item_name,
   batchNumber: row.batch_number,
@@ -887,6 +894,103 @@ export const theatreRoutes: FastifyPluginAsyncTypebox = async (app) => {
         [useId],
       );
       return reply.status(201).send({ items: rows.map(consumableView), nextCursor: null });
+    },
+  );
+
+  app.post(
+    '/theatre/surgeries/:surgeryId/consumables/:consumableId/return',
+    {
+      config: {
+        permissions: ['surgery:perform'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'returnSurgeryConsumable',
+        tags: ['theatre'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Brings units of a recorded consumable back to stock (#892), with a reason: they go back into the batch at the place they were taken from through the inventory ledger (source `theatre`, reason `theatre_return`) in the same transaction, never more than was used less what came back before (409 `over_return`), and an expired batch is never stock again (409 `batch_expired`). The return is a new row; the recording is not changed. Emits `surgery.consumables_returned`, on which billing voids a charge still pending and on no invoice, wholly returned, and flags any other for the billing desk to credit. A surgery that is not in progress or completed is 409 `invalid_transition`; an unknown recording 404 `consumable_not_found`. Needs the inventory module (403 `feature_disabled`). The Idempotency-Key header is required: a repeat moves no stock. Audited. Requires surgery:perform.',
+        params: SurgeryConsumableReturnParams,
+        body: SurgeryConsumableReturnCreate,
+        response: { 201: ref(SurgeryConsumablePage), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply) => {
+      const client = request.txClient;
+      const { surgeryId, consumableId } = request.params;
+      const current = async (id: string) => {
+        const { rows } = await client.query<ConsumableRow>(
+          `select ${CONSUMABLE_COLUMNS} from ot_consumables c where c.id = $1 and c.booking_id = $2`,
+          [id, surgeryId],
+        );
+        return rows.map(consumableView);
+      };
+      if (request.replayOf !== null && request.idempotentId) {
+        const { rows } = await client.query<{ consumable_id: string }>(
+          'select consumable_id from ot_consumable_returns where id = $1',
+          [request.idempotentId],
+        );
+        request.audit('read', 'surgery', surgeryId);
+        return reply.status(201).send({
+          items: rows[0] ? await current(rows[0].consumable_id) : [],
+          nextCursor: null,
+        });
+      }
+      await requireModule(request, 'inventory');
+      const probe = await findSurgery(client, surgeryId);
+      if (!probe) throw surgeryGone();
+      // The surgery first, then inventory's own locks, as every module that moves stock does.
+      const surgery = (await findSurgery(client, probe.id, true)) as SurgeryRow;
+      if (surgery.status !== 'in_progress' && surgery.status !== 'completed') {
+        throw new HttpError(
+          409,
+          'invalid_transition',
+          `Consumables come back once a surgery has started; this one is ${surgery.status}`,
+        );
+      }
+      if (!isUuid(consumableId)) throw consumableGone();
+      const [used] = await client
+        .query<ConsumableRow>(
+          `select ${CONSUMABLE_COLUMNS} from ot_consumables c where c.id = $1 and c.booking_id = $2`,
+          [consumableId.toLowerCase(), surgery.id],
+        )
+        .then((result) => result.rows);
+      if (!used) throw consumableGone();
+      const body = request.body;
+      if (body.quantity + used.returned_quantity > used.quantity) {
+        throw new HttpError(
+          409,
+          'over_return',
+          'More units than were used, less what came back before',
+        );
+      }
+      const returnId = randomUUID();
+      const actorId = userIdOf(request);
+      const [posted] = await stockIn(request, {
+        locationId: used.location_id,
+        drugId: used.drug_id,
+        source: 'theatre',
+        sourceId: returnId,
+        reason: 'theatre_return',
+        actorId,
+        lines: [{ batchId: used.batch_id, quantity: body.quantity }],
+      });
+      await client.query(
+        `insert into ot_consumable_returns
+           (id, booking_id, consumable_id, quantity, reason, ledger_entry_id, returned_by)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
+        [returnId, surgery.id, used.id, body.quantity, body.reason, posted?.ledgerEntryId, actorId],
+      );
+      request.idempotentId = returnId;
+      await request.emit('surgery.consumables_returned', surgery.id, {
+        patientId: surgery.patient_id,
+        consumableId: used.id,
+        returnId,
+        ...(surgery.encounter_id === null ? {} : { encounterId: surgery.encounter_id }),
+      });
+      request.audit('update', 'surgery', surgery.id);
+      return reply.status(201).send({ items: await current(used.id), nextCursor: null });
     },
   );
 };

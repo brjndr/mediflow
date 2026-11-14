@@ -308,6 +308,7 @@ const consumableSchema: z.ZodType<SurgeryConsumable> = z.object({
   batchId: z.string(),
   locationId: z.string(),
   quantity: z.number().int(),
+  returnedQuantity: z.number().int(),
   ledgerEntryId: z.string(),
   itemName: z.string(),
   batchNumber: z.string(),

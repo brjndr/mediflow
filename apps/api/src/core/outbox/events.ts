@@ -122,6 +122,8 @@ export const DOMAIN_EVENTS = [
   'surgery.completed',
   'surgery.cancelled',
   'surgery.consumables_used',
+  // Units of consumables brought back to stock (#892): ids only, never a quantity or a reason.
+  'surgery.consumables_returned',
   'surgery.checklist_step_completed',
   'claim.submitted',
   'claim.settled',
