@@ -5121,6 +5121,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/theatre/surgeries/{surgeryId}/consumables/{consumableId}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings units of a recorded consumable back to stock (#892), with a reason: they go back into the batch at the place they were taken from through the inventory ledger (source `theatre`, reason `theatre_return`) in the same transaction, never more than was used less what came back before (409 `over_return`), and an expired batch is never stock again (409 `batch_expired`). The return is a new row; the recording is not changed. Emits `surgery.consumables_returned`, on which billing voids a charge still pending and on no invoice, wholly returned, and flags any other for the billing desk to credit. A surgery that is not in progress or completed is 409 `invalid_transition`; an unknown recording 404 `consumable_not_found`. Needs the inventory module (403 `feature_disabled`). The Idempotency-Key header is required: a repeat moves no stock. Audited. Requires surgery:perform. */
+        post: operations["returnSurgeryConsumable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/theatre/surgeries/{surgeryId}/periop": {
         parameters: {
             query?: never;
@@ -11639,6 +11656,8 @@ export interface components {
             batchId: string;
             locationId: string;
             quantity: number;
+            /** @description Units of it brought back to stock so far (#892). */
+            returnedQuantity: number;
             /** @description The stock ledger entry that took the units out. */
             ledgerEntryId: string;
             /** @description The item as the drug and consumable master names it. */
@@ -11662,6 +11681,10 @@ export interface components {
                 batchId: string;
                 quantity: number;
             }[];
+        };
+        SurgeryConsumableReturnCreate: {
+            quantity: number;
+            reason: string;
         };
         /** @enum {string} */
         FitnessStatus: "fit" | "conditional" | "unfit";
@@ -11788,10 +11811,10 @@ export interface components {
          */
         StockLedgerSource: "adjustment" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return" | "issue" | "theatre";
         /**
-         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105) and `theatre_use` for units used in a surgery (#180).
+         * @description Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105), `theatre_use` for units used in a surgery (#180) and `theatre_return` for units of those brought back (#892).
          * @enum {string}
          */
-        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return" | "wastage" | "issue_out" | "issue_in" | "theatre_use";
+        StockLedgerReason: "opening" | "count_correction" | "damaged" | "expired" | "other" | "dispense" | "sale" | "sale_return" | "receipt" | "purchase_return" | "dispense_return" | "wastage" | "issue_out" | "issue_in" | "theatre_use" | "theatre_return";
         /** @description A place of the hospital that keeps stock. */
         StockLocation: {
             id: string;
@@ -41617,6 +41640,102 @@ export interface operations {
                         batchId: string;
                         quantity: number;
                     }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurgeryConsumablePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    returnSurgeryConsumable: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                surgeryId: string;
+                consumableId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    quantity: number;
+                    reason: string;
                 };
             };
         };

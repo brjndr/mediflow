@@ -485,6 +485,7 @@ export const theatreHandlers = [
       batchId: batch.batchId,
       locationId: body.locationId as string,
       quantity: batch.quantity,
+      returnedQuantity: 0,
       ledgerEntryId: `led_${consumables.length + index + 1}`,
       itemName: drug.genericName,
       batchNumber: batch.batchNumber,

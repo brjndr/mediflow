@@ -169,9 +169,9 @@ export async function stockIn(
     locationId: string;
     drugId: string;
     /** Only returns put stock back this way: an adjustment is approved by another. */
-    source: 'sale_return' | 'dispense_return';
+    source: 'sale_return' | 'dispense_return' | 'theatre';
     sourceId: string;
-    reason: 'sale_return' | 'dispense_return';
+    reason: 'sale_return' | 'dispense_return' | 'theatre_return';
     actorId: string;
     lines: { batchId: string; quantity: number; wasted?: boolean }[];
   },

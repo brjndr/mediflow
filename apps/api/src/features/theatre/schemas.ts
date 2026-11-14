@@ -155,6 +155,9 @@ export const SurgeryConsumable = Type.Object(
     batchId: Type.String(),
     locationId: Type.String(),
     quantity: Type.Integer(),
+    returnedQuantity: Type.Integer({
+      description: 'Units of it brought back to stock so far (#892).',
+    }),
     ledgerEntryId: Type.String({ description: 'The stock ledger entry that took the units out.' }),
     itemName: Type.String({ description: 'The item as the drug and consumable master names it.' }),
     batchNumber: Type.String(),
@@ -165,6 +168,15 @@ export const SurgeryConsumable = Type.Object(
   { $id: 'SurgeryConsumable', additionalProperties: false },
 );
 export type SurgeryConsumable = Static<typeof SurgeryConsumable>;
+export const SurgeryConsumableReturnCreate = Type.Object(
+  {
+    quantity: Type.Integer({ minimum: 1, maximum: 100000 }),
+    reason: Type.String({ minLength: 1, maxLength: 300, pattern: PLAIN_TEXT }),
+  },
+  { $id: 'SurgeryConsumableReturnCreate', additionalProperties: false },
+);
+export type SurgeryConsumableReturnCreate = Static<typeof SurgeryConsumableReturnCreate>;
+export const SurgeryConsumableReturnParams = Type.Object({ surgeryId: Id, consumableId: Id });
 export const SurgeryConsumablePage = CursorPage(ref(SurgeryConsumable), {
   $id: 'SurgeryConsumablePage',
 });
@@ -190,4 +202,5 @@ export const THEATRE_SCHEMAS = [
   SurgeryConsumable,
   SurgeryConsumablePage,
   SurgeryConsumableCreate,
+  SurgeryConsumableReturnCreate,
 ] as const;

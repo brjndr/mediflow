@@ -75,7 +75,9 @@ interface Page<Item> {
   nextCursor: string | null;
 }
 interface Consumable {
+  id: string;
   quantity: number;
+  returnedQuantity: number;
   batchId: string;
   ledgerEntryId: string;
   useId: string;
@@ -201,6 +203,7 @@ async function wipe(final = false) {
       'ot_anaesthesia',
       'ot_checklist_steps',
       'ot_fitness',
+      'ot_consumable_returns',
       'ot_consumables',
       'ot_bookings',
       'ot_rooms',
@@ -1241,6 +1244,130 @@ describe('the operation note, the visit and the charges', () => {
     // Another hospital's ledger is untouched.
     const foreign = await pool.query('select 1 from charges where tenant_id = $1', [clinic.id]);
     expect(foreign.rowCount).toBe(0);
+  });
+
+  it('brings consumables back to stock and reverses the charge while it is not invoiced (#892)', async () => {
+    const surgery = await booked({});
+    const encounter = await addEncounter(hospital, surgery.patientId);
+    await ok(await put(`/theatre/surgeries/${surgery.id}/encounter`, { encounterId: encounter }));
+    const batch = await stockIn(10);
+    await pool.query('update stock_batches set mrp_minor = 900 where id = $1', [batch]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 2 }));
+    const used = await ok<Page<Consumable>>(
+      await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+        drugId,
+        locationId: place,
+        lines: [{ batchId: batch, quantity: 4 }],
+      }),
+      201,
+    );
+    const consumable = used.items[0]?.id as string;
+    const url = `/theatre/surgeries/${surgery.id}/consumables/${consumable}/return`;
+    expect(await chargesOf(encounter)).toHaveLength(1);
+    expect(await onHand(batch)).toBe(6);
+
+    expect(errorOf(await post(url, { quantity: 5, reason: 'Unused' }, { key: fresh() }))).toEqual([
+      409,
+      'over_return',
+    ]);
+    expect(
+      errorOf(
+        await post(
+          `/theatre/surgeries/${surgery.id}/consumables/${randomUUID()}/return`,
+          { quantity: 1, reason: 'Unused' },
+          { key: fresh() },
+        ),
+      ),
+    ).toEqual([404, 'consumable_not_found']);
+
+    // A part comes back: stock rises, the charge is flagged for the desk, not changed.
+    const key = fresh();
+    const part = await ok<Page<Consumable>>(
+      await post(url, { quantity: 1, reason: 'Unopened' }, { key }),
+      201,
+    );
+    expect(part.items[0]).toMatchObject({ quantity: 4, returnedQuantity: 1 });
+    await ok(await post(url, { quantity: 1, reason: 'Unopened' }, { key }), 201);
+    expect(await onHand(batch)).toBe(7);
+    const ledger = await pool.query<{ source: string; reason: string; quantity: number }>(
+      "select source, reason, quantity from stock_ledger where batch_id = $1 and reason = 'theatre_return'",
+      [batch],
+    );
+    expect(ledger.rows).toEqual([{ source: 'theatre', reason: 'theatre_return', quantity: 1 }]);
+    const flagged = async () =>
+      (
+        await pool.query<{ status: string; flag: string | null }>(
+          'select status, flag from charges where encounter_id = $1',
+          [encounter],
+        )
+      ).rows;
+    await chargesOf(encounter);
+    expect(await flagged()).toEqual([{ status: 'pending', flag: 'return_review' }]);
+
+    // The rest comes back before any invoice: the charge is voided.
+    await ok(await post(url, { quantity: 3, reason: 'Unused' }, { key: fresh() }), 201);
+    expect(await onHand(batch)).toBe(10);
+    await chargesOf(encounter);
+    expect(await flagged()).toEqual([{ status: 'void', flag: 'return_review' }]);
+    expect(await eventsOf(surgery.id)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ event: 'surgery.consumables_returned' })]),
+    );
+    const returns = await pool.query(
+      'select 1 from ot_consumable_returns where consumable_id = $1',
+      [consumable],
+    );
+    expect(returns.rowCount).toBe(2);
+    expect(
+      errorOf(
+        await post(
+          url,
+          { quantity: 1, reason: 'Unused' },
+          { key: fresh(), tenant: clinic, user: clinicAdmin },
+        ),
+      ),
+    ).toEqual([404, 'surgery_not_found']);
+  });
+
+  it('leaves an invoiced charge as it is and flags it for a credit when units come back (#892)', async () => {
+    const surgery = await booked({});
+    const encounter = await addEncounter(hospital, surgery.patientId);
+    await ok(await put(`/theatre/surgeries/${surgery.id}/encounter`, { encounterId: encounter }));
+    const batch = await stockIn(5);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 2 }));
+    const used = await ok<Page<Consumable>>(
+      await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+        drugId,
+        locationId: place,
+        lines: [{ batchId: batch, quantity: 2 }],
+      }),
+      201,
+    );
+    await chargesOf(encounter);
+    const client = await pool.connect();
+    try {
+      await client.query("set session_replication_role = 'replica'");
+      await client.query(
+        "update charges set status = 'invoiced', invoice_id = $2 where encounter_id = $1",
+        [encounter, randomUUID()],
+      );
+    } finally {
+      await client.query("set session_replication_role = 'origin'");
+      client.release();
+    }
+    await ok(
+      await post(
+        `/theatre/surgeries/${surgery.id}/consumables/${used.items[0]?.id}/return`,
+        { quantity: 2, reason: 'Wrong size' },
+        { key: fresh() },
+      ),
+      201,
+    );
+    await chargesOf(encounter);
+    const rows = await pool.query('select status, flag from charges where encounter_id = $1', [
+      encounter,
+    ]);
+    expect(rows.rows).toEqual([{ status: 'invoiced', flag: 'return_review' }]);
+    expect(await onHand(batch)).toBe(5);
   });
 
   it('posts no charge for a surgery with no visit', async () => {

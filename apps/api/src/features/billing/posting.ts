@@ -296,6 +296,23 @@ export function subscribeToPostings(app: FastifyInstance): void {
     }
   });
 
+  // Units of a surgery's consumables brought back (#892): the charge of that recording, still
+  // pending and on no draft, wholly returned, is voided; any other is flagged for the billing desk
+  // to credit. Computed from all that has been returned, so a repeat changes nothing.
+  app.events.subscribe('surgery.consumables_returned', async (message, tx) => {
+    const consumableId = idOf(message.payload.consumableId);
+    if (!consumableId) return;
+    await tx.execute(
+      sql`update charges c set flag = 'return_review',
+            status = case when c.status = 'pending' and c.invoice_id is null
+              and r.returned >= c.quantity then 'void' else c.status end
+          from (select coalesce(sum(quantity), 0) as returned from ot_consumable_returns
+                where consumable_id = ${consumableId}) r
+          where c.source_ref = 'theatre:' || ${consumableId}::text and r.returned > 0
+            and c.status <> 'void'`,
+    );
+  });
+
   // A dispense is charged for each batch it took from, at that batch's price.
   app.events.subscribe('pharmacy.dispensed', async (message, tx) => {
     const dispenseId = idOf(message.entityId);

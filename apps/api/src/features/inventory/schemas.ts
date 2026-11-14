@@ -90,12 +90,13 @@ export const LEDGER_REASONS = [
   'issue_out',
   'issue_in',
   'theatre_use',
+  'theatre_return',
 ] as const;
 export type LedgerReason = (typeof LEDGER_REASONS)[number];
 export const StockLedgerReason = named(
   'StockLedgerReason',
   LEDGER_REASONS,
-  'Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105) and `theatre_use` for units used in a surgery (#180).',
+  'Why stock moved: the reason of its adjustment, `dispense` for units given against a prescription, `sale` for units sold at the counter, `sale_return` for units of a sale brought back, `receipt` for goods received from a supplier, `purchase_return` for units sent back to one, `dispense_return` for units of a dispense brought back, `wastage` for units brought back and destroyed (#104), `issue_out` for units issued from a store against an indent and `issue_in` for the same units coming in at the place that asked (#105), `theatre_use` for units used in a surgery (#180) and `theatre_return` for units of those brought back (#892).',
 );
 
 const Id = Type.String({ maxLength: 64 });
