@@ -230,3 +230,9 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- A patient record that was merged into another takes no new rows here either (#557).
+CREATE TRIGGER refuse_merged_patient BEFORE INSERT ON patient_blood_groups
+  FOR EACH ROW EXECUTE FUNCTION refuse_row_for_merged_patient();
+CREATE TRIGGER refuse_merged_patient BEFORE INSERT ON blood_crossmatches
+  FOR EACH ROW EXECUTE FUNCTION refuse_row_for_merged_patient();
