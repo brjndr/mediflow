@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { patientFamily } from '../../core/patient-merge/family.js';
 import type { PermissionScope } from '../../core/access/registry.js';
 import { activeDepartmentsOf } from '../doctors/index.js';
 import type {
@@ -160,7 +161,7 @@ export async function listAdmissions(
   if (filter.status) add('a.status = ?', filter.status);
   if (filter.patientId) {
     if (!UUID.test(filter.patientId)) return { rows: [], nextCursor: null, total: 0 };
-    add('a.patient_id = ?::uuid', filter.patientId);
+    add('a.patient_id = any(?::uuid[])', await patientFamily(client, filter.patientId));
   }
   if (filter.wardId) {
     if (!UUID.test(filter.wardId)) return { rows: [], nextCursor: null, total: 0 };
