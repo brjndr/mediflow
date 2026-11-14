@@ -4,7 +4,7 @@ import type { FeatureManifest } from '@/registry';
 /**
  * The hospital profile: the address, phone, registration number and GSTIN that are printed on
  * the letterhead of prescriptions, invoices and the rest. The API has no module switch for it
- * (like roles and staff); the `staff` switch, which every hospital's setup has, offers the screen.
+ * (like roles), so the manifest declares no flag: only the permissions apply.
  */
 export const hospitalProfileFeature: FeatureManifest = {
   id: 'hospital-profile',
@@ -13,7 +13,6 @@ export const hospitalProfileFeature: FeatureManifest = {
     titles: { en: { title: 'Hospital profile' } },
     load: (language) => import(`./locales/${language}.json`),
   },
-  featureFlag: 'staff',
   routes: [
     {
       path: 'hospital-profile',

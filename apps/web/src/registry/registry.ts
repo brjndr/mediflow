@@ -30,7 +30,7 @@ function titleKeyOf(feature: FeatureManifest, key = feature.titleKey): string {
 
 export interface RegisteredRoute {
   featureId: string;
-  featureFlag: string;
+  featureFlag?: string;
   path: string;
   requires: Permission[];
   /** The page's title, ready to pass to `t()`. */
@@ -97,7 +97,9 @@ function validate(manifests: readonly FeatureManifest[]): string[] {
     if (!feature.id) problems.push('A feature has no id.');
     if (ids.has(feature.id)) problems.push(`${at} is registered more than once.`);
     ids.add(feature.id);
-    if (!feature.featureFlag) problems.push(`${at} has no featureFlag.`);
+    if (feature.featureFlag !== undefined && !feature.featureFlag) {
+      problems.push(`${at} has an empty featureFlag.`);
+    }
     if (feature.i18n) {
       if (RESERVED_NAMESPACES.has(feature.id)) {
         problems.push(`${at} uses an id reserved as an i18n namespace.`);
@@ -190,7 +192,7 @@ function validate(manifests: readonly FeatureManifest[]): string[] {
 
 interface Contribution extends ResolvedContribution {
   slot: SlotId;
-  featureFlag: string;
+  featureFlag?: string;
   requires: Permission[];
   order: number;
 }
@@ -262,7 +264,10 @@ export function createRegistry(manifests: readonly FeatureManifest[]): Registry 
       return path === undefined || path.startsWith('/') || path.includes('://') ? null : path;
     },
     enabledFeatures: (policy) =>
-      manifests.filter((feature) => isFeatureEnabled(policy, feature.featureFlag)),
+      manifests.filter(
+        (feature) =>
+          feature.featureFlag === undefined || isFeatureEnabled(policy, feature.featureFlag),
+      ),
     navItems: (policy) =>
       manifests
         .filter(

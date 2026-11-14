@@ -121,8 +121,11 @@ export interface FeatureManifest {
   /** Key of the feature's title in `i18n.titles`, or a key in core `common` when it has no i18n. */
   titleKey: string;
   i18n?: FeatureI18n;
-  /** Tenant-level on/off switch. The feature is unreachable in a hospital where it is off. */
-  featureFlag: string;
+  /**
+   * Tenant-level on/off switch. The feature is unreachable in a hospital where it is off. Leave it
+   * out for a module the API does not gate (roles, hospital profile): only permissions apply.
+   */
+  featureFlag?: string;
   routes: FeatureRoute[];
   nav?: FeatureNav;
   /** Every permission the feature uses. Anything in a `requires` must be listed here. */
