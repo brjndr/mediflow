@@ -6,6 +6,7 @@ import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
+import { StatusBadge } from '@/shared/ui/status-badge';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import {
@@ -290,6 +291,12 @@ export function InvoiceBuilder({
         id: 'note',
         header: t('charges.columns.note'),
         value: (row) => (row.flag ? t(`charges.flag.${row.flag}`) : t('charges.noFlag')),
+        render: (row, text) =>
+          row.flag ? (
+            <StatusBadge tone={row.flag === 'no_price' ? 'danger' : 'warning'} label={text} />
+          ) : (
+            text
+          ),
       },
       {
         id: 'onBill',
