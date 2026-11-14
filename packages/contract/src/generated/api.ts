@@ -5292,6 +5292,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/theatre/surgeries/{surgeryId}/recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Recovery-room notes of one surgery, oldest first, with the visit it is charged to (OT-04, #179). Audited as a read of the surgery. Requires theatre:read. */
+        get: operations["getRecovery"];
+        put?: never;
+        /** @description Adds a recovery note once the surgery has started (409 `invalid_state` before, or after it was cancelled). Notes are append-only: a correction is a new note. The server takes the author and time. The Idempotency-Key header is required; a repeat adds nothing. Answers the whole record. Audited. Requires surgery:perform. */
+        post: operations["addRecoveryNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/inventory/locations": {
         parameters: {
             query?: never;
@@ -7185,24 +7203,6 @@ export interface paths {
         put?: never;
         /** @description Assigns an incomplete record to a doctor to complete, or takes the assignment off (doctorId null). Needs medicalRecord:assign and the records feature flag. 404 when the encounter is not an incomplete record of this hospital, 422 when the doctor is not one of its practising doctors. Audited. */
         post: operations["assignIncompleteRecord"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/theatre/surgeries/{surgeryId}/recovery": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Recovery-room notes of one surgery, oldest first, with the visit it is charged to so the web can show its orders (OT-04, #179). Needs theatre:read and the theatre feature flag. Planned: the web app is built against the mock. */
-        get: operations["getRecovery"];
-        put?: never;
-        /** @description Adds a recovery note once the surgery has started. Needs surgery:perform. Notes are append-only: there is no update or delete; a correction is a new note. The server takes the author and time. */
-        post: operations["addRecoveryNote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11837,6 +11837,29 @@ export interface components {
         SurgeryEncounterInput: {
             encounterId: string;
         };
+        /** @enum {string} */
+        RecoveryReadiness: "in_recovery" | "ready_for_ward";
+        RecoveryNoteInput: {
+            text: string;
+            painScore?: number;
+            readiness: components["schemas"]["RecoveryReadiness"];
+        };
+        RecoveryNote: {
+            id: string;
+            text: string;
+            painScore: number | null;
+            readiness: components["schemas"]["RecoveryReadiness"];
+            addedBy: string;
+            addedByName: string;
+            /** Format: date-time */
+            addedAt: string;
+        };
+        RecoveryRecord: {
+            surgeryId: string;
+            /** @description The visit the surgery is charged to, when linked. */
+            encounterId: string | null;
+            notes: components["schemas"]["RecoveryNote"][];
+        };
         /**
          * @description What a place that keeps stock is: a store, a pharmacy counter, a ward’s own stock, or a department’s (a theatre, the laboratory).
          * @enum {string}
@@ -13817,28 +13840,6 @@ export interface components {
         };
         IncompleteRecordAssign: {
             doctorId: string | null;
-        };
-        /** @enum {string} */
-        RecoveryReadiness: "in_recovery" | "ready_for_ward";
-        RecoveryNoteInput: {
-            text: string;
-            painScore?: number;
-            readiness: components["schemas"]["RecoveryReadiness"];
-        };
-        RecoveryNote: {
-            id: string;
-            text: string;
-            painScore: number | null;
-            readiness: components["schemas"]["RecoveryReadiness"];
-            addedBy: string;
-            addedByName: string;
-            /** Format: date-time */
-            addedAt: string;
-        };
-        RecoveryRecord: {
-            surgeryId: string;
-            encounterId: string | null;
-            notes: components["schemas"]["RecoveryNote"][];
         };
     };
     responses: {
@@ -42708,6 +42709,160 @@ export interface operations {
             };
         };
     };
+    getRecovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addRecoveryNote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                surgeryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                    painScore?: number;
+                    readiness: components["schemas"]["RecoveryReadiness"];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listStockLocations: {
         parameters: {
             query?: {
@@ -52745,69 +52900,6 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getRecovery: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                surgeryId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The recovery record */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecoveryRecord"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    addRecoveryNote: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                surgeryId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecoveryNoteInput"];
-            };
-        };
-        responses: {
-            /** @description The whole recovery record */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecoveryRecord"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

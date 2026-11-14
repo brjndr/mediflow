@@ -198,6 +198,7 @@ async function wipe(final = false) {
     await client.query('delete from charges where tenant_id = any($1)', [tenants()]);
     await client.query('delete from encounters where tenant_id = any($1)', [tenants()]);
     for (const table of [
+      'ot_recovery_notes',
       'ot_note_addenda',
       'ot_notes',
       'ot_anaesthesia',
@@ -1529,5 +1530,64 @@ describe('the operation note, the visit and the charges', () => {
       );
       expect(rows.rowCount).toBe(0);
     }
+  });
+});
+
+describe('recovery notes', () => {
+  interface Recovery {
+    surgeryId: string;
+    notes: { text: string; painScore: number | null; readiness: string; addedByName: string }[];
+  }
+  const note = { text: 'Awake, comfortable', painScore: 2, readiness: 'in_recovery' };
+
+  it('appends notes once the surgery has started, with the server taking author and time', async () => {
+    const surgery = await booked({});
+    const url = `/theatre/surgeries/${surgery.id}/recovery`;
+    expect(errorOf(await post(url, note))).toEqual([409, 'invalid_state']);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const key = fresh();
+    const first = await ok<Recovery>(await post(url, note, { key }), 201);
+    expect(first.notes).toHaveLength(1);
+    await ok(await post(url, note, { key }), 201);
+    const second = await ok<Recovery>(
+      await post(url, { text: 'Fit for the ward', readiness: 'ready_for_ward' }),
+      201,
+    );
+    expect(second.notes.map((n) => [n.text, n.painScore, n.readiness])).toEqual([
+      ['Awake, comfortable', 2, 'in_recovery'],
+      ['Fit for the ward', null, 'ready_for_ward'],
+    ]);
+    expect(second.notes[0]?.addedByName).toBeTruthy();
+    expect((await ok<Recovery>(await get(url))).notes).toHaveLength(2);
+    expect((await post(url, { ...note, painScore: 11 })).statusCode).toBe(400);
+    await expect(
+      asTenantSql(pool, hospital.id, (client) =>
+        client.query("update ot_recovery_notes set text = 'x' where booking_id = $1", [surgery.id]),
+      ),
+    ).rejects.toThrow();
+    await app.events.dispatch();
+    const events = await pool.query<{ p: string }>(
+      "select payload::text as p from outbox where entity_id = $1 and event = 'surgery.recovery_note_added'",
+      [surgery.id],
+    );
+    expect(events.rowCount).toBe(2);
+    expect(events.rows.map((r) => r.p).join()).not.toContain('Awake');
+  });
+
+  it('needs the right permission and the module, and stays inside the hospital', async () => {
+    const surgery = await booked({});
+    const url = `/theatre/surgeries/${surgery.id}/recovery`;
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    await ok(await post(url, note), 201);
+    expect((await get(url, { user: pharmacist })).statusCode).toBe(403);
+    expect((await post(url, note, { user: pharmacist })).statusCode).toBe(403);
+    expect((await get(url, { tenant: closed })).statusCode).toBe(403);
+    const other = { tenant: clinic, user: clinicAdmin };
+    expect(errorOf(await get(url, other))).toEqual([404, 'surgery_not_found']);
+    expect(errorOf(await post(url, note, other))).toEqual([404, 'surgery_not_found']);
+    const rows = await asTenantSql(pool, clinic.id, (client) =>
+      client.query('select 1 from ot_recovery_notes'),
+    );
+    expect(rows.rowCount).toBe(0);
   });
 });

@@ -127,6 +127,8 @@ export const DOMAIN_EVENTS = [
   // A surgery linked to another visit (#900): ids only; billing moves its consumable charges.
   'surgery.encounter_changed',
   'surgery.checklist_step_completed',
+  // A recovery-room note added (#917): ids only, never the text or the pain score.
+  'surgery.recovery_note_added',
   'claim.submitted',
   'claim.settled',
   // A record of a catalog (a service, a price, later a drug, a test, a bed) was added or changed.
