@@ -382,6 +382,21 @@ describe('searching', () => {
     expect(mixedWrong.items).toEqual([]);
   });
 
+  it('pages a short-word search in name order and gives its total (#899)', async () => {
+    for (const lastName of ['Qzc-3', 'Qzc-1', 'Qzc-2']) {
+      await register({ ...asha, firstName: 'Zed', lastName });
+    }
+
+    const first = (await search({ q: 'qz', limit: 2 })).json<Page>();
+    expect(first.items.map((item) => item.lastName)).toEqual(['Qzc-1', 'Qzc-2']);
+    expect(first.total).toBe(3);
+    expect(first.nextCursor).not.toBeNull();
+
+    const second = (await search({ q: 'qz', limit: 2, cursor: first.nextCursor! })).json<Page>();
+    expect(second.items.map((item) => item.lastName)).toEqual(['Qzc-3']);
+    expect(second.nextCursor).toBeNull();
+  });
+
   it('treats what was typed as text, never as a pattern', async () => {
     const everything = (await search({ q: '%' })).json<Page>();
     const underscore = (await search({ q: '_' })).json<Page>();

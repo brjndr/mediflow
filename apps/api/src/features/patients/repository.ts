@@ -59,6 +59,15 @@ function visibilityClause(visibility: Visibility, params: unknown[]): string | n
 /** Escapes what the user typed so it is matched as text, not as a LIKE pattern. */
 const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
 
+/** A like pattern whose text (between the % signs, escapes removed) has under three characters. */
+const isShortWord = (pattern: string) => pattern.slice(1, -1).replaceAll('\\', '').length < 3;
+
+/** The most a short-word search counts; beyond it the total is left out (#899). */
+const SHORT_COUNT_CAP = 10_000;
+
+/** Byte order of the name, which the indexes behind `patient_search_short_page` serve. */
+const SHORT_ORDER = 'last_name_lower collate "C", first_name_lower collate "C", id';
+
 /** The columns each order runs on, most significant first. The id makes every order total. */
 const SORT_COLUMNS: Record<PatientSort, readonly string[]> = {
   name: ['last_name_lower', 'first_name_lower', 'id'],
@@ -108,6 +117,8 @@ export async function searchPatients(
   const where: string[] = [];
   // The arguments of the search function, kept to count with it for a caller who sees all (#880).
   let searchArgs: unknown[] | null = null;
+  // One word of one or two characters, read page by page in name order (#899).
+  let shortWord: { word: string; legacy: string } | null = null;
 
   const visible = visibilityClause(visibility, params);
   if (visible) where.push(visible);
@@ -128,6 +139,18 @@ export async function searchPatients(
     // here under row-level security and the caller's scope, so the function cannot widen what
     // is shown. The last argument is an exact legacy registration number (#694).
     searchArgs = [words, phone, tidy(input.q ?? ''), Boolean(input.mergedAway)];
+    if (
+      phone === null &&
+      words.length === 1 &&
+      isShortWord(words[0] ?? '') &&
+      visibility.scope === 'all' &&
+      input.sort === 'name' &&
+      !input.mergedAway
+    ) {
+      // Ids come from a definer function that reads the name indexes in order and stops after
+      // the page; the rows are read again below under row-level security, as for the search.
+      shortWord = { word: term, legacy: tidy(input.q ?? '') };
+    }
     params.push(...searchArgs);
     const n = params.length;
     where.push(
@@ -137,7 +160,16 @@ export async function searchPatients(
 
   // Counted on the first page only: the number does not change while someone pages through.
   let total: number | undefined;
-  if (!input.cursor && searchArgs && visibility.scope === 'all') {
+  if (!input.cursor && shortWord) {
+    // A short word can match a large share of the hospital: count up to a cap and leave the
+    // total out beyond it (the list then says there are more).
+    const counted = await client.query<{ total: string }>(
+      'select count(*) as total from patient_search_short_page($1, $2, null, null, null, $3)',
+      [shortWord.word, shortWord.legacy, SHORT_COUNT_CAP + 1],
+    );
+    const found = Number(counted.rows[0]?.total ?? 0);
+    total = found > SHORT_COUNT_CAP ? undefined : found;
+  } else if (!input.cursor && searchArgs && visibility.scope === 'all') {
     // Nothing narrows the match but the hospital, which the function applies itself, so it can
     // count without the outer query building a hash join on a common word (#880).
     const counted = await client.query<{ total: string }>(
@@ -154,6 +186,7 @@ export async function searchPatients(
   }
 
   const columns = SORT_COLUMNS[input.sort];
+  let after: Record<string, string> | null = null;
   const direction = descending(input.sort) ? 'desc' : 'asc';
   if (input.cursor) {
     // The row the cursor names is read under the same row-level security and the same scope as
@@ -168,6 +201,7 @@ export async function searchPatients(
     );
     const last = cursorRow.rows[0];
     if (!last) return { rows: [], nextCursor: null };
+    after = last;
     const placeholders = columns.map((column) => {
       params.push(last[column]);
       return `$${params.length}${column === 'id' ? '::uuid' : ''}`;
@@ -175,6 +209,23 @@ export async function searchPatients(
     where.push(
       `(${columns.join(', ')}) ${direction === 'asc' ? '>' : '<'} (${placeholders.join(', ')})`,
     );
+  }
+
+  if (shortWord) {
+    const paged = await client.query<PatientRow>(
+      `select ${COLUMNS} from patients
+       where id in (select patient_search_short_page($1, $2, $3, $4, $5::uuid, $6))
+       order by ${SHORT_ORDER} limit $6`,
+      [
+        shortWord.word,
+        shortWord.legacy,
+        after?.last_name_lower ?? null,
+        after?.first_name_lower ?? null,
+        after?.id ?? null,
+        input.limit + 1,
+      ],
+    );
+    return finishPage(paged.rows);
   }
 
   params.push(input.limit + 1);
@@ -186,13 +237,17 @@ export async function searchPatients(
     params,
   );
 
-  const page = rows.slice(0, input.limit);
-  const last = page.at(-1);
-  return {
-    rows: page,
-    nextCursor: rows.length > input.limit && last ? encodeCursor(input.sort, last.id) : null,
-    total,
-  };
+  return finishPage(rows);
+
+  function finishPage(read: PatientRow[]) {
+    const page = read.slice(0, input.limit);
+    const last = page.at(-1);
+    return {
+      rows: page,
+      nextCursor: read.length > input.limit && last ? encodeCursor(input.sort, last.id) : null,
+      total,
+    };
+  }
 }
 
 export async function findPatient(
