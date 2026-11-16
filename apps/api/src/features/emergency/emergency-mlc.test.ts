@@ -128,7 +128,9 @@ describe('flagging a case', () => {
   it('flags it, shows the flag on the case and keeps the record', async () => {
     const row = await arrive();
     expect(row.medicoLegal).toBe(false);
-    expect((await get(`/emergency/cases/${row.id}/medico-legal`)).statusCode).toBe(404);
+    expect((await get(`/emergency/cases/${row.id}/medico-legal?reason=treatment`)).statusCode).toBe(
+      404,
+    );
 
     const response = await save(row.id, {}, { user: doctor });
     expect(response.statusCode).toBe(200);
@@ -205,7 +207,9 @@ describe('restricted access and audit', () => {
   it('refuses a nurse the details and the flagging', async () => {
     const row = await arrive();
     await save(row.id, {});
-    const view = await get(`/emergency/cases/${row.id}/medico-legal`, { user: nurse });
+    const view = await get(`/emergency/cases/${row.id}/medico-legal?reason=treatment`, {
+      user: nurse,
+    });
     expect(errorOf(view)).toEqual([403, 'permission_denied']);
     expect(errorOf(await save(row.id, { revision: 1 }, { user: nurse }))).toEqual([
       403,
@@ -216,13 +220,14 @@ describe('restricted access and audit', () => {
   it('audits every view, also a repeat, and every save', async () => {
     const row = await arrive();
     await save(row.id, {});
-    await get(`/emergency/cases/${row.id}/medico-legal`, { user: doctor });
-    await get(`/emergency/cases/${row.id}/medico-legal`, { user: doctor });
-    const { rows } = await pool.query<{ action: string }>(
-      "select action from audit_log where tenant_id = $1 and entity = 'er_medico_legal' and entity_id = $2 order by at, id",
+    await get(`/emergency/cases/${row.id}/medico-legal?reason=treatment`, { user: doctor });
+    await get(`/emergency/cases/${row.id}/medico-legal?reason=treatment`, { user: doctor });
+    const { rows } = await pool.query<{ action: string; detail: string | null }>(
+      "select action, detail from audit_log where tenant_id = $1 and entity = 'er_medico_legal' and entity_id = $2 order by at, id",
       [hospital.id, row.id],
     );
     expect(rows.map((r) => r.action)).toEqual(['create', 'read', 'read']);
+    expect(rows.map((r) => r.detail)).toEqual([null, 'reason:treatment', 'reason:treatment']);
     const events = await pool.query<{ payload: Record<string, unknown> }>(
       "select payload from outbox where tenant_id = $1 and entity_id = $2 and event = 'er.medico_legal'",
       [hospital.id, row.id],
@@ -231,12 +236,43 @@ describe('restricted access and audit', () => {
   });
 });
 
+describe('access reason (#677)', () => {
+  const url = (caseId: string) => `/emergency/cases/${caseId}/medico-legal`;
+  const logged = async (caseId: string) =>
+    (
+      await pool.query(
+        "select 1 from audit_log where tenant_id = $1 and entity = 'er_medico_legal' and entity_id = $2 and action in ('read', 'print')",
+        [hospital.id, caseId],
+      )
+    ).rowCount;
+
+  it('refuses a view, the history and a print without a reason, or with free text, and records nothing', async () => {
+    const row = await arrive();
+    await save(row.id, {});
+    for (const bad of ['', '?reason=', '?reason=curious']) {
+      expect((await get(url(row.id) + bad)).statusCode).toBe(400);
+      expect((await get(url(row.id) + '/revisions' + bad)).statusCode).toBe(400);
+    }
+    for (const payload of [undefined, {}, { reason: 'because' }]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: url(row.id) + '/print',
+        headers: headers({}, fresh()),
+        ...(payload === undefined ? {} : { payload }),
+      });
+      expect(response.statusCode).toBe(400);
+    }
+    expect(await logged(row.id)).toBe(0);
+  });
+});
+
 describe('printing (#646)', () => {
-  const print = (caseId: string, options: Options = {}, key = fresh()) =>
+  const print = (caseId: string, options: Options = {}, key = fresh(), reason = 'court_order') =>
     app.inject({
       method: 'POST',
       url: `/emergency/cases/${caseId}/medico-legal/print`,
       headers: headers(options, key),
+      payload: { reason },
     });
   const printsOf = async (caseId: string, tenantId = hospital.id) =>
     (
@@ -254,7 +290,7 @@ describe('printing (#646)', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json<Mlc>()).toMatchObject({ revision: 2 });
     expect(await printsOf(row.id)).toEqual([
-      { entity_id: row.id, detail: 'revision:2', actor_id: doctor.id },
+      { entity_id: row.id, detail: 'revision:2;reason:court_order', actor_id: doctor.id },
     ]);
   });
 
@@ -290,10 +326,9 @@ describe('hospital boundary', () => {
     const row = await arrive();
     await save(row.id, {});
     const other = { tenant: clinic, user: clinicAdmin };
-    expect(errorOf(await get(`/emergency/cases/${row.id}/medico-legal`, other))).toEqual([
-      404,
-      'case_not_found',
-    ]);
+    expect(
+      errorOf(await get(`/emergency/cases/${row.id}/medico-legal?reason=treatment`, other)),
+    ).toEqual([404, 'case_not_found']);
     expect(errorOf(await save(row.id, { revision: 1 }, other))).toEqual([404, 'case_not_found']);
     const { rows } = await pool.query(
       'select 1 from er_medico_legal where case_id = $1 and tenant_id = $2',
@@ -332,7 +367,7 @@ describe('the register of medico-legal cases (#676)', () => {
 
 describe('revision history (#647)', () => {
   const history = (caseId: string, options: Options = {}) =>
-    get(`/emergency/cases/${caseId}/medico-legal/revisions`, options);
+    get(`/emergency/cases/${caseId}/medico-legal/revisions?reason=audit`, options);
 
   it('lists every revision newest first and audits each one read', async () => {
     const row = await arrive();
@@ -347,7 +382,10 @@ describe('revision history (#647)', () => {
       "select detail, actor_id from audit_log where tenant_id = $1 and action = 'read' and entity = 'er_medico_legal' and entity_id = $2 and detail is not null order by detail",
       [hospital.id, row.id],
     );
-    expect(rows.map((one) => one.detail)).toEqual(['revision:1', 'revision:2']);
+    expect(rows.map((one) => one.detail)).toEqual([
+      'revision:1;reason:audit',
+      'revision:2;reason:audit',
+    ]);
     expect(rows.every((one) => one.actor_id === doctor.id)).toBe(true);
   });
 

@@ -19,8 +19,9 @@ import {
 import { Letterhead, useFormatters } from '@/tenancy';
 import { useMlc, useMlcHistory, useMlcPrinting, useSaveMlc } from '../hooks/use-emergency';
 import { MLC_CATEGORIES, mlcFormSchema, type MlcFormValues } from '../schemas';
-import type { EmergencyCase, EmergencyMlc } from '../types';
+import type { EmergencyCase, EmergencyMlc, MlcAccessReason } from '../types';
 import { failureText } from './failure';
+import { MlcReasonDialog } from './MlcReasonDialog';
 
 /** A word and an icon, never colour alone, for a case that is medico-legal. */
 export function MedicoLegalBadge() {
@@ -36,8 +37,9 @@ export function MedicoLegalBadge() {
 /**
  * The medico-legal record of a case (ER-03). Who may see the details is `medicoLegal:read`; who
  * may flag or revise is `medicoLegal:manage`. Without the first the screen says only that the case
- * is medico-legal. The record is read when this opens, not in the background: every view is
- * audited. A revision never overwrites the one before it.
+ * is medico-legal. The record is read only after the person gives a reason (one of a fixed list,
+ * kept in the audit log), and again, with a new reason, each time the panel opens, for the history
+ * and for each print: every view is audited. A revision never overwrites the one before it.
  */
 export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
   const { t } = useTranslation('emergency');
@@ -48,9 +50,18 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
   const canRead = usePermission('medicoLegal:read');
   const canManage = usePermission('medicoLegal:manage');
   const printing = useMlcPrinting(row.id);
-  const record = useMlc(row.id, row.medicoLegal === true && canRead);
+  // The reason given to open the record; null until then, and gone when the panel closes.
+  const [reason, setReason] = useState<MlcAccessReason | null>(null);
+  const [asking, setAsking] = useState<'view' | 'history' | 'print' | null>(null);
+  const [historyReason, setHistoryReason] = useState<MlcAccessReason | null>(null);
+  const fetched = useMlc(row.id, row.medicoLegal === true && canRead ? reason : null);
+  // What this person just saved is shown as saved, with no second (logged) read.
+  const [saved, setSaved] = useState<EmergencyMlc | null>(null);
+  const shown = [saved, fetched.data].reduce<EmergencyMlc | undefined>(
+    (best, one) => (one && (!best || one.revision > best.revision) ? one : best),
+    undefined,
+  );
   const [editing, setEditing] = useState(false);
-  const [history, setHistory] = useState(false);
   const [message, setMessage] = useState('');
   const status = useRef<HTMLParagraphElement>(null);
 
@@ -82,50 +93,57 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
             {t('mlc.flag')}
           </Button>
         </>
-      ) : record.isError ? (
+      ) : !shown && reason === null ? (
+        <>
+          <p className="text-sm text-muted-foreground">{t('mlc.reasonLocked')}</p>
+          <Button className="self-start" onClick={() => setAsking('view')}>
+            {t('mlc.reasonView')}
+          </Button>
+        </>
+      ) : !shown && fetched.isError ? (
         <p role="alert" className="text-sm text-destructive">
-          {tCommon(errorMessageKey(record.error))}
+          {tCommon(errorMessageKey(fetched.error))}
         </p>
-      ) : record.isPending ? (
+      ) : !shown ? (
         <p className="text-sm text-muted-foreground">{tCommon('app.loading')}</p>
       ) : (
         <>
           <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-            <Item label={t('mlc.category')} value={t(`mlc.categories.${record.data.category}`)} />
-            <Item label={t('mlc.broughtBy')} value={record.data.broughtBy} />
+            <Item label={t('mlc.category')} value={t(`mlc.categories.${shown.category}`)} />
+            <Item label={t('mlc.broughtBy')} value={shown.broughtBy} />
             <Item
               label={t('mlc.police')}
               value={
-                record.data.policeInformed
-                  ? t('mlc.informed', { station: record.data.policeStation ?? '' })
+                shown.policeInformed
+                  ? t('mlc.informed', { station: shown.policeStation ?? '' })
                   : t('mlc.notInformed')
               }
             />
-            <Item label={t('mlc.reference')} value={record.data.policeReference} />
+            <Item label={t('mlc.reference')} value={shown.policeReference} />
             <Item
               label={t('mlc.recorded')}
               value={t('mlc.recordedBy', {
-                name: record.data.recordedByName,
-                at: format.dateTime(record.data.recordedAt),
-                revision: record.data.revision,
+                name: shown.recordedByName,
+                at: format.dateTime(shown.recordedAt),
+                revision: shown.revision,
               })}
             />
           </dl>
-          <p className="whitespace-pre-wrap break-words">{record.data.narrative}</p>
+          <p className="whitespace-pre-wrap break-words">{shown.narrative}</p>
           <div className="flex flex-wrap gap-2">
             {canManage && (
               <Button variant="outline" onClick={() => setEditing(true)}>
                 {t('mlc.revise')}
               </Button>
             )}
-            <Button variant="outline" onClick={() => setHistory(true)}>
+            <Button variant="outline" onClick={() => setAsking('history')}>
               {t('mlc.historyButton')}
             </Button>
             <Button
               variant="outline"
               aria-disabled={printing.busy || undefined}
               aria-describedby={printing.error ? printErrorId : undefined}
-              onClick={printing.print}
+              onClick={() => setAsking('print')}
             >
               {t('mlc.print')}
             </Button>
@@ -143,11 +161,28 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
         </>
       )}
 
-      {history && (
+      {asking && (
+        <MlcReasonDialog
+          onClose={() => {
+            setAsking(null);
+            setTimeout(() => focusIfLost(status.current), 0);
+          }}
+          onChosen={(chosen) => {
+            if (asking === 'view') setReason(chosen);
+            else if (asking === 'history') setHistoryReason(chosen);
+            else printing.print(chosen);
+            setAsking(null);
+            setTimeout(() => focusIfLost(status.current), 0);
+          }}
+        />
+      )}
+
+      {historyReason && (
         <MlcHistoryDialog
           row={row}
+          reason={historyReason}
           onClose={() => {
-            setHistory(false);
+            setHistoryReason(null);
             setTimeout(() => focusIfLost(status.current), 0);
           }}
         />
@@ -156,12 +191,14 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
       {editing && (
         <MedicoLegalDialog
           row={row}
-          current={record.data}
+          current={shown}
           onClose={closeEditor}
-          onDone={(saved) => {
-            setMessage(t(saved.revision === 1 ? 'mlc.flagged' : 'mlc.revised', { id: row.tempId }));
+          onDone={(result) => {
+            setMessage(
+              t(result.revision === 1 ? 'mlc.flagged' : 'mlc.revised', { id: row.tempId }),
+            );
+            setSaved(result);
             closeEditor();
-            void record.refetch();
           }}
         />
       )}
@@ -235,11 +272,19 @@ const FIELD_LABELS: Record<Tracked, string> = {
 };
 
 /** Every revision, newest first, each with what it changed from the one before. Read only. */
-function MlcHistoryDialog({ row, onClose }: { row: EmergencyCase; onClose: () => void }) {
+function MlcHistoryDialog({
+  row,
+  reason,
+  onClose,
+}: {
+  row: EmergencyCase;
+  reason: MlcAccessReason;
+  onClose: () => void;
+}) {
   const { t } = useTranslation('emergency');
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
-  const revisions = useMlcHistory(row.id);
+  const revisions = useMlcHistory(row.id, reason);
 
   const show = (field: Tracked, record: EmergencyMlc | undefined): string => {
     const value = record?.[field];

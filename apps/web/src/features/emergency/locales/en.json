@@ -239,6 +239,22 @@
     "historyNone": "none",
     "historyYes": "yes",
     "historyNo": "no",
+    "reasonTitle": "Why do you need this record?",
+    "reasonDescription": "Medico-legal records are restricted. Your reason is logged with your name and the time.",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "Choose a reason",
+    "reasonConfirm": "Continue",
+    "reasonView": "Open the record",
+    "reasonLocked": "This record is restricted. Give a reason to open it.",
+    "reasons": {
+      "treatment": "Treating the patient",
+      "legal_request": "Legal request",
+      "police_request": "Police request",
+      "court_order": "Court order",
+      "record_review": "Review of the record",
+      "audit": "Audit",
+      "other": "Other"
+    },
     "history": "Every revision is kept; nothing is overwritten. Every view of this record is logged."
   }
 }
