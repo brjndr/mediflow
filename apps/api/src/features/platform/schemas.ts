@@ -220,7 +220,64 @@ export const PlatformModuleList = Type.Object(
   { $id: 'PlatformModuleList' },
 );
 
+export const PlatformExport = Type.Object(
+  {
+    id: Type.String({ format: 'uuid' }),
+    hospitalId: Type.String({ format: 'uuid' }),
+    status: StringEnum(['queued', 'running', 'succeeded', 'failed']),
+    failure: nullableString({ description: 'A code: too_large, not_offboarding or failed.' }),
+    requestedAt: Type.String({ format: 'date-time' }),
+    finishedAt: nullableString({ format: 'date-time' }),
+    fileBytes: nullableInteger(),
+    sha256: nullableString({ description: 'Checksum of the whole archive.' }),
+    tableCount: nullableInteger(),
+    rowCount: nullableInteger(),
+    fileCount: nullableInteger(),
+    downloadCount: Type.Integer(),
+    firstDownloadedAt: nullableString({ format: 'date-time' }),
+    lastDownloadedAt: nullableString({ format: 'date-time' }),
+  },
+  { $id: 'PlatformExport' },
+);
+export type PlatformExport = Static<typeof PlatformExport>;
+
+export const PlatformExportList = Type.Object(
+  { items: Type.Array(ref(PlatformExport)) },
+  { $id: 'PlatformExportList' },
+);
+
+export const ExportParams = Type.Object({
+  id: Type.String({ format: 'uuid' }),
+  exportId: Type.String({ format: 'uuid' }),
+});
+
+export const ExportLinkBody = Type.Object({
+  adminUserId: Type.String({
+    format: 'uuid',
+    description:
+      'An active admin of the hospital: the link is made for that person and audited under them.',
+  }),
+});
+
+export const ExportLink = Type.Object(
+  {
+    url: Type.String(),
+    expiresAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'ExportLink' },
+);
+
+export const ExportDownloadParams = Type.Object({ exportId: Type.String({ format: 'uuid' }) });
+export const ExportDownloadQuery = Type.Object({
+  admin: Type.String({ format: 'uuid' }),
+  expires: Type.Integer({ minimum: 0 }),
+  signature: Type.String({ minLength: 20, maxLength: 128 }),
+});
+
 export const PLATFORM_SCHEMAS = [
+  PlatformExport,
+  PlatformExportList,
+  ExportLink,
   PlatformModule,
   PlatformModuleList,
   PlatformHospital,

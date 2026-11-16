@@ -21171,6 +21171,103 @@
           }
         }
       },
+      "PlatformExport": {
+        "type": "object",
+        "required": [
+          "id",
+          "hospitalId",
+          "status",
+          "failure",
+          "requestedAt",
+          "finishedAt",
+          "fileBytes",
+          "sha256",
+          "tableCount",
+          "rowCount",
+          "fileCount",
+          "downloadCount",
+          "firstDownloadedAt",
+          "lastDownloadedAt"
+        ],
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "hospitalId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "running", "succeeded", "failed"]
+          },
+          "failure": {
+            "type": ["null", "string"],
+            "description": "A code: too_large, not_offboarding or failed."
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": ["null", "string"],
+            "format": "date-time"
+          },
+          "fileBytes": {
+            "type": ["null", "integer"]
+          },
+          "sha256": {
+            "type": ["null", "string"],
+            "description": "Checksum of the whole archive."
+          },
+          "tableCount": {
+            "type": ["null", "integer"]
+          },
+          "rowCount": {
+            "type": ["null", "integer"]
+          },
+          "fileCount": {
+            "type": ["null", "integer"]
+          },
+          "downloadCount": {
+            "type": "integer"
+          },
+          "firstDownloadedAt": {
+            "type": ["null", "string"],
+            "format": "date-time"
+          },
+          "lastDownloadedAt": {
+            "type": ["null", "string"],
+            "format": "date-time"
+          }
+        }
+      },
+      "PlatformExportList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformExport"
+            }
+          }
+        }
+      },
+      "ExportLink": {
+        "type": "object",
+        "required": ["url", "expiresAt"],
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
       "PlatformModule": {
         "type": "object",
         "required": ["id", "kind"],
@@ -75747,7 +75844,7 @@
       "post": {
         "operationId": "platformOffboardHospital",
         "tags": ["platform"],
-        "description": "Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export and the deletion itself are not run by the API yet: the data is kept, and reactivate cancels this.",
+        "description": "Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the deletion is not built yet, the data is kept, and reactivate cancels this.",
         "requestBody": {
           "required": true,
           "content": {
@@ -75929,6 +76026,360 @@
             }
           },
           "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/exports": {
+      "post": {
+        "operationId": "platformStartHospitalExport",
+        "tags": ["platform"],
+        "description": "Makes the export of an offboarding hospital (every table, its audit log and its stored files, as one archive with a manifest and checksums). Offboarding starts one by itself; this is for another, for instance after a failed one. 409 `hospital_not_offboarding`, or `export_in_progress` while one is queued or running.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformExport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "platformListHospitalExports",
+        "tags": ["platform"],
+        "description": "The hospital’s exports, newest first (at most 20), with when each was made and downloaded: what the deletion checks.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformExportList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/exports/{exportId}/download-link": {
+      "post": {
+        "operationId": "platformIssueHospitalExportLink",
+        "tags": ["platform"],
+        "description": "A signed link to a made export, valid for seven days, for one active admin of the hospital. Whoever holds it can download, so give it only to that admin; each download is in the platform trail under that admin. Issue another during the grace period when it has expired. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["adminUserId"],
+                "properties": {
+                  "adminUserId": {
+                    "format": "uuid",
+                    "description": "An active admin of the hospital: the link is made for that person and audited under them.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "exportId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/offboarding-exports/{exportId}": {
+      "get": {
+        "operationId": "downloadOffboardingExport",
+        "tags": ["platform"],
+        "description": "The archive of an offboarded hospital’s data, for a link made by `platformIssueHospitalExportLink`. The signature in the query is the only credential; the download is audited under the admin the link was made for. 404 `export_not_found` for anything else.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "admin",
+            "required": true
+          },
+          {
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "expires",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 20,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "signature",
+            "required": true
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "exportId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tar archive.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "The tar archive.",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
