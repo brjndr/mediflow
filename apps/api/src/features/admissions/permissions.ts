@@ -66,6 +66,12 @@ export const ADMISSION_PERMISSIONS = [
     defaults: { admin: 'all', nurse: 'all', receptionist: 'all' },
   },
   {
+    id: 'admission:configure',
+    description:
+      'Set the hospital’s admission rules, such as a signed discharge summary before discharge',
+    defaults: { admin: 'all' },
+  },
+  {
     id: 'bed:update',
     description: 'Mark a bed being cleaned or ready',
     defaults: { admin: 'all', nurse: 'all' },

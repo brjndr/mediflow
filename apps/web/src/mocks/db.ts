@@ -293,6 +293,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'dischargeSummary:read' },
   { permission: 'dischargeSummary:create' },
   { permission: 'dischargeSummary:sign' },
+  { permission: 'admission:configure' },
   { permission: 'bed:update' },
   { permission: 'bed:reserve' },
   { permission: 'cleaningTask:read' },

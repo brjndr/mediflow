@@ -8,6 +8,7 @@ import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
+import { AdmissionSettings } from '../components/AdmissionSettings';
 import { AdmissionDetailsPanel } from '../components/AdmissionDetailsPanel';
 import { BedHistoryPanel } from '../components/BedHistoryPanel';
 import { BedPicker } from '../components/BedPicker';
@@ -278,15 +279,17 @@ export default function Admissions() {
     ? ''
     : dischargeCode === 'clearance_pending'
       ? t('discharge.clearancePending')
-      : dischargeCode === 'bill_outstanding' || dischargeCode === 'bill_unconfirmed'
-        ? t('discharge.billRefused')
-        : dischargeCode === 'unsigned_notes'
-          ? t('discharge.unsignedNotes')
-          : dischargeCode === 'encounter_not_open'
-            ? t('discharge.notOpen')
-            : dischargeCode === 'conflict' || dischargeCode === 'invalid_transition'
-              ? t('refused.admission')
-              : tCommon(errorMessageKey(discharge.error));
+      : dischargeCode === 'summary_unsigned'
+        ? t('discharge.summaryUnsigned')
+        : dischargeCode === 'bill_outstanding' || dischargeCode === 'bill_unconfirmed'
+          ? t('discharge.billRefused')
+          : dischargeCode === 'unsigned_notes'
+            ? t('discharge.unsignedNotes')
+            : dischargeCode === 'encounter_not_open'
+              ? t('discharge.notOpen')
+              : dischargeCode === 'conflict' || dischargeCode === 'invalid_transition'
+                ? t('refused.admission')
+                : tCommon(errorMessageKey(discharge.error));
 
   return (
     <div ref={box} className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
@@ -301,6 +304,8 @@ export default function Admissions() {
           </Button>
         </Can>
       </div>
+
+      <AdmissionSettings />
 
       <label className="flex min-w-52 flex-col gap-1 text-sm font-medium">
         {t('filters.status')}
@@ -322,7 +327,15 @@ export default function Admissions() {
       )}
       {discharge.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {dischargeFailure}
+          {dischargeFailure}{' '}
+          {dischargeCode === 'summary_unsigned' && leaving && (
+            <Link
+              to={`/admissions/${leaving.id}/summary`}
+              className="rounded-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              {t('discharge.summaryOpen')}
+            </Link>
+          )}
         </p>
       )}
       <p

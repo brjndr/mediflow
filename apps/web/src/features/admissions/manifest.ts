@@ -87,6 +87,7 @@ export const admissionsFeature: FeatureManifest = {
     'admission:create',
     'admission:transfer',
     'admission:discharge',
+    'admission:configure',
     'dischargeSummary:read',
     'dischargeSummary:create',
     'dischargeSummary:sign',

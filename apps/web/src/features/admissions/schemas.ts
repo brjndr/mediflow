@@ -293,6 +293,8 @@ export const dischargeAdviceSchema = z.object({
 export const SUMMARY_TEXT_MAX = 4000;
 export const ADDENDUM_MAX = 2000;
 
+export const admissionSettingsSchema = z.object({ requireDischargeSummary: z.boolean() });
+
 export const dischargeSummarySchema: z.ZodType<DischargeSummary> = z.object({
   admissionId: z.string(),
   status: z.enum(['draft', 'signed']),
