@@ -14,10 +14,13 @@ const focusVisible = (page: Page) =>
 
 /** Reached by Tab, as the keyboard would arrive at it. */
 async function reach(page: Page, target: ReturnType<Page['getByRole']>) {
-  await target.focus();
-  await page.keyboard.press('Shift+Tab');
-  await page.keyboard.press('Tab');
-  await expect(target).toBeFocused();
+  // A refetch can replace the control between the focus and the Tab, so the move is retried.
+  await expect(async () => {
+    await target.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(target).toBeFocused({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
 }
 
 test('schedule a study and mark it performed with the keyboard alone', async ({ page }) => {
@@ -72,9 +75,11 @@ test('write, sign and add to a report with the keyboard alone', async ({ page })
   // Scheduled and performed first, as the test above does it.
   await page.getByRole('button', { name: /^Schedule: .+, Chest X-ray$/ }).click();
   await page.getByRole('button', { name: 'Schedule study' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'scheduled for' })).toBeVisible();
   const stage = page.getByRole('combobox', { name: 'Stage' });
   await stage.selectOption('scheduled');
   await page.getByRole('button', { name: /^Mark as performed: .+, Chest X-ray$/ }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'marked as performed' })).toBeVisible();
   await stage.selectOption('performed');
 
   const write = page.getByRole('button', { name: /^Write report: .+, Chest X-ray$/ });
