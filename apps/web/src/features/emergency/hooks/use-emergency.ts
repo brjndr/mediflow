@@ -27,6 +27,7 @@ import type {
   EmergencyMlc,
   EmergencyMlcSave,
   EmergencyNoteKind,
+  MlcAccessReason,
 } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's board never shows in another. */
@@ -210,14 +211,16 @@ export function useDisposeCase() {
  * The medico-legal record. Not retried and not refreshed on a timer: every read is audited, so it
  * is read when the panel opens and after a save, not in the background.
  */
-export function useMlc(caseId: string, enabled: boolean) {
+export function useMlc(caseId: string, reason: MlcAccessReason | null) {
   const tenantId = useTenant()?.id;
   return useQuery({
     queryKey: emergencyKeys.detail(tenantId ?? '', `${caseId}:medico-legal`),
-    queryFn: ({ signal }) => fetchMlc(caseId, signal),
-    enabled: enabled && tenantId !== undefined,
+    queryFn: ({ signal }) => fetchMlc(caseId, reason!, signal),
+    enabled: reason !== null && tenantId !== undefined,
     retry: false,
     refetchOnWindowFocus: false,
+    // Never kept: opening the record again asks for a reason and is logged again.
+    gcTime: 0,
     staleTime: Infinity,
   });
 }
@@ -226,11 +229,11 @@ export function useMlc(caseId: string, enabled: boolean) {
  * Every revision of the record, read when the history opens and never kept: each read is audited,
  * so a second opening reads (and is logged) again.
  */
-export function useMlcHistory(caseId: string) {
+export function useMlcHistory(caseId: string, reason: MlcAccessReason) {
   const tenantId = useTenant()?.id;
   return useQuery({
     queryKey: emergencyKeys.detail(tenantId ?? '', `${caseId}:medico-legal-history`),
-    queryFn: ({ signal }) => fetchMlcHistory(caseId, signal),
+    queryFn: ({ signal }) => fetchMlcHistory(caseId, reason, signal),
     enabled: tenantId !== undefined,
     retry: false,
     refetchOnWindowFocus: false,
@@ -262,18 +265,21 @@ export function useMlcPrinting(caseId: string) {
   const [job, setJob] = useState<{ id: number; value: EmergencyMlc } | null>(null);
   const mutation = useMutation({
     gcTime: 0,
-    mutationFn: () => {
+    mutationFn: (reason: MlcAccessReason) => {
       abort.current = new AbortController();
-      return printMlc(caseId, crypto.randomUUID(), abort.current.signal);
+      return printMlc(caseId, reason, crypto.randomUUID(), abort.current.signal);
     },
     onSuccess: (value) => {
       if (!abort.current?.signal.aborted) setJob((now) => ({ id: (now?.id ?? 0) + 1, value }));
     },
   });
   const { isPending, mutate } = mutation;
-  const print = useCallback(() => {
-    if (!isPending) mutate();
-  }, [isPending, mutate]);
+  const print = useCallback(
+    (reason: MlcAccessReason) => {
+      if (!isPending) mutate(reason);
+    },
+    [isPending, mutate],
+  );
   const done = useCallback(() => setJob(null), []);
   return { print, busy: isPending, error: mutation.error, job, done };
 }

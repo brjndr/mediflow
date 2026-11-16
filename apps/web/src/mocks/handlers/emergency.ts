@@ -104,9 +104,22 @@ let created = 0;
 let notes: Note[] = [];
 /** The revisions of each case's medico-legal record, oldest first. */
 let mlcRevisions = new Map<string, Mlc[]>();
-let mlcPrints: { tenantId: string; caseId: string; revision: number }[] = [];
+let mlcPrints: { tenantId: string; caseId: string; revision: number; reason: string }[] = [];
+let mlcReads: { tenantId: string; caseId: string; reason: string }[] = [];
+const REASONS = [
+  'treatment',
+  'legal_request',
+  'police_request',
+  'court_order',
+  'record_review',
+  'audit',
+  'other',
+];
+const badReason = () => error(400, 'validation_error', 'A valid reason is required');
 /** The prints of medico-legal records recorded so far, for tests. */
 export const mockMlcPrints = () => mlcPrints;
+/** The views and history reads of medico-legal records recorded so far, for tests. */
+export const mockMlcReads = () => mlcReads;
 const mlcPrintKeys = new Set<string>();
 const noteReplies = new Map<string, string>();
 /** What each Idempotency-Key was answered with, by hospital and key. */
@@ -117,6 +130,7 @@ onMockReset(() => {
   notes = [];
   mlcRevisions = new Map();
   mlcPrints = [];
+  mlcReads = [];
   mlcPrintKeys.clear();
   noteReplies.clear();
   replies.clear();
@@ -359,12 +373,14 @@ export const emergencyHandlers = [
       featureFlag: FEATURE_FLAG,
     });
     if ('denied' in access) return access.denied;
+    const reason = new URL(request.url).searchParams.get('reason') ?? '';
+    if (!REASONS.includes(reason)) return badReason();
     const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
     if (!row) return error(404, 'case_not_found', 'No such case');
     const latest = mlcRevisions.get(row.id)?.at(-1);
-    return latest
-      ? HttpResponse.json(latest)
-      : error(404, 'not_medico_legal', 'The case is not medico-legal');
+    if (!latest) return error(404, 'not_medico_legal', 'The case is not medico-legal');
+    mlcReads.push({ tenantId: access.tenantId, caseId: row.id, reason });
+    return HttpResponse.json(latest);
   }),
 
   http.get('*/api/emergency/cases/:caseId/medico-legal/revisions', ({ request, params }) => {
@@ -373,14 +389,18 @@ export const emergencyHandlers = [
       featureFlag: FEATURE_FLAG,
     });
     if ('denied' in access) return access.denied;
+    const reason = new URL(request.url).searchParams.get('reason') ?? '';
+    if (!REASONS.includes(reason)) return badReason();
     const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
     if (!row) return error(404, 'case_not_found', 'No such case');
     const history = mlcRevisions.get(row.id);
     if (!history?.length) return error(404, 'not_medico_legal', 'The case is not medico-legal');
+    for (const _one of history)
+      mlcReads.push({ tenantId: access.tenantId, caseId: row.id, reason });
     return HttpResponse.json({ items: [...history].reverse() });
   }),
 
-  http.post('*/api/emergency/cases/:caseId/medico-legal/print', ({ request, params }) => {
+  http.post('*/api/emergency/cases/:caseId/medico-legal/print', async ({ request, params }) => {
     const access = authorize(request, {
       permission: 'medicoLegal:read',
       featureFlag: FEATURE_FLAG,
@@ -388,6 +408,9 @@ export const emergencyHandlers = [
     if ('denied' in access) return access.denied;
     const key = withKey(request);
     if (!key) return error(400, 'idempotency_key_required', 'An Idempotency-Key is required');
+    const body = (await request.json().catch(() => ({}))) as { reason?: string };
+    const reason = body.reason ?? '';
+    if (!REASONS.includes(reason)) return badReason();
     const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
     if (!row) return error(404, 'case_not_found', 'No such case');
     const latest = mlcRevisions.get(row.id)?.at(-1);
@@ -395,7 +418,12 @@ export const emergencyHandlers = [
     const keyOf = `${access.tenantId}:${key}`;
     if (!mlcPrintKeys.has(keyOf)) {
       mlcPrintKeys.add(keyOf);
-      mlcPrints.push({ tenantId: access.tenantId, caseId: row.id, revision: latest.revision });
+      mlcPrints.push({
+        tenantId: access.tenantId,
+        caseId: row.id,
+        revision: latest.revision,
+        reason,
+      });
     }
     return HttpResponse.json(latest);
   }),

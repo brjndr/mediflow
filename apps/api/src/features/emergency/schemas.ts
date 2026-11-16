@@ -19,6 +19,15 @@ export const CASE_STATUSES = ['waiting', 'in_treatment', 'disposed'] as const;
 export const ARRIVAL_MODES = ['walk_in', 'ambulance', 'police', 'referred'] as const;
 export const SEXES = ['male', 'female', 'other', 'unknown'] as const;
 export const DISPOSITIONS = ['discharge', 'admit', 'refer', 'expired'] as const;
+export const MLC_ACCESS_REASONS = [
+  'treatment',
+  'legal_request',
+  'police_request',
+  'court_order',
+  'record_review',
+  'audit',
+  'other',
+] as const;
 export const NOTE_KINDS = ['observation', 'assessment'] as const;
 export const MLC_CATEGORIES = [
   'road_accident',
@@ -47,6 +56,16 @@ export const EmergencyMlcCategory = Enum(
   'EmergencyMlcCategory',
   MLC_CATEGORIES,
   'Why the case is medico-legal.',
+);
+export const EmergencyMlcAccessReason = Enum(
+  'EmergencyMlcAccessReason',
+  MLC_ACCESS_REASONS,
+  'Why the caller opens or prints a medico-legal record; a fixed code, never free text, kept in the audit log.',
+);
+export const EmergencyMlcReadQuery = Type.Object({ reason: ref(EmergencyMlcAccessReason) });
+export const EmergencyMlcPrintRequest = Type.Object(
+  { reason: ref(EmergencyMlcAccessReason) },
+  { $id: 'EmergencyMlcPrintRequest', additionalProperties: false },
 );
 
 const Category = Type.Integer({
@@ -276,6 +295,8 @@ export const EMERGENCY_SCHEMAS = [
   EmergencyNotePage,
   EmergencyNoteCreate,
   EmergencyMlcCategory,
+  EmergencyMlcAccessReason,
+  EmergencyMlcPrintRequest,
   EmergencyMlc,
   EmergencyMlcHistory,
   EmergencyMlcSave,
