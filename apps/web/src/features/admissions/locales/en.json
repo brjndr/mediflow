@@ -142,6 +142,7 @@
     },
     "submit": "Discharge patient",
     "back": "Cancel",
+    "summaryLink": "Write or read the discharge summary",
     "bill": {
       "checking": "Checking the bill…",
       "blocked": "The bill is not settled, and this hospital does not allow discharge until it is.",

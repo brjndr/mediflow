@@ -50,7 +50,11 @@ test('clear the ward, summarize, check the bill and discharge', async ({ page })
   await expectNoAxeViolations(page);
 
   // The summary is written and signed.
-  await action(/Summary of stay/).click();
+  await panel.getByRole('link', { name: 'Write or read the discharge summary' }).focus();
+  await expect(
+    panel.getByRole('link', { name: 'Write or read the discharge summary' }),
+  ).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Discharge summary', level: 1 })).toBeVisible();
   await page.getByRole('textbox', { name: /^Diagnoses/ }).fill('Pneumonia');
   await page.getByRole('textbox', { name: /^Course in hospital/ }).fill('Recovered on antibiotics');

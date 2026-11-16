@@ -92,6 +92,22 @@ describe('the discharge plan', () => {
     expect(submit(panel)).toHaveAttribute('aria-disabled', 'true');
   }, 30_000);
 
+  it('links to the discharge summary for someone who may read it', async () => {
+    const panel = await openPanel();
+    const link = await within(panel).findByRole('link', {
+      name: 'Write or read the discharge summary',
+    });
+    expect(link).toHaveAttribute('href', '/admissions/adm_plan/summary');
+    await expectNoAxeViolations();
+  }, 30_000);
+
+  it('shows no summary link without dischargeSummary:read', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'dischargeSummary:read');
+    const panel = await openPanel();
+    await within(panel).findByTestId('clearance-gate');
+    expect(within(panel).queryByRole('link', { name: /discharge summary/ })).toBeNull();
+  }, 30_000);
+
   it('shows no plan and gates nothing when the API has none', async () => {
     server.use(
       http.get('*/api/admissions/:admissionId/discharge-plan', () =>
