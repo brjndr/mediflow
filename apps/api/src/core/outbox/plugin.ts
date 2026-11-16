@@ -2,6 +2,7 @@ import type { FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import type pg from 'pg';
 import type { Database } from '../db/client.js';
+import { purgeAccountEvents } from '../auth/retention.js';
 import { dispatchOutbox, purgeDispatchedEvents } from './dispatcher.js';
 import {
   assertEventPayload,
@@ -79,6 +80,10 @@ export const outboxPlugin = fp(
       await purgeDispatchedEvents(app.database.pool, app.config.OUTBOX_RETENTION_DAYS);
     });
     app.jobs.schedule('outbox.purge', '45 3 * * *');
+    app.jobs.work('account-events.purge', async () => {
+      await purgeAccountEvents(app.database.pool, app.config.ACCOUNT_EVENTS_RETENTION_DAYS);
+    });
+    app.jobs.schedule('account-events.purge', '15 4 * * *');
 
     if (!app.config.JOBS_ENABLED) return;
 
