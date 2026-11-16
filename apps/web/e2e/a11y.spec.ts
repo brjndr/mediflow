@@ -344,6 +344,30 @@ test.describe('every feature route passes axe', () => {
   }
 });
 
+/**
+ * A few routes in dark too, on every CI run (#762): the home page, a list, a form, a worklist and
+ * the billing list. The whole file in dark is `A11Y_DARK=1`; this keeps a regression in the dark
+ * tokens from waiting for someone to run that. Desktop only, to keep the job's time.
+ */
+test.describe('a few routes pass axe in dark', () => {
+  test.skip(
+    ({ viewport }) => viewport === null || viewport.width < 1024,
+    'Checked once, at desktop.',
+  );
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('mediflow.theme', 'dark'));
+  });
+
+  for (const route of ['', 'patients', 'patients/new', 'lab', 'billing/invoices']) {
+    test(route || 'home', async ({ page }) => {
+      await open(page, route);
+      await settled(page);
+      await expect(page.locator('[data-system-page]'), `${route} was not reached`).toHaveCount(0);
+      await expectNoAxeViolations(page, { disable: KNOWN[route] });
+    });
+  }
+});
+
 test.describe('screens in other states pass axe', () => {
   test.skip(isTablet, 'The tablet shows the desktop content: checked at desktop width.');
 
