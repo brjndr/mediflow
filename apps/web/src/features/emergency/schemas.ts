@@ -117,7 +117,7 @@ export const caseSchema: z.ZodType<EmergencyCase> = z.object({
   destination: z.string().optional(),
   deathAt: z.string().optional(),
   admissionId: z.string().optional(),
-  medicoLegal: z.boolean(),
+  medicoLegal: z.boolean().optional(),
   version: z.number().int().min(1),
 });
 export const casePageSchema: z.ZodType<EmergencyCasePage> = z.object({

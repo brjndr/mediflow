@@ -199,7 +199,6 @@
     "flagTitle": "Mark as medico-legal",
     "reviseTitle": "Revise the medico-legal record",
     "dialogDescription": "For {{id}}.",
-    "restricted": "This case is medico-legal. The details are restricted to those with access to them.",
     "category": "Category",
     "categories": {
       "road_accident": "Road accident",

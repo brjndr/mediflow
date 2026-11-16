@@ -89,9 +89,12 @@ export const EmergencyCase = Type.Object(
     admissionId: Type.Optional(
       Type.String({ description: 'The inpatient admission an admit disposition made.' }),
     ),
-    medicoLegal: Type.Boolean({
-      description: 'Flagged medico-legal. The details need medicoLegal:read.',
-    }),
+    medicoLegal: Type.Optional(
+      Type.Boolean({
+        description:
+          'Flagged medico-legal. Present only for a caller with medicoLegal:read; left out for others.',
+      }),
+    ),
     version: Version,
   },
   { $id: 'EmergencyCase', additionalProperties: false },

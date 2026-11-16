@@ -48,13 +48,13 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
   const canRead = usePermission('medicoLegal:read');
   const canManage = usePermission('medicoLegal:manage');
   const printing = useMlcPrinting(row.id);
-  const record = useMlc(row.id, row.medicoLegal && canRead);
+  const record = useMlc(row.id, row.medicoLegal === true && canRead);
   const [editing, setEditing] = useState(false);
   const [history, setHistory] = useState(false);
   const [message, setMessage] = useState('');
   const status = useRef<HTMLParagraphElement>(null);
 
-  if (!row.medicoLegal && !canManage) return null;
+  if (!canRead || (!row.medicoLegal && !canManage)) return null;
 
   const closeEditor = () => {
     setEditing(false);
@@ -82,8 +82,6 @@ export function MedicoLegalPanel({ row }: { row: EmergencyCase }) {
             {t('mlc.flag')}
           </Button>
         </>
-      ) : !canRead ? (
-        <p className="text-sm">{t('mlc.restricted')}</p>
       ) : record.isError ? (
         <p role="alert" className="text-sm text-destructive">
           {tCommon(errorMessageKey(record.error))}

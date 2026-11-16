@@ -1,6 +1,6 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { currentSession, onMockReset, TENANT_IDS } from '../db';
+import { currentPolicy, currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { admitMockFromEmergency } from './admissions-flow';
 import { closeMockEmergencyEncounter, openMockEmergencyEncounter } from './clinical';
@@ -13,6 +13,17 @@ type Mlc = components['schemas']['EmergencyMlc'];
 type MlcSave = components['schemas']['EmergencyMlcSave'];
 
 const FEATURE_FLAG = 'emergency';
+
+const canReadMlc = () =>
+  currentPolicy()?.permissions.some((grant) => grant.permission === 'medicoLegal:read') === true;
+/** Without medicoLegal:read the API leaves the flag out of a case (#648). */
+const shownCase = (row: Case): Case => {
+  if (canReadMlc()) return row;
+  const { medicoLegal: _flag, ...rest } = row;
+  void _flag;
+  return rest;
+};
+const caseJson = (row: Case, init?: ResponseInit) => HttpResponse.json(shownCase(row), init);
 const SEXES = ['male', 'female', 'other', 'unknown'];
 const MODES = ['walk_in', 'ambulance', 'police', 'referred'];
 const DISPOSITIONS = ['discharge', 'admit', 'refer', 'expired'];
@@ -126,6 +137,8 @@ export const emergencyHandlers = [
     const query = new URL(request.url).searchParams;
     const status = query.get('status');
     const register = query.get('medicoLegal') === 'true';
+    if (register && !canReadMlc())
+      return error(403, 'permission_denied', 'Missing medicoLegal:read');
     const all = cases
       .filter(
         (row) =>
@@ -140,7 +153,7 @@ export const emergencyHandlers = [
     if (start < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
     const next = all[start + limit];
     return HttpResponse.json({
-      items: all.slice(start, start + limit),
+      items: all.slice(start, start + limit).map(shownCase),
       nextCursor: next ? next.id : null,
       ...(cursor ? {} : { total: all.length }),
     });
@@ -168,7 +181,7 @@ export const emergencyHandlers = [
     const replyKey = `${access.tenantId}:${key}`;
     const known = replies.get(replyKey);
     const existing = known ? cases.find((row) => row.id === known) : undefined;
-    if (existing) return HttpResponse.json(existing, { status: 201 });
+    if (existing) return caseJson(existing, { status: 201 });
     if (body.patientId !== undefined && !mockPatient(access.tenantId, body.patientId)) {
       return error(404, 'unknown_patient', 'No such patient');
     }
@@ -192,7 +205,7 @@ export const emergencyHandlers = [
     };
     cases.push(made);
     replies.set(replyKey, made.id);
-    return HttpResponse.json(made, { status: 201 });
+    return caseJson(made, { status: 201 });
   }),
 
   http.post('*/api/emergency/cases/:caseId/triage', async ({ request, params }) => {
@@ -217,7 +230,7 @@ export const emergencyHandlers = [
       triagedAt: new Date().toISOString(),
       version: row.version + 1,
     });
-    return HttpResponse.json(row);
+    return caseJson(row);
   }),
 
   http.post('*/api/emergency/cases/:caseId/identify', async ({ request, params }) => {
@@ -241,13 +254,13 @@ export const emergencyHandlers = [
       return error(404, 'unknown_patient', 'No such patient');
     }
     Object.assign(row, { patientId: body.patientId, version: row.version + 1 });
-    return HttpResponse.json(row);
+    return caseJson(row);
   }),
   http.get('*/api/emergency/cases/:caseId', ({ request, params }) => {
     const access = authorize(request, { permission: 'emergency:read', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
     const row = cases.find((one) => one.id === params.caseId && one.tenantId === access.tenantId);
-    return row ? HttpResponse.json(row) : error(404, 'case_not_found', 'No such case');
+    return row ? caseJson(row) : error(404, 'case_not_found', 'No such case');
   }),
 
   http.post('*/api/emergency/cases/:caseId/start', async ({ request, params }) => {
@@ -262,7 +275,7 @@ export const emergencyHandlers = [
     if (row.version !== body.version) return error(409, 'version_conflict', 'It has changed');
     if (row.status !== 'waiting') return error(409, 'invalid_transition', 'Already started');
     Object.assign(row, { status: 'in_treatment', version: row.version + 1 });
-    return HttpResponse.json(row);
+    return caseJson(row);
   }),
 
   http.post('*/api/emergency/cases/:caseId/encounter', async ({ request, params }) => {
@@ -276,14 +289,14 @@ export const emergencyHandlers = [
     if (!row) return error(404, 'case_not_found', 'No such case');
     if (row.version !== body.version) return error(409, 'version_conflict', 'It has changed');
     if (row.status === 'disposed') return error(409, 'invalid_transition', 'The patient has left');
-    if (row.encounterId) return HttpResponse.json(row);
+    if (row.encounterId) return caseJson(row);
     if (!row.patientId) return error(409, 'identify_first', 'Link the patient to a record first');
     Object.assign(row, {
       encounterId: openMockEmergencyEncounter(access.tenantId, row.patientId),
       status: 'in_treatment',
       version: row.version + 1,
     });
-    return HttpResponse.json(row);
+    return caseJson(row);
   }),
 
   http.get('*/api/emergency/cases/:caseId/notes', ({ request, params }) => {
@@ -499,6 +512,6 @@ export const emergencyHandlers = [
       ...(admissionId ? { admissionId } : {}),
       version: row.version + 1,
     });
-    return HttpResponse.json(row);
+    return caseJson(row);
   }),
 ];

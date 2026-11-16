@@ -162,7 +162,26 @@ const replyWith = async (client: pg.ClientBase, id: string): Promise<EmergencyCa
   return view(row);
 };
 
+/** Takes the medico-legal flag out of a case, or of every case of a page. */
+function withoutFlag(payload: unknown): unknown {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+  const { medicoLegal: _flag, ...rest } = payload as Record<string, unknown>;
+  void _flag;
+  const items = rest['items'];
+  return Array.isArray(items) ? { ...rest, items: items.map(withoutFlag) } : rest;
+}
+
 export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
+  // The flag says a case is medico-legal, so it follows the details: without medicoLegal:read it
+  // is left out of every answer (#648). The policy is loaded once per request.
+  app.addHook('preSerialization', async (request, reply, payload) => {
+    if (reply.statusCode >= 400 || payload === null || typeof payload !== 'object') return payload;
+    const policy = await request.access.policy();
+    if (policy?.permissions.some((grant) => grant.permission === 'medicoLegal:read'))
+      return payload;
+    return withoutFlag(payload);
+  });
+
   app.get(
     '/emergency/cases',
     {
@@ -171,7 +190,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listEmergencyCases',
         tags: ['emergency'],
         description:
-          'The emergency department’s board: cases not yet disposed (or those of one `status`), untriaged arrivals first, then category 1 to 5, then the longest wait. `total` comes with the first page. With `medicoLegal=true` it is the register of medico-legal cases instead: only flagged cases, of every status unless one `status` is given, newest arrival first. Every case read is audited. Requires emergency:read.',
+          'The emergency department’s board: cases not yet disposed (or those of one `status`), untriaged arrivals first, then category 1 to 5, then the longest wait. `total` comes with the first page. With `medicoLegal=true` (needs medicoLegal:read too, else 403) it is the register of medico-legal cases instead: only flagged cases, of every status unless one `status` is given, newest arrival first. Every case read is audited. Requires emergency:read.',
         querystring: EmergencyListQuery,
         response: { 200: ref(EmergencyCasePage), ...errors(400, 401, 403, 429) },
       },
@@ -181,6 +200,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const params: unknown[] = [];
       const where: string[] = [];
       const register = q.medicoLegal === true;
+      if (register) await requireGrant(request, 'medicoLegal:read');
       if (q.status) {
         params.push(q.status);
         where.push(`x.status = ${ph(params.length)}`);
