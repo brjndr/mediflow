@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations, expectNoSidewaysScroll, gridIsStacked } from './support';
+import { desktopOnlyNotice, open, routes, settled } from './routes';
 
 /**
  * Hindi (#767): longer text must still fit. A few main screens (a list as cards, a form, the
@@ -25,6 +26,26 @@ for (const width of [320, 360]) {
       await page.setViewportSize({ width, height: 720 });
       await openInHindi(page, route);
       expect(gridIsStacked(page)).toBe(true);
+      await expectNoSidewaysScroll(page);
+      await expectNoAxeViolations(page);
+    });
+  }
+}
+
+/**
+ * Every registered route in Hindi (#770), at 320 and 360 px: axe with contrast, and nothing
+ * scrolling sideways. A route with an id opens on a record as a11y.spec.ts does.
+ */
+for (const width of [320, 360]) {
+  for (const route of routes) {
+    test(`every route: ${route} in Hindi at ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 720 });
+      await open(page, route, '?mockUser=user_admin&mockLanguage=hi');
+      await settled(page);
+      await expect(page.locator('html')).toHaveAttribute('lang', 'hi');
+      if (!(await desktopOnlyNotice(page).isVisible())) {
+        await expect(page.locator('[data-system-page]'), `${route} was not reached`).toHaveCount(0);
+      }
       await expectNoSidewaysScroll(page);
       await expectNoAxeViolations(page);
     });
