@@ -11264,6 +11264,8 @@ export interface components {
             recordedBy: string;
             /** Format: date-time */
             recordedAt: string;
+            /** @description Present when the entry was recorded on a record merged into this patient (#936): that record. */
+            fromPatientId?: string;
         };
         PatientBloodGroup: {
             patientId: string;

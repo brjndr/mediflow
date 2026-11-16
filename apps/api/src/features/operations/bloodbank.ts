@@ -3,6 +3,7 @@ import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { IdempotencyHeaders, RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { patientFamily } from '../../core/patient-merge/family.js';
 import { isUuid, selectPage } from './page.js';
 import {
   BloodStock,
@@ -331,9 +332,9 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
         patientId = body.patientId;
         const { rows: match } = await client.query<{ ok: boolean }>(
           `select (result = 'compatible' and valid_until > now()) as ok from blood_crossmatches
-           where blood_unit_id = $1 and patient_id::text = $2
+           where blood_unit_id = $1 and patient_id = any($2::uuid[])
            order by performed_at desc, id desc limit 1`,
-          [row.id, patientId],
+          [row.id, await patientFamily(client, patientId)],
         );
         if (match[0]?.ok !== true) {
           throw new HttpError(
