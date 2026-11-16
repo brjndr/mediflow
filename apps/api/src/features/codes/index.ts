@@ -14,3 +14,4 @@ export const codesFeature: FastifyPluginAsync = async (app) => {
 
 /** For the clinical module: an ICD-10 code by id, to record a diagnosis with. */
 export { diagnosisCode } from './repository.js';
+export { Code } from './schemas.js';
