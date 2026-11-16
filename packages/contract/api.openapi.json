@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {
@@ -14400,6 +14400,29 @@
           "other"
         ],
         "description": "Why the case is medico-legal."
+      },
+      "EmergencyMlcAccessReason": {
+        "type": "string",
+        "enum": [
+          "treatment",
+          "legal_request",
+          "police_request",
+          "court_order",
+          "record_review",
+          "audit",
+          "other"
+        ],
+        "description": "Why the caller opens or prints a medico-legal record; a fixed code, never free text, kept in the audit log."
+      },
+      "EmergencyMlcPrintRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/EmergencyMlcAccessReason"
+          }
+        }
       },
       "EmergencyMlc": {
         "additionalProperties": false,
@@ -58428,8 +58451,16 @@
       "get": {
         "operationId": "getEmergencyMedicoLegal",
         "tags": ["emergency"],
-        "description": "The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat. Requires medicoLegal:read.",
+        "description": "The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat, with the access reason asked for (`reason`, required, a fixed code; detail `reason:<code>`). Requires medicoLegal:read.",
         "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/EmergencyMlcAccessReason"
+            },
+            "in": "query",
+            "name": "reason",
+            "required": true
+          },
           {
             "schema": {
               "maxLength": 64,
@@ -58667,8 +58698,16 @@
       "get": {
         "operationId": "listEmergencyMedicoLegalRevisions",
         "tags": ["emergency"],
-        "description": "Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>`). Requires medicoLegal:read.",
+        "description": "Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>;reason:<code>`, the `reason` being required). Requires medicoLegal:read.",
         "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/EmergencyMlcAccessReason"
+            },
+            "in": "query",
+            "name": "reason",
+            "required": true
+          },
           {
             "schema": {
               "maxLength": 64,
@@ -58747,7 +58786,24 @@
       "post": {
         "operationId": "printEmergencyMedicoLegal",
         "tags": ["emergency"],
-        "description": "Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id the case, detail `revision:<n>`, with the actor). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read.",
+        "description": "Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id the case, detail `revision:<n>;reason:<code>`, with the actor; the `reason` in the body is required). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": ["reason"],
+                "properties": {
+                  "reason": {
+                    "$ref": "#/components/schemas/EmergencyMlcAccessReason"
+                  }
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "schema": {

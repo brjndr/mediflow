@@ -12,6 +12,8 @@ import {
   EmergencyCasePage,
   EmergencyDisposition,
   EmergencyMlc,
+  EmergencyMlcPrintRequest,
+  EmergencyMlcReadQuery,
   EmergencyMlcHistory,
   EmergencyMlcSave,
   EmergencyNote,
@@ -732,8 +734,9 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'getEmergencyMedicoLegal',
         tags: ['emergency'],
         description:
-          'The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat. Requires medicoLegal:read.',
+          'The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat, with the access reason asked for (`reason`, required, a fixed code; detail `reason:<code>`). Requires medicoLegal:read.',
         params: EmergencyParams,
+        querystring: EmergencyMlcReadQuery,
         response: { 200: ref(EmergencyMlc), ...errors(400, 401, 403, 404, 429) },
       },
     },
@@ -743,7 +746,7 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!row) throw caseGone();
       const record = await latestMlc(client, row.id);
       if (!record) throw new HttpError(404, 'not_medico_legal', 'The case is not medico-legal');
-      request.audit('read', 'er_medico_legal', row.id);
+      request.audit('read', 'er_medico_legal', row.id, `reason:${request.query.reason}`);
       return mlcView(record);
     },
   );
@@ -756,8 +759,9 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listEmergencyMedicoLegalRevisions',
         tags: ['emergency'],
         description:
-          'Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>`). Requires medicoLegal:read.',
+          'Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>;reason:<code>`, the `reason` being required). Requires medicoLegal:read.',
         params: EmergencyParams,
+        querystring: EmergencyMlcReadQuery,
         response: { 200: ref(EmergencyMlcHistory), ...errors(400, 401, 403, 404, 429) },
       },
     },
@@ -777,7 +781,12 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(404, 'not_medico_legal', 'The case is not medico-legal');
       }
       for (const one of rows) {
-        request.audit('read', 'er_medico_legal', row.id, `revision:${one.revision}`);
+        request.audit(
+          'read',
+          'er_medico_legal',
+          row.id,
+          `revision:${one.revision};reason:${request.query.reason}`,
+        );
       }
       return { items: rows.map(mlcView) };
     },
@@ -796,8 +805,9 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['emergency'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id the case, detail `revision:<n>`, with the actor). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read.',
+          'Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id the case, detail `revision:<n>;reason:<code>`, with the actor; the `reason` in the body is required). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read.',
         params: EmergencyParams,
+        body: EmergencyMlcPrintRequest,
         response: { 200: ref(EmergencyMlc), ...errors(400, 401, 403, 404, 429) },
       },
     },
@@ -808,7 +818,12 @@ export const emergencyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const record = await latestMlc(client, row.id);
       if (!record) throw new HttpError(404, 'not_medico_legal', 'The case is not medico-legal');
       if (request.replayOf === null) {
-        request.audit('print', 'er_medico_legal', row.id, `revision:${record.revision}`);
+        request.audit(
+          'print',
+          'er_medico_legal',
+          row.id,
+          `revision:${record.revision};reason:${request.body.reason}`,
+        );
       }
       return mlcView(record);
     },

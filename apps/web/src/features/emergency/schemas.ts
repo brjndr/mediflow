@@ -4,6 +4,7 @@ import type {
   ArrivalMode,
   DispositionType,
   EmergencyMlc,
+  MlcAccessReason,
   EmergencyNote,
   EmergencyNoteKind,
   EmergencyNotePage,
@@ -50,6 +51,15 @@ export const MLC_CATEGORIES = [
   'suspicious_death',
   'other',
 ] as const satisfies readonly MlcCategory[];
+export const MLC_ACCESS_REASONS = [
+  'treatment',
+  'legal_request',
+  'police_request',
+  'court_order',
+  'record_review',
+  'audit',
+  'other',
+] as const satisfies readonly MlcAccessReason[];
 export const NOTE_MAX = 2000;
 export const DISPOSITION_NOTE_MAX = 500;
 export const STATUSES = [
@@ -210,3 +220,9 @@ export const dispositionFormSchema = z
     }
   });
 export type DispositionFormValues = z.infer<typeof dispositionFormSchema>;
+
+/** Why the record is opened or printed: one of a fixed list, never free text. */
+export const mlcReasonFormSchema = z.object({
+  reason: z.enum(MLC_ACCESS_REASONS, { message: 'validation.required' }),
+});
+export type MlcReasonFormValues = z.infer<typeof mlcReasonFormSchema>;

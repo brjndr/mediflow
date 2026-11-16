@@ -15,6 +15,7 @@ import type {
   EmergencyDisposition,
   EmergencyMlc,
   EmergencyMlcSave,
+  MlcAccessReason,
   EmergencyNote,
   EmergencyNoteKind,
   EmergencyNotePage,
@@ -127,9 +128,13 @@ export async function disposeCase(
 }
 
 /** The medico-legal record of a case; every view is audited on the server. */
-export async function fetchMlc(caseId: string, signal?: AbortSignal): Promise<EmergencyMlc> {
+export async function fetchMlc(
+  caseId: string,
+  reason: MlcAccessReason,
+  signal?: AbortSignal,
+): Promise<EmergencyMlc> {
   const result = await api.GET('/emergency/cases/{caseId}/medico-legal', {
-    params: { path: { caseId } },
+    params: { path: { caseId }, query: { reason } },
     signal,
   });
   return mlcSchema.parse(requireData(result));
@@ -138,10 +143,11 @@ export async function fetchMlc(caseId: string, signal?: AbortSignal): Promise<Em
 /** Every revision of the record, newest first; each one read is audited on the server. */
 export async function fetchMlcHistory(
   caseId: string,
+  reason: MlcAccessReason,
   signal?: AbortSignal,
 ): Promise<EmergencyMlc[]> {
   const result = await api.GET('/emergency/cases/{caseId}/medico-legal/revisions', {
-    params: { path: { caseId } },
+    params: { path: { caseId }, query: { reason } },
     signal,
   });
   return mlcHistorySchema.parse(requireData(result)).items;
@@ -153,11 +159,13 @@ export async function fetchMlcHistory(
  */
 export async function printMlc(
   caseId: string,
+  reason: MlcAccessReason,
   key: string,
   signal?: AbortSignal,
 ): Promise<EmergencyMlc> {
   const result = await api.POST('/emergency/cases/{caseId}/medico-legal/print', {
     params: { path: { caseId }, header: { 'idempotency-key': key } },
+    body: { reason },
     signal,
   });
   return mlcSchema.parse(requireData(result));

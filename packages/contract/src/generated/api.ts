@@ -5246,7 +5246,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat. Requires medicoLegal:read. */
+        /** @description The current medico-legal record of a case (404 `not_medico_legal` when the case is not flagged). Every view is audited, also a repeat, with the access reason asked for (`reason`, required, a fixed code; detail `reason:<code>`). Requires medicoLegal:read. */
         get: operations["getEmergencyMedicoLegal"];
         /** @description Flags a case as medico-legal (`revision` 0) or revises the record at the `revision` read (409 `version_conflict`); nothing is overwritten, each save is a new revision. Also allowed after the patient has left. The category and the account of the injury are required, and a police station when the police are informed (422 `police_station_required`). The Idempotency-Key header is required. Audited; emits `er.medico_legal` (ids and the revision only). Requires medicoLegal:manage. */
         put: operations["saveEmergencyMedicoLegal"];
@@ -5264,7 +5264,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>`). Requires medicoLegal:read. */
+        /** @description Every revision of the medico-legal record of a case, newest first (404 `not_medico_legal` when the case is not flagged). Revisions are only read, never changed. Each revision returned is audited as a read (entity `er_medico_legal`, entity id the case, detail `revision:<n>;reason:<code>`, the `reason` being required). Requires medicoLegal:read. */
         get: operations["listEmergencyMedicoLegalRevisions"];
         put?: never;
         post?: never;
@@ -5283,7 +5283,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id the case, detail `revision:<n>`, with the actor). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read. */
+        /** @description Answers the latest revision of the medico-legal record for printing and records the print in the audit log (action `print`, entity `er_medico_legal`, entity id the case, detail `revision:<n>;reason:<code>`, with the actor; the `reason` in the body is required). The web app makes the page from this answer and opens the print dialog once it arrives, so the revision printed is the revision recorded. The Idempotency-Key header is required, one per press: a repeat records nothing more. 404 `not_medico_legal` when the case is not flagged. Requires medicoLegal:read. */
         post: operations["printEmergencyMedicoLegal"];
         delete?: never;
         options?: never;
@@ -12269,6 +12269,14 @@ export interface components {
          * @enum {string}
          */
         EmergencyMlcCategory: "road_accident" | "assault" | "firearm_injury" | "burns" | "poisoning" | "sexual_assault" | "suspected_abuse" | "suspicious_death" | "other";
+        /**
+         * @description Why the caller opens or prints a medico-legal record; a fixed code, never free text, kept in the audit log.
+         * @enum {string}
+         */
+        EmergencyMlcAccessReason: "treatment" | "legal_request" | "police_request" | "court_order" | "record_review" | "audit" | "other";
+        EmergencyMlcPrintRequest: {
+            reason: components["schemas"]["EmergencyMlcAccessReason"];
+        };
         EmergencyMlc: {
             caseId: string;
             /** @description Every change is a new revision. */
@@ -42729,7 +42737,9 @@ export interface operations {
     };
     getEmergencyMedicoLegal: {
         parameters: {
-            query?: never;
+            query: {
+                reason: components["schemas"]["EmergencyMlcAccessReason"];
+            };
             header?: never;
             path: {
                 caseId: string;
@@ -42898,7 +42908,9 @@ export interface operations {
     };
     listEmergencyMedicoLegalRevisions: {
         parameters: {
-            query?: never;
+            query: {
+                reason: components["schemas"]["EmergencyMlcAccessReason"];
+            };
             header?: never;
             path: {
                 caseId: string;
@@ -42975,7 +42987,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: components["schemas"]["EmergencyMlcAccessReason"];
+                };
+            };
+        };
         responses: {
             /** @description Default Response */
             200: {

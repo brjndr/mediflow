@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { revokePermission, setTenantFeature, TENANT_IDS } from '@/mocks/db';
 import { expectNoAxeViolations } from '@/test/axe';
-import { mockMlcPrints } from '@/mocks/handlers/emergency';
+import { mockMlcPrints, mockMlcReads } from '@/mocks/handlers/emergency';
 import { renderApp } from '@/test/render';
 
 // ER-0002 is an unidentified arrival (a road accident brought by the police).
@@ -14,6 +14,12 @@ const open = async () => {
 
 const said = (text: string) =>
   screen.queryAllByRole('status').some((one) => one.textContent === text);
+
+const giveReason = async (reason: string) => {
+  const dialog = await screen.findByRole('dialog', { name: 'Why do you need this record?' });
+  await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: /Reason/ }), reason);
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Continue' }));
+};
 
 const fillAndFlag = async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'Mark as medico-legal' }));
@@ -92,9 +98,16 @@ describe('printing', () => {
     expect(mockMlcPrints()).toHaveLength(0);
 
     await userEvent.click(screen.getByRole('button', { name: 'Print' }));
+    // Asked first: cancelling prints and records nothing.
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }),
+    );
+    expect(mockMlcPrints()).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Print' }));
+    await giveReason('court_order');
     await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
     expect(mockMlcPrints()).toMatchObject([
-      { tenantId: TENANT_IDS.hospital, caseId: 'er_2', revision: 1 },
+      { tenantId: TENANT_IDS.hospital, caseId: 'er_2', revision: 1, reason: 'court_order' },
     ]);
     const sheet = document.querySelector<HTMLElement>('[data-print-sheet]');
     expect(sheet).not.toBeNull();
@@ -162,6 +175,46 @@ describe('restricted access', () => {
   });
 });
 
+describe('access reason (#677)', () => {
+  const reopen = async () => {
+    cleanup();
+    renderApp({ entry: '/emergency/er_2' });
+    await screen.findByRole('heading', { name: 'Medico-legal record' });
+  };
+
+  it('asks before opening the record again, requires a choice, and sends it', async () => {
+    await open();
+    const dialog = await fillAndFlag();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await screen.findByText('Hit by a truck, head injury');
+    // What was just saved is shown without a logged read.
+    expect(mockMlcReads()).toHaveLength(0);
+
+    await reopen();
+    expect(
+      screen.getByText('This record is restricted. Give a reason to open it.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Hit by a truck, head injury')).not.toBeInTheDocument();
+    expect(mockMlcReads()).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open the record' }));
+    const ask = await screen.findByRole('dialog', { name: 'Why do you need this record?' });
+    await expectNoAxeViolations();
+    await userEvent.click(within(ask).getByRole('button', { name: 'Continue' }));
+    expect(await within(ask).findAllByText(/required/i)).not.toHaveLength(0);
+    expect(mockMlcReads()).toHaveLength(0);
+    await userEvent.selectOptions(
+      within(ask).getByRole('combobox', { name: /Reason/ }),
+      'police_request',
+    );
+    await userEvent.click(within(ask).getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('Hit by a truck, head injury')).toBeInTheDocument();
+    expect(mockMlcReads()).toEqual([
+      { tenantId: TENANT_IDS.hospital, caseId: 'er_2', reason: 'police_request' },
+    ]);
+  }, 30_000);
+});
+
 describe('revision history', () => {
   it('lists the revisions with what each changed, and reads only', async () => {
     await open();
@@ -178,6 +231,7 @@ describe('revision history', () => {
     await screen.findByText(/revision 2/);
 
     await userEvent.click(screen.getByRole('button', { name: 'History' }));
+    await giveReason('audit');
     const history = await screen.findByRole('dialog', { name: /Revisions of ER-0002/ });
     const items = (await within(history).findAllByRole('listitem')).filter(
       (one) => one.parentElement?.tagName === 'OL',
