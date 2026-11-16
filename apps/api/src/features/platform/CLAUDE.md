@@ -73,3 +73,5 @@ Platform admins get no patient data by default. If support must ever look at a h
 5. **No writes** under `support`, and MFA is checked again when the grant is opened.
 
 It needs a hospital-side screen and the role management API (BE-16), so it is built after them, as its own issue.
+
+- **Deletion job deployment notes (#995):** the run holds one pooled connection for its advisory lock and takes more for the transaction, so keep the `platform.delete` worker concurrency below the pool size (it is 1). The lock is session-scoped, so it needs a direct connection, not a transaction-mode pooler such as PgBouncer. Files whose removal keeps failing stay on the row (`file_keys`) and the sweep retries every 15 minutes with only a `hospital_deletion_files_pending` log line as the signal: alerting on it is open.
