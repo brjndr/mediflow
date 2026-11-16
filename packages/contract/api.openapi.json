@@ -11118,6 +11118,10 @@
           "recordedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "fromPatientId": {
+            "description": "Present when the entry was recorded on a record merged into this patient (#936): that record.",
+            "type": "string"
           }
         }
       },

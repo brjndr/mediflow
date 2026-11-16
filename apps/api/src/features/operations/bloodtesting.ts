@@ -3,6 +3,7 @@ import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { patientFamily } from '../../core/patient-merge/family.js';
 import { isCompatible } from './bloodcompat.js';
 import { find, UNIT_SELECT, view, type UnitRow } from './bloodbank.js';
 import { discardUnits, unscreenedUnitIdsOfDonor } from './bloodhold.js';
@@ -29,6 +30,7 @@ const GROUP_UPDATE = 'patient.bloodGroup:update';
 const notFound = () => new HttpError(404, 'blood_unit_not_found', 'No such blood unit');
 
 interface GroupRow {
+  patient_id: string;
   blood_group: PatientBloodGroup['history'][number]['bloodGroup'];
   reason: string | null;
   recorded_by: string;
@@ -37,9 +39,11 @@ interface GroupRow {
 
 async function groupHistory(client: pg.ClientBase, patientId: string): Promise<GroupRow[]> {
   const { rows } = await client.query<GroupRow>(
-    `select blood_group, reason, recorded_by, recorded_at from patient_blood_groups
-     where patient_id::text = $1 order by recorded_at desc, id desc limit 50`,
-    [patientId],
+    `select patient_id, blood_group, reason, recorded_by, recorded_at from patient_blood_groups
+     where patient_id = any($1::uuid[]) order by recorded_at desc, id desc limit 50`,
+    // The records merged into this patient count too (#936): their entries stay where they were
+    // written (the table is append-only) and are read through the survivor.
+    [await patientFamily(client, patientId)],
   );
   return rows;
 }
@@ -52,6 +56,7 @@ const groupView = (patientId: string, rows: GroupRow[]): PatientBloodGroup => ({
     ...(row.reason === null ? {} : { reason: row.reason }),
     recordedBy: row.recorded_by,
     recordedAt: iso(row.recorded_at),
+    ...(row.patient_id === patientId ? {} : { fromPatientId: row.patient_id }),
   })),
 });
 
@@ -384,9 +389,9 @@ export const bloodTestingRoutes: FastifyPluginAsyncTypebox = async (app) => {
           `select distinct on (blood_unit_id) id, blood_unit_id, patient_id, result, performed_by,
                   performed_at, valid_until, (result = 'compatible' and valid_until > now()) as valid
            from blood_crossmatches
-           where patient_id::text = $1 and blood_unit_id = any($2::uuid[])
+           where patient_id = any($1::uuid[]) and blood_unit_id = any($2::uuid[])
            order by blood_unit_id, performed_at desc, id desc`,
-          [body.patientId, fits.map((row) => row.id)],
+          [await patientFamily(client, body.patientId), fits.map((row) => row.id)],
         );
         for (const match of found) matches.set(match.blood_unit_id, match);
       }

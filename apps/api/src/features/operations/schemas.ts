@@ -574,6 +574,12 @@ export const PatientBloodGroupEntry = Obj('PatientBloodGroupEntry', {
   reason: Type.Optional(Type.String()),
   recordedBy: Type.String(),
   recordedAt: When,
+  fromPatientId: Type.Optional(
+    Type.String({
+      description:
+        'Present when the entry was recorded on a record merged into this patient (#936): that record.',
+    }),
+  ),
 });
 export const PatientBloodGroup = Obj('PatientBloodGroup', {
   patientId: Type.String(),
