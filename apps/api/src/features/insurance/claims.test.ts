@@ -863,4 +863,35 @@ describe('claims', () => {
       ),
     ).rejects.toThrow(/claims_query_open/);
   });
+
+  it('exports a claim in a payer format, audited, inside the hospital and behind claim:read', async () => {
+    const { encounterId } = await claimable([[serviceA, 100_000]]);
+    const made = await ok<ClaimBody>(await create(encounterId), 201);
+    const csv = await ok<{ filename: string; contentType: string; content: string }>(
+      await get(`/claims/${made.id}/export?format=generic_csv`),
+    );
+    expect(csv.filename).toBe(`${made.number}.csv`);
+    expect(csv.contentType).toBe('text/csv');
+    const lines = csv.content.trim().split('\r\n');
+    expect(lines[0]).toContain('policy_number');
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain('CLM-A');
+    const json = await ok<{ content: string }>(
+      await get(`/claims/${made.id}/export?format=generic_json`),
+    );
+    expect(JSON.parse(json.content)).toMatchObject({ number: made.number, claimedMinor: 100_000 });
+    expect(await audited('claim', made.id)).toContain('export');
+    expect((await get(`/claims/${made.id}/export?format=nope`)).statusCode).toBe(400);
+    expect(
+      errorOf(
+        await get(`/claims/${made.id}/export?format=generic_csv`, {
+          tenant: clinic,
+          user: clinicAdmin,
+        }),
+      ),
+    ).toEqual([404, 'claim_not_found']);
+    expect(
+      (await get(`/claims/${made.id}/export?format=generic_csv`, { user: nurse })).statusCode,
+    ).toBe(403);
+  });
 });
