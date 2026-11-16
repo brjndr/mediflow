@@ -267,7 +267,7 @@ export async function findToken(
   );
   return rows[0] ?? null;
 }
-
+/** The token an appointment was checked in with, on any day, not counting a cancelled one (checking in again replaces it, #491), or null. */
 /** The token an appointment was checked in with, on any day and in any status, or null. */
 export async function findTokenOfAppointment(
   client: pg.ClientBase,
@@ -275,7 +275,7 @@ export async function findTokenOfAppointment(
   visibility: Visibility,
 ): Promise<TokenRow | null> {
   const { rows } = await client.query<TokenRow>(
-    `${TOKENS} where t.appointment_id = $1 and ${visible('$2', '$3')}`,
+    `${TOKENS} where t.appointment_id = $1 and t.status <> 'cancelled' and ${visible('$2', '$3')}`,
     [appointmentId, visibility.scope, visibility.userId],
   );
   return rows[0] ?? null;

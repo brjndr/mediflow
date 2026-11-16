@@ -273,6 +273,33 @@ describe('checking in a booked patient', () => {
     expect(rows).toHaveLength(1);
   });
 
+  it('issues a new token when the first was cancelled, keeping the cancelled one as it was', async () => {
+    const appointment = await addAppointment(hospital, patients.one, doctors.a, 'later_today');
+    const first = (await checkIn(appointment)).json<Token>();
+    await pool.query(
+      `update queue_tokens set status = 'cancelled', cancel_reason = 'wrong_patient',
+         cancelled_at = now(), cancelled_by = $2 where id = $1`,
+      [first.id, doctor.id],
+    );
+    const again = await checkIn(appointment);
+    expect(again.statusCode).toBe(201);
+    const second = again.json<Token>();
+    expect(second.id).not.toBe(first.id);
+    expect(second).toMatchObject({ status: 'waiting', appointmentId: appointment });
+    // Checking in once more finds the new token, never a third.
+    const third = await checkIn(appointment);
+    expect(third.statusCode).toBe(200);
+    expect(third.json<Token>().id).toBe(second.id);
+    const { rows } = await pool.query<{ id: string; status: string }>(
+      'select id, status from queue_tokens where appointment_id = $1 order by number',
+      [appointment],
+    );
+    expect(rows).toEqual([
+      { id: first.id, status: 'cancelled' },
+      { id: second.id, status: 'waiting' },
+    ]);
+  });
+
   it('issues one token when two desks check the same appointment in at once', async () => {
     const appointment = await addAppointment(hospital, patients.one, doctors.a, 'later_today');
     const answers = await Promise.all([checkIn(appointment), checkIn(appointment)]);

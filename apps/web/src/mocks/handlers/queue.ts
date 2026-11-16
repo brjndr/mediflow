@@ -529,7 +529,8 @@ export const queueHandlers = [
         return error(422, 'unknown_patient', 'No such patient');
       }
       const first = tokens.find(
-        (t) => t.tenantId === tenantId && t.appointmentId === appointment.id,
+        (t) =>
+          t.tenantId === tenantId && t.appointmentId === appointment.id && t.status !== 'cancelled',
       );
       if (first) return { status: 200, token: first };
       if (appointment.status !== 'scheduled') {

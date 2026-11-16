@@ -96,6 +96,26 @@ describe('checking in a booked patient', () => {
     ).toBeInTheDocument();
   });
 
+  it('issues a new token when the first one was cancelled', async () => {
+    addAppointment('apt_checkin_9');
+    addMockQueueToken({
+      id: 'qt_cancelled_checkin',
+      tenantId: HOSPITAL,
+      departmentId: 'dep_h_02',
+      patientId: 'pth_00002',
+      appointmentId: 'apt_checkin_9',
+      status: 'cancelled',
+      cancelReason: 'wrong_patient',
+      issuedAt: new Date().toISOString(),
+      callCount: 0,
+      version: 2,
+    });
+    await openAppointment('apt_checkin_9');
+    await userEvent.click(await screen.findByRole('button', CHECK_IN));
+    expect(await screen.findByText(/^Checked in: token \d+, /)).toBeInTheDocument();
+    expect(mockQueueToken('qt_cancelled_checkin')?.status).toBe('cancelled');
+  });
+
   it('checks in from a row of today’s appointments', async () => {
     renderApp({ entry: '/appointments' });
     const [first] = await screen.findAllByRole('button', { name: /^Check in, appointment at / });
