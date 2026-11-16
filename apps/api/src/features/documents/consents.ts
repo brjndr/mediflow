@@ -190,7 +190,7 @@ export const CONSENT_SCHEMAS = [
 
 const ListQuery = Type.Object({
   cursor: Type.Optional(Type.String()),
-  limit: Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE })),
 });
 type ListQuery = Static<typeof ListQuery>;
 const PatientParams = Type.Object({ patientId: Id });
@@ -382,6 +382,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const { patientId } = request.params;
       const query = request.query as ListQuery;
+      const limit = query.limit ?? DEFAULT_PAGE_SIZE;
       await reachable(request, patientId, CONSENT_READ);
       const params: unknown[] = [await patientFamily(request.txClient, patientId)];
       let where = 'c.patient_id = any($1::uuid[])';
@@ -390,18 +391,17 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         params.push(at.at, at.id);
         where += ' and (c.signed_at, c.id) < ($2::timestamptz, $3::uuid)';
       }
-      params.push(query.limit + 1);
+      params.push(limit + 1);
       const { rows } = await request.txClient.query<ConsentRow>(
         `${CONSENT_SELECT} where ${where} order by c.signed_at desc, c.id desc limit $${params.length}`,
         params,
       );
-      const page = rows.slice(0, query.limit);
+      const page = rows.slice(0, limit);
       for (const row of page) request.audit('read', 'patient_consent', row.id);
       const last = page[page.length - 1];
       return {
         items: page.map(consentView),
-        nextCursor:
-          rows.length > query.limit && last ? encodeCursor(last.signed_at, last.id) : null,
+        nextCursor: rows.length > limit && last ? encodeCursor(last.signed_at, last.id) : null,
       };
     },
   );
@@ -541,6 +541,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const { patientId } = request.params;
       const query = request.query as ListQuery;
+      const limit = query.limit ?? DEFAULT_PAGE_SIZE;
       await reachable(request, patientId, CERT_READ);
       const params: unknown[] = [await patientFamily(request.txClient, patientId)];
       let where = 'c.patient_id = any($1::uuid[])';
@@ -549,18 +550,17 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         params.push(at.at, at.id);
         where += ' and (c.issued_at, c.id) < ($2::timestamptz, $3::uuid)';
       }
-      params.push(query.limit + 1);
+      params.push(limit + 1);
       const { rows } = await request.txClient.query<CertificateRow>(
         `${CERTIFICATE_SELECT} where ${where} order by c.issued_at desc, c.id desc limit $${params.length}`,
         params,
       );
-      const page = rows.slice(0, query.limit);
+      const page = rows.slice(0, limit);
       for (const row of page) request.audit('read', 'patient_certificate', row.id);
       const last = page[page.length - 1];
       return {
         items: page.map(certificateView),
-        nextCursor:
-          rows.length > query.limit && last ? encodeCursor(last.issued_at, last.id) : null,
+        nextCursor: rows.length > limit && last ? encodeCursor(last.issued_at, last.id) : null,
       };
     },
   );

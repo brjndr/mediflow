@@ -35888,9 +35888,9 @@ export interface operations {
     };
     listConsents: {
         parameters: {
-            query: {
+            query?: {
                 cursor?: string;
-                limit: number;
+                limit?: number;
             };
             header?: never;
             path: {
@@ -36117,9 +36117,9 @@ export interface operations {
     };
     listCertificates: {
         parameters: {
-            query: {
+            query?: {
                 cursor?: string;
-                limit: number;
+                limit?: number;
             };
             header?: never;
             path: {
