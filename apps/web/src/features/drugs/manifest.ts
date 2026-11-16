@@ -19,6 +19,7 @@ export const drugsFeature: FeatureManifest = {
         create: 'Add a drug or consumable',
         record: 'Drug or consumable',
       },
+      hi: { title: 'दवाएँ और उपभोज्य सामग्री', create: 'मद जोड़ें', record: 'दवा या उपभोज्य सामग्री' },
     },
     load: (language) => import(`./locales/${language}.json`),
   },

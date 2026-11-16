@@ -13,7 +13,10 @@ export const noticesFeature: FeatureManifest = {
   titleKey: 'title',
   i18n: {
     // Bundled with the manifest: only what core shows before this feature's code loads.
-    titles: { en: { title: 'Notices' } },
+    titles: {
+      en: { title: 'Notices' },
+      hi: { title: 'सूचनाएँ' },
+    },
     // Screen strings, loaded when a notices screen first renders.
     load: (language) => import(`./locales/${language}.json`),
   },

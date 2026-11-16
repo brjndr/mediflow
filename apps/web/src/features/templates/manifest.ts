@@ -13,7 +13,10 @@ export const templatesFeature: FeatureManifest = {
   id: 'templates',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Document templates', create: 'New template', record: 'Template' } },
+    titles: {
+      en: { title: 'Document templates', create: 'New template', record: 'Template' },
+      hi: { title: 'दस्तावेज़ के टेम्पलेट', create: 'नया टेम्पलेट', record: 'टेम्पलेट' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
