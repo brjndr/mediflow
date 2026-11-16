@@ -218,7 +218,7 @@ export const crossmatchFormSchema = z.object({
 export type CrossmatchFormValues = z.infer<typeof crossmatchFormSchema>;
 
 export const compatibleUnitsSchema: z.ZodType<CompatibleUnits> = z.object({
-  patientBloodGroup: z.enum(BLOOD_GROUPS),
+  patientBloodGroup: z.enum(BLOOD_GROUPS).optional(),
   items: z.array(
     z.object({
       unit: unitSchema,

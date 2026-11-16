@@ -743,6 +743,27 @@ describe('cross-match', () => {
       false,
     );
     expect(await audited('patient_blood_group', patientId)).toContain('read');
+    // Without patient.bloodGroup:read the units come back but the group does not (#934).
+    await pool.query(
+      "delete from role_permissions where tenant_id = $1 and role_id = 'nurse' and permission = 'patient.bloodGroup:read'",
+      [hospital.id],
+    );
+    try {
+      const hidden = await ok<{ items: unknown[] }>(
+        await post(
+          '/blood/compatible-units',
+          { patientId, component: 'red_cells' },
+          { user: nurse },
+        ),
+      );
+      expect(hidden).not.toHaveProperty('patientBloodGroup');
+      expect(hidden.items).toHaveLength(2);
+    } finally {
+      await pool.query(
+        "insert into role_permissions (tenant_id, role_id, permission, scope) values ($1, 'nurse', 'patient.bloodGroup:read', 'all')",
+        [hospital.id],
+      );
+    }
     expect(
       errorOf(
         await post('/blood/compatible-units', {

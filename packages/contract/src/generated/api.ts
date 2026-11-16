@@ -4453,7 +4453,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. Requires bloodUnit:read. */
+        /** @description The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. `patientBloodGroup` is left out unless the caller holds patient.bloodGroup:read. Requires bloodUnit:read. */
         post: operations["listCompatibleBloodUnits"];
         delete?: never;
         options?: never;
@@ -11302,7 +11302,7 @@ export interface components {
             crossmatchValid: boolean;
         };
         CompatibleUnits: {
-            patientBloodGroup: components["schemas"]["BloodGroup"];
+            patientBloodGroup?: components["schemas"]["BloodGroup"];
             /** @description Soonest expiry first. */
             items: components["schemas"]["CompatibleUnit"][];
         };
