@@ -36,7 +36,8 @@ describe('generated OpenAPI document', () => {
     const ids = all.map((entry) => entry.operation.operationId);
     expect(ids.every((id) => typeof id === 'string' && id.length > 0)).toBe(true);
     expect(new Set(ids).size).toBe(ids.length);
-  });
+    // The first call builds the whole document, which takes seconds on a two-core machine.
+  }, 30_000);
 
   it('gives every response a schema, so the client is typed end to end', () => {
     for (const { label, operation } of operations()) {
