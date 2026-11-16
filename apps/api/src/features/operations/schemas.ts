@@ -1041,3 +1041,41 @@ export const OPERATIONS_SCHEMAS = [
   CleaningTaskCreate,
   CleaningTaskMove,
 ] as const;
+
+// --- recall of a reactive donor's cleared units (#935) -----------------------------------------
+
+export const BloodRecall = Obj('BloodRecall', {
+  id: Type.String(),
+  unitId: Type.String(),
+  donorId: Type.String(),
+  patientId: Type.Optional(
+    Type.String({ description: 'The patient the unit went to: an id, never a name.' }),
+  ),
+  unitStatus: StringEnum(['issued', 'transfused'] as const),
+  triggerUnitId: Type.String({
+    description: 'The unit whose reactive screening caused the recall.',
+  }),
+  reason: Type.String(),
+  flaggedBy: Type.String(),
+  flaggedAt: When,
+  followedUpBy: Type.Optional(Type.String()),
+  followedUpAt: Type.Optional(When),
+  followUpNote: Type.Optional(Type.String()),
+});
+export type BloodRecall = Static<typeof BloodRecall>;
+export const BloodRecallPage = CursorPage(ref(BloodRecall), { $id: 'BloodRecallPage' });
+export const BloodRecallListQuery = Type.Object({
+  open: Type.Optional(Type.Boolean({ description: 'True: only recalls not yet followed up.' })),
+  donorId: Type.Optional(Id),
+  cursor: Cursor,
+  limit: Limit,
+});
+export const BloodRecallParams = Type.Object({ recallId: Id });
+export const BloodRecallFollowUp = Type.Object(
+  {
+    note: ActionsText,
+  },
+  { $id: 'BloodRecallFollowUp', additionalProperties: false },
+);
+
+export const RECALL_SCHEMAS = [BloodRecall, BloodRecallPage, BloodRecallFollowUp];

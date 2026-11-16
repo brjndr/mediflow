@@ -115,6 +115,8 @@ export const DOMAIN_EVENTS = [
   'blood.unit_screened',
   'blood.crossmatch_recorded',
   'blood.reaction_recorded',
+  // A reactive donor's unit already given (#935): ids and the unit's state only.
+  'blood.unit_recalled',
   'ambulance.trip_requested',
   'ambulance.trip_status_changed',
   'cleaning.task_created',

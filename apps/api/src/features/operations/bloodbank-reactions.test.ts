@@ -623,8 +623,8 @@ describe('a reactive screening', () => {
     await ok(await post(`/blood-units/${first}/screening`, { ...negative, hiv: 'reactive' }), 201);
     expect((await unitOf(first)).status).toBe('discarded');
     expect((await unitOf(waiting.id)).status).toBe('discarded');
-    // Already cleared stock is left to the bank to decide.
-    expect((await unitOf(cleared.id)).status).toBe('available');
+    // Already cleared stock that was not given is withdrawn too (#935).
+    expect((await unitOf(cleared.id)).status).toBe('discarded');
     const history = await ok<{ history: { reason?: string }[] }>(
       await get(`/blood-units/${waiting.id}`),
     );
