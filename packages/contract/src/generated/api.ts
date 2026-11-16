@@ -4401,7 +4401,7 @@ export interface paths {
         /** @description The screening of a unit, with each test. Audited as a read. 404 `blood_unit_not_found`, or `blood_screening_not_found` before it is screened. Requires bloodUnit:test. */
         get: operations["getBloodUnitScreening"];
         put?: never;
-        /** @description Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction; the donor’s other units still collected or in testing are discarded too (reason "Donor had a reactive screening"). Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` and `blood.donor_deferred`. Requires bloodUnit:test. */
+        /** @description Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction; the donor’s other units still collected, in testing, available or reserved are discarded too (reason "Donor had a reactive screening"), and those already issued or transfused are flagged as recalls (`GET /blood/recalls`) for the bank to follow up. Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` `blood.donor_deferred` and `blood.unit_recalled` for each flagged unit. Requires bloodUnit:test. */
         post: operations["screenBloodUnit"];
         delete?: never;
         options?: never;
@@ -4541,6 +4541,40 @@ export interface paths {
         get: operations["traceBloodDonor"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/recalls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Units already issued or transfused whose donor’s screening later turned reactive, newest first; `open=true` leaves out those followed up. Each names the recipient by patient id only. Cursor paging. Audited as a read. Requires bloodUnit:manage. */
+        get: operations["listBloodRecalls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blood/recalls/{recallId}/follow-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that the bank followed a recall up with the recipient’s doctor, once (409 `already_followed_up`); the note says what was done. 404 `blood_recall_not_found`. Audited. Requires bloodUnit:manage. */
+        post: operations["followUpBloodRecall"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11565,6 +11599,34 @@ export interface components {
             to: "in_progress" | "done" | "cancelled";
             /** @description The version the change was made from. Another one gives 409 `conflict`. */
             version: number;
+        };
+        BloodRecall: {
+            id: string;
+            unitId: string;
+            donorId: string;
+            /** @description The patient the unit went to: an id, never a name. */
+            patientId?: string;
+            /** @enum {string} */
+            unitStatus: "issued" | "transfused";
+            /** @description The unit whose reactive screening caused the recall. */
+            triggerUnitId: string;
+            reason: string;
+            flaggedBy: string;
+            /** Format: date-time */
+            flaggedAt: string;
+            followedUpBy?: string;
+            /** Format: date-time */
+            followedUpAt?: string;
+            followUpNote?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        BloodRecallPage: {
+            items: components["schemas"]["BloodRecall"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        BloodRecallFollowUp: {
+            note: string;
         };
         /** @description An insurer, a TPA (which administers claims for insurers) or a corporate with a credit arrangement. Contact details are the organisation’s, never a patient’s. */
         Payer: {
@@ -38537,6 +38599,153 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBloodRecalls: {
+        parameters: {
+            query?: {
+                /** @description True: only recalls not yet followed up. */
+                open?: boolean;
+                donorId?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodRecallPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    followUpBloodRecall: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A unique value (such as a UUID) chosen by the client. Repeating the request with the same key returns the first result instead of doing the work again. */
+                "idempotency-key"?: string;
+            };
+            path: {
+                recallId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodRecall"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

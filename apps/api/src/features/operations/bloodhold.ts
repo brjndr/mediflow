@@ -76,3 +76,65 @@ export async function discardUnits(
   }
   return rows.map((unit) => unit.id);
 }
+
+export interface Recall {
+  id: string;
+  unitId: string;
+  patientId: string | null;
+  status: 'issued' | 'transfused';
+}
+
+/**
+ * A donor's reactive screening and the units of theirs that were already cleared (#935). Units
+ * not yet given (available, reserved) are discarded: a unit of that donor is never used again.
+ * Units already issued or transfused are flagged once for a person at the bank to follow up with
+ * the recipient's doctor; nothing about them changes. Returns the ids of both groups.
+ */
+export async function recallClearedUnits(
+  request: FastifyRequest,
+  donorId: string,
+  triggerUnitId: string,
+  reason: string,
+): Promise<{ withdrawn: string[]; flagged: Recall[] }> {
+  const client = request.txClient;
+  const { rows: stock } = await client.query<{ id: string }>(
+    `select id from blood_units where donor_id = $1 and id <> $2
+       and status in ('available', 'reserved') order by id`,
+    [donorId, triggerUnitId],
+  );
+  const withdrawn = await discardUnits(
+    request,
+    stock.map((row) => row.id),
+    reason,
+  );
+  const { rows } = await client.query<{
+    id: string;
+    blood_unit_id: string;
+    patient_id: string | null;
+    unit_status: 'issued' | 'transfused';
+  }>(
+    `insert into blood_unit_recalls (blood_unit_id, donor_id, patient_id, unit_status, trigger_unit_id, reason, flagged_by)
+     select u.id, u.donor_id, u.patient_id, u.status, $2, $3, $4
+     from blood_units u where u.donor_id = $1 and u.id <> $2 and u.status in ('issued', 'transfused')
+     on conflict (tenant_id, blood_unit_id) do nothing
+     returning id, blood_unit_id, patient_id, unit_status`,
+    [donorId, triggerUnitId, reason, userIdOf(request)],
+  );
+  const flagged = rows.map((row) => ({
+    id: row.id,
+    unitId: row.blood_unit_id,
+    patientId: row.patient_id,
+    status: row.unit_status,
+  }));
+  for (const recall of flagged) {
+    request.audit('create', 'blood_unit_recall', recall.id);
+    // Ids and the unit's state only: a later subscriber tells the recipient's doctor.
+    await request.emit('blood.unit_recalled', recall.unitId, {
+      recallId: recall.id,
+      donorId,
+      patientId: recall.patientId,
+      status: recall.status,
+    });
+  }
+  return { withdrawn, flagged };
+}

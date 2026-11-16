@@ -108,6 +108,7 @@ const eventsOf = async (entityId: string) =>
 
 const tenants = () => [hospital, clinic, closed].map((tenant) => tenant.id);
 const TABLES = [
+  'blood_unit_recalls',
   'blood_crossmatches',
   'blood_screenings',
   'patient_blood_groups',
@@ -835,5 +836,160 @@ describe('row-level security', () => {
         ),
       ),
     ).rejects.toThrow(/row-level security/);
+  });
+});
+
+// --- recall of a reactive donor's cleared units (#935) -----------------------------------------
+
+describe('recall of a reactive donor’s cleared units', () => {
+  /** One donor, a collection of four units: three cleared, the fourth in testing. */
+  async function donorWithUnits() {
+    const donor = await ok<Donor>(await addDonor(), 201);
+    const expiresAt = new Date(Date.now() + 30 * day).toISOString();
+    const collection = await ok<Collection>(
+      await collect(donor.id, {
+        units: [0, 1, 2, 3].map(() => ({
+          unitNumber: `DU-${String(++unitNo).padStart(5, '0')}`,
+          component: 'red_cells',
+          volumeMl: 100,
+          expiresAt,
+        })),
+      }),
+      201,
+    );
+    const ids = collection.unitIds;
+    const cleared: Unit[] = [];
+    for (const id of ids.slice(0, 3)) {
+      let unit = await ok<Unit>(await move(await unitOf(id), 'testing'));
+      await ok(await post(`/blood-units/${unit.id}/screening`, negative), 201);
+      unit = await ok<Unit>(await move(await unitOf(unit.id), 'available'));
+      cleared.push(unit);
+    }
+    const trigger = await ok<Unit>(await move(await unitOf(ids[3] as string), 'testing'));
+    return { donor, cleared, trigger };
+  }
+  async function give(unit: Unit, patient: string, transfuse: boolean) {
+    await ok(await crossmatch(unit, patient), 201);
+    let next = await ok<Unit>(
+      await move(await unitOf(unit.id), 'reserved', { patientId: patient }, { user: nurse }),
+    );
+    next = await ok<Unit>(await move(next, 'issued', {}, { user: nurse }));
+    if (transfuse) next = await ok<Unit>(await move(next, 'transfused', {}, { user: nurse }));
+    return next;
+  }
+  const recalls = async (query = '', options: Options = {}) =>
+    (
+      await ok<{
+        items: {
+          id: string;
+          unitId: string;
+          patientId?: string;
+          unitStatus: string;
+          followedUpAt?: string;
+        }[];
+      }>(await get(`/blood/recalls${query}`, options))
+    ).items;
+
+  it('withdraws available and reserved units, flags given ones and records an event for each', async () => {
+    await wipe();
+    await ok(await setGroup(patientId, 'O+'));
+    const { cleared, trigger } = await donorWithUnits();
+    const [stock, issued, transfused] = cleared as [Unit, Unit, Unit];
+    await give(issued, patientId, false);
+    await give(transfused, patientId, true);
+    await ok(
+      await post(`/blood-units/${trigger.id}/screening`, { ...negative, hiv: 'reactive' }),
+      201,
+    );
+    expect((await unitOf(stock.id)).status).toBe('discarded');
+    expect((await unitOf(trigger.id)).status).toBe('discarded');
+    expect((await unitOf(issued.id)).status).toBe('issued');
+    expect((await unitOf(transfused.id)).status).toBe('transfused');
+    const detail = await ok<{ history: { toStatus: string; reason?: string }[] }>(
+      await get(`/blood-units/${stock.id}`),
+    );
+    expect(detail.history.at(-1)).toMatchObject({
+      toStatus: 'discarded',
+      reason: 'Donor had a reactive screening',
+    });
+    const open = await recalls('?open=true');
+    expect(
+      open.map((recall) => [recall.unitId, recall.unitStatus, recall.patientId]).sort(),
+    ).toEqual(
+      [
+        [issued.id, 'issued', patientId],
+        [transfused.id, 'transfused', patientId],
+      ].sort(),
+    );
+    expect(await eventsOf(issued.id)).toContain('blood.unit_recalled');
+    const event = await pool.query<{ payload: Record<string, unknown> }>(
+      "select payload from outbox where tenant_id = $1 and entity_id = $2 and event = 'blood.unit_recalled'",
+      [hospital.id, issued.id],
+    );
+    expect(Object.keys(event.rows[0]?.payload ?? {}).sort()).toEqual([
+      'donorId',
+      'patientId',
+      'recallId',
+      'status',
+    ]);
+    expect(await audited('blood_unit_recall', open[0]?.id as string)).toContain('create');
+  });
+
+  it('is followed up once by the bank, with a note', async () => {
+    await wipe();
+    await ok(await setGroup(patientId, 'O+'));
+    const { cleared, trigger } = await donorWithUnits();
+    await give(cleared[0] as Unit, patientId, false);
+    await ok(
+      await post(`/blood-units/${trigger.id}/screening`, { ...negative, hbv: 'reactive' }),
+      201,
+    );
+    const recall = (await recalls())[0];
+    if (!recall) throw new Error('no recall');
+    const url = `/blood/recalls/${recall.id}/follow-up`;
+    expect((await post(url, { note: 'Told the ward doctor' }, { user: nurse })).statusCode).toBe(
+      403,
+    );
+    const done = await ok<{ followedUpAt?: string; followUpNote?: string }>(
+      await post(url, { note: 'Told the ward doctor' }),
+    );
+    expect(done.followUpNote).toBe('Told the ward doctor');
+    expect(errorOf(await post(url, { note: 'Again' }))).toEqual([409, 'already_followed_up']);
+    expect(await recalls('?open=true')).toHaveLength(0);
+    expect(await recalls()).toHaveLength(1);
+    expect(errorOf(await post('/blood/recalls/nope/follow-up', { note: 'x' }))).toEqual([
+      404,
+      'blood_recall_not_found',
+    ]);
+    await expect(
+      pool.query('update blood_unit_recalls set reason = $2 where id = $1', [recall.id, 'changed']),
+    ).rejects.toThrow();
+  });
+
+  it('keeps one hospital’s recalls out of another’s', async () => {
+    await wipe();
+    await ok(await setGroup(patientId, 'O+'));
+    const { cleared, trigger } = await donorWithUnits();
+    await give(cleared[0] as Unit, patientId, false);
+    await ok(
+      await post(`/blood-units/${trigger.id}/screening`, { ...negative, hcv: 'reactive' }),
+      201,
+    );
+    const recall = (await recalls())[0];
+    if (!recall) throw new Error('no recall');
+    expect(await recalls('', { tenant: clinic, user: clinicAdmin })).toHaveLength(0);
+    expect(
+      errorOf(
+        await post(
+          `/blood/recalls/${recall.id}/follow-up`,
+          { note: 'x' },
+          { tenant: clinic, user: clinicAdmin },
+        ),
+      ),
+    ).toEqual([404, 'blood_recall_not_found']);
+    const seen = await pool.query('select 1 from blood_unit_recalls where tenant_id = $1', [
+      clinic.id,
+    ]);
+    expect(seen.rowCount).toBe(0);
   });
 });

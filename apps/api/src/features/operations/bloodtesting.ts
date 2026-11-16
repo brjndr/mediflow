@@ -6,7 +6,7 @@ import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { patientFamily } from '../../core/patient-merge/family.js';
 import { isCompatible } from './bloodcompat.js';
 import { find, UNIT_SELECT, view, type UnitRow } from './bloodbank.js';
-import { discardUnits, unscreenedUnitIdsOfDonor } from './bloodhold.js';
+import { discardUnits, recallClearedUnits, unscreenedUnitIdsOfDonor } from './bloodhold.js';
 import {
   BloodCrossmatch,
   BloodCrossmatchCreate,
@@ -90,7 +90,7 @@ export const bloodTestingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['bloodbank'],
         headers: IdempotencyHeaders,
         description:
-          'Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction; the donor’s other units still collected or in testing are discarded too (reason "Donor had a reactive screening"). Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` and `blood.donor_deferred`. Requires bloodUnit:test.',
+          'Records the infection screening of a unit in testing (409 `not_in_testing`), once (409 `already_screened`): HIV, hepatitis B and C, syphilis and malaria, each negative or reactive. All negative clears the unit, which can then be moved to available. Any reactive result discards the unit (history reason "Reactive screening") and defers its donor for good, in the same transaction; the donor’s other units still collected, in testing, available or reserved are discarded too (reason "Donor had a reactive screening"), and those already issued or transfused are flagged as recalls (`GET /blood/recalls`) for the bank to follow up. Audited; emits `blood.unit_screened` (the outcome only), and for a reactive one `blood.unit_status_changed` `blood.donor_deferred` and `blood.unit_recalled` for each flagged unit. Requires bloodUnit:test.',
         params: BloodUnitParams,
         body: BloodScreeningCreate,
         response: { 201: ref(BloodScreening), ...errors(400, 401, 403, 404, 409, 429) },
@@ -168,6 +168,8 @@ export const bloodTestingRoutes: FastifyPluginAsyncTypebox = async (app) => {
             await unscreenedUnitIdsOfDonor(request, donorId, unit.id),
             'Donor had a reactive screening',
           );
+          // Units already cleared: withdrawn from stock, or flagged for follow-up once given (#935).
+          await recallClearedUnits(request, donorId, unit.id, 'Donor had a reactive screening');
         }
       }
       return reply.status(201).send({
