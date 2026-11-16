@@ -4,6 +4,7 @@ import { dischargeSummaryRoutes } from './discharge-summary.js';
 import { ADMISSION_PERMISSIONS } from './permissions.js';
 import { reservationRoutes } from './reservations.js';
 import { admissionRoutes } from './routes.js';
+import { admissionSettingsRoutes } from './settings.js';
 
 /**
  * Admission, discharge and transfer (BE-23): admitting a patient with an inpatient encounter,
@@ -18,6 +19,7 @@ export const admissionsFeature: FastifyPluginAsync = async (app) => {
   await app.register(reservationRoutes);
   await app.register(dischargePlanRoutes);
   await app.register(dischargeSummaryRoutes);
+  await app.register(admissionSettingsRoutes);
 };
 
 /** For nursing (BE-24): the stay a ward record belongs to, within the caller's scope. */

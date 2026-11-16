@@ -5,6 +5,7 @@ import { authorize, error } from '../respond';
 import { mockNotesOf } from './clinical';
 import { mockDepartment } from './departments';
 import { mockOpenClearances } from './discharge-plan';
+import { mockSummaryUnsigned } from './discharge-summary';
 import { mockDoctor, mockDoctorOfUser } from './doctors';
 import { mockPatient } from './patients';
 import { mockBoardBeds, setMockBedStatus } from './wards';
@@ -411,6 +412,9 @@ export const admissionFlowHandlers = [
       }
       if (mockOpenClearances(access.tenantId, admissionId, body.dischargeType).length > 0) {
         return error(409, 'clearance_pending', 'A clearance of the stay is still open');
+      }
+      if (body.dischargeType !== 'absconded' && mockSummaryUnsigned(access.tenantId, admissionId)) {
+        return error(409, 'summary_unsigned', 'The discharge summary is not signed');
       }
       const left = admission.bed?.bedId;
       const bed = left
