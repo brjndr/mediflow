@@ -11244,7 +11244,7 @@
       "CompatibleUnits": {
         "additionalProperties": false,
         "type": "object",
-        "required": ["patientBloodGroup", "items"],
+        "required": ["items"],
         "properties": {
           "patientBloodGroup": {
             "$ref": "#/components/schemas/BloodGroup"
@@ -52329,7 +52329,7 @@
       "post": {
         "operationId": "listCompatibleBloodUnits",
         "tags": ["bloodbank"],
-        "description": "The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. Requires bloodUnit:read.",
+        "description": "The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. `patientBloodGroup` is left out unless the caller holds patient.bloodGroup:read. Requires bloodUnit:read.",
         "requestBody": {
           "required": true,
           "content": {

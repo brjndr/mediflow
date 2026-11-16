@@ -632,7 +632,7 @@ export const CompatibleUnit = Obj('CompatibleUnit', {
   }),
 });
 export const CompatibleUnits = Obj('CompatibleUnits', {
-  patientBloodGroup: ref(BloodGroup),
+  patientBloodGroup: Type.Optional(ref(BloodGroup)),
   items: Type.Array(ref(CompatibleUnit), { description: 'Soonest expiry first.' }),
 });
 

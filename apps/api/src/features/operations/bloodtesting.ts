@@ -351,7 +351,7 @@ export const bloodTestingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listCompatibleBloodUnits',
         tags: ['bloodbank'],
         description:
-          'The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. Requires bloodUnit:read.',
+          'The available units of one component, within their date, whose group can be given to the patient, soonest expiry first (at most 100), each with the latest cross-match for the patient and whether it is still valid. The patient travels in the body, not the address. 422 `unknown_patient`, or `blood_group_unknown` when no group is on record. It reads data only; audited as a read of the patient’s blood group. `patientBloodGroup` is left out unless the caller holds patient.bloodGroup:read. Requires bloodUnit:read.',
         body: ref(CompatibleUnitsRequest),
         response: { 200: ref(CompatibleUnits), ...errors(400, 401, 403, 422, 429) },
       },
@@ -365,6 +365,11 @@ export const bloodTestingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(422, 'blood_group_unknown', 'Record the patient’s blood group first');
       }
       request.audit('read', 'patient_blood_group', body.patientId);
+      // The group is a field of its own permission: the units are still listed without it.
+      const seesGroup =
+        (await request.access.policy())?.permissions.some(
+          (held) => held.permission === GROUP_READ,
+        ) === true;
       const { rows } = await client.query<UnitRow>(
         `${UNIT_SELECT} where x.status = 'available' and x.expires_at > now() and x.component = $1
          order by x.expires_at, x.id`,
@@ -386,7 +391,7 @@ export const bloodTestingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         for (const match of found) matches.set(match.blood_unit_id, match);
       }
       return {
-        patientBloodGroup: current.blood_group,
+        ...(seesGroup ? { patientBloodGroup: current.blood_group } : {}),
         items: fits.map((row) => {
           const match = matches.get(row.id);
           return {
