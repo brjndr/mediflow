@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
+import type { JobQueue } from '../../core/jobs/queue.js';
 import type { FileStore } from '../../core/files/store.js';
 import { withPlatformTransaction } from '../../core/platform/db.js';
 import { withTenantTransaction } from '../../core/tenancy/transaction.js';
@@ -41,43 +43,56 @@ export async function deletionBlocker(
   hospitalId: string,
   basis: DeletionBasis,
 ): Promise<DeletionBlocker | null> {
-  const platform = await withPlatformTransaction(pool, async (client) => {
-    const hospital = await client.query<{ status: string; due: boolean }>(
-      'select status, coalesce(delete_after <= now(), false) as due from tenants where id = $1',
-      [hospitalId],
-    );
-    const row = hospital.rows[0];
-    if (row?.status !== 'offboarding') return 'hospital_not_offboarding' as const;
-    if (!row.due) return 'grace_period_not_over' as const;
-    if (basis.exportId !== null) {
-      const made = await client.query(
-        `select 1 from tenant_exports
-         where id = $1 and hospital_id = $2 and status = 'succeeded'
-           and first_downloaded_at is not null`,
-        [basis.exportId, hospitalId],
-      );
-      if (made.rowCount === 0) return 'export_not_downloaded' as const;
-    }
-    return null;
-  });
-  if (platform) return platform;
-  return withTenantTransaction(
-    pool,
-    hospitalId,
-    async (client) => {
-      const hold = await client.query(
-        'select 1 from document_legal_holds where released_at is null limit 1',
-      );
-      if (hold.rowCount) return 'legal_hold' as const;
-      const open = await client.query(
-        `select 1 from er_medico_legal m
-         join er_encounters e on e.tenant_id = m.tenant_id and e.id = m.case_id
-         where e.status <> 'disposed' limit 1`,
-      );
-      return open.rowCount ? ('medico_legal_open' as const) : null;
-    },
-    { readOnly: true },
+  const platform = await withPlatformTransaction(pool, (client) =>
+    platformBlocker(client, hospitalId, basis),
   );
+  if (platform) return platform;
+  return withTenantTransaction(pool, hospitalId, (client) => holdBlocker(client, hospitalId), {
+    readOnly: true,
+  });
+}
+
+async function platformBlocker(
+  client: pg.ClientBase,
+  hospitalId: string,
+  basis: DeletionBasis,
+): Promise<DeletionBlocker | null> {
+  const hospital = await client.query<{ status: string; due: boolean }>(
+    'select status, coalesce(delete_after <= now(), false) as due from tenants where id = $1',
+    [hospitalId],
+  );
+  const row = hospital.rows[0];
+  if (row?.status !== 'offboarding') return 'hospital_not_offboarding';
+  if (!row.due) return 'grace_period_not_over';
+  if (basis.exportId !== null) {
+    const made = await client.query(
+      `select 1 from tenant_exports
+       where id = $1 and hospital_id = $2 and status = 'succeeded'
+         and first_downloaded_at is not null`,
+      [basis.exportId, hospitalId],
+    );
+    if (made.rowCount === 0) return 'export_not_downloaded';
+  }
+  return null;
+}
+
+/** Holds and cases of one hospital. `hospitalId` is explicit so it also holds on a connection with no tenant. */
+async function holdBlocker(
+  client: pg.ClientBase,
+  hospitalId: string,
+): Promise<DeletionBlocker | null> {
+  const hold = await client.query(
+    'select 1 from document_legal_holds where tenant_id = $1 and released_at is null limit 1',
+    [hospitalId],
+  );
+  if (hold.rowCount) return 'legal_hold';
+  const open = await client.query(
+    `select 1 from er_medico_legal m
+     join er_encounters e on e.tenant_id = m.tenant_id and e.id = m.case_id
+     where m.tenant_id = $1 and e.status <> 'disposed' limit 1`,
+    [hospitalId],
+  );
+  return open.rowCount ? 'medico_legal_open' : null;
 }
 
 interface Claimed {
@@ -116,49 +131,95 @@ async function claim(pool: pg.Pool, deletionId: string): Promise<Claimed | null>
 
 class VerificationFailed extends Error {}
 
-const failureCode = (error: unknown): string =>
-  error instanceof VerificationFailed ? 'verification_failed' : 'failed';
+/** A rule that stopped the deletion between the job's first check and the transaction. */
+class StoppedBy extends Error {
+  constructor(readonly blocker: DeletionBlocker) {
+    super(blocker);
+  }
+}
 
-/** Every stored file the hospital's rows name, and the archives of its own exports. */
-async function storedFileKeys(pool: pg.Pool, hospitalId: string): Promise<string[]> {
+const failureCode = (error: unknown): string =>
+  error instanceof VerificationFailed
+    ? 'verification_failed'
+    : error instanceof StoppedBy
+      ? error.blocker
+      : 'failed';
+
+/** What the job logs: a fixed event name, ids and a code, never an error's own text. */
+export interface DeletionLog {
+  error(fields: Record<string, string>, message: string): void;
+}
+
+/**
+ * Every stored file the hospital's rows name, and the archives of its own exports. Read on the
+ * deletion's own connection, with the hospital named in each query.
+ */
+async function storedFileKeys(client: pg.ClientBase, hospitalId: string): Promise<string[]> {
   const keys = new Set<string>();
-  await withTenantTransaction(
-    pool,
-    hospitalId,
-    async (client) => {
-      for (const [table, treatment] of Object.entries(EXPORTED_SPECIAL)) {
-        if (!treatment.fileKey) continue;
-        // The names come from the registry, never from a request.
-        const { rows } = await client.query<{ k: string | null }>(
-          `select "${treatment.fileKey}" as k from "${table}" where "${treatment.fileKey}" is not null`,
-        );
-        for (const { k } of rows) if (k) keys.add(k);
-      }
-    },
-    { readOnly: true },
-  );
-  await withPlatformTransaction(pool, async (client) => {
-    const { rows } = await client.query<{ file_key: string }>(
-      'select file_key from tenant_exports where hospital_id = $1 and file_key is not null',
+  for (const [table, treatment] of Object.entries(EXPORTED_SPECIAL)) {
+    if (!treatment.fileKey) continue;
+    // The names come from the registry, never from a request.
+    const { rows } = await client.query<{ k: string | null }>(
+      `select "${treatment.fileKey}" as k from "${table}"
+       where tenant_id = $1 and "${treatment.fileKey}" is not null`,
       [hospitalId],
     );
-    for (const { file_key } of rows) keys.add(file_key);
-  });
+    for (const { k } of rows) if (k) keys.add(k);
+  }
+  const archives = await client.query<{ file_key: string }>(
+    'select file_key from tenant_exports where hospital_id = $1 and file_key is not null',
+    [hospitalId],
+  );
+  for (const { file_key } of archives.rows) keys.add(file_key);
   return [...keys].sort();
 }
 
-/** The rows: every table in foreign-key order, the check, the tombstone. One transaction. */
-async function deleteRows(
+/**
+ * Every key the stores build is `<kind>/<hospital id>/...`. A key of another hospital's folder
+ * (a row written wrongly, or tampered with) must never be deleted by this hospital's job.
+ */
+export function assertOwnKeys(keys: readonly string[], hospitalId: string): void {
+  for (const key of keys) {
+    if (key.split('/')[1] !== hospitalId) throw new VerificationFailed();
+  }
+}
+
+/**
+ * The rows: every table in foreign-key order, the check, the tombstone. One transaction, which
+ * also stores the keys of the files to remove afterwards. Returns those keys.
+ */
+export async function deleteHospitalRows(
   pool: pg.Pool,
   hospitalId: string,
   deletionId: string,
   approvedBy: string,
-  files: number,
-): Promise<{ tables: number; rows: number }> {
+): Promise<string[]> {
   const client = await pool.connect();
   let broken: Error | undefined;
   try {
     await client.query('begin');
+    // The same row locks as reactivate, suspend and offboard take (the hospital first, then the
+    // deletion), so none of them changes the hospital while this runs.
+    await client.query("select set_config('app.tenant_id', $1, true)", [hospitalId]);
+    await client.query('select 1 from tenants where id = $1 for update', [hospitalId]);
+    const run = await client.query<{ export_id: string | null; waiver_reference: string | null }>(
+      `select export_id, waiver_reference from tenant_deletions
+       where id = $1 and hospital_id = $2 and status = 'running' for update`,
+      [deletionId, hospitalId],
+    );
+    const basis = run.rows[0];
+    if (!basis) throw new VerificationFailed();
+    // The rules again, now that nothing can change them: the first reading was a while ago.
+    const blocker =
+      (await platformBlocker(client, hospitalId, {
+        exportId: basis.export_id,
+        waiverReference: basis.waiver_reference,
+      })) ?? (await holdBlocker(client, hospitalId));
+    if (blocker) throw new StoppedBy(blocker);
+
+    const keys = await storedFileKeys(client, hospitalId);
+    assertOwnKeys(keys, hospitalId);
+
     // Append-only triggers refuse a delete, and they are right to for every request; this is the
     // one place a hospital's records go. Needs a login that may set this (a superuser, or one
     // granted SET on session_replication_role). The order below does not depend on it.
@@ -170,6 +231,11 @@ async function deleteRows(
        join pg_class p on p.oid = k.confrelid
        where k.contype = 'f' and c.relnamespace = 'public'::regnamespace`,
     );
+    const registry = new Set(deletedTables());
+    // Replica mode turns off foreign keys and cascades, so a table outside the registry that
+    // points into it would keep orphans unseen. None may exist: refuse before touching a row.
+    if (unregisteredChildren(refs.rows, registry).length > 0) throw new VerificationFailed();
+
     let rows = 0;
     const order = deletionOrder(deletedTables(), refs.rows);
     for (const table of order) {
@@ -199,6 +265,8 @@ async function deleteRows(
       if (left.rowCount) throw new VerificationFailed();
     }
 
+    // The records of the deletion itself go through the triggers like any other write.
+    await client.query('set local session_replication_role = origin');
     // The tombstone: the row stays, without the hospital's contact details.
     const tombstone = await client.query(
       `update tenants set status = 'deleted', deleted_at = now(), address = null, phone = null,
@@ -208,22 +276,23 @@ async function deleteRows(
       [hospitalId],
     );
     if (tombstone.rowCount !== 1) throw new VerificationFailed();
-    await client.query(
+    const done = await client.query(
       `update tenant_deletions set status = 'done', finished_at = now(), table_count = $2,
-         row_count = $3, file_count = $4
+         row_count = $3, file_count = $4, file_keys = $5
        where id = $1 and status = 'running'`,
-      [deletionId, order.length + 1, rows, files],
+      [deletionId, order.length + 1, rows, keys.length, keys.length > 0 ? keys : null],
     );
+    if (done.rowCount !== 1) throw new VerificationFailed();
     await recordPlatformAudit(client, {
       actorId: approvedBy,
       action: 'hospital.deleted',
       entity: 'hospital_deletion',
       entityId: deletionId,
       hospitalId,
-      detail: { tables: order.length + 1, rows, files },
+      detail: { tables: order.length + 1, rows, files: keys.length },
     });
     await client.query('commit');
-    return { tables: order.length + 1, rows };
+    return keys;
   } catch (error) {
     await client.query('rollback').catch((failure: unknown) => {
       broken = failure instanceof Error ? failure : new Error('rollback failed');
@@ -234,18 +303,94 @@ async function deleteRows(
   }
 }
 
+/** Foreign keys from a table outside the registry to one inside it (it would keep orphans). */
+export function unregisteredChildren(
+  references: readonly { child: string; parent: string }[],
+  registry: ReadonlySet<string>,
+): { child: string; parent: string }[] {
+  return references.filter((r) => registry.has(r.parent) && !registry.has(r.child));
+}
+
 /**
- * Deletes a hospital's data (#961): its stored files, then every row of every tenant table, in
- * foreign-key order, in one transaction that also leaves the tombstone and checks that nothing is
- * left. Runs only for an approved deletion and checks the rules again (`deletionBlocker`), so a
- * hospital reactivated since is not touched. Every step goes to the platform trail. A run that
- * fails is marked `failed` with a code, rolls the rows back and is not retried by itself: a new
- * request needs a new approval. Safe to deliver twice: the claim lets one delivery work.
+ * Removes the files of a hospital whose rows are already gone, then records it. Removing is
+ * repeatable, so a run that stopped half way is finished by the next call (`sweepDeletions`).
+ */
+async function deleteFiles(
+  pool: pg.Pool,
+  files: FileStore,
+  deletionId: string,
+  hospitalId: string,
+  approvedBy: string,
+  keys: readonly string[],
+): Promise<void> {
+  assertOwnKeys(keys, hospitalId);
+  for (const key of keys) await files.delete(key);
+  for (const key of keys) {
+    if ((await files.get(key)) !== null) throw new VerificationFailed();
+  }
+  await withPlatformTransaction(pool, async (client) => {
+    const { rowCount } = await client.query(
+      `update tenant_deletions set files_deleted_at = now(), file_keys = null
+       where id = $1 and status = 'done' and files_deleted_at is null`,
+      [deletionId],
+    );
+    if (!rowCount) return;
+    await recordPlatformAudit(client, {
+      actorId: approvedBy,
+      action: 'hospital.deletion_files_deleted',
+      entity: 'hospital_deletion',
+      entityId: deletionId,
+      hospitalId,
+      detail: { files: keys.length },
+    });
+  });
+}
+
+/**
+ * Deletes a hospital's data (#961): every row of every tenant table, in foreign-key order, in one
+ * transaction that also leaves the tombstone and checks that nothing is left; and only after that
+ * has committed, its stored files (#995). Files go last because a failed transaction rolls the
+ * rows back but cannot bring a file back. Runs only for an approved deletion and checks the rules
+ * again, inside the transaction, so a hospital reactivated since is not touched. Every step goes
+ * to the platform trail. A run that fails is marked `failed` with a code, rolls the rows back and
+ * is not retried by itself: a new request needs a new approval. Safe to deliver twice: an
+ * advisory lock held for the whole run and the claim let one delivery work.
  */
 export async function runDeletion(
   pool: pg.Pool,
   files: FileStore,
   job: DeleteJob,
+  log?: DeletionLog,
+): Promise<'deleted' | 'skipped' | 'blocked' | 'failed'> {
+  // The lock lives as long as this connection's session, so a run that dies frees it by itself
+  // and a live one can never be taken over, however long it takes.
+  const lock = await pool.connect();
+  let lockBroken: Error | undefined;
+  try {
+    const got = await lock.query<{ ok: boolean }>(
+      'select pg_try_advisory_lock(hashtextextended($1, 0)) as ok',
+      [job.deletionId],
+    );
+    if (!got.rows[0]?.ok) return 'skipped';
+    try {
+      return await run(pool, files, job, log);
+    } finally {
+      await lock
+        .query('select pg_advisory_unlock(hashtextextended($1, 0))', [job.deletionId])
+        .catch((failure: unknown) => {
+          lockBroken = failure instanceof Error ? failure : new Error('unlock failed');
+        });
+    }
+  } finally {
+    lock.release(lockBroken);
+  }
+}
+
+async function run(
+  pool: pg.Pool,
+  files: FileStore,
+  job: DeleteJob,
+  log?: DeletionLog,
 ): Promise<'deleted' | 'skipped' | 'blocked' | 'failed'> {
   const claimed = await claim(pool, job.deletionId);
   if (!claimed) return 'skipped';
@@ -259,17 +404,18 @@ export async function runDeletion(
       hospitalId,
       detail,
     });
-  const fail = async (code: string, action: string) => {
-    await withPlatformTransaction(pool, async (client) => {
-      await client.query(
+  /** Marks the run failed. The trail only says so when this run is the one that failed it. */
+  const fail = (code: string, action: string) =>
+    withPlatformTransaction(pool, async (client) => {
+      const { rowCount } = await client.query(
         `update tenant_deletions set status = 'failed', failure = $2, finished_at = now()
          where id = $1 and status = 'running'`,
         [job.deletionId, code],
       );
-      await audit(client, action, { reason: code });
-    }).catch(() => undefined);
-  };
+      if (rowCount) await audit(client, action, { reason: code });
+    });
 
+  let keys: string[];
   try {
     const blocker = await deletionBlocker(pool, hospitalId, basis);
     if (blocker) {
@@ -279,21 +425,103 @@ export async function runDeletion(
     await withPlatformTransaction(pool, (client) =>
       audit(client, 'hospital.deletion_started', { requestedBy }),
     );
-
-    // Files first: removing is repeatable, and the rows that name them are still there to find.
-    const keys = await storedFileKeys(pool, hospitalId);
-    for (const key of keys) await files.delete(key);
-    for (const key of keys) {
-      if ((await files.get(key)) !== null) throw new VerificationFailed();
-    }
-    await withPlatformTransaction(pool, (client) =>
-      audit(client, 'hospital.deletion_files_deleted', { files: keys.length }),
-    );
-
-    await deleteRows(pool, hospitalId, job.deletionId, approvedBy, keys.length);
-    return 'deleted';
+    keys = await deleteHospitalRows(pool, hospitalId, job.deletionId, approvedBy);
   } catch (error) {
-    await fail(failureCode(error), 'hospital.deletion_failed');
-    return 'failed';
+    const code = failureCode(error);
+    log?.error(
+      { event: 'hospital_deletion_failed', deletionId: job.deletionId, hospitalId, code },
+      'hospital deletion failed',
+    );
+    // A failure to record the failure is not swallowed: the job fails and the queue sees it.
+    await fail(
+      code,
+      code === 'verification_failed' || code === 'failed'
+        ? 'hospital.deletion_failed'
+        : 'hospital.deletion_blocked',
+    );
+    return code === 'verification_failed' || code === 'failed' ? 'failed' : 'blocked';
   }
+
+  // The rows are gone for good. A failure now leaves the keys on the deletion's row, and the
+  // sweep finishes the removal.
+  try {
+    await deleteFiles(pool, files, job.deletionId, hospitalId, approvedBy, keys);
+  } catch {
+    log?.error(
+      {
+        event: 'hospital_deletion_files_pending',
+        deletionId: job.deletionId,
+        hospitalId,
+        code: 'files_pending',
+      },
+      'hospital deletion files pending',
+    );
+  }
+  return 'deleted';
+}
+
+export const DELETE_SWEEP_JOB = 'platform.delete-sweep';
+
+/** An approved request whose job was not delivered (or whose run stopped) is sent again after this. */
+const RESEND_AFTER_MINUTES = 15;
+
+/**
+ * Finishes what a delivery left undone (#995): files of a hospital whose rows are already deleted,
+ * and an approved request whose job never ran (the queue was down when it was approved) or whose
+ * run went silent. Returns how many it took up, so a caller can report it.
+ */
+export async function sweepDeletions(
+  pool: pg.Pool,
+  files: FileStore,
+  jobs: JobQueue,
+  log?: DeletionLog,
+): Promise<{ resent: number; filesFinished: number }> {
+  const pending = await withPlatformTransaction(pool, async (client) => {
+    const { rows } = await client.query<{
+      id: string;
+      hospital_id: string;
+      approved_by: string;
+      file_keys: string[];
+    }>(
+      `select id, hospital_id, approved_by, file_keys from tenant_deletions
+       where status = 'done' and files_deleted_at is null and file_keys is not null
+         and finished_at < now() - interval '5 minutes'`,
+    );
+    return rows;
+  });
+  let filesFinished = 0;
+  for (const row of pending) {
+    try {
+      await deleteFiles(pool, files, row.id, row.hospital_id, row.approved_by, row.file_keys);
+      filesFinished += 1;
+    } catch {
+      log?.error(
+        {
+          event: 'hospital_deletion_files_pending',
+          deletionId: row.id,
+          hospitalId: row.hospital_id,
+          code: 'files_pending',
+        },
+        'hospital deletion files pending',
+      );
+    }
+  }
+  const due = await withPlatformTransaction(pool, async (client) => {
+    const { rows } = await client.query<{ id: string }>(
+      `select id from tenant_deletions
+       where (status = 'approved' and approved_at < now() - make_interval(mins => $1))
+          or (status = 'running' and started_at < now() - make_interval(mins => $2))`,
+      [RESEND_AFTER_MINUTES, STALE_MINUTES],
+    );
+    return rows;
+  });
+  for (const { id } of due) {
+    const job: DeleteJob = { deletionId: id };
+    await jobs.send(DELETE_JOB, job, {
+      id: `${DELETE_JOB}:${id}:${randomUUID()}`,
+      retryLimit: 3,
+      retryDelay: 60,
+    });
+  }
+  return { resent: due.length, filesFinished };
 }

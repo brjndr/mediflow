@@ -14,7 +14,15 @@ import {
   type TestUser,
 } from '../../../test/helpers.js';
 import { MemoryQueue } from '../../core/jobs/queue.js';
-import { deletionBlocker, runDeletion } from './deletion.js';
+import {
+  DELETE_JOB,
+  assertOwnKeys,
+  deleteHospitalRows,
+  deletionBlocker,
+  runDeletion,
+  sweepDeletions,
+  unregisteredChildren,
+} from './deletion.js';
 import { deletedTables, deletionOrder } from './tenant-data.js';
 
 /**
@@ -335,8 +343,8 @@ describe('the deletion of a hospital', () => {
       'hospital.deletion_requested',
       'hospital.deletion_approved',
       'hospital.deletion_started',
-      'hospital.deletion_files_deleted',
       'hospital.deleted',
+      'hospital.deletion_files_deleted',
     ]);
     const exports = await pool.query('select 1 from tenant_exports where hospital_id = $1', [
       hospitalA.id,
@@ -401,6 +409,232 @@ describe('a deletion that does not go ahead', () => {
     );
     const status = await pool.query('select status from tenants where id = $1', [hospitalC.id]);
     expect(status.rows[0]?.status).toBe('offboarding');
+  });
+
+  // The hardening of #995. Hospital C is offboarding and due; each test makes its own request.
+  const approveFor = async (waiver: string): Promise<string> => {
+    await pool.query(OFFBOARD, [hospitalC.id, 0]).catch(() => undefined);
+    await pool.query("update tenants set status = 'offboarding' where id = $1", [hospitalC.id]);
+    const asked = await call('POST', deletionUrl(hospitalC), first.id, { waiverReference: waiver });
+    expect(asked.statusCode).toBe(202);
+    const approved = await call('POST', `${deletionUrl(hospitalC)}/approve`, second.id);
+    expect(approved.statusCode).toBe(202);
+    return approved.json().id as string;
+  };
+  const cancelOpen = () =>
+    pool.query(
+      `update tenant_deletions set status = 'cancelled', cancelled_at = now()
+       where hospital_id = $1 and status in ('requested', 'approved', 'running')`,
+      [hospitalC.id],
+    );
+
+  it('deletes no file when the rows cannot be deleted, and refuses a key of another hospital', async () => {
+    await releaseHolds(hospitalC, adminC);
+    const own = seeds.get(hospitalC.id)?.reportKey as string;
+    const foreign = `reports/${hospitalB.id}/${randomUUID()}.csv`;
+    await app.files.put(foreign, Buffer.from('not Gamma'));
+    const bogus = randomUUID();
+    await pool.query(
+      `insert into report_runs (id, tenant_id, kind, status, requested_by, finished_at, row_count,
+         result, file_key, expires_at)
+       values ($1, $2, 'stock', 'succeeded', $3, now(), 0, '{}', $4, now() + interval '1 day')`,
+      [bogus, hospitalC.id, adminC.id, foreign],
+    );
+    const before = await counts(hospitalC);
+    const id = await approveFor('W-keys');
+    const log: Record<string, string>[] = [];
+    const result = await runDeletion(
+      pool,
+      app.files,
+      { deletionId: id },
+      {
+        error: (fields) => log.push(fields),
+      },
+    );
+    expect(result).toBe('failed');
+    expect((await call('GET', deletionUrl(hospitalC))).json()).toMatchObject({
+      status: 'failed',
+      failure: 'verification_failed',
+    });
+    expect(await counts(hospitalC)).toEqual(before);
+    expect((await app.files.get(own))?.toString()).toBe('Gamma report');
+    expect((await app.files.get(foreign))?.toString()).toBe('not Gamma');
+    expect(
+      (await pool.query('select status from tenants where id = $1', [hospitalC.id])).rows[0],
+    ).toMatchObject({ status: 'offboarding' });
+    // L2: ids and a code, nothing else.
+    expect(log).toEqual([
+      {
+        event: 'hospital_deletion_failed',
+        deletionId: id,
+        hospitalId: hospitalC.id,
+        code: 'verification_failed',
+      },
+    ]);
+    await pool.query('delete from report_runs where id = $1', [bogus]);
+    await app.files.delete(foreign);
+  });
+
+  it('rolls back every row and keeps the files when a delete fails half way', async () => {
+    await pool.query(`create function zz_995_block() returns trigger language plpgsql as
+      $$ begin raise exception 'blocked'; end $$`);
+    await pool.query(
+      `create trigger zz_995_block before delete on departments for each row
+       when (old.tenant_id = '${hospitalC.id}') execute function zz_995_block()`,
+    );
+    await pool.query('alter table departments enable always trigger zz_995_block');
+    try {
+      const before = await counts(hospitalC);
+      const id = await approveFor('W-half');
+      expect(await runDeletion(pool, app.files, { deletionId: id })).toBe('failed');
+      expect(await counts(hospitalC)).toEqual(before);
+      expect((await app.files.get(seeds.get(hospitalC.id)?.reportKey as string))?.toString()).toBe(
+        'Gamma report',
+      );
+      const trail = await pool.query<{ action: string }>(
+        `select action from platform_audit_log where entity_id = $1 order by at, id`,
+        [id],
+      );
+      expect(trail.rows.map((r) => r.action)).toEqual([
+        'hospital.deletion_requested',
+        'hospital.deletion_approved',
+        'hospital.deletion_started',
+        'hospital.deletion_failed',
+      ]);
+    } finally {
+      await pool.query('drop trigger zz_995_block on departments');
+      await pool.query('drop function zz_995_block()');
+    }
+  });
+
+  it('has no table outside the registry that points into it (replica mode would keep orphans)', async () => {
+    const refs = await pool.query<{ child: string; parent: string }>(
+      `select c.relname as child, p.relname as parent
+       from pg_constraint k join pg_class c on c.oid = k.conrelid join pg_class p on p.oid = k.confrelid
+       where k.contype = 'f' and c.relnamespace = 'public'::regnamespace`,
+    );
+    expect(unregisteredChildren(refs.rows, new Set(deletedTables()))).toEqual([]);
+    expect(
+      unregisteredChildren(
+        [
+          { child: 'x', parent: 'patients' },
+          { child: 'patients', parent: 'x' },
+          { child: 'drugs', parent: 'patients' },
+        ],
+        new Set(['patients', 'drugs']),
+      ),
+    ).toEqual([{ child: 'x', parent: 'patients' }]);
+  });
+
+  it('reads the rules again inside the transaction and touches nothing when they changed', async () => {
+    const id = await approveFor('W-recheck');
+    await pool.query(
+      "update tenant_deletions set status = 'running', started_at = now() where id = $1",
+      [id],
+    );
+    await pool.query("update tenants set delete_after = now() + interval '1 day' where id = $1", [
+      hospitalC.id,
+    ]);
+    const before = await counts(hospitalC);
+    await expect(deleteHospitalRows(pool, hospitalC.id, id, second.id)).rejects.toThrow(
+      'grace_period_not_over',
+    );
+    // Another hospital's id with this deletion changes nothing of that hospital either.
+    await expect(deleteHospitalRows(pool, hospitalB.id, id, second.id)).rejects.toThrow();
+    expect(await counts(hospitalC)).toEqual(before);
+    expect((await counts(hospitalB)).departments).toBe(1);
+    await cancelOpen();
+    await pool.query('update tenants set delete_after = now() where id = $1', [hospitalC.id]);
+  });
+
+  it('lets one run work at a time, and does not take a live run over', async () => {
+    const id = await approveFor('W-lock');
+    const other = await pool.connect();
+    try {
+      await other.query('select pg_advisory_lock(hashtextextended($1, 0))', [id]);
+      expect(await runDeletion(pool, app.files, { deletionId: id })).toBe('skipped');
+      expect((await call('GET', deletionUrl(hospitalC))).json().status).toBe('approved');
+      await other.query('select pg_advisory_unlock(hashtextextended($1, 0))', [id]);
+    } finally {
+      other.release();
+    }
+    await cancelOpen();
+  });
+
+  it('sends an approved request again when its job was lost, and finishes files left behind', async () => {
+    const id = await approveFor('W-sweep');
+    const none = await sweepDeletions(pool, app.files, queue);
+    expect(none.resent).toBe(0);
+    await pool.query(
+      "update tenant_deletions set approved_at = now() - interval '1 hour' where id = $1",
+      [id],
+    );
+    const before = queue.sent.length;
+    expect((await sweepDeletions(pool, app.files, queue)).resent).toBe(1);
+    expect(queue.sent.slice(before).map((job) => [job.name, job.data])).toEqual([
+      [DELETE_JOB, { deletionId: id }],
+    ]);
+    await cancelOpen();
+
+    // Hospital A is deleted; pretend its files were left behind.
+    const key = seeds.get(hospitalA.id)?.reportKey as string;
+    await app.files.put(key, Buffer.from('left behind'));
+    await pool.query(
+      `update tenant_deletions set files_deleted_at = null, file_keys = $2,
+         finished_at = now() - interval '1 hour' where hospital_id = $1 and status = 'done'`,
+      [hospitalA.id, [key]],
+    );
+    expect((await sweepDeletions(pool, app.files, queue)).filesFinished).toBe(1);
+    expect(await app.files.get(key)).toBeNull();
+    const row = await pool.query(
+      "select files_deleted_at, file_keys from tenant_deletions where hospital_id = $1 and status = 'done'",
+      [hospitalA.id],
+    );
+    expect(row.rows[0].files_deleted_at).toBeInstanceOf(Date);
+    expect(row.rows[0].file_keys).toBeNull();
+  });
+
+  it('refuses a key that is not in the hospital’s own folder', () => {
+    expect(() => assertOwnKeys([`reports/${hospitalC.id}/a.csv`], hospitalC.id)).not.toThrow();
+    expect(() => assertOwnKeys([`reports/${hospitalB.id}/a.csv`], hospitalC.id)).toThrow();
+    expect(() => assertOwnKeys(['a.csv'], hospitalC.id)).toThrow();
+  });
+
+  it('records the waiver reference in the request and the approval', async () => {
+    const id = await approveFor('Waiver 2026/9');
+    const trail = await pool.query<{ action: string; detail: Record<string, string> }>(
+      `select action, detail from platform_audit_log where entity_id = $1
+       and action in ('hospital.deletion_requested', 'hospital.deletion_approved') order by at, id`,
+      [id],
+    );
+    expect(trail.rows.map((r) => r.detail.waiverReference)).toEqual([
+      'Waiver 2026/9',
+      'Waiver 2026/9',
+    ]);
+    await cancelOpen();
+  });
+
+  it('is serialised with reactivating the hospital', async () => {
+    await approveFor('W-react');
+    const holder = await pool.connect();
+    let settled = false;
+    try {
+      await holder.query('begin');
+      await holder.query('select 1 from tenants where id = $1 for update', [hospitalC.id]);
+      const reactivating = call('POST', `/platform/hospitals/${hospitalC.id}/reactivate`).then(
+        (response) => {
+          settled = true;
+          return response;
+        },
+      );
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(settled).toBe(false);
+      await holder.query('commit');
+      expect((await reactivating).statusCode).toBe(200);
+    } finally {
+      holder.release();
+    }
+    expect((await call('GET', deletionUrl(hospitalC))).json().status).toBe('cancelled');
   });
 
   it('needs a platform admin, and answers 404 for a hospital with none requested', async () => {

@@ -622,6 +622,9 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const userId = admin(request);
       const { id } = request.params;
       return withPlatformTransaction(pool, async (client) => {
+        // The hospital's row first, the same lock the deletion job takes before it reads the rules
+        // (#995): one of the two goes first, and the other sees what it did.
+        await client.query('select 1 from tenants where id = $1 for update', [id]);
         // Reactivating cancels a deletion that has not started (#961); one that has cannot be
         // stopped half way, and the hospital stays closed.
         const cancelled = await client.query<{ id: string }>(
