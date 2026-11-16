@@ -12,7 +12,7 @@ export const reportsFeature: FeatureManifest = {
   id: 'reports',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Reports' } },
+    titles: { en: { title: 'Reports' }, hi: { title: 'रिपोर्ट' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

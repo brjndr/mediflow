@@ -10,7 +10,7 @@ export const hospitalProfileFeature: FeatureManifest = {
   id: 'hospital-profile',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Hospital profile' } },
+    titles: { en: { title: 'Hospital profile' }, hi: { title: 'अस्पताल की जानकारी' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   routes: [

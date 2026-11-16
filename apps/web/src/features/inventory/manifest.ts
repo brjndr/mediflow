@@ -18,6 +18,12 @@ export const inventoryFeature: FeatureManifest = {
         ledger: 'Stock ledger',
         locations: 'Stock places',
       },
+      hi: {
+        title: 'इन्वेंटरी',
+        adjustments: 'स्टॉक समायोजन',
+        ledger: 'स्टॉक खाता-बही',
+        locations: 'स्टॉक की जगहें',
+      },
     },
     load: (language) => import(`./locales/${language}.json`),
   },
