@@ -11,7 +11,7 @@ export const radiologyFeature: FeatureManifest = {
   id: 'radiology',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Radiology' } },
+    titles: { en: { title: 'Radiology' }, hi: { title: 'रेडियोलॉजी' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

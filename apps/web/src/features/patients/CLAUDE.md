@@ -21,3 +21,5 @@ What this module is and what was decided for it. The root `CLAUDE.md` holds the 
 - **Old registration number (#694):** an optional "Old registration number" field on the registration and edit forms (cleared by emptying it, sent as `null`), a row on the patient's details only when set, and found by the search box on the whole number. The mock matches it exactly, as the API does.
 
 - The list has an "Old number" column and `PatientSearch` options show the old registration number (`legacyId`), both masked like the MRN, so a search by it shows why the row matched (#760).
+
+**Hindi (#769):** `locales/hi.json` is complete for patients, appointments, queue, triage, clinical, lab, radiology and follow-ups, with `hi` titles in each manifest; `app/locales/feature-locales.test.ts` checks every key and placeholder against English, so a feature is added to its `COMPLETE` list when its Hindi file is finished. Drug, lab test and ICD names are data and stay as stored. Wording is simple and not proofread by a Hindi speaker (#704).

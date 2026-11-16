@@ -11,7 +11,7 @@ export const followUpsFeature: FeatureManifest = {
   id: 'follow_ups',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Follow-ups' } },
+    titles: { en: { title: 'Follow-ups' }, hi: { title: 'फ़ॉलो-अप' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // The clinical module's switch: a follow-up is set in a consultation.

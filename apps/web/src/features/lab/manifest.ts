@@ -14,7 +14,10 @@ export const labFeature: FeatureManifest = {
   id: 'lab',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Laboratory', results: 'Lab results' } },
+    titles: {
+      en: { title: 'Laboratory', results: 'Lab results' },
+      hi: { title: 'लैब', results: 'लैब के नतीजे' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

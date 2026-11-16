@@ -14,6 +14,7 @@ export const queueFeature: FeatureManifest = {
   i18n: {
     titles: {
       en: { title: 'OPD queue', issue: 'Issue a token', displayTitle: 'Waiting-room display' },
+      hi: { title: 'OPD कतार', issue: 'टोकन जारी करें', displayTitle: 'प्रतीक्षालय डिस्प्ले' },
     },
     load: (language) => import(`./locales/${language}.json`),
   },
