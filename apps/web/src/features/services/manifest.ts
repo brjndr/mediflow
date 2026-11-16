@@ -12,7 +12,10 @@ export const servicesFeature: FeatureManifest = {
   id: 'services',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Services and prices', create: 'Add a service', record: 'Service' } },
+    titles: {
+      en: { title: 'Services and prices', create: 'Add a service', record: 'Service' },
+      hi: { title: 'सेवाएँ और कीमतें', create: 'सेवा जोड़ें', record: 'सेवा' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

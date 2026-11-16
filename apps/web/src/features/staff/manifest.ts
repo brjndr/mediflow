@@ -10,7 +10,10 @@ export const staffFeature: FeatureManifest = {
   id: 'staff',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Staff', invite: 'Invite staff' } },
+    titles: {
+      en: { title: 'Staff', invite: 'Invite staff' },
+      hi: { title: 'स्टाफ़', invite: 'स्टाफ़ को आमंत्रित करें' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

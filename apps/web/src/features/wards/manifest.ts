@@ -20,6 +20,12 @@ export const wardsFeature: FeatureManifest = {
         categories: 'Bed categories',
         record: 'Ward',
       },
+      hi: {
+        title: 'वार्ड और बिस्तर',
+        create: 'वार्ड जोड़ें',
+        categories: 'बिस्तर की श्रेणियाँ',
+        record: 'वार्ड',
+      },
     },
     load: (language) => import(`./locales/${language}.json`),
   },

@@ -17,7 +17,10 @@ export const codesFeature: FeatureManifest = {
   id: 'codes',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Diagnosis and procedure codes' } },
+    titles: {
+      en: { title: 'Diagnosis and procedure codes' },
+      hi: { title: 'निदान और प्रक्रिया कोड' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

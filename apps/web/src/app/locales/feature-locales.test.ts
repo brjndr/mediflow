@@ -32,6 +32,16 @@ const COMPLETE = [
   'imports',
   'roles',
   'hospital-profile',
+  'departments',
+  'doctors',
+  'staff',
+  'services',
+  'drugs',
+  'lab-tests',
+  'templates',
+  'codes',
+  'wards',
+  'notices',
 ];
 
 const files = import.meta.glob<{ default: Tree }>('../../features/*/locales/{en,hi}.json', {

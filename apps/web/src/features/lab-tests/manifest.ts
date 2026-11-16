@@ -13,7 +13,10 @@ export const labTestsFeature: FeatureManifest = {
   id: 'lab_tests',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Lab tests', create: 'Add a lab test', record: 'Lab test' } },
+    titles: {
+      en: { title: 'Lab tests', create: 'Add a lab test', record: 'Lab test' },
+      hi: { title: 'लैब जाँचें', create: 'जाँच जोड़ें', record: 'लैब जाँच' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

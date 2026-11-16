@@ -10,7 +10,10 @@ export const doctorsFeature: FeatureManifest = {
   id: 'doctors',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Doctors', create: 'Add a doctor', record: 'Doctor' } },
+    titles: {
+      en: { title: 'Doctors', create: 'Add a doctor', record: 'Doctor' },
+      hi: { title: 'डॉक्टर', create: 'डॉक्टर जोड़ें', record: 'डॉक्टर' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

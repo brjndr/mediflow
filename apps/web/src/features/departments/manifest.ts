@@ -9,7 +9,10 @@ export const departmentsFeature: FeatureManifest = {
   id: 'departments',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Departments' } },
+    titles: {
+      en: { title: 'Departments' },
+      hi: { title: 'विभाग' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
