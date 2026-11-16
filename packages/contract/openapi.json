@@ -14028,6 +14028,25 @@
           }
         }
       },
+      "ClaimExport": {
+        "type": "object",
+        "required": ["format", "filename", "contentType", "content"],
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "content": {
+            "description": "The file, as text.",
+            "type": "string"
+          }
+        }
+      },
       "EmergencyCaseStatus": {
         "type": "string",
         "enum": ["waiting", "in_treatment", "disposed"]
@@ -57073,6 +57092,95 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/claims/{claimId}/export": {
+      "get": {
+        "operationId": "exportClaim",
+        "tags": ["insurance"],
+        "description": "A claim in a payer's format (`generic_json`, `generic_csv`), made from the claim and the visit's charges as they are now. Holds policy numbers and amounts, no names. Needs claim:read. Audited as an export.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["generic_json", "generic_csv"]
+            },
+            "in": "query",
+            "name": "format",
+            "required": true
+          },
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "claimId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimExport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
