@@ -46,6 +46,7 @@ export function openClearances(plan: DischargePlan, type: DischargeType): Cleara
 }
 
 /** The discharge summary of a stay (DS-02, #165): a draft, then signed and never changed. */
+export type AdmissionSettings = components['schemas']['AdmissionSettings'];
 export type DischargeSummary = components['schemas']['DischargeSummary'];
 export type DischargeSummarySave = components['schemas']['DischargeSummarySave'];
 export type SummaryAddendum = components['schemas']['DischargeSummaryAddendum'];

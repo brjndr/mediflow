@@ -5,6 +5,7 @@ import {
   admissionSchema,
   bedCountsSchema,
   boardPageSchema,
+  admissionSettingsSchema,
   dischargePlanSchema,
   dischargeSummarySchema,
   wardOptionsSchema,
@@ -322,4 +323,15 @@ export async function fetchAdmission(
     signal,
   });
   return admissionDetailSchema.parse(requireData(result)).admission;
+}
+
+/** The hospital's admission settings (#952). Needs `admission:configure`. */
+export async function fetchAdmissionSettings(signal?: AbortSignal): Promise<AdmissionSettings> {
+  const result = await api.GET('/admission-settings', { signal });
+  return admissionSettingsSchema.parse(requireData(result));
+}
+
+export async function saveAdmissionSettings(body: AdmissionSettings): Promise<AdmissionSettings> {
+  const result = await api.PUT('/admission-settings', { body });
+  return admissionSettingsSchema.parse(requireData(result));
 }
