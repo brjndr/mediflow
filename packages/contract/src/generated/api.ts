@@ -1613,7 +1613,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds dischargeBill:override and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
+        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. When the hospital requires it (setting `requireDischargeSummary`, off by default), a discharge other than absconded is 409 `summary_unsigned` until the stay’s discharge summary is signed, checked after the clearances. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds dischargeBill:override and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
         post: operations["dischargePatient"];
         delete?: never;
         options?: never;
@@ -1838,6 +1838,24 @@ export interface paths {
         put?: never;
         /** @description Records that the signed summary was printed (the audit log) and nothing else, once per idempotency key. 404 `summary_not_found`, 409 `summary_not_signed` for a draft. Requires dischargeSummary:read and admission:read. */
         post: operations["recordDischargeSummaryPrint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admission-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital settings for admissions (#952): whether a discharge waits for a signed discharge summary. Requires admission:configure. */
+        get: operations["getAdmissionSettings"];
+        /** @description Sets the admission settings. With `requireDischargeSummary` on, a discharge is 409 `summary_unsigned` until the stay’s discharge summary is signed (not for an absconded patient). Audited. Requires admission:configure. */
+        put: operations["setAdmissionSettings"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8866,6 +8884,9 @@ export interface components {
         };
         DischargeSummaryAddendumCreate: {
             body: string;
+        };
+        AdmissionSettings: {
+            requireDischargeSummary: boolean;
         };
         /** @description Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day. */
         WardVitalFlags: {
@@ -23637,6 +23658,113 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAdmissionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionSettings"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAdmissionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdmissionSettings"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionSettings"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
