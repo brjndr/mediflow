@@ -14,6 +14,7 @@ import {
 } from './schemas';
 import type {
   Admission,
+  AdmissionSettings,
   AdmissionCreate,
   AdmissionPage,
   BedCounts,
