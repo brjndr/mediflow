@@ -55,3 +55,7 @@ END;
 $$;
 CREATE TRIGGER blood_unit_recalls_guard BEFORE UPDATE ON blood_unit_recalls
   FOR EACH ROW EXECUTE FUNCTION blood_unit_recalls_guard();
+
+-- A patient record that was merged into another takes no new rows here either (#557).
+CREATE TRIGGER refuse_merged_patient BEFORE INSERT ON blood_unit_recalls
+  FOR EACH ROW EXECUTE FUNCTION refuse_row_for_merged_patient();
