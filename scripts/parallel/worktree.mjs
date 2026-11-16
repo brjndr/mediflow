@@ -6,10 +6,12 @@
 // share files, a branch or test data. Prints the DATABASE_URL_TEST to use for API tests there.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { clearLeftover, isWorktree, worktreeAddArgs } from './worktree-lib.mjs';
 
 const [cmd, issue, type, slug] = process.argv.slice(2);
 const root = path.resolve(import.meta.dirname, '..', '..');
-const dir = path.resolve(root, '..', 'mediflow-wt', String(issue));
+const wtRoot = path.resolve(root, '..', 'mediflow-wt');
+const dir = path.resolve(wtRoot, String(issue));
 const db = `mediflow_test_${issue}`;
 
 const run = (command, args, cwd = root, allowFail = false) => {
@@ -43,7 +45,9 @@ if (cmd === 'add') {
     process.exit(1);
   }
   run('git', ['fetch', 'origin', 'main']);
-  run('git', ['worktree', 'add', dir, '-b', `${type}/${issue}-${slug}`, 'origin/main']);
+  // A folder left by an earlier remove is not a worktree and would make `git worktree add` fail.
+  if (!isWorktree(root, dir)) clearLeftover(wtRoot, issue);
+  run('git', worktreeAddArgs(root, dir, `${type}/${issue}-${slug}`));
   run('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], dir);
   psql(`CREATE DATABASE ${db}`); // fails harmlessly when it exists
   console.log(`\nworkspace: ${dir}\nbranch: ${type}/${issue}-${slug}`);
@@ -54,6 +58,7 @@ if (cmd === 'add') {
   run('git', ['worktree', 'remove', '--force', dir], root, true);
   psql(`DROP DATABASE IF EXISTS ${db}`);
   run('git', ['worktree', 'prune']);
+  clearLeftover(wtRoot, issue); // stale node_modules that git left behind
 } else {
   console.error('unknown command');
   process.exit(1);
