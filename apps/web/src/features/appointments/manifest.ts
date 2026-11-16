@@ -22,6 +22,12 @@ export const appointmentsFeature: FeatureManifest = {
         book: 'Book an appointment',
         record: 'Appointment',
       },
+      hi: {
+        title: 'अपॉइंटमेंट',
+        calendar: 'अपॉइंटमेंट कैलेंडर',
+        book: 'अपॉइंटमेंट बुक करें',
+        record: 'अपॉइंटमेंट',
+      },
     },
     load: (language) => import(`./locales/${language}.json`),
   },

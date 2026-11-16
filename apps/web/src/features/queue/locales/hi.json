@@ -1,0 +1,167 @@
+{
+  "heading": "OPD कतार",
+  "description": "आज के टोकन, विभाग और डॉक्टर के हिसाब से, जिस क्रम में बुलाए जाते हैं।",
+  "token": "टोकन {{number}}",
+  "rowLabel": "टोकन {{number}}, {{patient}}",
+  "anyDoctor": "कोई भी डॉक्टर",
+  "calledAt_one": "{{time}}",
+  "calledAt_other": "{{time}} ({{count}} बार बुलाया गया)",
+  "count_one": "{{count}} टोकन",
+  "count_other": "{{count}} टोकन",
+  "live": {
+    "connecting": "लाइव बदलाव के लिए जुड़ रहे हैं…",
+    "on": "लाइव: बदलाव कुछ सेकंड में दिखते हैं।",
+    "retrying": "फिर से जुड़ रहे हैं। तब तक कतार हर {{seconds}} सेकंड में ताज़ा होती है।",
+    "off": "लाइव अपडेट उपलब्ध नहीं हैं। कतार हर {{seconds}} सेकंड में ताज़ा होती है।"
+  },
+  "groups": {
+    "called": "अभी देखे जा रहे हैं",
+    "waiting": "प्रतीक्षा में",
+    "skipped": "छोड़े गए",
+    "served": "देखे जा चुके",
+    "cancelled": "रद्द"
+  },
+  "empty": {
+    "called": "कोई नहीं देखा जा रहा।",
+    "waiting": "कोई प्रतीक्षा में नहीं है।",
+    "skipped": "कोई टोकन छोड़ा नहीं गया।",
+    "served": "अभी किसी को नहीं देखा गया।",
+    "cancelled": "कोई टोकन रद्द नहीं है।"
+  },
+  "filters": {
+    "department": "विभाग",
+    "allDepartments": "सभी विभाग",
+    "doctor": "डॉक्टर",
+    "allDoctors": "सभी डॉक्टर",
+    "me": "{{name}} (आप)"
+  },
+  "columns": {
+    "token": "टोकन",
+    "patient": "मरीज़",
+    "mrn": "MRN",
+    "priority": "प्राथमिकता",
+    "doctor": "डॉक्टर",
+    "department": "विभाग",
+    "issued": "जारी",
+    "called": "बुलाया"
+  },
+  "priority": {
+    "none": "कोई प्राथमिकता नहीं",
+    "senior_citizen": "वरिष्ठ नागरिक",
+    "pregnancy": "गर्भावस्था",
+    "disability": "दिव्यांग",
+    "child": "बच्चा",
+    "clinical_urgency": "चिकित्सीय ज़रूरत"
+  },
+  "actions": {
+    "callNext": "अगला बुलाएँ",
+    "callNextFor": "{{name}} के लिए अगला बुलाएँ",
+    "callAgain": "फिर बुलाएँ",
+    "skip": "छोड़ें",
+    "recall": "कतार में वापस",
+    "priority": "प्राथमिकता बदलें",
+    "cancel": "टोकन रद्द करें"
+  },
+  "done": {
+    "called": "टोकन {{number}}, {{patient}}, बुलाया गया।",
+    "calledAgain": "टोकन {{number}}, {{patient}}, फिर बुलाया गया।",
+    "skipped": "टोकन {{number}}, {{patient}}, छोड़ा गया।",
+    "recalled": "टोकन {{number}}, {{patient}}, कतार में वापस है।",
+    "priority": "टोकन {{number}}, {{patient}}, की प्राथमिकता बदली गई।",
+    "cancelled": "टोकन {{number}}, {{patient}}, रद्द किया गया।"
+  },
+  "refused": {
+    "changed": "किसी और ने यह टोकन पहले बदल दिया। कतार में वह अब जैसा है वैसा दिख रहा है।",
+    "empty": "इस डॉक्टर के लिए कोई प्रतीक्षा में नहीं है।"
+  },
+  "priorityPanel": {
+    "heading": "टोकन {{number}}, {{patient}}, की प्राथमिकता",
+    "label": "प्राथमिकता",
+    "save": "प्राथमिकता सहेजें",
+    "cancel": "रद्द करें"
+  },
+  "cancelReason": {
+    "wrong_patient": "गलत मरीज़",
+    "wrong_department": "गलत विभाग",
+    "left_without_being_seen": "बिना दिखाए चले गए",
+    "other": "अन्य"
+  },
+  "cancelPanel": {
+    "heading": "टोकन {{number}}, {{patient}}, रद्द करें",
+    "description": "रद्द टोकन कतार से हमेशा के लिए हट जाता है और उसका नंबर दोबारा इस्तेमाल नहीं होता। मरीज़ को नया टोकन दिया जा सकता है।",
+    "reason": "कारण",
+    "chooseReason": "कारण चुनें",
+    "reasonRequired": "कारण चुनें।",
+    "note": "टिप्पणी",
+    "noteHint": "बताएँ कि क्यों।",
+    "noteRequired": "कारण \"अन्य\" हो तो बताएँ कि क्यों।",
+    "submit": "टोकन रद्द करें",
+    "back": "टोकन रहने दें"
+  },
+  "checkIn": {
+    "action": "चेक-इन",
+    "label": "चेक-इन, {{time}} का अपॉइंटमेंट",
+    "saving": "चेक-इन हो रहा है…",
+    "done": "चेक-इन हो गया: टोकन {{number}}, {{department}}।",
+    "existing": "पहले ही चेक-इन है: टोकन {{number}}, {{department}}।",
+    "refused": {
+      "alreadyQueued": "इस मरीज़ का आज इस विभाग में पहले से टोकन है।",
+      "alreadyCheckedIn": "इस अपॉइंटमेंट का चेक-इन दूसरे काउंटर पर हो चुका है। कतार देखें।",
+      "notToday": "केवल आज के अपॉइंटमेंट का चेक-इन हो सकता है।",
+      "notScheduled": "यह अपॉइंटमेंट अब तय नहीं है।",
+      "unavailable": "इस अपॉइंटमेंट का चेक-इन यहाँ नहीं हो सकता। एडमिन से कहें।"
+    }
+  },
+  "issue": {
+    "open": "टोकन जारी करें",
+    "fromPatient": "कतार का टोकन जारी करें",
+    "heading": "टोकन जारी करें",
+    "description": "सीधे आए मरीज़ को किसी विभाग की आज की कतार में लगाएँ।",
+    "patient": "मरीज़",
+    "patientMrn": "MRN {{mrn}}",
+    "changePatient": "दूसरा मरीज़ चुनें",
+    "department": "विभाग",
+    "chooseDepartment": "विभाग चुनें",
+    "departmentsLoading": "विभाग लोड हो रहे हैं…",
+    "doctorsLoading": "डॉक्टर लोड हो रहे हैं…",
+    "askedNotFound": "जिस मरीज़ से आप आए वह लोड नहीं हो सका। उसे नीचे खोजें।",
+    "doctor": "डॉक्टर",
+    "doctorHint": "\"कोई भी डॉक्टर\" रहने दें तो विभाग का पहला खाली डॉक्टर मरीज़ को बुलाएगा।",
+    "priority": "प्राथमिकता",
+    "priorityHint": "प्राथमिकता वाला टोकन बाकी से पहले बुलाया जाता है।",
+    "submit": "टोकन जारी करें",
+    "submitting": "जारी हो रहा है…",
+    "cancel": "रद्द करें",
+    "back": "कतार पर वापस",
+    "patientRequired": "मरीज़ चुनें।",
+    "departmentRequired": "विभाग चुनें।",
+    "issued": {
+      "heading": "टोकन {{number}} जारी हुआ",
+      "summary": "{{patient}} के लिए टोकन {{number}}, {{department}}, {{doctor}}।",
+      "another": "एक और जारी करें"
+    },
+    "refused": {
+      "alreadyQueued": "इस मरीज़ का आज इस विभाग में पहले से टोकन है।",
+      "doctorNotInDepartment": "ये डॉक्टर अब इस विभाग में नहीं हैं। फिर से चुनें।",
+      "unknownPatient": "यह मरीज़ इस अस्पताल में नहीं मिला।"
+    },
+    "unavailable": {
+      "departments": "टोकन जारी करने के लिए विभाग चाहिए, जो आप यहाँ नहीं देख सकते। एडमिन से कहें।",
+      "patients": "टोकन जारी करने के लिए मरीज़ खोजना होता है, जो आप यहाँ नहीं कर सकते। एडमिन से कहें।"
+    }
+  },
+  "display": {
+    "open": "प्रतीक्षालय डिस्प्ले",
+    "heading": "प्रतीक्षालय डिस्प्ले",
+    "description": "टोकन नंबर और कहाँ जाना है, उस स्क्रीन के लिए जिसे प्रतीक्षा कर रहे मरीज़ देख सकें। इसमें कोई नाम नहीं दिखता।",
+    "back": "कतार पर वापस",
+    "nowServing": "अभी देखे जा रहे हैं",
+    "next": "अगला",
+    "nobodyServing": "कोई नहीं देखा जा रहा।",
+    "nobodyWaiting": "कोई प्रतीक्षा में नहीं है।",
+    "waiting_one": "{{count}} प्रतीक्षा में",
+    "waiting_other": "{{count}} प्रतीक्षा में",
+    "empty": "आज कोई टोकन जारी नहीं हुआ।",
+    "token": "टोकन {{number}}"
+  }
+}

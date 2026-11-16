@@ -16,6 +16,7 @@ export const clinicalFeature: FeatureManifest = {
   i18n: {
     titles: {
       en: { title: 'Consultations', detail: 'Consultation', sets: 'Prescription sets' },
+      hi: { title: 'परामर्श', detail: 'परामर्श', sets: 'पर्ची के सेट' },
     },
     load: (language) => import(`./locales/${language}.json`),
   },

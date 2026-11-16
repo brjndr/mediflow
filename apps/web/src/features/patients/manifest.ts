@@ -14,6 +14,13 @@ export const patientsFeature: FeatureManifest = {
         edit: 'Edit a patient record',
         merge: 'Merge a duplicate patient',
       },
+      hi: {
+        title: 'मरीज़',
+        create: 'मरीज़ पंजीकृत करें',
+        record: 'मरीज़ का रिकॉर्ड',
+        edit: 'मरीज़ का रिकॉर्ड बदलें',
+        merge: 'दोहराए गए मरीज़ को मिलाएँ',
+      },
     },
     load: (language) => import(`./locales/${language}.json`),
   },

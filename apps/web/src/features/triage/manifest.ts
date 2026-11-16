@@ -12,7 +12,10 @@ export const triageFeature: FeatureManifest = {
   id: 'triage',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Triage', record: 'Record vitals', ranges: 'Vital sign ranges' } },
+    titles: {
+      en: { title: 'Triage', record: 'Record vitals', ranges: 'Vital sign ranges' },
+      hi: { title: 'ट्राइएज', record: 'जाँच दर्ज करें', ranges: 'जाँच की सामान्य सीमाएँ' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
