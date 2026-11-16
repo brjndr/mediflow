@@ -11,7 +11,10 @@ export const rolesFeature: FeatureManifest = {
   id: 'roles',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Roles', matrix: 'Role permissions' } },
+    titles: {
+      en: { title: 'Roles', matrix: 'Role permissions' },
+      hi: { title: 'भूमिकाएँ', matrix: 'भूमिका की अनुमतियाँ' },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   routes: [

@@ -23,6 +23,15 @@ const COMPLETE = [
   'lab',
   'radiology',
   'follow-ups',
+  'pharmacy',
+  'inventory',
+  'purchasing',
+  'indents',
+  'billing',
+  'reports',
+  'imports',
+  'roles',
+  'hospital-profile',
 ];
 
 const files = import.meta.glob<{ default: Tree }>('../../features/*/locales/{en,hi}.json', {

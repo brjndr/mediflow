@@ -1,0 +1,255 @@
+{
+  "close": "बंद करें",
+  "links": {
+    "label": "इन्वेंटरी",
+    "stock": "स्टॉक",
+    "adjustments": "समायोजन",
+    "ledger": "खाता-बही",
+    "locations": "जगहें",
+    "indents": "इंडेंट"
+  },
+  "item": { "change": "बदलाव" },
+  "kind": {
+    "store": "स्टोर",
+    "pharmacy": "फ़ार्मेसी काउंटर",
+    "ward": "वार्ड का स्टॉक",
+    "department": "विभाग का स्टॉक"
+  },
+  "reason": {
+    "opening": "शुरुआती स्टॉक",
+    "count_correction": "गिनती का सुधार",
+    "damaged": "ख़राब",
+    "expired": "एक्सपायर",
+    "other": "अन्य",
+    "dispense": "मरीज़ को दिया",
+    "sale": "काउंटर पर बेचा",
+    "sale_return": "बिक्री से लौटा",
+    "receipt": "सप्लायर से मिला",
+    "purchase_return": "सप्लायर को लौटाया",
+    "dispense_return": "दी गई दवा से लौटा",
+    "wastage": "वापस आया और बेकार हुआ",
+    "issue_out": "इंडेंट के लिए जारी",
+    "issue_in": "इंडेंट से प्राप्त"
+  },
+  "change": {
+    "in_one": "{{count}} इकाई आई",
+    "in_other": "{{count}} इकाइयाँ आईं",
+    "out_one": "{{count}} इकाई गई",
+    "out_other": "{{count}} इकाइयाँ गईं"
+  },
+  "stock": {
+    "heading": "स्टॉक",
+    "alerts": "चेतावनियाँ",
+    "alert": {
+      "low_one": "{{count}} सामान कम",
+      "low_other": "{{count}} सामान कम",
+      "expiring_one": "{{count}} सामान एक्सपायर होने वाला",
+      "expiring_other": "{{count}} सामान एक्सपायर होने वाले",
+      "expired_one": "{{count}} सामान एक्सपायर",
+      "expired_other": "{{count}} सामान एक्सपायर"
+    },
+    "place": "जगह",
+    "allPlaces": "सभी जगहें",
+    "show": "दिखाएँ",
+    "allItems": "सभी सामान",
+    "only": {
+      "low": "कम स्टॉक",
+      "expiring": "एक्सपायर होने वाला",
+      "expired": "एक्सपायर"
+    },
+    "window": "इतने में एक्सपायर होने वाला",
+    "days_one": "{{count}} दिन",
+    "days_other": "{{count}} दिन",
+    "item": "सामान",
+    "count_one": "{{count}} सामान।",
+    "count_other": "{{count}} सामान।",
+    "columns": {
+      "item": "सामान",
+      "onHand": "हाथ में",
+      "onHandHere": "यहाँ हाथ में",
+      "hospital": "पूरा अस्पताल",
+      "reorder": "दोबारा मँगाने का स्तर",
+      "state": "स्थिति",
+      "batches": "बैच"
+    },
+    "units_one": "{{number}} {{unit}}",
+    "units_other": "{{number}} {{unit}}",
+    "low": "कम",
+    "batch": {
+      "ok_one": "{{number}}, एक्सपायरी {{expiry}}, {{place}}: {{count}}",
+      "ok_other": "{{number}}, एक्सपायरी {{expiry}}, {{place}}: {{count}}",
+      "expiring_one": "{{number}}, {{expiry}} को एक्सपायर होगा, {{place}}: {{count}}",
+      "expiring_other": "{{number}}, {{expiry}} को एक्सपायर होगा, {{place}}: {{count}}",
+      "expired_one": "{{number}}, {{expiry}} को एक्सपायर हुआ, {{place}}: {{count}}",
+      "expired_other": "{{number}}, {{expiry}} को एक्सपायर हुआ, {{place}}: {{count}}"
+    },
+    "noBatches": "स्टॉक नहीं है",
+    "ledger": "खाता-बही",
+    "adjust": "स्टॉक समायोजित करें",
+    "writeOff": "एक्सपायर हुआ बट्टे खाते में डालें",
+    "empty": {
+      "all": "उपयोग में कोई सामान नहीं है।",
+      "low": "कोई सामान कम नहीं है।",
+      "expiring": "इतने समय में कोई स्टॉक एक्सपायर नहीं होता।",
+      "expired": "कोई एक्सपायर स्टॉक नहीं है।"
+    }
+  },
+  "adjustments": {
+    "heading": "स्टॉक समायोजन",
+    "description": "समायोजन से स्टॉक तभी बदलता है जब माँगने वाले के अलावा कोई और उसे मंज़ूर करे।",
+    "status": "दिखाएँ",
+    "statuses": {
+      "pending": "मंज़ूरी का इंतज़ार",
+      "approved": "मंज़ूर",
+      "rejected": "अस्वीकृत"
+    },
+    "new": "नया समायोजन",
+    "count_one": "{{count}} समायोजन।",
+    "count_other": "{{count}} समायोजन।",
+    "columns": {
+      "item": "सामान",
+      "change": "बदलाव",
+      "batch": "बैच",
+      "place": "जगह",
+      "reason": "कारण",
+      "onHand": "अभी हाथ में",
+      "asked": "माँगा गया",
+      "decided": "फ़ैसला"
+    },
+    "batch": "{{number}}, एक्सपायरी {{expiry}}",
+    "newBatch": "नया बैच {{number}}, एक्सपायरी {{expiry}}",
+    "reasonNote": "{{reason}}: {{note}}",
+    "by": "{{name}}, {{time}}",
+    "decided": {
+      "approved": "{{name}} ने {{time}} को मंज़ूर किया।",
+      "rejected": "{{name}} ने {{time}} को अस्वीकार किया:"
+    },
+    "rowLabel_one": "{{item}}, {{count}} इकाई, {{place}}",
+    "rowLabel_other": "{{item}}, {{count}} इकाइयाँ, {{place}}",
+    "empty": {
+      "pending": "मंज़ूरी के इंतज़ार में कुछ नहीं है।",
+      "approved": "कोई मंज़ूर समायोजन नहीं है।",
+      "rejected": "कोई अस्वीकृत समायोजन नहीं है।"
+    }
+  },
+  "adjust": {
+    "heading": "नया स्टॉक समायोजन",
+    "description": "जब तक कोई और मंज़ूर न करे, कुछ नहीं बदलता।",
+    "place": "जगह",
+    "choosePlace": "एक जगह चुनें",
+    "item": "सामान",
+    "itemRequired": "एक सामान चुनें।",
+    "reason": "कारण",
+    "batch": "बैच",
+    "batchHint": "पहले सामान चुनें।",
+    "chooseBatch": "एक बैच चुनें",
+    "batchOption": "{{number}}, एक्सपायरी {{expiry}}",
+    "newBatch": "नया बैच",
+    "newBatchOpeningOnly": "नया बैच केवल शुरुआती स्टॉक से ही आता है।",
+    "batchNumber": "बैच संख्या",
+    "expiryDate": "एक्सपायरी की तारीख़",
+    "mrp": "अधिकतम खुदरा मूल्य",
+    "mrpHint": "एक इकाई का, जैसा छपा है। वैकल्पिक।",
+    "mrpInvalid": "जैसे 125.50 वाली राशि भरें।",
+    "direction": "आना या जाना",
+    "in": "आना: स्टॉक में जोड़ें",
+    "out": "जाना: स्टॉक से घटाएँ",
+    "directionFixed": "यह कारण तय करता है कि स्टॉक आएगा या जाएगा।",
+    "fixed": {
+      "in": "इस कारण से स्टॉक आता है।",
+      "out": "इस कारण से स्टॉक जाता है।"
+    },
+    "quantity": "इकाइयाँ",
+    "quantityHint": "सामान की पूरी इकाइयों की संख्या।",
+    "quantityWhole": "पूरी संख्या भरें।",
+    "quantityRange": "1 से 10,00,000 तक भरें।",
+    "note": "टिप्पणी",
+    "noteHint": "वैकल्पिक: क्या हुआ।",
+    "noteRequired": "बताएँ कि क्या हुआ।",
+    "noteForOther": "बताएँ कि क्या हुआ।",
+    "submit": "मंज़ूरी माँगें",
+    "submitting": "माँगा जा रहा है…",
+    "asked_one": "{{place}} में {{item}} की {{count}} इकाई के लिए माँगा गया। मंज़ूरी का इंतज़ार है।",
+    "asked_other": "{{place}} में {{item}} की {{count}} इकाइयों के लिए माँगा गया। मंज़ूरी का इंतज़ार है।",
+    "refused": {
+      "insufficient": "उस जगह बैच में इससे कम इकाइयाँ हैं।",
+      "batchExists": "इस सामान का इस संख्या वाला बैच पहले से है: उसे सूची से चुनें।",
+      "invalid": "वह जगह, सामान या बैच अब उपयोग में नहीं आ सकता। जाँचें और फिर कोशिश करें।"
+    },
+    "reject": { "noteRequired": "बताएँ कि अस्वीकार क्यों किया।" },
+    "batchOptionHere_one": "{{number}}, एक्सपायरी {{expiry}}: यहाँ {{count}} इकाई",
+    "batchOptionHere_other": "{{number}}, एक्सपायरी {{expiry}}: यहाँ {{count}} इकाइयाँ"
+  },
+  "decide": {
+    "approve": "मंज़ूर करें",
+    "reject": "अस्वीकार करें",
+    "approved_one": "मंज़ूर: {{place}} में {{item}} की {{count}} इकाई।",
+    "approved_other": "मंज़ूर: {{place}} में {{item}} की {{count}} इकाइयाँ।",
+    "rejected_one": "अस्वीकृत: {{place}} में {{item}} की {{count}} इकाई।",
+    "rejected_other": "अस्वीकृत: {{place}} में {{item}} की {{count}} इकाइयाँ।",
+    "rejectHeading_one": "{{place}} में {{item}} की {{count}} इकाई अस्वीकार करें",
+    "rejectHeading_other": "{{place}} में {{item}} की {{count}} इकाइयाँ अस्वीकार करें",
+    "note": "कारण",
+    "noteHint": "माँगने वाला इसे पढ़ेगा।",
+    "rejectSubmit": "अस्वीकार करें",
+    "refused": {
+      "conflict": "दिखाए जाने के बाद यह बदल गया। सूची फिर से पढ़ी जा रही है।",
+      "decided": "किसी ने इस पर फ़ैसला कर दिया है।",
+      "own": "आपके माँगे समायोजन पर कोई और फ़ैसला करता है।",
+      "insufficient": "उस जगह बैच में अब इतनी इकाइयाँ नहीं हैं। इसे अस्वीकार करें, या फिर से गिनें।",
+      "locationArchived": "उसकी जगह संग्रह में डाल दी गई है।",
+      "batchExists": "इस बीच इसी संख्या का, पर दूसरी एक्सपायरी वाला बैच जुड़ गया।",
+      "gone": "वह समायोजन अब नहीं है।",
+      "itemArchived": "माँगे जाने के बाद वह सामान संग्रह में डाल दिया गया।"
+    }
+  },
+  "ledger": {
+    "heading": "स्टॉक खाता-बही",
+    "description": "स्टॉक का हर बदलाव, सबसे नया पहले। इसमें कुछ कभी बदला नहीं जाता: सुधार बाद की नई प्रविष्टि होती है।",
+    "oneItem": "एक सामान",
+    "from": "से",
+    "to": "तक",
+    "columns": {
+      "item": "सामान",
+      "at": "कब",
+      "change": "बदलाव",
+      "balance": "बाद में स्टॉक",
+      "batch": "बैच",
+      "place": "जगह",
+      "reason": "कारण",
+      "by": "किसने"
+    },
+    "rowLabel": "{{item}}, {{time}}",
+    "empty": "स्टॉक में कोई बदलाव नहीं है।"
+  },
+  "locations": {
+    "heading": "स्टॉक की जगहें",
+    "view": "दिखाएँ",
+    "active": "उपयोग में",
+    "archivedView": "संग्रहीत",
+    "add": "जगह जोड़ें",
+    "addHeading": "जगह जोड़ें",
+    "edit": "बदलें",
+    "editHeading": "{{name}} बदलें",
+    "name": "नाम",
+    "kind": "प्रकार",
+    "save": "सहेजें",
+    "archive": "संग्रह में डालें",
+    "restore": "वापस लाएँ",
+    "added": "{{name}} जोड़ी गई।",
+    "saved": "{{name}} सहेजी गई।",
+    "archived": "{{name}} संग्रह में डाली गई।",
+    "restored": "{{name}} वापस लाई गई।",
+    "count_one": "{{count}} जगह।",
+    "count_other": "{{count}} जगहें।",
+    "columns": { "name": "नाम", "kind": "प्रकार" },
+    "empty": "अभी कोई जगह नहीं है।",
+    "emptyArchived": "कोई संग्रहीत जगह नहीं है।",
+    "refused": {
+      "nameTaken": "अस्पताल में इस नाम की जगह पहले से है।",
+      "hasStock": "उस जगह किसी बैच का स्टॉक है। पहले उसे हटाएँ या समायोजित करें।",
+      "conflict": "दिखाए जाने के बाद यह बदल गया। बंद करके फिर कोशिश करें।",
+      "gone": "वह जगह अब नहीं है।"
+    }
+  }
+}

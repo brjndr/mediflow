@@ -14,6 +14,11 @@ export const indentsFeature: FeatureManifest = {
   i18n: {
     titles: {
       en: { title: 'Indents', new: 'New indent', detail: 'Indent' },
+      hi: {
+        title: 'इंडेंट',
+        new: 'नया इंडेंट',
+        detail: 'इंडेंट',
+      },
     },
     load: (language) => import(`./locales/${language}.json`),
   },

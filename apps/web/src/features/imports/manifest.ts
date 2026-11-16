@@ -14,7 +14,14 @@ export const importsFeature: FeatureManifest = {
   id: 'imports',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Import centre', create: 'New import', record: 'Import batch' } },
+    titles: {
+      en: { title: 'Import centre', create: 'New import', record: 'Import batch' },
+      hi: {
+        title: 'इम्पोर्ट केंद्र',
+        create: 'नया इम्पोर्ट',
+        record: 'इम्पोर्ट बैच',
+      },
+    },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
