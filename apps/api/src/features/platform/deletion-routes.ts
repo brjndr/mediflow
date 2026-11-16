@@ -170,7 +170,10 @@ export const deletionRoutes: FastifyPluginAsyncTypebox = async (app) => {
           entity: 'hospital_deletion',
           entityId: created.id,
           hospitalId: id,
-          detail: { basis: created.basis },
+          detail: {
+            basis: created.basis,
+            ...(created.waiver_reference ? { waiverReference: created.waiver_reference } : {}),
+          },
           requestId: request.id,
         });
         return created;
@@ -232,7 +235,10 @@ export const deletionRoutes: FastifyPluginAsyncTypebox = async (app) => {
           entity: 'hospital_deletion',
           entityId: approved.id,
           hospitalId: id,
-          detail: { requestedBy: approved.requested_by },
+          detail: {
+            requestedBy: approved.requested_by,
+            ...(approved.waiver_reference ? { waiverReference: approved.waiver_reference } : {}),
+          },
           requestId: request.id,
         });
         return approved;
@@ -241,7 +247,11 @@ export const deletionRoutes: FastifyPluginAsyncTypebox = async (app) => {
       await app.jobs
         .send(DELETE_JOB, job, { id: `${DELETE_JOB}:${row.id}`, retryLimit: 3, retryDelay: 60 })
         .catch(() => {
-          request.log.warn({ event: 'deletion_job_not_queued' }, 'deletion job not queued');
+          // The sweep sends it again (`sweepDeletions`).
+          request.log.error(
+            { event: 'deletion_job_not_queued', deletionId: row.id, hospitalId: id },
+            'deletion job not queued',
+          );
         });
       return reply.code(202).send(toDeletion(row));
     },
