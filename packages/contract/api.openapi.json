@@ -48755,12 +48755,12 @@
             "schema": {
               "minimum": 1,
               "maximum": 100,
-              "default": 25,
               "type": "integer"
             },
             "in": "query",
             "name": "limit",
-            "required": true
+            "required": false,
+            "description": "Absent: 25."
           },
           {
             "schema": {
@@ -48963,12 +48963,12 @@
             "schema": {
               "minimum": 1,
               "maximum": 100,
-              "default": 25,
               "type": "integer"
             },
             "in": "query",
             "name": "limit",
-            "required": true
+            "required": false,
+            "description": "Absent: 25."
           },
           {
             "schema": {
@@ -49173,12 +49173,12 @@
             "schema": {
               "minimum": 1,
               "maximum": 100,
-              "default": 25,
               "type": "integer"
             },
             "in": "query",
             "name": "limit",
-            "required": true
+            "required": false,
+            "description": "Absent: 25."
           },
           {
             "schema": {

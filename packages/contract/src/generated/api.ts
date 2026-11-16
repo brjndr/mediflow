@@ -35732,9 +35732,10 @@ export interface operations {
     };
     listIncompleteRecords: {
         parameters: {
-            query: {
+            query?: {
                 cursor?: string;
-                limit: number;
+                /** @description Absent: 25. */
+                limit?: number;
                 gap?: components["schemas"]["RecordGap"];
                 kind?: components["schemas"]["EncounterType"];
             };
@@ -35876,9 +35877,10 @@ export interface operations {
     };
     listCodingQueue: {
         parameters: {
-            query: {
+            query?: {
                 cursor?: string;
-                limit: number;
+                /** @description Absent: 25. */
+                limit?: number;
                 state?: components["schemas"]["CodingState"];
             };
             header?: never;
@@ -36028,9 +36030,10 @@ export interface operations {
     };
     listRecordRequests: {
         parameters: {
-            query: {
+            query?: {
                 cursor?: string;
-                limit: number;
+                /** @description Absent: 25. */
+                limit?: number;
                 state?: components["schemas"]["RecordRequestState"];
             };
             header?: never;

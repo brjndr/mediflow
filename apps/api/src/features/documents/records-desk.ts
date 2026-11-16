@@ -170,7 +170,9 @@ export const RECORDS_DESK_SCHEMAS = [
 
 const Paging = {
   cursor: Type.Optional(Type.String({ maxLength: 200 })),
-  limit: Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
+  limit: Type.Optional(
+    Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, description: 'Absent: 25.' }),
+  ),
 };
 const IncompleteQuery = Type.Object({
   ...Paging,
@@ -412,6 +414,7 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       wholeHospital(request, READ);
       const query = request.query as IncompleteQuery;
+      const limit = query.limit ?? DEFAULT_PAGE_SIZE;
       const filters: string[] = ['cardinality(b.gaps) > 0'];
       const params: unknown[] = [];
       if (query.gap) {
@@ -438,19 +441,19 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
         paged.push(at.key, at.id);
         after = ` and (b.ended_at, b.encounter_id) > ($${paged.length - 1}::timestamptz, $${paged.length}::uuid)`;
       }
-      paged.push(query.limit + 1);
+      paged.push(limit + 1);
       const { rows } = await request.txClient.query<IncompleteRow>(
         `select * from (${INCOMPLETE}) b where ${where}${after}
           order by b.ended_at, b.encounter_id limit $${paged.length}`,
         paged,
       );
-      const page = rows.slice(0, query.limit);
+      const page = rows.slice(0, limit);
       for (const row of page) request.audit('read', 'encounter', row.encounter_id);
       const last = page[page.length - 1];
       return {
         items: page.map(incompleteView),
         nextCursor:
-          rows.length > query.limit && last ? encodeCursor(last.order_at, last.encounter_id) : null,
+          rows.length > limit && last ? encodeCursor(last.order_at, last.encounter_id) : null,
         ...(total === undefined ? {} : { total }),
       };
     },
@@ -533,6 +536,7 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       wholeHospital(request, READ);
       const query = request.query as CodingQuery;
+      const limit = query.limit ?? DEFAULT_PAGE_SIZE;
       const state =
         query.state === 'coded' ? 'c.diagnosis_id is not null' : 'c.diagnosis_id is null';
       let total: number | undefined;
@@ -549,18 +553,18 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
         params.push(at.key, at.id);
         after = ` and (g.recorded_at, g.id) > ($1::timestamptz, $2::uuid)`;
       }
-      params.push(query.limit + 1);
+      params.push(limit + 1);
       const { rows } = await request.txClient.query<CodingRow>(
         `${CODING} and ${state}${after} order by g.recorded_at, g.id limit $${params.length}`,
         params,
       );
-      const page = rows.slice(0, query.limit);
+      const page = rows.slice(0, limit);
       for (const row of page) request.audit('read', 'encounter_diagnosis', row.diagnosis_id);
       const last = page[page.length - 1];
       return {
         items: page.map(codingView),
         nextCursor:
-          rows.length > query.limit && last ? encodeCursor(last.order_at, last.diagnosis_id) : null,
+          rows.length > limit && last ? encodeCursor(last.order_at, last.diagnosis_id) : null,
         ...(total === undefined ? {} : { total }),
       };
     },
@@ -671,6 +675,7 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       wholeHospital(request, REQUEST_READ);
       const query = request.query as RequestQuery;
+      const limit = query.limit ?? DEFAULT_PAGE_SIZE;
       const filters: string[] = [];
       const params: unknown[] = [];
       if (query.state) {
@@ -692,19 +697,18 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
           `(coalesce(r.due_on, DATE '9999-12-31'), r.id) > ($${params.length - 1}::date, $${params.length}::uuid)`,
         );
       }
-      params.push(query.limit + 1);
+      params.push(limit + 1);
       const { rows } = await request.txClient.query<RequestRow>(
         `${REQUEST_SELECT} ${filters.length ? `where ${filters.join(' and ')}` : ''}
           order by coalesce(r.due_on, DATE '9999-12-31'), r.id limit $${params.length}`,
         params,
       );
-      const page = rows.slice(0, query.limit);
+      const page = rows.slice(0, limit);
       for (const row of page) request.audit('read', 'record_request', row.id);
       const last = page[page.length - 1];
       return {
         items: page.map(requestView),
-        nextCursor:
-          rows.length > query.limit && last ? encodeCursor(last.order_key, last.id) : null,
+        nextCursor: rows.length > limit && last ? encodeCursor(last.order_key, last.id) : null,
         ...(total === undefined ? {} : { total }),
       };
     },
