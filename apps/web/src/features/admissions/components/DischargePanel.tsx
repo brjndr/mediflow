@@ -34,6 +34,7 @@ export function DischargePanel({
   // Under `block` only someone holding dischargeBill:override may go on, by confirming (the server
   // checks the same).
   const mayOverride = usePermission('dischargeBill:override');
+  const maySeeSummary = usePermission('dischargeSummary:read');
   const blocked = unsettled && settlement.policy === 'block';
   const needsConfirm = unsettled && (settlement.policy === 'warn' || (blocked && mayOverride));
   // The plan (DS-01, #164): advice and clearances. Without one (no permission, or an API that
@@ -85,6 +86,14 @@ export function DischargePanel({
             </p>
           )}
         </>
+      )}
+      {maySeeSummary && (
+        <Link
+          to={`/admissions/${admission.id}/summary`}
+          className="inline-flex w-fit items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+        >
+          {t('discharge.summaryLink')}
+        </Link>
       )}
       {bill.pending && (
         <p role="status" className="text-sm text-muted-foreground">
