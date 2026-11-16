@@ -239,6 +239,7 @@ describe('what the platform role can reach in the database', () => {
       'role_default_grants',
       'role_permissions',
       'roles',
+      'tenant_deletions',
       'tenant_exports',
       'tenant_features',
       'tenants',

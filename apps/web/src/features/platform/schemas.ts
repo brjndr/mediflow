@@ -26,7 +26,7 @@ export const hospitalSchema: z.ZodType<Hospital> = z.object({
   registrationNumber: z.string().nullable(),
   authMode: z.enum(['password', 'sso']),
   region: z.string().nullable(),
-  status: z.enum(['active', 'suspended', 'offboarding']),
+  status: z.enum(['active', 'suspended', 'offboarding', 'deleted']),
   maxUsers: z.number().int().nullable(),
   storageMb: z.number().int().nullable(),
   version: z.number().int(),

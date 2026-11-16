@@ -227,7 +227,12 @@
         "members": "Staff",
         "region": "Region"
       },
-      "status": { "active": "Active", "suspended": "Suspended", "offboarding": "Offboarding" }
+      "status": {
+        "active": "Active",
+        "suspended": "Suspended",
+        "offboarding": "Offboarding",
+        "deleted": "Deleted"
+      }
     },
     "create": {
       "title": "New hospital",
@@ -316,7 +321,8 @@
       "explain": {
         "active": "Open. Its staff can sign in.",
         "suspended": "Closed to its staff. Its data is kept.",
-        "offboarding": "Closed to its staff, and marked for deletion. Its data is kept for now."
+        "offboarding": "Closed to its staff, and marked for deletion. Its data is kept for now.",
+        "deleted": "Its data has been deleted. Only this record of it remains."
       },
       "suspend": {
         "action": "Suspend",

@@ -128,12 +128,12 @@ export function HospitalStatus({ hospital }: { hospital: Hospital }) {
             {t('platform.status.suspend.action')}
           </Button>
         )}
-        {status !== 'active' && (
+        {status !== 'active' && status !== 'deleted' && (
           <Button variant="outline" onClick={() => open('reactivate')}>
             {t('platform.status.reactivate.action')}
           </Button>
         )}
-        {status !== 'offboarding' && (
+        {status !== 'offboarding' && status !== 'deleted' && (
           <Button variant="destructive" onClick={() => open('offboard')}>
             {t('platform.status.offboard.action')}
           </Button>

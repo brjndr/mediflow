@@ -211,3 +211,36 @@ export const exportedTables = (): string[] =>
   [...EXPORTED_PLAIN, ...Object.keys(EXPORTED_SPECIAL)].sort();
 
 export const treatmentOf = (table: string): TableTreatment => EXPORTED_SPECIAL[table] ?? {};
+
+/** Every table the deletion removes rows from: the exported ones and those that are not. */
+export const deletedTables = (): string[] =>
+  [...exportedTables(), ...Object.keys(NOT_EXPORTED)].sort();
+
+/**
+ * The tables in the order to delete them (#961): a table after every table that has a foreign key
+ * to it, so a child goes before its parent. Read from the catalog, so a new reference is followed
+ * without a list to keep. A cycle (none today) leaves its tables at the end in name order, which
+ * the deletion tolerates because it turns constraint triggers off for its own transaction.
+ */
+export function deletionOrder(
+  tables: readonly string[],
+  references: readonly { child: string; parent: string }[],
+): string[] {
+  const set = new Set(tables);
+  const childrenLeft = new Map<string, Set<string>>(tables.map((t) => [t, new Set<string>()]));
+  for (const { child, parent } of references) {
+    if (child !== parent && set.has(child) && set.has(parent)) childrenLeft.get(parent)?.add(child);
+  }
+  const order: string[] = [];
+  const remaining = new Set([...tables].sort());
+  for (;;) {
+    const ready = [...remaining].filter((t) => (childrenLeft.get(t)?.size ?? 0) === 0);
+    if (ready.length === 0) break;
+    for (const table of ready) {
+      order.push(table);
+      remaining.delete(table);
+      for (const set of childrenLeft.values()) set.delete(table);
+    }
+  }
+  return [...order, ...remaining];
+}
