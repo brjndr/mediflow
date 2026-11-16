@@ -13,7 +13,7 @@ import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-deboun
 import { SearchInput } from '@/shared/ui/search-input';
 
 const LINK =
-  'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+  'inline-flex min-h-6 items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
 const STATUSES: Invoice['status'][] = ['draft', 'issued', 'paid', 'void'];
 
