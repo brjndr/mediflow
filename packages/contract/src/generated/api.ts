@@ -7439,7 +7439,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export and the deletion itself are not run by the API yet: the data is kept, and reactivate cancels this. */
+        /** @description Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the deletion is not built yet, the data is kept, and reactivate cancels this. */
         post: operations["platformOffboardHospital"];
         delete?: never;
         options?: never;
@@ -7456,6 +7456,58 @@ export interface paths {
         };
         /** @description What platform admins did, newest first: onboarding, edits, module switches, invites, suspension and offboarding. Ids and codes only, never a field’s value. */
         get: operations["platformListAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s exports, newest first (at most 20), with when each was made and downloaded: what the deletion checks. */
+        get: operations["platformListHospitalExports"];
+        put?: never;
+        /** @description Makes the export of an offboarding hospital (every table, its audit log and its stored files, as one archive with a manifest and checksums). Offboarding starts one by itself; this is for another, for instance after a failed one. 409 `hospital_not_offboarding`, or `export_in_progress` while one is queued or running. */
+        post: operations["platformStartHospitalExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/exports/{exportId}/download-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A signed link to a made export, valid for seven days, for one active admin of the hospital. Whoever holds it can download, so give it only to that admin; each download is in the platform trail under that admin. Issue another during the grace period when it has expired. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`. */
+        post: operations["platformIssueHospitalExportLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/offboarding-exports/{exportId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The archive of an offboarded hospital’s data, for a link made by `platformIssueHospitalExportLink`. The signature in the query is the only credential; the download is audited under the admin the link was made for. 404 `export_not_found` for anything else. */
+        get: operations["downloadOffboardingExport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14397,6 +14449,39 @@ export interface components {
         };
         ReportDownload: {
             /** @description A path on this API, signed; it works for a few minutes. */
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        PlatformExport: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            hospitalId: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed";
+            /** @description A code: too_large, not_offboarding or failed. */
+            failure: null | string;
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            finishedAt: null | string;
+            fileBytes: null | number;
+            /** @description Checksum of the whole archive. */
+            sha256: null | string;
+            tableCount: null | number;
+            rowCount: null | number;
+            fileCount: null | number;
+            downloadCount: number;
+            /** Format: date-time */
+            firstDownloadedAt: null | string;
+            /** Format: date-time */
+            lastDownloadedAt: null | string;
+        };
+        PlatformExportList: {
+            items: components["schemas"]["PlatformExport"][];
+        };
+        ExportLink: {
             url: string;
             /** Format: date-time */
             expiresAt: string;
@@ -55412,6 +55497,271 @@ export interface operations {
             };
             /** @description Standard error body. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformListHospitalExports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformExportList"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformStartHospitalExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformExport"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformIssueHospitalExportLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                exportId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description An active admin of the hospital: the link is made for that person and audited under them.
+                     */
+                    adminUserId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportLink"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    downloadOffboardingExport: {
+        parameters: {
+            query: {
+                admin: string;
+                expires: number;
+                signature: string;
+            };
+            header?: never;
+            path: {
+                exportId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tar archive. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

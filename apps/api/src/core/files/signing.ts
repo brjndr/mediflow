@@ -86,3 +86,17 @@ export const verifyImageDownload = (
   signature: string,
   nowSeconds = Math.floor(Date.now() / 1000),
 ) => verifyFor('imaging-image', secret, subject, expires, signature, nowSeconds);
+
+/**
+ * The link to a hospital's offboarding export (#960). The subject names the export and the admin
+ * it was made for (`<exportId>.<userId>`), so the link works for no one else's audit entry.
+ */
+export const signOffboardExport = (secret: string, subject: string, expires: number) =>
+  signFor('offboard-export', secret, subject, expires);
+export const verifyOffboardExport = (
+  secret: string,
+  subject: string,
+  expires: number,
+  signature: string,
+  nowSeconds = Math.floor(Date.now() / 1000),
+) => verifyFor('offboard-export', secret, subject, expires, signature, nowSeconds);

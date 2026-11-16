@@ -10,6 +10,7 @@ import { errors, ref } from '../../core/http/schemas.js';
 import { searchTerm, tidyOptional, tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { withPlatformTransaction } from '../../core/platform/db.js';
+import { createExport, EXPORT_JOB, type ExportJob } from './export.js';
 import { OFFBOARD_JOB, type OffboardJob } from './jobs.js';
 import {
   claimKey,
@@ -648,7 +649,7 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'platformOffboardHospital',
         tags,
         description:
-          'Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export and the deletion itself are not run by the API yet: the data is kept, and reactivate cancels this.',
+          'Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the deletion is not built yet, the data is kept, and reactivate cancels this.',
         params: HospitalParams,
         body: OffboardBody,
         response: { 200: ref(PlatformHospital), ...errors(400, 401, 403, 404, 409, 429) },
@@ -657,6 +658,7 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const userId = admin(request);
       const { id } = request.params;
+      let exportId: string | null = null;
       const hospital = await withPlatformTransaction(pool, async (client) => {
         await transition(
           client,
@@ -676,8 +678,22 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
           detail: { deleteAfterDays: request.body.deleteAfterDays },
           requestId: request.id,
         });
+        // The export of the hospital's data starts with the offboarding (#960).
+        exportId = await createExport(client, id, userId);
         return getHospital(client, id);
       });
+      if (exportId) {
+        const exportJob: ExportJob = { exportId };
+        await app.jobs
+          .send(EXPORT_JOB, exportJob, {
+            id: `${EXPORT_JOB}:${exportId}`,
+            retryLimit: 3,
+            retryDelay: 60,
+          })
+          .catch(() => {
+            request.log.warn({ event: 'export_job_not_queued' }, 'export job not queued');
+          });
+      }
       // Signed out now; the job checks again for any session that started in between.
       await closeSessions(id, request.log);
       const job: OffboardJob = { hospitalId: id, requestedBy: userId };

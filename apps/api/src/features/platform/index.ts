@@ -1,4 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { exportRoutes } from './export-routes.js';
+import { EXPORT_JOB, runExport, type ExportJob } from './export.js';
 import { OFFBOARD_JOB, prepareOffboarding, type OffboardJob } from './jobs.js';
 import { platformRoutes } from './routes.js';
 import { PLATFORM_SCHEMAS } from './schemas.js';
@@ -15,5 +17,9 @@ export const platformFeature: FastifyPluginAsync = async (app) => {
   app.jobs.work<OffboardJob>(OFFBOARD_JOB, async (job) => {
     await prepareOffboarding(app.database.pool, job);
   });
+  app.jobs.work<ExportJob>(EXPORT_JOB, async (job) => {
+    await runExport(app.database.pool, app.files, job);
+  });
   await app.register(platformRoutes);
+  await app.register(exportRoutes);
 };
