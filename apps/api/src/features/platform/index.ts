@@ -1,4 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { DELETE_JOB, runDeletion, type DeleteJob } from './deletion.js';
+import { deletionRoutes } from './deletion-routes.js';
 import { exportRoutes } from './export-routes.js';
 import { EXPORT_JOB, runExport, type ExportJob } from './export.js';
 import { OFFBOARD_JOB, prepareOffboarding, type OffboardJob } from './jobs.js';
@@ -20,6 +22,10 @@ export const platformFeature: FastifyPluginAsync = async (app) => {
   app.jobs.work<ExportJob>(EXPORT_JOB, async (job) => {
     await runExport(app.database.pool, app.files, job);
   });
+  app.jobs.work<DeleteJob>(DELETE_JOB, async (job) => {
+    await runDeletion(app.database.pool, app.files, job);
+  });
   await app.register(platformRoutes);
   await app.register(exportRoutes);
+  await app.register(deletionRoutes);
 };

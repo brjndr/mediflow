@@ -12,7 +12,7 @@ const HEX_COLOUR = '^#[0-9a-fA-F]{6}$';
 const HTTPS_URL = '^https://[^\\s]+$';
 const REGION = '^[a-z][a-z0-9-]*$';
 
-export const HOSPITAL_STATUSES = ['active', 'suspended', 'offboarding'] as const;
+export const HOSPITAL_STATUSES = ['active', 'suspended', 'offboarding', 'deleted'] as const;
 
 export const PlatformHospital = Type.Object(
   {
@@ -274,7 +274,50 @@ export const ExportDownloadQuery = Type.Object({
   signature: Type.String({ minLength: 20, maxLength: 128 }),
 });
 
+export const PlatformDeletion = Type.Object(
+  {
+    id: Type.String({ format: 'uuid' }),
+    hospitalId: Type.String({ format: 'uuid' }),
+    status: StringEnum(['requested', 'approved', 'running', 'done', 'failed', 'cancelled']),
+    basis: StringEnum(['export', 'waiver'], {
+      description: 'What allows it: a downloaded export of the hospital, or its signed waiver.',
+    }),
+    exportId: nullableString({ format: 'uuid' }),
+    waiverReference: nullableString(),
+    requestedBy: Type.String({ format: 'uuid' }),
+    requestedAt: Type.String({ format: 'date-time' }),
+    approvedBy: nullableString({ format: 'uuid' }),
+    approvedAt: nullableString({ format: 'date-time' }),
+    finishedAt: nullableString({ format: 'date-time' }),
+    failure: nullableString({
+      description:
+        'A code: a reason it was blocked when it ran (legal_hold, medico_legal_open, ...), verification_failed or failed.',
+    }),
+    tableCount: nullableInteger(),
+    rowCount: nullableInteger(),
+    fileCount: nullableInteger(),
+  },
+  { $id: 'PlatformDeletion' },
+);
+export type PlatformDeletion = Static<typeof PlatformDeletion>;
+
+export const DeletionRequestBody = Type.Object(
+  {
+    waiverReference: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 80,
+        pattern: PLAIN_TEXT,
+        description:
+          'Where the hospital’s signed waiver is kept (a document number). Give it when there is no downloaded export; the waiver itself is never stored here.',
+      }),
+    ),
+  },
+  { additionalProperties: false },
+);
+
 export const PLATFORM_SCHEMAS = [
+  PlatformDeletion,
   PlatformExport,
   PlatformExportList,
   ExportLink,

@@ -622,6 +622,31 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const userId = admin(request);
       const { id } = request.params;
       return withPlatformTransaction(pool, async (client) => {
+        // Reactivating cancels a deletion that has not started (#961); one that has cannot be
+        // stopped half way, and the hospital stays closed.
+        const cancelled = await client.query<{ id: string }>(
+          `update tenant_deletions set status = 'cancelled', cancelled_at = now()
+           where hospital_id = $1 and status in ('requested', 'approved') returning id`,
+          [id],
+        );
+        const running = await client.query(
+          "select 1 from tenant_deletions where hospital_id = $1 and status = 'running'",
+          [id],
+        );
+        if (running.rowCount) {
+          throw new HttpError(409, 'deletion_running', 'The hospital’s data is being deleted');
+        }
+        for (const { id: deletionId } of cancelled.rows) {
+          await recordPlatformAudit(client, {
+            actorId: userId,
+            action: 'hospital.deletion_cancelled',
+            entity: 'hospital_deletion',
+            entityId: deletionId,
+            hospitalId: id,
+            detail: { reason: 'reactivated' },
+            requestId: request.id,
+          });
+        }
         await transition(
           client,
           id,
@@ -649,7 +674,7 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'platformOffboardHospital',
         tags,
         description:
-          'Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the deletion is not built yet, the data is kept, and reactivate cancels this.',
+          'Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the data is kept for the grace period, deleted only after a downloaded export or a waiver and a second admin’s approval (`platformRequestHospitalDeletion`), and reactivate cancels this.',
         params: HospitalParams,
         body: OffboardBody,
         response: { 200: ref(PlatformHospital), ...errors(400, 401, 403, 404, 409, 429) },

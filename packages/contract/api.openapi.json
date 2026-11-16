@@ -21171,6 +21171,85 @@
           }
         }
       },
+      "PlatformDeletion": {
+        "type": "object",
+        "required": [
+          "id",
+          "hospitalId",
+          "status",
+          "basis",
+          "exportId",
+          "waiverReference",
+          "requestedBy",
+          "requestedAt",
+          "approvedBy",
+          "approvedAt",
+          "finishedAt",
+          "failure",
+          "tableCount",
+          "rowCount",
+          "fileCount"
+        ],
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "hospitalId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["requested", "approved", "running", "done", "failed", "cancelled"]
+          },
+          "basis": {
+            "type": "string",
+            "enum": ["export", "waiver"],
+            "description": "What allows it: a downloaded export of the hospital, or its signed waiver."
+          },
+          "exportId": {
+            "type": ["null", "string"],
+            "format": "uuid"
+          },
+          "waiverReference": {
+            "type": ["null", "string"]
+          },
+          "requestedBy": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "approvedBy": {
+            "type": ["null", "string"],
+            "format": "uuid"
+          },
+          "approvedAt": {
+            "type": ["null", "string"],
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": ["null", "string"],
+            "format": "date-time"
+          },
+          "failure": {
+            "type": ["null", "string"],
+            "description": "A code: a reason it was blocked when it ran (legal_hold, medico_legal_open, ...), verification_failed or failed."
+          },
+          "tableCount": {
+            "type": ["null", "integer"]
+          },
+          "rowCount": {
+            "type": ["null", "integer"]
+          },
+          "fileCount": {
+            "type": ["null", "integer"]
+          }
+        }
+      },
       "PlatformExport": {
         "type": "object",
         "required": [
@@ -21366,7 +21445,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["active", "suspended", "offboarding"]
+            "enum": ["active", "suspended", "offboarding", "deleted"]
           },
           "maxUsers": {
             "type": ["null", "integer"],
@@ -74949,7 +75028,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["active", "suspended", "offboarding"]
+              "enum": ["active", "suspended", "offboarding", "deleted"]
             },
             "in": "query",
             "name": "status",
@@ -75844,7 +75923,7 @@
       "post": {
         "operationId": "platformOffboardHospital",
         "tags": ["platform"],
-        "description": "Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the deletion is not built yet, the data is kept, and reactivate cancels this.",
+        "description": "Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the data is kept for the grace period, deleted only after a downloaded export or a waiver and a second admin’s approval (`platformRequestHospitalDeletion`), and reactivate cancels this.",
         "requestBody": {
           "required": true,
           "content": {
@@ -76380,6 +76459,344 @@
             }
           },
           "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/deletion": {
+      "get": {
+        "operationId": "platformGetHospitalDeletion",
+        "tags": ["platform"],
+        "description": "The latest request to delete the hospital’s data, whatever its status. 404 `no_deletion` when there has been none.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeletion"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "platformRequestHospitalDeletion",
+        "tags": ["platform"],
+        "description": "Asks for the hospital’s data to be deleted for good. Needs the grace period over (409 `grace_period_not_over`), an export that was made and downloaded or a waiver reference (409 `export_not_downloaded`), and no legal hold (409 `legal_hold`) or open medico-legal case (409 `medico_legal_open`). Nothing is deleted until a second platform admin approves. 409 `deletion_in_progress` while one is open.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "type": "object",
+                "properties": {
+                  "waiverReference": {
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+                    "description": "Where the hospital’s signed waiver is kept (a document number). Give it when there is no downloaded export; the waiver itself is never stored here.",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeletion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/deletion/approve": {
+      "post": {
+        "operationId": "platformApproveHospitalDeletion",
+        "tags": ["platform"],
+        "description": "A second platform admin approves the request; the deletion job is queued. 409 `approver_must_differ` for the one who asked, `no_deletion_awaiting_approval`, or any reason `platformRequestHospitalDeletion` gives, checked again now.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeletion"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/deletion/cancel": {
+      "post": {
+        "operationId": "platformCancelHospitalDeletion",
+        "tags": ["platform"],
+        "description": "Withdraws a request that has not started (requested or approved). 409 `no_open_deletion`, or `deletion_running` once the job has started.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformDeletion"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

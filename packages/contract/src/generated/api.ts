@@ -7439,7 +7439,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the deletion is not built yet, the data is kept, and reactivate cancels this. */
+        /** @description Starts offboarding: the hospital is closed to its staff like a suspended one, its open invites are withdrawn, and it is marked for deletion after the given number of days. The export of its data is queued at once (see `platformListHospitalExports`); the data is kept for the grace period, deleted only after a downloaded export or a waiver and a second admin’s approval (`platformRequestHospitalDeletion`), and reactivate cancels this. */
         post: operations["platformOffboardHospital"];
         delete?: never;
         options?: never;
@@ -7510,6 +7510,58 @@ export interface paths {
         get: operations["downloadOffboardingExport"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The latest request to delete the hospital’s data, whatever its status. 404 `no_deletion` when there has been none. */
+        get: operations["platformGetHospitalDeletion"];
+        put?: never;
+        /** @description Asks for the hospital’s data to be deleted for good. Needs the grace period over (409 `grace_period_not_over`), an export that was made and downloaded or a waiver reference (409 `export_not_downloaded`), and no legal hold (409 `legal_hold`) or open medico-legal case (409 `medico_legal_open`). Nothing is deleted until a second platform admin approves. 409 `deletion_in_progress` while one is open. */
+        post: operations["platformRequestHospitalDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/deletion/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A second platform admin approves the request; the deletion job is queued. 409 `approver_must_differ` for the one who asked, `no_deletion_awaiting_approval`, or any reason `platformRequestHospitalDeletion` gives, checked again now. */
+        post: operations["platformApproveHospitalDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/hospitals/{id}/deletion/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws a request that has not started (requested or approved). 409 `no_open_deletion`, or `deletion_running` once the job has started. */
+        post: operations["platformCancelHospitalDeletion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14453,6 +14505,37 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        PlatformDeletion: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            hospitalId: string;
+            /** @enum {string} */
+            status: "requested" | "approved" | "running" | "done" | "failed" | "cancelled";
+            /**
+             * @description What allows it: a downloaded export of the hospital, or its signed waiver.
+             * @enum {string}
+             */
+            basis: "export" | "waiver";
+            /** Format: uuid */
+            exportId: null | string;
+            waiverReference: null | string;
+            /** Format: uuid */
+            requestedBy: string;
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: uuid */
+            approvedBy: null | string;
+            /** Format: date-time */
+            approvedAt: null | string;
+            /** Format: date-time */
+            finishedAt: null | string;
+            /** @description A code: a reason it was blocked when it ran (legal_hold, medico_legal_open, ...), verification_failed or failed. */
+            failure: null | string;
+            tableCount: null | number;
+            rowCount: null | number;
+            fileCount: null | number;
+        };
         PlatformExport: {
             /** Format: uuid */
             id: string;
@@ -14515,7 +14598,7 @@ export interface components {
             authMode: "password" | "sso";
             region: null | string;
             /** @enum {string} */
-            status: "active" | "suspended" | "offboarding";
+            status: "active" | "suspended" | "offboarding" | "deleted";
             /** @description Null: no limit. */
             maxUsers: null | number;
             /** @description Null: no limit. */
@@ -54594,7 +54677,7 @@ export interface operations {
                 /** @description Opaque. Pass the nextCursor of the previous page. */
                 cursor?: string;
                 limit: number;
-                status?: "active" | "suspended" | "offboarding";
+                status?: "active" | "suspended" | "offboarding" | "deleted";
                 /** @description Part of a name or slug. */
                 q?: string;
             };
@@ -55762,6 +55845,281 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformGetHospitalDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeletion"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformRequestHospitalDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Where the hospital’s signed waiver is kept (a document number). Give it when there is no downloaded export; the waiver itself is never stored here. */
+                    waiverReference?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeletion"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformApproveHospitalDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeletion"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformCancelHospitalDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeletion"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

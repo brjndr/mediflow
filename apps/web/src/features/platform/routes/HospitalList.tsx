@@ -7,7 +7,7 @@ import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useHospitals } from '../hooks/use-hospitals';
 import type { Hospital, HospitalStatus } from '../types';
 
-const STATUSES: HospitalStatus[] = ['active', 'suspended', 'offboarding'];
+const STATUSES: HospitalStatus[] = ['active', 'suspended', 'offboarding', 'deleted'];
 
 // Default export: route modules are loaded with a dynamic import.
 export default function HospitalList() {
