@@ -180,7 +180,11 @@ export function BulkInvite({ roles }: { roles: StaffRole[] }) {
       <p className="text-sm text-muted-foreground">{t('bulk.description', { max: MAX_ROWS })}</p>
       <figure className="text-sm">
         <figcaption className="text-muted-foreground">{t('bulk.example')}</figcaption>
-        <pre className="overflow-x-auto rounded-md border bg-muted/40 p-2">{example}</pre>
+        {/* Scrolls sideways in a narrow window (Hindi at 320 px), so the keyboard must reach it. */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
+        <pre tabIndex={0} className="overflow-x-auto rounded-md border bg-muted/40 p-2">
+          {example}
+        </pre>
       </figure>
 
       <div className="flex flex-wrap items-end gap-3">
