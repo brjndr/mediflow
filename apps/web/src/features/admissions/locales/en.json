@@ -160,7 +160,16 @@
     "billRefused": "The bill of this stay is not settled, so the server did not discharge the patient. Open the stay's bill, or confirm if you may.",
     "unsignedNotes": "A note of this stay is still a draft. Sign or discard every draft in the consultation first, then discharge the patient.",
     "notOpen": "The stay's encounter is no longer open, so the patient cannot be discharged from here.",
+    "summaryUnsigned": "This hospital needs the discharge summary signed before a patient is discharged, and this stay's is not.",
+    "summaryOpen": "Open the discharge summary",
     "clearancePending": "A clearance of this stay is still open. Ask the ward, the pharmacy or the laboratory to clear it."
+  },
+  "settings": {
+    "heading": "Admission rules",
+    "requireSummary": "Require a signed discharge summary before discharge",
+    "requireSummaryHelp": "When on, a patient cannot be discharged until the stay's discharge summary is signed. A patient who absconded is the exception. Off by default.",
+    "savedOn": "Saved. A discharge now waits for a signed summary.",
+    "savedOff": "Saved. A discharge no longer waits for a summary."
   },
   "moveReasons": {
     "clinical": "Clinical need",

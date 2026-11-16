@@ -1613,7 +1613,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds dischargeBill:override and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
+        /** @description Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. When the hospital requires it (setting `requireDischargeSummary`, off by default), a discharge other than absconded is 409 `summary_unsigned` until the stay’s discharge summary is signed, checked after the clearances. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds dischargeBill:override and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`. */
         post: operations["dischargePatient"];
         delete?: never;
         options?: never;
@@ -1838,6 +1838,24 @@ export interface paths {
         put?: never;
         /** @description Records that the signed summary was printed (the audit log) and nothing else, once per idempotency key. 404 `summary_not_found`, 409 `summary_not_signed` for a draft. Requires dischargeSummary:read and admission:read. */
         post: operations["recordDischargeSummaryPrint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admission-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital settings for admissions (#952): whether a discharge waits for a signed discharge summary. Requires admission:configure. */
+        get: operations["getAdmissionSettings"];
+        /** @description Sets the admission settings. With `requireDischargeSummary` on, a discharge is 409 `summary_unsigned` until the stay’s discharge summary is signed (not for an absconded patient). Audited. Requires admission:configure. */
+        put: operations["setAdmissionSettings"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4023,6 +4041,197 @@ export interface paths {
         put?: never;
         /** @description Rejects a pending request to correct a record, with a reason (#556). Decided once, by someone other than the person who asked (403 `second_person_required`); 409 `already_decided`; 409 `conflict` when the version is not the one read. Approving edits nothing: the module that owns the record applies the change, reacting to `correction.approved`. Requires correction:decide and correction:read. */
         post: operations["rejectCorrectionRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Signed consents of one patient, newest first, one cursor page at a time, including those of records merged into it (MR-02, #566). The text and signature are in the single read. Each consent listed is audited as read. Requires consent:read. */
+        get: operations["listConsents"];
+        put?: never;
+        /** @description Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign. */
+        post: operations["signConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/consents/{consentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One signed consent with its text and signature, audited as a read of the patient record (MR-02, #566). Another hospital’s, an out-of-scope or an unknown id is the same 404. Requires consent:read. */
+        get: operations["getConsent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patientId}/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Certificates issued for one patient, newest first, one cursor page at a time, including those of records merged into it (MR-02, #566). Each is audited as read. Requires certificate:read. */
+        get: operations["listCertificates"];
+        put?: never;
+        /** @description Records a medical, fitness, birth or death certificate from the data entered, which must fit the hospital’s fields for the kind: no other field, none required left empty, each of its type (422 `certificate_fields_invalid`). The server numbers it in order for each kind and year, and keeps the layout it was issued under. Never changed or removed. 409 `patient_merged` for a merged record. Requires certificate:issue. */
+        post: operations["issueCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/certificate-formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The fields of each kind of certificate in this hospital: the standard ones until the hospital changes them (#567). Requires certificate:read. */
+        get: operations["listCertificateFormats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/certificate-formats/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replaces the fields of one kind of certificate (#567). Applies to certificates issued from now on; one already issued keeps its layout. Names once, a choice field has options (422 `certificate_format_invalid`). Requires certificate:configure. */
+        put: operations["setCertificateFormat"];
+        post?: never;
+        /** @description Goes back to the standard fields of the kind (#567). Requires certificate:configure. */
+        delete: operations["resetCertificateFormat"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/incomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure. `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited. */
+        get: operations["listIncompleteRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/incomplete/{encounterId}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Assigns an incomplete record to a doctor to complete, or takes the assignment off (doctorId null). A note for the desk: nothing contacts the doctor. 404 when the encounter is not an incomplete record of this hospital, 422 `not_practising` when the doctor is not one of its practising doctors. Needs medicalRecord:assign and medicalRecord:read with the scope `all` and the records feature flag. Audited. */
+        post: operations["assignIncompleteRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/coding-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Diagnoses of closed encounters recorded as text that still have no code (state `uncoded`, the default), or that the desk has coded, the oldest first (MR-04, #192). `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited. */
+        get: operations["listCodingQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/coding-queue/{diagnosisId}/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Gives a text diagnosis of a closed encounter its ICD-10 code, at the version read. The diagnosis itself is never changed: the code is kept beside it. 404 when it is not in the queue, 409 `version_conflict` when the coding changed since it was read, 422 `not_icd10` when the code is not an ICD-10 code. Coding again replaces the code and is audited. Needs medicalRecord:code and medicalRecord:read with the scope `all` and the records feature flag. */
+        post: operations["codeDiagnosis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/record-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` narrows; `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited. */
+        get: operations["listRecordRequests"];
+        put?: never;
+        /** @description Logs a request for a copy of a patient’s record, dated today at the hospital, with an optional due day (422 `due_in_past` before today). 404 for a patient the caller cannot reach, 409 `patient_merged` for a merged record. Names and purposes travel in the body only. Needs recordRequest:manage and the records feature flag. Audited. */
+        post: operations["createRecordRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/record-requests/{requestId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited. */
+        post: operations["closeRecordRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7378,197 +7587,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/patients/{patientId}/consents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Signed consents of one patient, newest first (MR-02, #190). Needs consent:read and the consents feature flag. The text and signature are in the single read. */
-        get: operations["listConsents"];
-        put?: never;
-        /** @description Records a signed consent: the text as filled in from a version of a consent template, who signed, and the signature. Needs consent:sign. A signed consent is never changed or removed: there is no update or delete. */
-        post: operations["signConsent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/consents/{consentId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description One signed consent with its text and signature. Audited as a read of the patient record. Needs consent:read. */
-        get: operations["getConsent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/patients/{patientId}/certificates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Certificates issued for one patient, newest first (MR-02, #190). Needs certificate:read and the consents feature flag. */
-        get: operations["listCertificates"];
-        put?: never;
-        /** @description Records a medical, fitness, birth or death certificate from the data entered. The server numbers it. Needs certificate:issue. An issued certificate is never changed or removed. */
-        post: operations["issueCertificate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/records/incomplete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). Needs medicalRecord:read and the records feature flag. The server works out each gap from the encounter: an unsigned note, no diagnosis, no discharge summary for an inpatient stay, no signed consent for a procedure. */
-        get: operations["listIncompleteRecords"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/records/coding-queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Diagnoses recorded as text that still have no code (state uncoded, the default), or coded ones, the oldest first (MR-04, #192). Needs medicalRecord:read and the records feature flag. */
-        get: operations["listCodingQueue"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/records/coding-queue/{diagnosisId}/code": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Gives a text diagnosis its ICD-10 code, at the version read. Needs medicalRecord:code. 409 version_conflict when the diagnosis changed, 422 when the code is not an ICD-10 code. Coding again replaces the code and is audited. */
-        post: operations["codeDiagnosis"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/record-requests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The hospital's requests for copies of a record, the soonest due first (MR-04, #192). Needs recordRequest:read and the records feature flag. */
-        get: operations["listRecordRequests"];
-        put?: never;
-        /** @description Logs a request for a patient's record. Needs recordRequest:manage. */
-        post: operations["createRecordRequest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/record-requests/{requestId}/close": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Closes an open request as fulfilled or declined, with a note, at the version read; once only. Needs recordRequest:manage. 409 version_conflict or already_closed. */
-        post: operations["closeRecordRequest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/certificate-formats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The fields of each kind of certificate in this hospital: the standard ones until the hospital changes them. Needs certificate:read and the consents feature flag. */
-        get: operations["listCertificateFormats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/certificate-formats/{kind}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** @description Replaces the fields of one kind of certificate. Applies to certificates issued from now on; one already issued keeps its layout. Needs certificate:configure. */
-        put: operations["setCertificateFormat"];
-        post?: never;
-        /** @description Goes back to the standard fields of the kind. Needs certificate:configure. */
-        delete: operations["resetCertificateFormat"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/records/incomplete/{encounterId}/assign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Assigns an incomplete record to a doctor to complete, or takes the assignment off (doctorId null). Needs medicalRecord:assign and the records feature flag. 404 when the encounter is not an incomplete record of this hospital, 422 when the doctor is not one of its practising doctors. Audited. */
-        post: operations["assignIncompleteRecord"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8866,6 +8884,9 @@ export interface components {
         };
         DischargeSummaryAddendumCreate: {
             body: string;
+        };
+        AdmissionSettings: {
+            requireDischargeSummary: boolean;
         };
         /** @description Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day. */
         WardVitalFlags: {
@@ -10882,6 +10903,211 @@ export interface components {
         CorrectionRequestDecide: {
             reason: string;
             expectedVersion: number;
+        };
+        /** @enum {string} */
+        ConsentSigner: "patient" | "guardian" | "representative";
+        /** @enum {string} */
+        ConsentSignature: "drawn" | "typed";
+        /** @enum {string} */
+        CertificateKind: "medical" | "fitness" | "birth" | "death";
+        /** @description A signed consent, without its text and signature. */
+        Consent: {
+            id: string;
+            patientId: string;
+            procedureName: string;
+            templateId: string;
+            templateVersion: number;
+            signerName: string;
+            signerRole: components["schemas"]["ConsentSigner"];
+            signatureMethod: components["schemas"]["ConsentSignature"];
+            /** Format: date-time */
+            signedAt: string;
+            /** @description The member of staff who recorded the signature. */
+            signedByName: string;
+        };
+        ConsentDetail: {
+            consent: components["schemas"]["Consent"];
+            /** @description The text as it was signed, placeholders filled in. The rich text document of the app, never HTML, reduced to its allowlist on the way in. */
+            body: {
+                [key: string]: unknown;
+            };
+            /** @description SVG path data of a drawn signature in a 300 by 150 box; absent when typed. */
+            signature?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        ConsentPage: {
+            items: components["schemas"]["Consent"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        ConsentCreate: {
+            /** Format: uuid */
+            templateId: string;
+            templateVersion: number;
+            procedureName: string;
+            /** @description The text signed, placeholders filled in. The rich text document of the app, never HTML, reduced to its allowlist on the way in. */
+            body: {
+                [key: string]: unknown;
+            };
+            signerName: string;
+            signerRole: components["schemas"]["ConsentSigner"];
+            signatureMethod: components["schemas"]["ConsentSignature"];
+            signature?: string;
+        };
+        /** @description One field of a certificate format. The name is the key the value is stored under; a label of a standard field is left out and the screen uses its own. */
+        CertificateFieldDef: {
+            name: string;
+            label?: string;
+            /** @enum {string} */
+            type: "text" | "date" | "time" | "lines" | "select";
+            required: boolean;
+            options?: string[];
+        };
+        Certificate: {
+            id: string;
+            patientId: string;
+            kind: components["schemas"]["CertificateKind"];
+            /** @description Assigned by the server, in order for each kind and year. */
+            number: string;
+            /** Format: date */
+            issuedOn: string;
+            fields: {
+                [key: string]: string;
+            };
+            issuedByName: string;
+            /** Format: date-time */
+            issuedAt: string;
+            /** @description The fields of the format it was issued under, kept with it. */
+            layout: components["schemas"]["CertificateFieldDef"][];
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        CertificatePage: {
+            items: components["schemas"]["Certificate"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CertificateCreate: {
+            kind: components["schemas"]["CertificateKind"];
+            /** Format: date */
+            issuedOn: string;
+            /** @description What was entered, by the field names of the kind. */
+            fields: {
+                [key: string]: unknown;
+            };
+        };
+        CertificateFormat: {
+            kind: components["schemas"]["CertificateKind"];
+            fields: components["schemas"]["CertificateFieldDef"][];
+            /** @description True once the hospital has changed the standard fields of the kind. */
+            custom: boolean;
+        };
+        CertificateFormatList: {
+            items: components["schemas"]["CertificateFormat"][];
+        };
+        CertificateFormatUpdate: {
+            fields: components["schemas"]["CertificateFieldDef"][];
+        };
+        /**
+         * @description What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure.
+         * @enum {string}
+         */
+        RecordGap: "unsigned_note" | "no_diagnosis" | "no_discharge_summary" | "missing_consent";
+        /** @enum {string} */
+        CodingState: "uncoded" | "coded";
+        /** @enum {string} */
+        RecordRequester: "patient" | "representative" | "insurer" | "court" | "hospital" | "other";
+        /** @enum {string} */
+        RecordRequestState: "open" | "fulfilled" | "declined";
+        /** @description A closed encounter whose record is not complete. */
+        IncompleteRecord: {
+            encounterId: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            kind: components["schemas"]["EncounterType"];
+            /** Format: date-time */
+            closedAt: string;
+            doctorName: string;
+            gaps: components["schemas"]["RecordGap"][];
+            assignedDoctorId?: string;
+            assignedDoctorName?: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        IncompleteRecordPage: {
+            items: components["schemas"]["IncompleteRecord"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        IncompleteRecordAssign: {
+            /** Format: uuid */
+            doctorId: string | null;
+        };
+        /** @description A diagnosis recorded as text, and the code the desk gave it. */
+        CodingItem: {
+            diagnosisId: string;
+            encounterId: string;
+            patientName: string;
+            patientMrn: string;
+            text: string;
+            code?: components["schemas"]["Code"];
+            /** Format: date-time */
+            recordedAt: string;
+            doctorName: string;
+            /** @description 1 while uncoded, then one more for each coding. */
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        CodingItemPage: {
+            items: components["schemas"]["CodingItem"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        CodeDiagnosis: {
+            /** Format: uuid */
+            codeId: string;
+            version: number;
+        };
+        /** @description A request for a copy of a patient’s record. */
+        RecordRequest: {
+            id: string;
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            requesterKind: components["schemas"]["RecordRequester"];
+            requesterName: string;
+            purpose: string;
+            /** Format: date */
+            requestedOn: string;
+            /** Format: date */
+            dueOn?: string;
+            state: components["schemas"]["RecordRequestState"];
+            createdByName: string;
+            /** Format: date-time */
+            closedAt?: string;
+            closedByName?: string;
+            note?: string;
+            version: number;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        RecordRequestPage: {
+            items: components["schemas"]["RecordRequest"][];
+            nextCursor: string | null;
+            total?: number;
+        };
+        RecordRequestCreate: {
+            /** Format: uuid */
+            patientId: string;
+            requesterKind: components["schemas"]["RecordRequester"];
+            requesterName: string;
+            purpose: string;
+            /** Format: date */
+            dueOn?: string;
+        };
+        RecordRequestClose: {
+            /** @enum {string} */
+            outcome: "fulfilled" | "declined";
+            note: string;
+            version: number;
         };
         /**
          * @description What kind of duty a shift is.
@@ -14369,194 +14595,6 @@ export interface components {
             items: components["schemas"]["Notice"][];
             nextCursor: string | null;
             total?: number;
-        };
-        /** @enum {string} */
-        ConsentSigner: "patient" | "guardian" | "representative";
-        /** @enum {string} */
-        ConsentSignature: "drawn" | "typed";
-        Consent: {
-            id: string;
-            patientId: string;
-            procedureName: string;
-            templateId: string;
-            templateVersion: number;
-            signerName: string;
-            signerRole: components["schemas"]["ConsentSigner"];
-            signatureMethod: components["schemas"]["ConsentSignature"];
-            /** Format: date-time */
-            signedAt: string;
-            /** @description The member of staff who recorded the signature. */
-            signedByName: string;
-        };
-        ConsentDetail: {
-            consent: components["schemas"]["Consent"];
-            /** @description The text as it was signed: the rich text document of the app, placeholders filled in. */
-            body: {
-                [key: string]: unknown;
-            };
-            /** @description SVG path data of a drawn signature in a 300 by 150 box; absent for a typed one. */
-            signature?: string;
-        };
-        ConsentPage: {
-            items: components["schemas"]["Consent"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        ConsentCreate: {
-            templateId: string;
-            templateVersion: number;
-            procedureName: string;
-            body: {
-                [key: string]: unknown;
-            };
-            signerName: string;
-            signerRole: components["schemas"]["ConsentSigner"];
-            signatureMethod: components["schemas"]["ConsentSignature"];
-            signature?: string;
-        };
-        /** @enum {string} */
-        CertificateKind: "medical" | "fitness" | "birth" | "death";
-        Certificate: {
-            id: string;
-            patientId: string;
-            kind: components["schemas"]["CertificateKind"];
-            /** @description Assigned by the server, in order for each kind and year. */
-            number: string;
-            /** Format: date */
-            issuedOn: string;
-            /** @description What was entered, by the field names of the kind. */
-            fields: {
-                [key: string]: string;
-            };
-            issuedByName: string;
-            /** Format: date-time */
-            issuedAt: string;
-            /** @description The fields of the format the certificate was issued under, kept with it so a later change of the format never changes how it reads. */
-            layout: components["schemas"]["CertificateFieldDef"][];
-        };
-        CertificatePage: {
-            items: components["schemas"]["Certificate"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        CertificateCreate: {
-            kind: components["schemas"]["CertificateKind"];
-            /** Format: date */
-            issuedOn: string;
-            fields: {
-                [key: string]: string;
-            };
-        };
-        /** @enum {string} */
-        RecordGap: "unsigned_note" | "no_diagnosis" | "no_discharge_summary" | "missing_consent";
-        IncompleteRecord: {
-            encounterId: string;
-            patientId: string;
-            patientName: string;
-            patientMrn: string;
-            kind: components["schemas"]["EncounterType"];
-            /** Format: date-time */
-            closedAt: string;
-            doctorName: string;
-            gaps: components["schemas"]["RecordGap"][];
-            assignedDoctorId?: string;
-            assignedDoctorName?: string;
-        };
-        IncompleteRecordPage: {
-            items: components["schemas"]["IncompleteRecord"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        /** @enum {string} */
-        CodingState: "uncoded" | "coded";
-        CodingItem: {
-            diagnosisId: string;
-            encounterId: string;
-            patientName: string;
-            patientMrn: string;
-            text: string;
-            code?: components["schemas"]["Code"];
-            /** Format: date-time */
-            recordedAt: string;
-            doctorName: string;
-            version: number;
-        };
-        CodingItemPage: {
-            items: components["schemas"]["CodingItem"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        CodeDiagnosis: {
-            codeId: string;
-            version: number;
-        };
-        /** @enum {string} */
-        RecordRequester: "patient" | "representative" | "insurer" | "court" | "hospital" | "other";
-        /** @enum {string} */
-        RecordRequestState: "open" | "fulfilled" | "declined";
-        RecordRequest: {
-            id: string;
-            patientId: string;
-            patientName: string;
-            patientMrn: string;
-            requesterKind: components["schemas"]["RecordRequester"];
-            requesterName: string;
-            purpose: string;
-            /** Format: date */
-            requestedOn: string;
-            /** Format: date */
-            dueOn?: string;
-            state: components["schemas"]["RecordRequestState"];
-            createdByName: string;
-            /** Format: date-time */
-            closedAt?: string;
-            closedByName?: string;
-            note?: string;
-            version: number;
-        };
-        RecordRequestPage: {
-            items: components["schemas"]["RecordRequest"][];
-            nextCursor: string | null;
-            total?: number;
-        };
-        RecordRequestCreate: {
-            patientId: string;
-            requesterKind: components["schemas"]["RecordRequester"];
-            requesterName: string;
-            purpose: string;
-            /** Format: date */
-            dueOn?: string;
-        };
-        RecordRequestClose: {
-            /** @enum {string} */
-            outcome: "fulfilled" | "declined";
-            note: string;
-            version: number;
-        };
-        /** @description One field of a certificate format. The name is the key the value is stored under; a label of a standard field is left out and the screen uses its own. */
-        CertificateFieldDef: {
-            name: string;
-            label?: string;
-            /** @enum {string} */
-            type: "text" | "date" | "time" | "lines" | "select";
-            required: boolean;
-            /** @description The choices of a select field. */
-            options?: string[];
-        };
-        CertificateFormat: {
-            kind: components["schemas"]["CertificateKind"];
-            fields: components["schemas"]["CertificateFieldDef"][];
-            /** @description True once the hospital has changed the standard fields of the kind. */
-            custom: boolean;
-        };
-        CertificateFormatList: {
-            items: components["schemas"]["CertificateFormat"][];
-        };
-        CertificateFormatUpdate: {
-            fields: components["schemas"]["CertificateFieldDef"][];
-        };
-        IncompleteRecordAssign: {
-            doctorId: string | null;
         };
     };
     responses: {
@@ -23624,6 +23662,113 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAdmissionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionSettings"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAdmissionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdmissionSettings"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdmissionSettings"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -35723,6 +35868,1105 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listConsents: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    signConsent: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCertificates: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificatePage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    issueCertificate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CertificateCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Certificate"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCertificateFormats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateFormatList"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setCertificateFormat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["CertificateKind"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CertificateFormatUpdate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateFormat"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resetCertificateFormat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["schemas"]["CertificateKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CertificateFormat"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listIncompleteRecords: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                /** @description Absent: 25. */
+                limit?: number;
+                gap?: components["schemas"]["RecordGap"];
+                kind?: components["schemas"]["EncounterType"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncompleteRecordPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    assignIncompleteRecord: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncompleteRecordAssign"];
+            };
+        };
+        responses: {
+            /** @description A closed encounter whose record is not complete. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncompleteRecord"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCodingQueue: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                /** @description Absent: 25. */
+                limit?: number;
+                state?: components["schemas"]["CodingState"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodingItemPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    codeDiagnosis: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                diagnosisId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeDiagnosis"];
+            };
+        };
+        responses: {
+            /** @description A diagnosis recorded as text, and the code the desk gave it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodingItem"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listRecordRequests: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                /** @description Absent: 25. */
+                limit?: number;
+                state?: components["schemas"]["RecordRequestState"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordRequestPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createRecordRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description A request for a copy of a patient’s record. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordRequest"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    closeRecordRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordRequestClose"];
+            };
+        };
+        responses: {
+            /** @description A request for a copy of a patient’s record. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordRequest"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -54863,467 +56107,6 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listConsents: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of consents */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConsentPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    signConsent: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConsentCreate"];
-            };
-        };
-        responses: {
-            /** @description The signed consent */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConsentDetail"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getConsent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                consentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The signed consent */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConsentDetail"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listCertificates: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of certificates */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificatePage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    issueCertificate: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                patientId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CertificateCreate"];
-            };
-        };
-        responses: {
-            /** @description The issued certificate */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Certificate"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listIncompleteRecords: {
-        parameters: {
-            query?: {
-                gap?: components["schemas"]["RecordGap"];
-                kind?: components["schemas"]["EncounterType"];
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of incomplete records */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IncompleteRecordPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listCodingQueue: {
-        parameters: {
-            query?: {
-                state?: components["schemas"]["CodingState"];
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of diagnoses */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CodingItemPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    codeDiagnosis: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                diagnosisId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CodeDiagnosis"];
-            };
-        };
-        responses: {
-            /** @description The diagnosis with its code */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CodingItem"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listRecordRequests: {
-        parameters: {
-            query?: {
-                state?: components["schemas"]["RecordRequestState"];
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One page of requests */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordRequestPage"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createRecordRequest: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecordRequestCreate"];
-            };
-        };
-        responses: {
-            /** @description The request */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordRequest"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    closeRecordRequest: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                requestId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecordRequestClose"];
-            };
-        };
-        responses: {
-            /** @description The closed request */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordRequest"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listCertificateFormats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The four kinds */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificateFormatList"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    setCertificateFormat: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["CertificateKind"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CertificateFormatUpdate"];
-            };
-        };
-        responses: {
-            /** @description The new format */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificateFormat"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    resetCertificateFormat: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                kind: components["schemas"]["CertificateKind"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The standard format */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CertificateFormat"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    assignIncompleteRecord: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value chosen by the client; repeating the request with it returns the first result. */
-                "idempotency-key": string;
-            };
-            path: {
-                encounterId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IncompleteRecordAssign"];
-            };
-        };
-        responses: {
-            /** @description The record with its assignment */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IncompleteRecord"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

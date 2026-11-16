@@ -18,11 +18,26 @@ let summaries = new Map<string, Summary>();
 let answered = new Map<string, Summary>();
 let counter = 0;
 
+// The hospital setting (#952): a discharge waits for a signed summary.
+let required = new Set<string>();
+
 onMockReset(() => {
+  required = new Set();
   summaries = new Map();
   answered = new Map();
   counter = 0;
 });
+
+/** For the discharge mock: is the hospital's rule on and the stay's summary still unsigned? */
+export function mockSummaryUnsigned(tenantId: string, admissionId: string): boolean {
+  return required.has(tenantId) && summaries.get(slot(tenantId, admissionId))?.status !== 'signed';
+}
+
+/** For tests: the hospital requires a signed summary before discharge. */
+export function setMockSummaryRequired(tenantId: string, on: boolean): void {
+  if (on) required.add(tenantId);
+  else required.delete(tenantId);
+}
 
 const slot = (tenantId: string, admissionId: string) => `${tenantId}:${admissionId}`;
 
@@ -57,6 +72,29 @@ const validText = (value: unknown, max: number): value is string =>
   typeof value === 'string' && value.length <= max && PLAIN_LINES.test(value);
 
 export const dischargeSummaryHandlers = [
+  http.get('*/api/admission-settings', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'admission:configure',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    return HttpResponse.json({ requireDischargeSummary: required.has(access.tenantId) });
+  }),
+
+  http.put('*/api/admission-settings', async ({ request }) => {
+    const access = authorize(request, {
+      permission: 'admission:configure',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const body = (await request.json().catch(() => null)) as {
+      requireDischargeSummary?: unknown;
+    } | null;
+    if (typeof body?.requireDischargeSummary !== 'boolean') return invalid();
+    setMockSummaryRequired(access.tenantId, body.requireDischargeSummary);
+    return HttpResponse.json({ requireDischargeSummary: body.requireDischargeSummary });
+  }),
+
   http.get('*/api/admissions/:admissionId/discharge-summary', ({ request, params }) => {
     const access = authorize(request, {
       permission: 'dischargeSummary:read',

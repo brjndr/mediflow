@@ -26,6 +26,11 @@ export const CONSENT_PERMISSIONS = [
     description: 'Issue a medical, fitness or birth certificate',
     defaults: { admin: 'all', doctor: 'all' },
   },
+  {
+    id: 'certificate:configure',
+    description: 'Set the fields of each kind of certificate the hospital issues',
+    defaults: { admin: 'all' },
+  },
 ] as const satisfies readonly PermissionDefinition[];
 
 export const RECORDS_PERMISSIONS = [
@@ -37,6 +42,11 @@ export const RECORDS_PERMISSIONS = [
   {
     id: 'medicalRecord:code',
     description: 'Code the diagnoses and procedures of a closed encounter',
+    defaults: { admin: 'all' },
+  },
+  {
+    id: 'medicalRecord:assign',
+    description: 'Assign an incomplete record to a doctor to complete',
     defaults: { admin: 'all' },
   },
   {

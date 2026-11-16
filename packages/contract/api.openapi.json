@@ -3911,6 +3911,16 @@
           }
         }
       },
+      "AdmissionSettings": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["requireDischargeSummary"],
+        "properties": {
+          "requireDischargeSummary": {
+            "type": "boolean"
+          }
+        }
+      },
       "WardVitalFlags": {
         "additionalProperties": false,
         "description": "Which values were outside the normal ranges in effect when the reading was taken, for the patient age band that day.",
@@ -9868,6 +9878,683 @@
             "type": "string"
           },
           "expectedVersion": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "ConsentSigner": {
+        "type": "string",
+        "enum": ["patient", "guardian", "representative"]
+      },
+      "ConsentSignature": {
+        "type": "string",
+        "enum": ["drawn", "typed"]
+      },
+      "CertificateKind": {
+        "type": "string",
+        "enum": ["medical", "fitness", "birth", "death"]
+      },
+      "Consent": {
+        "description": "A signed consent, without its text and signature.",
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "procedureName",
+          "templateId",
+          "templateVersion",
+          "signerName",
+          "signerRole",
+          "signatureMethod",
+          "signedAt",
+          "signedByName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "procedureName": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "templateVersion": {
+            "type": "integer"
+          },
+          "signerName": {
+            "type": "string"
+          },
+          "signerRole": {
+            "$ref": "#/components/schemas/ConsentSigner"
+          },
+          "signatureMethod": {
+            "$ref": "#/components/schemas/ConsentSignature"
+          },
+          "signedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "signedByName": {
+            "description": "The member of staff who recorded the signature.",
+            "type": "string"
+          }
+        }
+      },
+      "ConsentDetail": {
+        "type": "object",
+        "required": ["consent", "body"],
+        "properties": {
+          "consent": {
+            "$ref": "#/components/schemas/Consent"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The text as it was signed, placeholders filled in. The rich text document of the app, never HTML, reduced to its allowlist on the way in."
+          },
+          "signature": {
+            "description": "SVG path data of a drawn signature in a 300 by 150 box; absent when typed.",
+            "type": "string"
+          }
+        }
+      },
+      "ConsentPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Consent"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "ConsentCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "templateId",
+          "templateVersion",
+          "procedureName",
+          "body",
+          "signerName",
+          "signerRole",
+          "signatureMethod"
+        ],
+        "properties": {
+          "templateId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "templateVersion": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "procedureName": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The text signed, placeholders filled in. The rich text document of the app, never HTML, reduced to its allowlist on the way in."
+          },
+          "signerName": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "signerRole": {
+            "$ref": "#/components/schemas/ConsentSigner"
+          },
+          "signatureMethod": {
+            "$ref": "#/components/schemas/ConsentSignature"
+          },
+          "signature": {
+            "minLength": 1,
+            "maxLength": 20000,
+            "pattern": "^[ML0-9 .,-]+$",
+            "type": "string"
+          }
+        }
+      },
+      "CertificateFieldDef": {
+        "additionalProperties": false,
+        "description": "One field of a certificate format. The name is the key the value is stored under; a label of a standard field is left out and the screen uses its own.",
+        "type": "object",
+        "required": ["name", "type", "required"],
+        "properties": {
+          "name": {
+            "pattern": "^[a-z][A-Za-z0-9]{0,39}$",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["text", "date", "time", "lines", "select"]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Certificate": {
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "kind",
+          "number",
+          "issuedOn",
+          "fields",
+          "issuedByName",
+          "issuedAt",
+          "layout"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CertificateKind"
+          },
+          "number": {
+            "description": "Assigned by the server, in order for each kind and year.",
+            "type": "string"
+          },
+          "issuedOn": {
+            "format": "date",
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "issuedByName": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "layout": {
+            "description": "The fields of the format it was issued under, kept with it.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CertificateFieldDef"
+            }
+          }
+        }
+      },
+      "CertificatePage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Certificate"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "CertificateCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "issuedOn", "fields"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CertificateKind"
+          },
+          "issuedOn": {
+            "format": "date",
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "What was entered, by the field names of the kind."
+          }
+        }
+      },
+      "CertificateFormat": {
+        "type": "object",
+        "required": ["kind", "fields", "custom"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CertificateKind"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CertificateFieldDef"
+            }
+          },
+          "custom": {
+            "description": "True once the hospital has changed the standard fields of the kind.",
+            "type": "boolean"
+          }
+        }
+      },
+      "CertificateFormatList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CertificateFormat"
+            }
+          }
+        }
+      },
+      "CertificateFormatUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["fields"],
+        "properties": {
+          "fields": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CertificateFieldDef"
+            }
+          }
+        }
+      },
+      "RecordGap": {
+        "type": "string",
+        "enum": ["unsigned_note", "no_diagnosis", "no_discharge_summary", "missing_consent"],
+        "description": "What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure."
+      },
+      "CodingState": {
+        "type": "string",
+        "enum": ["uncoded", "coded"]
+      },
+      "RecordRequester": {
+        "type": "string",
+        "enum": ["patient", "representative", "insurer", "court", "hospital", "other"]
+      },
+      "RecordRequestState": {
+        "type": "string",
+        "enum": ["open", "fulfilled", "declined"]
+      },
+      "IncompleteRecord": {
+        "description": "A closed encounter whose record is not complete.",
+        "type": "object",
+        "required": [
+          "encounterId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "kind",
+          "closedAt",
+          "doctorName",
+          "gaps"
+        ],
+        "properties": {
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EncounterType"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "gaps": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordGap"
+            }
+          },
+          "assignedDoctorId": {
+            "type": "string"
+          },
+          "assignedDoctorName": {
+            "type": "string"
+          }
+        }
+      },
+      "IncompleteRecordPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncompleteRecord"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "IncompleteRecordAssign": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["doctorId"],
+        "properties": {
+          "doctorId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          }
+        }
+      },
+      "CodingItem": {
+        "description": "A diagnosis recorded as text, and the code the desk gave it.",
+        "type": "object",
+        "required": [
+          "diagnosisId",
+          "encounterId",
+          "patientName",
+          "patientMrn",
+          "text",
+          "recordedAt",
+          "doctorName",
+          "version"
+        ],
+        "properties": {
+          "diagnosisId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "code": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "version": {
+            "description": "1 while uncoded, then one more for each coding.",
+            "type": "integer"
+          }
+        }
+      },
+      "CodingItemPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodingItem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "CodeDiagnosis": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["codeId", "version"],
+        "properties": {
+          "codeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "RecordRequest": {
+        "description": "A request for a copy of a patient’s record.",
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "requesterKind",
+          "requesterName",
+          "purpose",
+          "requestedOn",
+          "state",
+          "createdByName",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "requesterKind": {
+            "$ref": "#/components/schemas/RecordRequester"
+          },
+          "requesterName": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "requestedOn": {
+            "format": "date",
+            "type": "string"
+          },
+          "dueOn": {
+            "format": "date",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RecordRequestState"
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "closedByName": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "RecordRequestPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordRequest"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "RecordRequestCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "requesterKind", "requesterName", "purpose"],
+        "properties": {
+          "patientId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "requesterKind": {
+            "$ref": "#/components/schemas/RecordRequester"
+          },
+          "requesterName": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "purpose": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "dueOn": {
+            "format": "date",
+            "type": "string"
+          }
+        }
+      },
+      "RecordRequestClose": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["outcome", "note", "version"],
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": ["fulfilled", "declined"]
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "version": {
             "minimum": 1,
             "type": "integer"
           }
@@ -30803,7 +31490,7 @@
       "post": {
         "operationId": "dischargePatient",
         "tags": ["admissions"],
-        "description": "Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds dischargeBill:override and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`.",
+        "description": "Discharges an admitted patient: the stay’s inpatient encounter is closed (409 `unsigned_notes` while a note of it is a draft, and nothing changes), the bed is set to being cleaned and the admission is final. Emits `encounter.closed`, `bed.released` and `discharge.completed` through the outbox. When the hospital requires it (setting `requireDischargeSummary`, off by default), a discharge other than absconded is 409 `summary_unsigned` until the stay’s discharge summary is signed, checked after the clearances. A clearance the discharge type requires (routine and referred: nursing, pharmacy and lab; against advice and deceased: nursing and pharmacy; absconded: none) that is still open is 409 `clearance_pending`. The hospital’s bill policy (billing, when on) is checked next: with money outstanding, `block` is 409 `bill_outstanding` unless the caller holds dischargeBill:override and sends `billAcknowledged`, and `warn` is 409 `bill_unconfirmed` without `billAcknowledged`. Billing and the discharge summary react to the event. Requires admission:discharge and admission:read. The `version` must be the current one, or 409 `conflict` (a change of bed counts as a change). An admission outside the scope the caller holds the permission with, or of another hospital, answers 404 `admission_not_found`. The Idempotency-Key header is required: the same key changes nothing again and answers with the admission as it is now. Audited, and announced on `/beds/events`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -32613,6 +33300,122 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admission-settings": {
+      "get": {
+        "operationId": "getAdmissionSettings",
+        "tags": ["admissions"],
+        "description": "The hospital settings for admissions (#952): whether a discharge waits for a signed discharge summary. Requires admission:configure.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setAdmissionSettings",
+        "tags": ["admissions"],
+        "description": "Sets the admission settings. With `requireDischargeSummary` on, a discharge is 409 `summary_unsigned` until the stay’s discharge summary is signed (not for an absconded patient). Audited. Requires admission:configure.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdmissionSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
@@ -48395,6 +49198,1453 @@
             }
           },
           "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/consents": {
+      "get": {
+        "operationId": "listConsents",
+        "tags": ["consents"],
+        "description": "Signed consents of one patient, newest first, one cursor page at a time, including those of records merged into it (MR-02, #566). The text and signature are in the single read. Each consent listed is audited as read. Requires consent:read.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "signConsent",
+        "tags": ["consents"],
+        "description": "Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consents/{consentId}": {
+      "get": {
+        "operationId": "getConsent",
+        "tags": ["consents"],
+        "description": "One signed consent with its text and signature, audited as a read of the patient record (MR-02, #566). Another hospital’s, an out-of-scope or an unknown id is the same 404. Requires consent:read.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "consentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/certificates": {
+      "get": {
+        "operationId": "listCertificates",
+        "tags": ["consents"],
+        "description": "Certificates issued for one patient, newest first, one cursor page at a time, including those of records merged into it (MR-02, #566). Each is audited as read. Requires certificate:read.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificatePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "issueCertificate",
+        "tags": ["consents"],
+        "description": "Records a medical, fitness, birth or death certificate from the data entered, which must fit the hospital’s fields for the kind: no other field, none required left empty, each of its type (422 `certificate_fields_invalid`). The server numbers it in order for each kind and year, and keeps the layout it was issued under. Never changed or removed. 409 `patient_merged` for a merged record. Requires certificate:issue.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Certificate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificate-formats": {
+      "get": {
+        "operationId": "listCertificateFormats",
+        "tags": ["consents"],
+        "description": "The fields of each kind of certificate in this hospital: the standard ones until the hospital changes them (#567). Requires certificate:read.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateFormatList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificate-formats/{kind}": {
+      "put": {
+        "operationId": "setCertificateFormat",
+        "tags": ["consents"],
+        "description": "Replaces the fields of one kind of certificate (#567). Applies to certificates issued from now on; one already issued keeps its layout. Names once, a choice field has options (422 `certificate_format_invalid`). Requires certificate:configure.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateFormatUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/CertificateKind"
+            },
+            "in": "path",
+            "name": "kind",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateFormat"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "resetCertificateFormat",
+        "tags": ["consents"],
+        "description": "Goes back to the standard fields of the kind (#567). Requires certificate:configure.",
+        "parameters": [
+          {
+            "schema": {
+              "$ref": "#/components/schemas/CertificateKind"
+            },
+            "in": "path",
+            "name": "kind",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateFormat"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/incomplete": {
+      "get": {
+        "operationId": "listIncompleteRecords",
+        "tags": ["records"],
+        "description": "Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure. `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Absent: 25."
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/RecordGap"
+            },
+            "in": "query",
+            "name": "gap",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/EncounterType"
+            },
+            "in": "query",
+            "name": "kind",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncompleteRecordPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/incomplete/{encounterId}/assign": {
+      "post": {
+        "operationId": "assignIncompleteRecord",
+        "tags": ["records"],
+        "description": "Assigns an incomplete record to a doctor to complete, or takes the assignment off (doctorId null). A note for the desk: nothing contacts the doctor. 404 when the encounter is not an incomplete record of this hospital, 422 `not_practising` when the doctor is not one of its practising doctors. Needs medicalRecord:assign and medicalRecord:read with the scope `all` and the records feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncompleteRecordAssign"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A closed encounter whose record is not complete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncompleteRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/coding-queue": {
+      "get": {
+        "operationId": "listCodingQueue",
+        "tags": ["records"],
+        "description": "Diagnoses of closed encounters recorded as text that still have no code (state `uncoded`, the default), or that the desk has coded, the oldest first (MR-04, #192). `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Absent: 25."
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/CodingState"
+            },
+            "in": "query",
+            "name": "state",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodingItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/coding-queue/{diagnosisId}/code": {
+      "post": {
+        "operationId": "codeDiagnosis",
+        "tags": ["records"],
+        "description": "Gives a text diagnosis of a closed encounter its ICD-10 code, at the version read. The diagnosis itself is never changed: the code is kept beside it. 404 when it is not in the queue, 409 `version_conflict` when the coding changed since it was read, 422 `not_icd10` when the code is not an ICD-10 code. Coding again replaces the code and is audited. Needs medicalRecord:code and medicalRecord:read with the scope `all` and the records feature flag.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeDiagnosis"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "diagnosisId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A diagnosis recorded as text, and the code the desk gave it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodingItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/record-requests": {
+      "get": {
+        "operationId": "listRecordRequests",
+        "tags": ["records"],
+        "description": "The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` narrows; `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Absent: 25."
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/RecordRequestState"
+            },
+            "in": "query",
+            "name": "state",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRequestPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRecordRequest",
+        "tags": ["records"],
+        "description": "Logs a request for a copy of a patient’s record, dated today at the hospital, with an optional due day (422 `due_in_past` before today). 404 for a patient the caller cannot reach, 409 `patient_merged` for a merged record. Names and purposes travel in the body only. Needs recordRequest:manage and the records feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRequestCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A request for a copy of a patient’s record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/record-requests/{requestId}/close": {
+      "post": {
+        "operationId": "closeRecordRequest",
+        "tags": ["records"],
+        "description": "Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRequestClose"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "requestId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A request for a copy of a patient’s record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
