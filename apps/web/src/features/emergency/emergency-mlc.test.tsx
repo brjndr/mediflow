@@ -115,7 +115,7 @@ describe('printing', () => {
     cleanup();
     revokePermission(TENANT_IDS.hospital, 'admin', 'medicoLegal:read');
     renderApp({ entry: '/emergency/er_2' });
-    await screen.findByText(/The details are restricted/);
+    await screen.findByRole('heading', { name: 'Observation notes' });
     expect(screen.queryByRole('button', { name: 'Print' })).not.toBeInTheDocument();
     expect(print).not.toHaveBeenCalled();
     expect(mockMlcPrints()).toHaveLength(0);
@@ -123,18 +123,25 @@ describe('printing', () => {
 });
 
 describe('restricted access', () => {
-  it('says only that the case is medico-legal without medicoLegal:read', async () => {
+  it('shows no flag, badge or panel without medicoLegal:read (#648)', async () => {
     await open();
     const dialog = await fillAndFlag();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
     await screen.findByText('Hit by a truck, head injury');
+    expect(screen.getByText('Medico-legal')).toBeInTheDocument();
     cleanup();
     revokePermission(TENANT_IDS.hospital, 'admin', 'medicoLegal:read');
     renderApp({ entry: '/emergency/er_2' });
-    expect(
-      await screen.findByText(/The details are restricted to those with access to them/),
-    ).toBeInTheDocument();
+    await screen.findByRole('heading', { level: 1, name: /ER-0002/ });
+    await screen.findByRole('heading', { name: 'Observation notes' });
+    expect(screen.queryByText('Medico-legal')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Medico-legal record' })).not.toBeInTheDocument();
     expect(screen.queryByText('Hit by a truck, head injury')).not.toBeInTheDocument();
+    cleanup();
+    renderApp({ entry: '/emergency' });
+    await screen.findByRole('heading', { level: 1, name: 'Emergency' });
+    await screen.findByText(/ER-0002/);
+    expect(screen.queryByText('Medico-legal')).not.toBeInTheDocument();
   }, 30_000);
 
   it('offers no flagging without medicoLegal:manage', async () => {
@@ -191,7 +198,7 @@ describe('revision history', () => {
     cleanup();
     revokePermission(TENANT_IDS.hospital, 'admin', 'medicoLegal:read');
     renderApp({ entry: '/emergency/er_2' });
-    await screen.findByText(/The details are restricted/);
+    await screen.findByRole('heading', { name: 'Observation notes' });
     expect(screen.queryByRole('button', { name: 'History' })).not.toBeInTheDocument();
   }, 30_000);
 });

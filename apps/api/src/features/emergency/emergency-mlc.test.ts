@@ -37,7 +37,7 @@ interface Options {
 type Response = Awaited<ReturnType<FastifyInstance['inject']>>;
 interface Case {
   id: string;
-  medicoLegal: boolean;
+  medicoLegal?: boolean;
 }
 interface Mlc {
   revision: number;
@@ -139,10 +139,26 @@ describe('flagging a case', () => {
       recordedByName: 'MLC Doctor',
     });
 
-    const one = await get(`/emergency/cases/${row.id}`, { user: nurse });
+    const one = await get(`/emergency/cases/${row.id}`, { user: doctor });
     expect(one.json<Case>().medicoLegal).toBe(true);
-    const board = (await get('/emergency/cases', { user: nurse })).json<{ items: Case[] }>();
+    const board = (await get('/emergency/cases', { user: doctor })).json<{ items: Case[] }>();
     expect(board.items.find((item) => item.id === row.id)?.medicoLegal).toBe(true);
+  });
+
+  it('leaves the flag out for a caller without medicoLegal:read (#648)', async () => {
+    const row = await arrive();
+    await save(row.id, {});
+    const one = (await get(`/emergency/cases/${row.id}`, { user: nurse })).json<Case>();
+    expect(one.id).toBe(row.id);
+    expect('medicoLegal' in one).toBe(false);
+    const board = (await get('/emergency/cases', { user: nurse })).json<{ items: Case[] }>();
+    const onBoard = board.items.find((item) => item.id === row.id);
+    expect(onBoard).toBeDefined();
+    expect('medicoLegal' in (onBoard as Case)).toBe(false);
+    expect(errorOf(await get('/emergency/cases?medicoLegal=true', { user: nurse }))).toEqual([
+      403,
+      'permission_denied',
+    ]);
   });
 
   it('keeps every revision and refuses a stale one', async () => {
@@ -301,10 +317,10 @@ describe('the register of medico-legal cases (#676)', () => {
     const other = await arrive({ tenant: clinic, user: clinicAdmin });
     await save(other.id, {}, { tenant: clinic, user: clinicAdmin });
 
-    const page = await register('&limit=1', { user: nurse });
+    const page = await register('&limit=1', { user: doctor });
     expect(page.items.map((item) => item.id)).toEqual([second.id]);
     expect(page.nextCursor).not.toBeNull();
-    const next = await register(`&limit=100&cursor=${page.nextCursor}`, { user: nurse });
+    const next = await register(`&limit=100&cursor=${page.nextCursor}`, { user: doctor });
     const ids = next.items.map((item) => item.id);
     expect(ids).toContain(first.id);
     expect(ids).not.toContain(plain.id);
