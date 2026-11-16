@@ -16,8 +16,8 @@ function flatten(tree: unknown, prefix = ''): Record<string, string> {
 const placeholders = (text: string) => [...text.matchAll(/\{\{\w+\}\}/g)].map((m) => m[0]).sort();
 const base = (key: string) => key.replace(/_(one|other)$/, '');
 
-// The Hindi files carry the strings of the printed documents only (#771); anything else falls
-// back to English per key. What they hold must be a key English has, with the same placeholders.
+// The print strings of the Hindi files (#771); the clinical and triage files are also complete
+// translations (#769). What they hold must be a key English has, with the same placeholders.
 describe.each([
   ['billing', billingEn, billingHi],
   ['clinical', clinicalEn, clinicalHi],

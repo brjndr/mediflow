@@ -5100,6 +5100,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/claims/{claimId}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A claim in a payer's format (`generic_json`, `generic_csv`), made from the claim and the visit's charges as they are now. Holds policy numbers and amounts, no names. Needs claim:read. Audited as an export. */
+        get: operations["exportClaim"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/credit-accounts": {
         parameters: {
             query?: never;
@@ -12249,6 +12266,13 @@ export interface components {
             reference?: string;
             /** Format: date */
             receivedOn: string;
+        };
+        ClaimExport: {
+            format: string;
+            filename: string;
+            contentType: string;
+            /** @description The file, as text. */
+            content: string;
         };
         /** @enum {string} */
         EmergencyCaseStatus: "waiting" | "in_treatment" | "disposed";
@@ -41862,6 +41886,75 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    exportClaim: {
+        parameters: {
+            query: {
+                format: "generic_json" | "generic_csv";
+            };
+            header?: never;
+            path: {
+                claimId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimExport"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
