@@ -9873,6 +9873,344 @@
           }
         }
       },
+      "RecordGap": {
+        "type": "string",
+        "enum": ["unsigned_note", "no_diagnosis", "no_discharge_summary", "missing_consent"],
+        "description": "What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure."
+      },
+      "CodingState": {
+        "type": "string",
+        "enum": ["uncoded", "coded"]
+      },
+      "RecordRequester": {
+        "type": "string",
+        "enum": ["patient", "representative", "insurer", "court", "hospital", "other"]
+      },
+      "RecordRequestState": {
+        "type": "string",
+        "enum": ["open", "fulfilled", "declined"]
+      },
+      "IncompleteRecord": {
+        "description": "A closed encounter whose record is not complete.",
+        "type": "object",
+        "required": [
+          "encounterId",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "kind",
+          "closedAt",
+          "doctorName",
+          "gaps"
+        ],
+        "properties": {
+          "encounterId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EncounterType"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "gaps": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordGap"
+            }
+          },
+          "assignedDoctorId": {
+            "type": "string"
+          },
+          "assignedDoctorName": {
+            "type": "string"
+          }
+        }
+      },
+      "IncompleteRecordPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncompleteRecord"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "IncompleteRecordAssign": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["doctorId"],
+        "properties": {
+          "doctorId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          }
+        }
+      },
+      "CodingItem": {
+        "description": "A diagnosis recorded as text, and the code the desk gave it.",
+        "type": "object",
+        "required": [
+          "diagnosisId",
+          "encounterId",
+          "patientName",
+          "patientMrn",
+          "text",
+          "recordedAt",
+          "doctorName",
+          "version"
+        ],
+        "properties": {
+          "diagnosisId": {
+            "type": "string"
+          },
+          "encounterId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "code": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "version": {
+            "description": "1 while uncoded, then one more for each coding.",
+            "type": "integer"
+          }
+        }
+      },
+      "CodingItemPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodingItem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "CodeDiagnosis": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["codeId", "version"],
+        "properties": {
+          "codeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
+      "RecordRequest": {
+        "description": "A request for a copy of a patient’s record.",
+        "type": "object",
+        "required": [
+          "id",
+          "patientId",
+          "patientName",
+          "patientMrn",
+          "requesterKind",
+          "requesterName",
+          "purpose",
+          "requestedOn",
+          "state",
+          "createdByName",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "requesterKind": {
+            "$ref": "#/components/schemas/RecordRequester"
+          },
+          "requesterName": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "requestedOn": {
+            "format": "date",
+            "type": "string"
+          },
+          "dueOn": {
+            "format": "date",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RecordRequestState"
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "closedByName": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "RecordRequestPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordRequest"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
+      "RecordRequestCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["patientId", "requesterKind", "requesterName", "purpose"],
+        "properties": {
+          "patientId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "requesterKind": {
+            "$ref": "#/components/schemas/RecordRequester"
+          },
+          "requesterName": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "purpose": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "dueOn": {
+            "format": "date",
+            "type": "string"
+          }
+        }
+      },
+      "RecordRequestClose": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["outcome", "note", "version"],
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": ["fulfilled", "declined"]
+          },
+          "note": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      },
       "ShiftKind": {
         "type": "string",
         "enum": ["morning", "evening", "night", "day", "on_call"],
@@ -21368,291 +21706,6 @@
           }
         }
       },
-      "RecordGap": {
-        "type": "string",
-        "enum": ["unsigned_note", "no_diagnosis", "no_discharge_summary", "missing_consent"]
-      },
-      "IncompleteRecord": {
-        "type": "object",
-        "required": [
-          "encounterId",
-          "patientId",
-          "patientName",
-          "patientMrn",
-          "kind",
-          "closedAt",
-          "doctorName",
-          "gaps"
-        ],
-        "properties": {
-          "encounterId": {
-            "type": "string"
-          },
-          "patientId": {
-            "type": "string"
-          },
-          "patientName": {
-            "type": "string"
-          },
-          "patientMrn": {
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/EncounterType"
-          },
-          "closedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "doctorName": {
-            "type": "string"
-          },
-          "gaps": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/components/schemas/RecordGap"
-            }
-          },
-          "assignedDoctorId": {
-            "type": "string"
-          },
-          "assignedDoctorName": {
-            "type": "string"
-          }
-        }
-      },
-      "IncompleteRecordPage": {
-        "type": "object",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IncompleteRecord"
-            }
-          },
-          "nextCursor": {
-            "type": ["string", "null"]
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "CodingState": {
-        "type": "string",
-        "enum": ["uncoded", "coded"]
-      },
-      "CodingItem": {
-        "type": "object",
-        "required": [
-          "diagnosisId",
-          "encounterId",
-          "patientName",
-          "patientMrn",
-          "text",
-          "recordedAt",
-          "doctorName",
-          "version"
-        ],
-        "properties": {
-          "diagnosisId": {
-            "type": "string"
-          },
-          "encounterId": {
-            "type": "string"
-          },
-          "patientName": {
-            "type": "string"
-          },
-          "patientMrn": {
-            "type": "string"
-          },
-          "text": {
-            "type": "string"
-          },
-          "code": {
-            "$ref": "#/components/schemas/Code"
-          },
-          "recordedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "doctorName": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer"
-          }
-        }
-      },
-      "CodingItemPage": {
-        "type": "object",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CodingItem"
-            }
-          },
-          "nextCursor": {
-            "type": ["string", "null"]
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "CodeDiagnosis": {
-        "type": "object",
-        "required": ["codeId", "version"],
-        "properties": {
-          "codeId": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer"
-          }
-        }
-      },
-      "RecordRequester": {
-        "type": "string",
-        "enum": ["patient", "representative", "insurer", "court", "hospital", "other"]
-      },
-      "RecordRequestState": {
-        "type": "string",
-        "enum": ["open", "fulfilled", "declined"]
-      },
-      "RecordRequest": {
-        "type": "object",
-        "required": [
-          "id",
-          "patientId",
-          "patientName",
-          "patientMrn",
-          "requesterKind",
-          "requesterName",
-          "purpose",
-          "requestedOn",
-          "state",
-          "createdByName",
-          "version"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "patientId": {
-            "type": "string"
-          },
-          "patientName": {
-            "type": "string"
-          },
-          "patientMrn": {
-            "type": "string"
-          },
-          "requesterKind": {
-            "$ref": "#/components/schemas/RecordRequester"
-          },
-          "requesterName": {
-            "type": "string"
-          },
-          "purpose": {
-            "type": "string"
-          },
-          "requestedOn": {
-            "type": "string",
-            "format": "date"
-          },
-          "dueOn": {
-            "type": "string",
-            "format": "date"
-          },
-          "state": {
-            "$ref": "#/components/schemas/RecordRequestState"
-          },
-          "createdByName": {
-            "type": "string"
-          },
-          "closedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "closedByName": {
-            "type": "string"
-          },
-          "note": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer"
-          }
-        }
-      },
-      "RecordRequestPage": {
-        "type": "object",
-        "required": ["items", "nextCursor"],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RecordRequest"
-            }
-          },
-          "nextCursor": {
-            "type": ["string", "null"]
-          },
-          "total": {
-            "type": "integer"
-          }
-        }
-      },
-      "RecordRequestCreate": {
-        "type": "object",
-        "required": ["patientId", "requesterKind", "requesterName", "purpose"],
-        "properties": {
-          "patientId": {
-            "type": "string"
-          },
-          "requesterKind": {
-            "$ref": "#/components/schemas/RecordRequester"
-          },
-          "requesterName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "purpose": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "dueOn": {
-            "type": "string",
-            "format": "date"
-          }
-        }
-      },
-      "RecordRequestClose": {
-        "type": "object",
-        "required": ["outcome", "note", "version"],
-        "properties": {
-          "outcome": {
-            "type": "string",
-            "enum": ["fulfilled", "declined"]
-          },
-          "note": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "version": {
-            "type": "integer"
-          }
-        }
-      },
       "CertificateFieldDef": {
         "type": "object",
         "required": ["name", "type", "required"],
@@ -21728,15 +21781,6 @@
             "items": {
               "$ref": "#/components/schemas/CertificateFieldDef"
             }
-          }
-        }
-      },
-      "IncompleteRecordAssign": {
-        "type": "object",
-        "required": ["doctorId"],
-        "properties": {
-          "doctorId": {
-            "type": ["string", "null"]
           }
         }
       }
@@ -49059,6 +49103,744 @@
         }
       }
     },
+    "/records/incomplete": {
+      "get": {
+        "operationId": "listIncompleteRecords",
+        "tags": ["records"],
+        "description": "Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure. `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/RecordGap"
+            },
+            "in": "query",
+            "name": "gap",
+            "required": false
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/EncounterType"
+            },
+            "in": "query",
+            "name": "kind",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncompleteRecordPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/incomplete/{encounterId}/assign": {
+      "post": {
+        "operationId": "assignIncompleteRecord",
+        "tags": ["records"],
+        "description": "Assigns an incomplete record to a doctor to complete, or takes the assignment off (doctorId null). A note for the desk: nothing contacts the doctor. 404 when the encounter is not an incomplete record of this hospital, 422 `not_practising` when the doctor is not one of its practising doctors. Needs medicalRecord:assign and medicalRecord:read with the scope `all` and the records feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncompleteRecordAssign"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A closed encounter whose record is not complete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncompleteRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/coding-queue": {
+      "get": {
+        "operationId": "listCodingQueue",
+        "tags": ["records"],
+        "description": "Diagnoses of closed encounters recorded as text that still have no code (state `uncoded`, the default), or that the desk has coded, the oldest first (MR-04, #192). `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/CodingState"
+            },
+            "in": "query",
+            "name": "state",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodingItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/coding-queue/{diagnosisId}/code": {
+      "post": {
+        "operationId": "codeDiagnosis",
+        "tags": ["records"],
+        "description": "Gives a text diagnosis of a closed encounter its ICD-10 code, at the version read. The diagnosis itself is never changed: the code is kept beside it. 404 when it is not in the queue, 409 `version_conflict` when the coding changed since it was read, 422 `not_icd10` when the code is not an ICD-10 code. Coding again replaces the code and is audited. Needs medicalRecord:code and medicalRecord:read with the scope `all` and the records feature flag.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeDiagnosis"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "diagnosisId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A diagnosis recorded as text, and the code the desk gave it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodingItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/record-requests": {
+      "get": {
+        "operationId": "listRecordRequests",
+        "tags": ["records"],
+        "description": "The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` narrows; `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/RecordRequestState"
+            },
+            "in": "query",
+            "name": "state",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRequestPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRecordRequest",
+        "tags": ["records"],
+        "description": "Logs a request for a copy of a patient’s record, dated today at the hospital, with an optional due day (422 `due_in_past` before today). 404 for a patient the caller cannot reach, 409 `patient_merged` for a merged record. Names and purposes travel in the body only. Needs recordRequest:manage and the records feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRequestCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "A request for a copy of a patient’s record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/record-requests/{requestId}/close": {
+      "post": {
+        "operationId": "closeRecordRequest",
+        "tags": ["records"],
+        "description": "Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRequestClose"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "requestId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A request for a copy of a patient’s record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/roster/shifts": {
       "get": {
         "operationId": "listRosterShifts",
@@ -75413,391 +76195,6 @@
         "x-planned": true
       }
     },
-    "/records/incomplete": {
-      "get": {
-        "operationId": "listIncompleteRecords",
-        "description": "Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). Needs medicalRecord:read and the records feature flag. The server works out each gap from the encounter: an unsigned note, no diagnosis, no discharge summary for an inpatient stay, no signed consent for a procedure.",
-        "parameters": [
-          {
-            "name": "gap",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/RecordGap"
-            }
-          },
-          {
-            "name": "kind",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/EncounterType"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of incomplete records",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IncompleteRecordPage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/records/coding-queue": {
-      "get": {
-        "operationId": "listCodingQueue",
-        "description": "Diagnoses recorded as text that still have no code (state uncoded, the default), or coded ones, the oldest first (MR-04, #192). Needs medicalRecord:read and the records feature flag.",
-        "parameters": [
-          {
-            "name": "state",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/CodingState"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of diagnoses",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CodingItemPage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/records/coding-queue/{diagnosisId}/code": {
-      "post": {
-        "operationId": "codeDiagnosis",
-        "description": "Gives a text diagnosis its ICD-10 code, at the version read. Needs medicalRecord:code. 409 version_conflict when the diagnosis changed, 422 when the code is not an ICD-10 code. Coding again replaces the code and is audited.",
-        "parameters": [
-          {
-            "name": "diagnosisId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CodeDiagnosis"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The diagnosis with its code",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CodingItem"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/record-requests": {
-      "get": {
-        "operationId": "listRecordRequests",
-        "description": "The hospital's requests for copies of a record, the soonest due first (MR-04, #192). Needs recordRequest:read and the records feature flag.",
-        "parameters": [
-          {
-            "name": "state",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/RecordRequestState"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One page of requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecordRequestPage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      },
-      "post": {
-        "operationId": "createRecordRequest",
-        "description": "Logs a request for a patient's record. Needs recordRequest:manage.",
-        "parameters": [
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordRequestCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "The request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecordRequest"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/record-requests/{requestId}/close": {
-      "post": {
-        "operationId": "closeRecordRequest",
-        "description": "Closes an open request as fulfilled or declined, with a note, at the version read; once only. Needs recordRequest:manage. 409 version_conflict or already_closed.",
-        "parameters": [
-          {
-            "name": "requestId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordRequestClose"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The closed request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecordRequest"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "409": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
     "/certificate-formats": {
       "get": {
         "operationId": "listCertificateFormats",
@@ -75907,74 +76304,6 @@
             "$ref": "#/components/responses/Error"
           },
           "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
-      }
-    },
-    "/records/incomplete/{encounterId}/assign": {
-      "post": {
-        "operationId": "assignIncompleteRecord",
-        "description": "Assigns an incomplete record to a doctor to complete, or takes the assignment off (doctorId null). Needs medicalRecord:assign and the records feature flag. 404 when the encounter is not an incomplete record of this hospital, 422 when the doctor is not one of its practising doctors. Audited.",
-        "parameters": [
-          {
-            "name": "encounterId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 8,
-              "maxLength": 128
-            },
-            "description": "A unique value chosen by the client; repeating the request with it returns the first result."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IncompleteRecordAssign"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The record with its assignment",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IncompleteRecord"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
             "$ref": "#/components/responses/Error"
           },
           "default": {

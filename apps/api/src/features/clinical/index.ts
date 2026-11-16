@@ -32,7 +32,7 @@ export {
 } from './medication.js';
 /** For nursing (BE-24): the diet orders of an inpatient encounter, read only. */
 export { currentDietsOf, dietOrdersOf, type DietOrder } from './diet.js';
-export { OrderPriority, OrderStatus } from './schemas.js';
+export { EncounterType, OrderPriority, OrderStatus } from './schemas.js';
 
 /** For prescription sets (#394): the limits and routes of a prescription line, kept in one place. */
 export { DOSE_MAX, INSTRUCTIONS_MAX, LINES_MAX, ROUTES as MEDICATION_ROUTES } from './schemas.js';

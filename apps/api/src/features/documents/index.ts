@@ -16,6 +16,7 @@ import {
   CORRECTION_PERMISSIONS,
   RECORDS_PERMISSIONS,
 } from './records-permissions.js';
+import { recordsDeskRoutes } from './records-desk.js';
 import { documentRoutes } from './routes.js';
 import { insertAuditEntries } from '../../core/audit/plugin.js';
 
@@ -93,6 +94,7 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
   await app.register(documentRoutes);
   await app.register(documentFileRoutes);
   await app.register(correctionRoutes);
+  await app.register(recordsDeskRoutes);
   app.jobs.work<ScanJob>(SCAN_JOB, (job) => scanDocument(app, job));
   app.jobs.work(SWEEP_JOB, async () => {
     const failed = await sweepDocuments(app);

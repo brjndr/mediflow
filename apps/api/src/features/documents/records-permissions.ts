@@ -40,6 +40,11 @@ export const RECORDS_PERMISSIONS = [
     defaults: { admin: 'all' },
   },
   {
+    id: 'medicalRecord:assign',
+    description: 'Assign an incomplete record to a doctor to complete',
+    defaults: { admin: 'all' },
+  },
+  {
     id: 'recordRequest:read',
     description: 'See requests for copies of a patient’s record',
     defaults: { admin: 'all' },
