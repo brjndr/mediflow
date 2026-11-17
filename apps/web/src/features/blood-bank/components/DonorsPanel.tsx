@@ -201,8 +201,14 @@ export function DonorsPanel() {
         <CollectionDialog
           donor={open.donor}
           onClose={() => setOpen(null)}
-          onDone={(_collection, unitNumber) =>
-            finish(t('donor.done.collected', { number: open.donor.donorNumber, unit: unitNumber }))
+          onDone={(_collection, unitNumbers) =>
+            finish(
+              t('donor.done.collected', {
+                count: unitNumbers.length,
+                number: open.donor.donorNumber,
+                units: unitNumbers.join(', '),
+              }),
+            )
           }
         />
       )}

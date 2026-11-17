@@ -162,7 +162,33 @@ describe('recording a collection', () => {
     );
   }, 30_000);
 
-  it('maps a donation that is too soon, a deferred donor and an age refusal', async () => {
+  it('records several units from one collection and refuses a repeated number', async () => {
+    await openDonors();
+    await press('DN-0001', /Record collection/);
+    const dialog = await screen.findByRole('dialog', {
+      name: /Record a collection from donor DN-0001/,
+    });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add another unit' }));
+    const numbers = within(dialog).getAllByLabelText(/Unit number/);
+    const expires = within(dialog).getAllByLabelText(/Expires/);
+    expect(numbers).toHaveLength(2);
+    await userEvent.type(numbers[0]!, 'BU-MULTI1');
+    await userEvent.type(numbers[1]!, 'BU-MULTI1');
+    await userEvent.type(expires[0]!, '2030-12-01T08:00');
+    await userEvent.type(expires[1]!, '2030-12-01T08:00');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Record collection' }));
+    expect(await within(dialog).findByText(/same number/)).toBeInTheDocument();
+    await userEvent.clear(numbers[1]!);
+    await userEvent.type(numbers[1]!, 'BU-MULTI2');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Record collection' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: '' })).toHaveTextContent(
+        '2 units (BU-MULTI1, BU-MULTI2) are waiting for testing',
+      ),
+    );
+  }, 30_000);
+
+  it('maps a donation that is too soon,a deferred donor and an age refusal', async () => {
     await openDonors('DN-0002');
     await press('DN-0002', /Record collection/);
     const dialog = await screen.findByRole('dialog', {

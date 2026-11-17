@@ -7,9 +7,17 @@ import { todayIn, utcToZoned, zonedToUtc } from '@/shared/utils/timezone';
 import { Button } from '@/shared/ui/button';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { Dialog } from '@/shared/ui/dialog';
-import { Form, SelectField, TextAreaField, TextField, useZodForm } from '@/shared/ui/form';
+import {
+  Form,
+  SelectField,
+  TextAreaField,
+  TextField,
+  useFieldRows,
+  useZodForm,
+} from '@/shared/ui/form';
 import { useFormatters, useTenant } from '@/tenancy';
 import {
+  COLLECTION_UNITS_MAX,
   collectionFormSchema,
   deferFormSchema,
   DONOR_SEXES,
@@ -136,7 +144,75 @@ export function RegisterDonorDialog({
   );
 }
 
-/** Records a donation and the unit made of it. The unit then waits for testing. */
+const emptyUnit = () => ({
+  unitNumber: '',
+  component: 'whole_blood' as const,
+  unitVolumeMl: '450',
+  expiresAt: '',
+});
+
+/** One to four units made of the donation, each with its own number, component, volume and date. */
+function CollectionUnits() {
+  const { t } = useTranslation('blood-bank');
+  const rows = useFieldRows('units');
+  const many = rows.keys.length > 1;
+  return (
+    <div className="flex flex-col gap-3">
+      {rows.keys.map((key, index) => (
+        <fieldset key={key} className="flex flex-col gap-3 rounded-md border p-3">
+          {many && (
+            <legend className="px-1 text-sm font-medium">
+              {t('collection.unitTitle', { n: index + 1 })}
+            </legend>
+          )}
+          <TextField<CollectionFormValues>
+            name={`units.${index}.unitNumber`}
+            label={t('register.unitNumber')}
+            required
+            maxLength={UNIT_NUMBER_MAX}
+            autoComplete="off"
+          />
+          <SelectField<CollectionFormValues>
+            name={`units.${index}.component`}
+            label={t('columns.component')}
+            required
+            options={BLOOD_COMPONENTS.map((value) => ({ value, label: t(`component.${value}`) }))}
+          />
+          <TextField<CollectionFormValues>
+            name={`units.${index}.unitVolumeMl`}
+            label={t('collection.unitVolume')}
+            required
+            inputMode="numeric"
+            autoComplete="off"
+          />
+          <TextField<CollectionFormValues>
+            name={`units.${index}.expiresAt`}
+            type="datetime-local"
+            label={t('columns.expires')}
+            required
+          />
+          {many && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => rows.remove(index)}
+              aria-label={t('collection.removeUnit', { n: index + 1 })}
+            >
+              {t('collection.removeUnitShort')}
+            </Button>
+          )}
+        </fieldset>
+      ))}
+      {rows.keys.length < COLLECTION_UNITS_MAX && (
+        <Button type="button" variant="outline" onClick={() => rows.add(emptyUnit())}>
+          {t('collection.addUnit')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Records a donation and the one to four units made of it. The unit then waits for testing. */
 export function CollectionDialog({
   donor,
   onClose,
@@ -144,7 +220,7 @@ export function CollectionDialog({
 }: {
   donor: BloodDonorSummary;
   onClose: () => void;
-  onDone: (collection: BloodCollection, unitNumber: string) => void;
+  onDone: (collection: BloodCollection, unitNumbers: string[]) => void;
 }) {
   const { t } = useTranslation('blood-bank');
   const timezone = useTenant()?.timezone ?? 'UTC';
@@ -153,10 +229,7 @@ export function CollectionDialog({
   const form = useZodForm(collectionFormSchema, {
     collectedAt: `${now.day}T${now.time}`,
     volumeMl: '450',
-    unitNumber: '',
-    component: 'whole_blood',
-    unitVolumeMl: '450',
-    expiresAt: '',
+    units: [emptyUnit()],
   });
   const failure = useDonorFailure(record.error);
 
@@ -166,16 +239,17 @@ export function CollectionDialog({
         donorId: donor.id,
         collectedAt: instant(values.collectedAt, timezone),
         volumeMl: Number(values.volumeMl),
-        units: [
-          {
-            unitNumber: values.unitNumber,
-            component: values.component,
-            volumeMl: Number(values.unitVolumeMl),
-            expiresAt: instant(values.expiresAt, timezone),
-          },
-        ],
+        units: values.units.map((unit) => ({
+          unitNumber: unit.unitNumber,
+          component: unit.component,
+          volumeMl: Number(unit.unitVolumeMl),
+          expiresAt: instant(unit.expiresAt, timezone),
+        })),
       });
-      onDone(collection, values.unitNumber);
+      onDone(
+        collection,
+        values.units.map((unit) => unit.unitNumber),
+      );
     } catch {
       // Said below, from the mutation state.
     }
@@ -215,32 +289,7 @@ export function CollectionDialog({
           inputMode="numeric"
           autoComplete="off"
         />
-        <TextField<CollectionFormValues>
-          name="unitNumber"
-          label={t('register.unitNumber')}
-          required
-          maxLength={UNIT_NUMBER_MAX}
-          autoComplete="off"
-        />
-        <SelectField<CollectionFormValues>
-          name="component"
-          label={t('columns.component')}
-          required
-          options={BLOOD_COMPONENTS.map((value) => ({ value, label: t(`component.${value}`) }))}
-        />
-        <TextField<CollectionFormValues>
-          name="unitVolumeMl"
-          label={t('collection.unitVolume')}
-          required
-          inputMode="numeric"
-          autoComplete="off"
-        />
-        <TextField<CollectionFormValues>
-          name="expiresAt"
-          type="datetime-local"
-          label={t('columns.expires')}
-          required
-        />
+        <CollectionUnits />
         {failure && (
           <p role="alert" className="text-sm text-destructive">
             {failure}

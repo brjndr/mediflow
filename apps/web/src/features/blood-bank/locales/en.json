@@ -320,7 +320,8 @@
     },
     "done": {
       "registered": "Donor {{number}} registered.",
-      "collected": "Collection from donor {{number}} recorded. Unit {{unit}} is waiting for testing.",
+      "collected_one": "Collection from donor {{number}} recorded. Unit {{units}} is waiting for testing.",
+      "collected_other": "Collection from donor {{number}} recorded. {{count}} units ({{units}}) are waiting for testing.",
       "deferred": "Donor {{number}} deferred."
     },
     "detail": {
@@ -340,9 +341,14 @@
   },
   "collection": {
     "title": "Record a collection from donor {{number}}",
-    "description": "The unit made is group {{group}} (the donor's group) and goes to testing next.",
+    "description": "Each unit made is group {{group}} (the donor's group) and goes to testing next. A donation can make up to four units.",
     "volume": "Volume collected (ml)",
     "unitVolume": "Volume of the unit (ml)",
+    "unitTitle": "Unit {{n}}",
+    "addUnit": "Add another unit",
+    "removeUnit": "Remove unit {{n}}",
+    "removeUnitShort": "Remove this unit",
+    "duplicateNumber": "Two units in this collection have the same number.",
     "submit": "Record collection",
     "saving": "Saving..."
   },
