@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
 import type pg from 'pg';
-import type { FileStore } from '../../core/files/store.js';
+import { putStream, type FileStore } from '../../core/files/store.js';
 import { withPlatformTransaction } from '../../core/platform/db.js';
 import { withTenantTransaction } from '../../core/tenancy/transaction.js';
-import { csvLine, sha256, TarBuilder } from './archive.js';
+import { csvLine, sha256, TAR_END, tarEntry } from './archive.js';
 import { recordPlatformAudit } from './repository.js';
 import { exportedTables, treatmentOf } from './tenant-data.js';
 
@@ -14,10 +16,12 @@ export interface ExportJob {
 }
 
 /**
- * The archive is built in memory (the file store takes a whole buffer), so it has a ceiling. A
- * hospital past it needs the store to take a stream first: the run ends `too_large`.
+ * The tables' CSVs are gathered in memory before the archive is written (the manifest needs their
+ * checksums, and they are read inside one transaction), so they have a ceiling: past it the run
+ * ends `too_large`. The stored files are not counted: they are read one at a time and the
+ * archive is streamed to the file store, so it can be any size.
  */
-export const EXPORT_MAX_BYTES = 1_500_000_000;
+export const EXPORT_TABLES_MAX_BYTES = 1_500_000_000;
 /** A run silent for this long was left by a worker that stopped; the next delivery takes it. */
 const STALE_MINUTES = 120;
 const BATCH = 2000;
@@ -151,7 +155,14 @@ export async function runExport(
   const { hospitalId, requestedBy } = claimed;
   const key = exportKeyOf(hospitalId, job.exportId);
   try {
-    const tar = new TarBuilder();
+    // The entries that are held in memory: the tables, the staff, the hospital.
+    const held: { name: string; data: Buffer }[] = [];
+    let heldBytes = 0;
+    const hold = (name: string, data: Buffer): void => {
+      held.push({ name, data });
+      heldBytes += data.length;
+      if (heldBytes > EXPORT_TABLES_MAX_BYTES) throw new TooLarge();
+    };
     const tables: TableResult[] = [];
     const stored: FileEntry[] = [];
     const missing: { table: string; key: string }[] = [];
@@ -172,10 +183,9 @@ export async function runExport(
             keys,
           );
           const name = `tables/${table}.csv`;
-          tar.add(name, csv);
+          hold(name, csv);
           tables.push({ table, file: name, rows, sha256: sha256(csv) });
           for (const k of keys) fileKeys.push({ table, key: k });
-          if (tar.bytes > EXPORT_MAX_BYTES) throw new TooLarge();
         }
         // The people the rows name (the author of a note, the user behind an audit entry).
         const staff = await client.query<{ r: Record<string, unknown> }>(
@@ -189,7 +199,7 @@ export async function runExport(
             staff.rows.map(({ r }) => csvLine(staffNames.map((n) => r[n]))).join(''),
           'utf8',
         );
-        tar.add('tables/_staff.csv', staffCsv);
+        hold('tables/_staff.csv', staffCsv);
         tables.push({
           table: '_staff',
           file: 'tables/_staff.csv',
@@ -206,7 +216,7 @@ export async function runExport(
           JSON.stringify(hospital.rows[0]?.r ?? null, null, 2),
           'utf8',
         );
-        tar.add('hospital.json', hospitalJson);
+        hold('hospital.json', hospitalJson);
         tables.push({
           table: '_hospital',
           file: 'hospital.json',
@@ -217,49 +227,59 @@ export async function runExport(
       { readOnly: true },
     );
 
-    for (const { table, key: fileKey } of fileKeys) {
-      const data = await files.get(fileKey);
-      if (!data) {
-        missing.push({ table, key: fileKey });
-        continue;
-      }
-      const name = `files/${fileKey}`;
-      tar.add(name, data);
-      stored.push({ table, key: fileKey, file: name, bytes: data.length, sha256: sha256(data) });
-      if (tar.bytes > EXPORT_MAX_BYTES) throw new TooLarge();
-    }
-
-    const manifest = Buffer.from(
-      JSON.stringify(
-        {
-          format: 'mediflow-hospital-export/1',
-          hospitalId,
-          exportId: job.exportId,
-          madeAt: new Date().toISOString(),
-          notes:
-            'One CSV for each table (a null is an empty cell, a JSON value is written as JSON), the audit log among them, and the stored files as they are under files/. Every entry has its SHA-256 here. The law makes the hospital responsible for keeping its own medical, billing and drug records for their minimum periods: keep this archive.',
-          tables,
-          files: stored,
-          missingFiles: missing,
-        },
-        null,
-        2,
-      ),
-      'utf8',
-    );
-    tar.add('manifest.json', manifest);
-    const archive = tar.finish();
-    const digest = sha256(archive);
-
-    await files.put(key, archive);
     const rowTotal = tables.reduce((sum, t) => sum + t.rows, 0);
+    // The archive as it is written: nothing of it is kept but the running size and checksum.
+    const hash = createHash('sha256');
+    let archiveBytes = 0;
+    async function* chunks(): AsyncGenerator<Buffer> {
+      for (const { name, data } of held) yield* tarEntry(name, data);
+      for (const { table, key: fileKey } of fileKeys) {
+        const data = await files.get(fileKey);
+        if (!data) {
+          missing.push({ table, key: fileKey });
+          continue;
+        }
+        const name = `files/${fileKey}`;
+        stored.push({ table, key: fileKey, file: name, bytes: data.length, sha256: sha256(data) });
+        yield* tarEntry(name, data);
+      }
+      const manifest = Buffer.from(
+        JSON.stringify(
+          {
+            format: 'mediflow-hospital-export/1',
+            hospitalId,
+            exportId: job.exportId,
+            madeAt: new Date().toISOString(),
+            notes:
+              'One CSV for each table (a null is an empty cell, a JSON value is written as JSON), the audit log among them, and the stored files as they are under files/. Every entry has its SHA-256 here. The law makes the hospital responsible for keeping its own medical, billing and drug records for their minimum periods: keep this archive.',
+            tables,
+            files: stored,
+            missingFiles: missing,
+          },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+      yield* tarEntry('manifest.json', manifest);
+      yield TAR_END;
+    }
+    async function* counted(): AsyncGenerator<Buffer> {
+      for await (const chunk of chunks()) {
+        hash.update(chunk);
+        archiveBytes += chunk.length;
+        yield chunk;
+      }
+    }
+    await putStream(files, key, Readable.from(counted(), { objectMode: false }));
+    const digest = hash.digest('hex');
     await withPlatformTransaction(pool, async (client) => {
       await client.query(
         `update tenant_exports
          set status = 'succeeded', finished_at = now(), file_key = $2, file_bytes = $3, sha256 = $4,
              table_count = $5, row_count = $6, file_count = $7
          where id = $1 and status = 'running'`,
-        [job.exportId, key, archive.length, digest, tables.length, rowTotal, stored.length],
+        [job.exportId, key, archiveBytes, digest, tables.length, rowTotal, stored.length],
       );
       await recordPlatformAudit(client, {
         actorId: requestedBy,
