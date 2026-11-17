@@ -5,7 +5,7 @@ import {
   cancelHospitalDeletion,
   createHospital,
   fetchHospitalDeletion,
-  issueExportLink,
+  emailExportLink,
   startHospitalExport,
   fetchHospitalExports,
   requestHospitalDeletion,
@@ -262,11 +262,11 @@ export function useStartExport(id: string) {
   });
 }
 
-export function useIssueExportLink(id: string) {
+export function useEmailExportLink(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (value: { exportId: string; adminUserId: string }) =>
-      issueExportLink(id, value.exportId, value.adminUserId),
+      emailExportLink(id, value.exportId, value.adminUserId),
     onSettled: () => queryClient.invalidateQueries({ queryKey: deletionKeys.exports(id) }),
   });
 }
