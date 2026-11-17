@@ -50584,7 +50584,7 @@
       "get": {
         "operationId": "listRecordRequests",
         "tags": ["records"],
-        "description": "The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` narrows; `overdue=true` keeps the open requests past their due day (today at the hospital), and its `total` is the count for a dashboard widget (`limit=1`); `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited.",
+        "description": "The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` and `patientId` narrow; `overdue=true` keeps the open requests past their due day (today at the hospital), and its `total` is the count for a dashboard widget (`limit=1`); `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited.",
         "parameters": [
           {
             "schema": {
@@ -50613,6 +50613,16 @@
             "in": "query",
             "name": "state",
             "required": false
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "patientId",
+            "required": false,
+            "description": "Only the requests for this patient; combines with the other filters."
           },
           {
             "schema": {

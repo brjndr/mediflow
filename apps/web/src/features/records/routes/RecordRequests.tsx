@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Can } from '@/access';
+import { PatientSearch, type PatientSummary } from '@/features/patients';
 import { errorMessageKey } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
@@ -32,7 +33,8 @@ export default function RecordRequests() {
   const stateId = useId();
   const today = todayIn(useTenant()?.timezone ?? 'UTC');
   const [state, setState] = useState<RecordRequestState | ''>('open');
-  const requests = useRecordRequests(state);
+  const [patient, setPatient] = useState<PatientSummary | null>(null);
+  const requests = useRecordRequests(state, patient?.id);
   const rows = useMemo(
     () => requests.data?.pages.flatMap((page) => page.items) ?? [],
     [requests.data],
@@ -138,6 +140,27 @@ export default function RecordRequests() {
           ))}
           <option value="">{t('requests.allStates')}</option>
         </select>
+      </div>
+      <div className="flex flex-col gap-1.5 md:max-w-xs">
+        {patient ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm">
+              {t('requests.filteredBy', { name: `${patient.firstName} ${patient.lastName}` })}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setPatient(null);
+                say(t('requests.filterCleared'));
+              }}
+            >
+              {t('requests.clearPatient')}
+            </Button>
+          </div>
+        ) : (
+          <PatientSearch label={t('requests.filterPatient')} onSelect={setPatient} />
+        )}
       </div>
       <p
         ref={status}

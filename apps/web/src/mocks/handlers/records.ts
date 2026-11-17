@@ -316,8 +316,14 @@ export const recordsHandlers = [
     if ('denied' in access) return access.denied;
     const query = new URL(request.url).searchParams;
     const wanted = query.get('state');
+    const patient = query.get('patientId');
     const rows = state.requests
-      .filter((one) => one.tenantId === access.tenantId && (!wanted || one.state === wanted))
+      .filter(
+        (one) =>
+          one.tenantId === access.tenantId &&
+          (!wanted || one.state === wanted) &&
+          (!patient || one.patientId === patient),
+      )
       .sort(
         (a, b) => (a.dueOn ?? '9999').localeCompare(b.dueOn ?? '9999') || a.id.localeCompare(b.id),
       );

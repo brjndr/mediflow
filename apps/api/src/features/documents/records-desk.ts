@@ -185,6 +185,12 @@ type CodingQuery = Static<typeof CodingQuery>;
 const RequestQuery = Type.Object({
   ...Paging,
   state: Type.Optional(ref(RecordRequestState)),
+  patientId: Type.Optional(
+    Type.String({
+      format: 'uuid',
+      description: 'Only the requests for this patient; combines with the other filters.',
+    }),
+  ),
   overdue: Type.Optional(
     Type.Boolean({
       description:
@@ -676,7 +682,7 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listRecordRequests',
         tags: ['records'],
         description:
-          'The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` narrows; `overdue=true` keeps the open requests past their due day (today at the hospital), and its `total` is the count for a dashboard widget (`limit=1`); `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited.',
+          'The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` and `patientId` narrow; `overdue=true` keeps the open requests past their due day (today at the hospital), and its `total` is the count for a dashboard widget (`limit=1`); `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited.',
         querystring: RequestQuery,
         response: { 200: ref(RecordRequestPage), ...errors(400, 401, 403, 429) },
       },
@@ -690,6 +696,10 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (query.state) {
         params.push(query.state);
         filters.push(`r.state = $${params.length}`);
+      }
+      if (query.patientId) {
+        params.push(query.patientId);
+        filters.push(`r.patient_id = $${params.length}`);
       }
       if (query.overdue) {
         filters.push(
