@@ -447,6 +447,24 @@ describe('requests for copies of a record', () => {
     expect(all.items.some((item) => item.id === today.id)).toBe(false);
   });
 
+  it('filters the requests of one patient', async () => {
+    const mine = (await create({ purpose: 'For the first' })).json<Req>();
+    const second = await patient(hospital, 'DK-0000002');
+    const other = (await create({ patientId: second, purpose: 'For another' })).json<Req>();
+    const only = (await get(`/record-requests?patientId=${ids.patient}&limit=100`)).json<{
+      items: Req[];
+      total: number;
+    }>();
+    expect(only.items.some((item) => item.id === mine.id)).toBe(true);
+    expect(only.items.some((item) => item.id === other.id)).toBe(false);
+    expect(only.total).toBe(only.items.length);
+    const found = (await get(`/record-requests?patientId=${second}`)).json<{
+      items: Req[];
+    }>();
+    expect(found.items.map((item) => item.id)).toEqual([other.id]);
+    expect((await get('/record-requests?patientId=nope')).statusCode).toBe(400);
+  });
+
   it('closes a request once, at the version read, and never changes it after', async () => {
     const made = (await create({ purpose: 'Second opinion' })).json<Req>();
     const url = `/record-requests/${made.id}/close`;

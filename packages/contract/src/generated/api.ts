@@ -4210,7 +4210,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` narrows; `overdue=true` keeps the open requests past their due day (today at the hospital), and its `total` is the count for a dashboard widget (`limit=1`); `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited. */
+        /** @description The hospital’s requests for copies of a record, the soonest due first and those with no due day last (MR-04, #192). `state` and `patientId` narrow; `overdue=true` keeps the open requests past their due day (today at the hospital), and its `total` is the count for a dashboard widget (`limit=1`); `total` comes with the first page. Needs recordRequest:read with the scope `all` and the records feature flag. Reads are audited. */
         get: operations["listRecordRequests"];
         put?: never;
         /** @description Logs a request for a copy of a patient’s record, dated today at the hospital, with an optional due day (422 `due_in_past` before today). 404 for a patient the caller cannot reach, 409 `patient_merged` for a merged record. Names and purposes travel in the body only. Needs recordRequest:manage and the records feature flag. Audited. */
@@ -36921,6 +36921,8 @@ export interface operations {
                 /** @description Absent: 25. */
                 limit?: number;
                 state?: components["schemas"]["RecordRequestState"];
+                /** @description Only the requests for this patient; combines with the other filters. */
+                patientId?: string;
                 /** @description true: only open requests whose due day is before today at the hospital; `total` is then the overdue count. */
                 overdue?: boolean;
             };

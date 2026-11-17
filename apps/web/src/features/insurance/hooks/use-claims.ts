@@ -8,6 +8,8 @@ import {
   createClaim,
   fetchClaim,
   fetchClaimAging,
+  fetchClaimExport,
+  type ClaimExportFormat,
   fetchClaims,
 } from '../claims';
 import type { ClaimAction, ClaimCreate, ClaimStatus } from '../types';
@@ -79,6 +81,13 @@ export function useCreateClaim(encounterId: string) {
       attempt.current = undefined;
     },
     onSettled: refresh,
+  });
+}
+
+export function useExportClaim(claimId: string) {
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (format: ClaimExportFormat) => fetchClaimExport(claimId, format),
   });
 }
 
