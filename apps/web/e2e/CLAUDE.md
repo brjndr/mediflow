@@ -45,3 +45,7 @@ Moved out of the root `CLAUDE.md` (#370), which keeps the rule; Claude Code load
 ## Records flow (#193)
 
 `records-flow.spec.ts` chains the records screens in one session at all three widths: add a document to a patient, sign a consent (typed signature) and merge a duplicate, then read the reason in Merge history. Corrections and unmerge are not covered (#191 open).
+
+## Web server timeout (#993)
+
+`playwright.config.ts` builds the app and then serves it on port 4173 inside the `webServer` timeout: 180 s in CI, 600 s locally, because the build can take several minutes on the 2-core dev machine. To skip the build, run `pnpm --filter web exec cross-env VITE_API_MOCKING=enabled vite build` once, start `pnpm --filter web preview --port 4173 --strictPort` yourself, and run Playwright: locally it reuses the running server.
