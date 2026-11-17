@@ -11,13 +11,23 @@ import { useFormatters } from '@/tenancy';
 import { ClaimActionDialog } from '../components/ClaimDialogs';
 import { ClaimPatient } from '../components/ClaimPatient';
 import { ClaimStatusBadge } from '../components/ClaimStatusBadge';
-import { actionPermission } from '../claims';
-import { useClaim } from '../hooks/use-claims';
+import { actionPermission, type ClaimExportFormat } from '../claims';
+import { useClaim, useExportClaim } from '../hooks/use-claims';
 import type { ClaimActionKind } from '../types';
 
 const link =
   'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Hands the file to the browser to save; nothing is kept on the page. */
+function saveFile(file: { filename: string; contentType: string; content: string }) {
+  const url = URL.createObjectURL(new Blob([file.content], { type: file.contentType }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function ClaimDetail() {
@@ -31,6 +41,7 @@ export default function ClaimDetail() {
   const canWriteOff = usePermission('claim:writeoff');
   const [acting, setActing] = useState<ClaimActionKind | null>(null);
   const [done, setDone] = useState('');
+  const exporter = useExportClaim(claimId);
   const status = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (done) focusIfLost(status.current);
@@ -153,6 +164,46 @@ export default function ClaimDetail() {
               </Button>
             ))}
           </div>
+        )}
+      </section>
+
+      <section aria-labelledby="claim-export" className="flex flex-col gap-2">
+        <h2 id="claim-export" className="text-lg font-semibold">
+          {t('claims.detail.export')}
+        </h2>
+        <p className="text-sm text-muted-foreground">{t('claims.detail.exportHint')}</p>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ['generic_csv', 'exportCsv'],
+              ['generic_json', 'exportJson'],
+            ] as const
+          ).map(([kind, label]) => (
+            <Button
+              key={kind}
+              type="button"
+              variant="outline"
+              aria-disabled={exporter.isPending}
+              onClick={() => {
+                if (exporter.isPending) return;
+                setDone('');
+                void exporter
+                  .mutateAsync(kind satisfies ClaimExportFormat)
+                  .then((file) => {
+                    saveFile(file);
+                    setDone(t('claims.detail.exported', { filename: file.filename }));
+                  })
+                  .catch(() => undefined);
+              }}
+            >
+              {t(`claims.detail.${label}`)}
+            </Button>
+          ))}
+        </div>
+        {exporter.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {tCommon(errorMessageKey(exporter.error))}
+          </p>
         )}
       </section>
 

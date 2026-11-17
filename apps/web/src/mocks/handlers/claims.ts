@@ -282,6 +282,44 @@ export const claimHandlers = [
     return HttpResponse.json(detail(found));
   }),
 
+  http.get('*/api/claims/:claimId/export', ({ request, params }) => {
+    const access = authorize(request, { permission: 'claim:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const format = new URL(request.url).searchParams.get('format');
+    if (format !== 'generic_csv' && format !== 'generic_json') {
+      return error(400, 'validation_failed', 'Unknown format');
+    }
+    const found = state.claims.find(
+      (one) => one.tenantId === access.tenantId && one.id === params.claimId,
+    );
+    if (!found) return error(404, 'not_found', 'No such claim');
+    // Numbers and codes only, as the API sends them: no names.
+    const input = {
+      number: found.number,
+      status: found.status,
+      policyNumber: found.policyNumber,
+      claimedMinor: found.claimedMinor,
+      approvedMinor: found.approvedMinor ?? null,
+      documents: found.documents,
+    };
+    if (format === 'generic_json') {
+      return HttpResponse.json({
+        format,
+        filename: `${found.number}.json`,
+        contentType: 'application/json',
+        content: JSON.stringify(input, null, 2),
+      });
+    }
+    return HttpResponse.json({
+      format,
+      filename: `${found.number}.csv`,
+      contentType: 'text/csv',
+      content: `number,status,policyNumber,claimedMinor,approvedMinor
+${input.number},${input.status},${input.policyNumber},${input.claimedMinor},${input.approvedMinor ?? ''}
+`,
+    });
+  }),
+
   http.post('*/api/encounters/:encounterId/claims', async ({ request, params }) => {
     const access = authorize(request, { permission: 'claim:manage', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;

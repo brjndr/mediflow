@@ -142,6 +142,23 @@ describe('a claim', () => {
     expect(screen.queryByRole('button', { name: 'Record payment' })).toBeNull();
   });
 
+  it('exports the claim as a file in either format', async () => {
+    const urls: Blob[] = [];
+    URL.createObjectURL = (blob: Blob | MediaSource) => {
+      urls.push(blob as Blob);
+      return 'blob:claim';
+    };
+    URL.revokeObjectURL = () => undefined;
+    renderApp({ entry: '/claims/clm_h_2' });
+    await screen.findByRole('heading', { name: 'Claim CLM-000002', level: 1 });
+    await userEvent.click(screen.getByRole('button', { name: 'Export as CSV' }));
+    expect(await screen.findByText('Saved CLM-000002.csv.')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Export as JSON' }));
+    expect(await screen.findByText('Saved CLM-000002.json.')).toBeVisible();
+    expect(urls).toHaveLength(2);
+    expect(await urls[0]?.text()).toContain('CLM-000002');
+  });
+
   it('does not show a claim of another hospital', async () => {
     signIn(USER_IDS.doctor, CLINIC);
     grantPermission(CLINIC, 'doctor', 'claim:read');
