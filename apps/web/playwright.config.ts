@@ -72,6 +72,7 @@ export default defineConfig({
       'cross-env VITE_API_MOCKING=enabled pnpm build && pnpm preview --port 4173 --strictPort',
     url: 'http://localhost:4173',
     reuseExistingServer: !isCI,
-    timeout: 180_000,
+    // The build runs inside this window; a 2-core dev machine needs far longer than CI.
+    timeout: isCI ? 180_000 : 600_000,
   },
 });
