@@ -9,6 +9,7 @@ import { useFormatters } from '@/tenancy';
 import type { UnitFilters, UnitMove } from '../api';
 import { refusalKey } from '../components/refusal';
 import { DonorsPanel } from '../components/DonorsPanel';
+import { ReactionsPanel } from '../components/ReactionsPanel';
 import { CompatiblePanel } from '../components/CompatiblePanel';
 import { DiscardDialog, HistoryDialog, RegisterDialog, ReserveDialog } from '../components/Dialogs';
 import { ReactionDialog, TraceDialog } from '../components/ReactionDialogs';
@@ -408,14 +409,19 @@ function UnitsPanel() {
   );
 }
 
-type Tab = 'units' | 'donors';
+type Tab = 'units' | 'donors' | 'reactions';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function BloodBank() {
   const { t } = useTranslation('blood-bank');
   const canDonors = usePermission('bloodDonor:read');
+  const canReactions = usePermission('transfusionReaction:read');
   const [tab, setTab] = useState<Tab>('units');
-  const tabs: Tab[] = canDonors ? ['units', 'donors'] : ['units'];
+  const tabs: Tab[] = [
+    'units',
+    ...(canDonors ? (['donors'] as const) : []),
+    ...(canReactions ? (['reactions'] as const) : []),
+  ];
   const active = tabs.includes(tab) ? tab : 'units';
   const buttons = useRef(new Map<Tab, HTMLButtonElement>());
 
@@ -482,7 +488,13 @@ export default function BloodBank() {
         id={`blood-panel-${active}`}
         aria-labelledby={tabs.length > 1 ? `blood-tab-${active}` : undefined}
       >
-        {active === 'donors' ? <DonorsPanel /> : <UnitsPanel />}
+        {active === 'donors' ? (
+          <DonorsPanel />
+        ) : active === 'reactions' ? (
+          <ReactionsPanel />
+        ) : (
+          <UnitsPanel />
+        )}
       </div>
     </div>
   );

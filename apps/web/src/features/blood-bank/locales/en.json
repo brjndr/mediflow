@@ -268,7 +268,8 @@
   "tabs": {
     "label": "Blood bank sections",
     "units": "Units",
-    "donors": "Donors"
+    "donors": "Donors",
+    "reactions": "Reactions"
   },
   "units": {
     "heading": "Blood units"
@@ -392,5 +393,25 @@
     "saving": "Saving...",
     "saved": "Blood group {{group}} recorded.",
     "unchanged": "Blood group {{group}} is already on record. Nothing changed."
+  },
+  "reactionList": {
+    "heading": "Transfusion reactions",
+    "description": "Every reaction reported, newest first. Open the trace to see the unit's donor, moves and updates.",
+    "gridLabel": "Transfusion reactions",
+    "rowLabel": "{{kind}} reaction, {{severity}}",
+    "empty": "No reaction has been reported.",
+    "count_one": "{{count}} reaction",
+    "count_other": "{{count}} reactions",
+    "filterSeverity": "Severity first reported",
+    "columns": {
+      "reaction": "Reaction",
+      "severity": "Now",
+      "patient": "Patient",
+      "onset": "Began",
+      "updates": "Updates"
+    },
+    "updates_one": "{{count}} update",
+    "updates_other": "{{count}} updates",
+    "trace": "Open trace"
   }
 }

@@ -10,6 +10,7 @@ import {
   compatibleUnitsSchema,
   crossmatchSchema,
   patientBloodGroupSchema,
+  reactionPageSchema,
   reactionSchema,
   screeningSchema,
   stockSchema,
@@ -46,6 +47,7 @@ import type {
   ReactionSeverity,
   TransfusionReaction,
   TransfusionReactionCreate,
+  TransfusionReactionPage,
 } from './types';
 
 export interface UnitFilters {
@@ -165,6 +167,22 @@ export async function recordReaction(
     body,
   });
   return reactionSchema.parse(requireData(result));
+}
+
+export interface ReactionFilters {
+  severity?: ReactionSeverity;
+}
+
+/** Newest first, as the server orders them. */
+export async function fetchReactions(
+  { filters, cursor, limit }: { filters: ReactionFilters; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<TransfusionReactionPage> {
+  const result = await api.GET('/transfusion-reactions', {
+    params: { query: { ...filters, cursor, limit } },
+    signal,
+  });
+  return reactionPageSchema.parse(requireData(result));
 }
 
 export async function addReactionUpdate(

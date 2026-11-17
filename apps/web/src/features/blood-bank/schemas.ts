@@ -17,6 +17,7 @@ import type {
   ReactionSeverity,
   ScreeningResult,
   TransfusionReaction,
+  TransfusionReactionPage,
 } from './types';
 
 export const BLOOD_GROUPS = [
@@ -265,6 +266,12 @@ export const reactionSchema: z.ZodType<TransfusionReaction> = z.object({
     }),
   ),
   heldUnitIds: z.array(z.string()).optional(),
+});
+
+export const reactionPageSchema: z.ZodType<TransfusionReactionPage> = z.object({
+  items: z.array(reactionSchema),
+  nextCursor: z.string().nullable(),
+  total: z.number().int().optional(),
 });
 
 export const traceSchema: z.ZodType<BloodUnitTrace> = z.object({
