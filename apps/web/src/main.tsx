@@ -62,3 +62,5 @@ void enableMocking().then(() => {
     });
   });
 });
+
+// lighthouse probe
