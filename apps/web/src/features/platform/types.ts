@@ -26,3 +26,8 @@ export type HospitalInvitePage = components['schemas']['PlatformInvitePage'];
 /** One thing a platform admin did: ids and codes only, never a value. */
 export type AuditEntry = components['schemas']['PlatformAuditEntry'];
 export type AuditPage = components['schemas']['PlatformAuditPage'];
+
+/** A request to delete an offboarded hospital's data, and where it stands. */
+export type HospitalDeletion = components['schemas']['PlatformDeletion'];
+/** One offboarding export of a hospital: what the deletion checks. */
+export type HospitalExport = components['schemas']['PlatformExport'];

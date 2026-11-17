@@ -1,7 +1,12 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import {
+  approveHospitalDeletion,
+  cancelHospitalDeletion,
   createHospital,
+  fetchHospitalDeletion,
+  fetchHospitalExports,
+  requestHospitalDeletion,
   fetchAudit,
   fetchAdminInvites,
   fetchHospital,
@@ -15,7 +20,13 @@ import {
   setHospitalFeatures,
   updateHospital,
 } from '../api';
-import type { Hospital, HospitalCreate, HospitalLimitsUpdate, HospitalStatus } from '../types';
+import type {
+  Hospital,
+  HospitalCreate,
+  HospitalDeletion,
+  HospitalLimitsUpdate,
+  HospitalStatus,
+} from '../types';
 
 /**
  * Keys of the platform's own data. They carry no hospital id because a platform admin has none:
@@ -186,3 +197,45 @@ export function useAudit({ hospitalId, actorId }: { hospitalId?: string; actorId
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 }
+
+export const deletionKeys = {
+  exports: (id: string) => [...platformKeys.hospital(id), 'exports'] as const,
+  deletion: (id: string) => [...platformKeys.hospital(id), 'deletion'] as const,
+};
+
+export function useHospitalExports(id: string) {
+  return useQuery({
+    queryKey: deletionKeys.exports(id),
+    queryFn: ({ signal }) => fetchHospitalExports(id, signal),
+  });
+}
+
+export function useHospitalDeletion(id: string) {
+  return useQuery({
+    queryKey: deletionKeys.deletion(id),
+    queryFn: ({ signal }) => fetchHospitalDeletion(id, signal),
+    // A running deletion finishes by itself: follow it until it is over.
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'approved' || status === 'running' ? 5000 : false;
+    },
+  });
+}
+
+/** Request, approve and cancel share one shape: the answer replaces the cached request. */
+function useDeletionStep<V>(id: string, step: (value: V) => Promise<HospitalDeletion>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: step,
+    onSuccess: (deletion) => queryClient.setQueryData(deletionKeys.deletion(id), deletion),
+    // A refusal usually means the state moved: read it again.
+    onError: () => queryClient.invalidateQueries({ queryKey: deletionKeys.deletion(id) }),
+  });
+}
+
+export const useRequestDeletion = (id: string) =>
+  useDeletionStep(id, (waiver: string) => requestHospitalDeletion(id, waiver));
+export const useApproveDeletion = (id: string) =>
+  useDeletionStep(id, () => approveHospitalDeletion(id));
+export const useCancelDeletion = (id: string) =>
+  useDeletionStep(id, () => cancelHospitalDeletion(id));
