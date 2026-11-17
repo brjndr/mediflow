@@ -18,6 +18,8 @@ import { patientFamily } from '../../core/patient-merge/family.js';
 import { patientInScope } from '../patients/index.js';
 import { isTemplateVersion, placeholdersIn } from '../templates/index.js';
 import { CERTIFICATE_KINDS, STANDARD_FIELDS, type FieldDef } from './certificate-fields.js';
+import { certificatePdf, consentPdf, contextOf, keepRendered } from './rendered.js';
+import { PatientDocument } from './schemas.js';
 
 /**
  * Signed consents and issued certificates (MR-02, #566), the API behind the patient's Consents
@@ -250,6 +252,7 @@ type ListQuery = Static<typeof ListQuery>;
 const PatientParams = Type.Object({ patientId: Id });
 const ConsentParams = Type.Object({ consentId: Id });
 const KindParams = Type.Object({ kind: Kind });
+const CertificateParams = Type.Object({ certificateId: Id });
 
 interface ConsentRow {
   id: string;
@@ -436,6 +439,7 @@ function checkFormat(fields: CertificateFormatUpdate['fields']): FieldDef[] {
 
 export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
   for (const schema of CONSENT_SCHEMAS) app.addSchema(schema);
+  app.addSchema(PatientDocument);
 
   const userIdOf = (request: FastifyRequest): string => {
     const userId = request.session?.userId;
@@ -950,6 +954,136 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const { kind } = request.params as { kind: (typeof CERTIFICATE_KINDS)[number] };
       await request.txClient.query('delete from certificate_formats where kind = $1', [kind]);
       return { kind, fields: STANDARD_FIELDS[kind].map((field) => ({ ...field })), custom: false };
+    },
+  );
+  // Rendered as documents (#990) --------------------------------------------------------------
+
+  app.post(
+    '/consents/:consentId/document',
+    {
+      config: {
+        permissions: [CONSENT_READ, 'document:upload'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'storeConsentDocument',
+        tags: ['consents'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Renders the signed consent as a PDF on the server (text, signer, witnesses and withdrawal as they stand now) and keeps it as a clean document of the patient in the category consent, on the consent’s encounter when it names one (#990). Once for each consent: asking again returns the document already made, which is a snapshot and does not follow a later witness or withdrawal. 409 patient_merged for a merged record. Requires consent:read and document:upload.',
+        params: ConsentParams,
+        response: { 200: ref(PatientDocument), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      const loaded = await loadConsent(request, request.params.consentId);
+      if (!loaded) throw new HttpError(404, 'not_found', 'No such consent');
+      const { row, detail } = loaded;
+      try {
+        await reachable(request, row.patient_id, CONSENT_READ);
+      } catch {
+        throw new HttpError(404, 'not_found', 'No such consent');
+      }
+      request.audit('read', 'patient_consent', row.id);
+      const context = await contextOf(request, row.patient_id);
+      return keepRendered(request, app.files, {
+        userId: userIdOf(request),
+        patientId: row.patient_id,
+        encounterId: row.encounter_id,
+        category: 'consent',
+        source: 'source_consent_id',
+        sourceId: row.id,
+        title: `Consent: ${row.procedure_name}`.slice(0, 200),
+        fileName: `consent-${row.id}.pdf`,
+        render: () =>
+          consentPdf(
+            {
+              procedureName: row.procedure_name,
+              signerName: row.signer_name,
+              signerRole: row.signer_role,
+              signatureMethod: row.signature_method,
+              signedAt: row.signed_at,
+              signedByName: row.signed_by_name ?? '',
+              body: row.body,
+              ...(row.signature ? { signature: row.signature } : {}),
+              templateVersion: row.template_version,
+              witnesses: detail.witnesses.map((w) => ({
+                witnessName: w.witnessName,
+                ...(w.relation ? { relation: w.relation } : {}),
+                signatureMethod: w.signatureMethod,
+                ...(w.signature ? { signature: w.signature } : {}),
+                recordedAt: new Date(w.recordedAt),
+              })),
+              ...(detail.withdrawal
+                ? {
+                    withdrawal: {
+                      reason: detail.withdrawal.reason,
+                      withdrawnAt: new Date(detail.withdrawal.withdrawnAt),
+                      withdrawnByName: detail.withdrawal.withdrawnByName,
+                    },
+                  }
+                : {}),
+            },
+            context,
+          ),
+      });
+    },
+  );
+
+  app.post(
+    '/certificates/:certificateId/document',
+    {
+      config: {
+        permissions: [CERT_READ, 'document:upload'],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'storeCertificateDocument',
+        tags: ['consents'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Renders the issued certificate as a PDF on the server, with the layout it was issued under, and keeps it as a clean document of the patient in the category certificate (#990). Once for each certificate: asking again returns the document already made. 409 patient_merged for a merged record. Requires certificate:read and document:upload.',
+        params: CertificateParams,
+        response: { 200: ref(PatientDocument), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      const { rows } = await request.txClient.query<CertificateRow>(
+        `${CERTIFICATE_SELECT} where c.id = $1`,
+        [request.params.certificateId],
+      );
+      const row = rows[0];
+      if (!row) throw new HttpError(404, 'not_found', 'No such certificate');
+      try {
+        await reachable(request, row.patient_id, CERT_READ);
+      } catch {
+        throw new HttpError(404, 'not_found', 'No such certificate');
+      }
+      request.audit('read', 'patient_certificate', row.id);
+      const context = await contextOf(request, row.patient_id);
+      return keepRendered(request, app.files, {
+        userId: userIdOf(request),
+        patientId: row.patient_id,
+        category: 'certificate',
+        source: 'source_certificate_id',
+        sourceId: row.id,
+        title: `Certificate ${row.number}`,
+        fileName: `certificate-${row.number}.pdf`,
+        render: () =>
+          certificatePdf(
+            {
+              kind: row.kind,
+              number: row.number,
+              issuedOn: row.issued_on,
+              issuedByName: row.issued_by_name ?? '',
+              fields: row.fields,
+              layout: row.layout,
+            },
+            context,
+          ),
+      });
     },
   );
 };
