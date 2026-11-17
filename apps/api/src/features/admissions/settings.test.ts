@@ -196,7 +196,13 @@ describe('requiring a signed discharge summary', () => {
     const still = await get(`/admissions/${stay.id}`);
     expect(still.json<{ admission: { status: string } }>().admission.status).toBe('admitted');
 
+    // The plan tells anyone who reads it, without the setting's permission.
+    const before = await get(`/admissions/${stay.id}/discharge-plan`, { user: nurse });
+    expect(before.json()).toMatchObject({ summaryRequired: true, summarySigned: false });
+
     await send('POST', `/admissions/${stay.id}/discharge-summary/sign`, { version: 1 });
+    const after = await get(`/admissions/${stay.id}/discharge-plan`, { user: nurse });
+    expect(after.json()).toMatchObject({ summaryRequired: true, summarySigned: true });
     expect((await discharge(stay)).statusCode).toBe(200);
   });
 

@@ -4,6 +4,7 @@ import { PLAIN_LINES } from '@/shared/utils/text';
 import { currentSession, onMockReset } from '../db';
 import { authorize, error } from '../respond';
 import { mockAdmissionOf } from './admissions-flow';
+import { mockSummaryRequired, mockSummarySigned } from './discharge-summary';
 
 type DischargePlan = components['schemas']['DischargePlan'];
 type Kind = components['schemas']['DischargeClearanceKind'];
@@ -40,13 +41,16 @@ const slot = (tenantId: string, admissionId: string) => `${tenantId}:${admission
 
 function planOf(tenantId: string, admissionId: string): DischargePlan {
   const found = plans.get(slot(tenantId, admissionId));
-  return (
-    found ?? {
+  // The summary flags are read live from the summary mock, never kept with the stored plan.
+  return {
+    ...(found ?? {
       admissionId,
-      clearances: KINDS.map((kind) => ({ kind, status: 'pending' })),
+      clearances: KINDS.map((kind) => ({ kind, status: 'pending' as const })),
       version: 1,
-    }
-  );
+    }),
+    summaryRequired: mockSummaryRequired(tenantId),
+    summarySigned: mockSummarySigned(tenantId, admissionId),
+  };
 }
 
 /** For the discharge in the admissions mock: the required clearances still open, or none. */

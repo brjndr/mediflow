@@ -33,6 +33,14 @@ export function mockSummaryUnsigned(tenantId: string, admissionId: string): bool
   return required.has(tenantId) && summaries.get(slot(tenantId, admissionId))?.status !== 'signed';
 }
 
+/** For the discharge plan mock: the hospital's rule, and whether the stay's summary is signed. */
+export function mockSummaryRequired(tenantId: string): boolean {
+  return required.has(tenantId);
+}
+export function mockSummarySigned(tenantId: string, admissionId: string): boolean {
+  return summaries.get(slot(tenantId, admissionId))?.status === 'signed';
+}
+
 /** For tests: the hospital requires a signed summary before discharge. */
 export function setMockSummaryRequired(tenantId: string, on: boolean): void {
   if (on) required.add(tenantId);
