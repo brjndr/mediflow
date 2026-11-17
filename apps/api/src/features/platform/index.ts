@@ -6,6 +6,7 @@ import {
   sweepDeletions,
   type DeleteJob,
 } from './deletion.js';
+import { DELETION_REMINDER_JOB, sendDeletionReminders } from './deletion-reminders.js';
 import { deletionRoutes } from './deletion-routes.js';
 import { exportRoutes } from './export-routes.js';
 import { EXPORT_JOB, runExport, type ExportJob } from './export.js';
@@ -35,6 +36,10 @@ export const platformFeature: FastifyPluginAsync = async (app) => {
     await sweepDeletions(app.database.pool, app.files, app.jobs, app.log);
   });
   app.jobs.schedule(DELETE_SWEEP_JOB, '*/15 * * * *');
+  app.jobs.work(DELETION_REMINDER_JOB, async () => {
+    await sendDeletionReminders(app.database.pool, app.notifier, app.log);
+  });
+  app.jobs.schedule(DELETION_REMINDER_JOB, '0 5 * * *');
   await app.register(platformRoutes);
   await app.register(exportRoutes);
   await app.register(deletionRoutes);
