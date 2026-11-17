@@ -41,10 +41,18 @@ export function DischargePanel({
   // has none yet) nothing here waits for it and the server decides alone.
   const found = useDischargePlan(admission.id);
   const open = found.plan ? openClearances(found.plan, type) : [];
+  // The hospital's rule, shown before submit (the server still has the last word, and an absconded
+  // patient is exempt).
+  const summaryWaits =
+    found.plan !== undefined &&
+    found.plan.summaryRequired &&
+    !found.plan.summarySigned &&
+    type !== 'absconded';
   const stopped =
     bill.pending ||
     found.pending ||
     open.length > 0 ||
+    summaryWaits ||
     (blocked && !mayOverride) ||
     (needsConfirm && !confirmed);
   return (
@@ -86,6 +94,11 @@ export function DischargePanel({
             </p>
           )}
         </>
+      )}
+      {summaryWaits && (
+        <p role="status" className="text-sm font-medium" data-testid="summary-gate">
+          {t('plan.summaryGate')}
+        </p>
       )}
       {maySeeSummary && (
         <Link

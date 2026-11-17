@@ -3675,7 +3675,7 @@
         "additionalProperties": false,
         "description": "The advice for the patient and the clearance of nursing, pharmacy and the laboratory; all three are always listed, pending until cleared.",
         "type": "object",
-        "required": ["admissionId", "clearances", "version"],
+        "required": ["admissionId", "clearances", "summaryRequired", "summarySigned", "version"],
         "properties": {
           "admissionId": {
             "type": "string"
@@ -3689,6 +3689,14 @@
             "items": {
               "$ref": "#/components/schemas/DischargeClearance"
             }
+          },
+          "summaryRequired": {
+            "description": "The hospital requires a signed discharge summary before a discharge other than absconded (setting requireDischargeSummary), so a doctor who cannot read the setting can still see it.",
+            "type": "boolean"
+          },
+          "summarySigned": {
+            "description": "The stay’s discharge summary is signed.",
+            "type": "boolean"
           },
           "version": {
             "minimum": 1,

@@ -278,6 +278,8 @@ export const dischargePlanSchema: z.ZodType<DischargePlan> = z.object({
       clearedByName: z.string().optional(),
     }),
   ),
+  summaryRequired: z.boolean(),
+  summarySigned: z.boolean(),
   version: z.number(),
 });
 
