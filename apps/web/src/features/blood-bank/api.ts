@@ -25,6 +25,7 @@ import type {
   BloodDonorDefer,
   BloodDonorPage,
   BloodDonorTrace,
+  BloodDonorUpdate,
   DonorStatus,
   PatientBloodGroupSet,
   BloodComponent,
@@ -227,6 +228,14 @@ export async function fetchDonorTrace(
 export async function registerDonor(body: BloodDonorCreate, key: string): Promise<BloodDonor> {
   const result = await api.POST('/blood/donors', {
     params: { header: { 'idempotency-key': key } },
+    body,
+  });
+  return donorSchema.parse(requireData(result));
+}
+
+export async function updateDonor(donorId: string, body: BloodDonorUpdate): Promise<BloodDonor> {
+  const result = await api.PATCH('/blood/donors/{donorId}', {
+    params: { path: { donorId } },
     body,
   });
   return donorSchema.parse(requireData(result));

@@ -28,6 +28,7 @@ export type BloodDonorSummary = components['schemas']['BloodDonorSummary'];
 export type BloodDonorPage = components['schemas']['BloodDonorPage'];
 export type BloodDonor = components['schemas']['BloodDonor'];
 export type BloodDonorCreate = components['schemas']['BloodDonorCreate'];
+export type BloodDonorUpdate = components['schemas']['BloodDonorUpdate'];
 export type BloodDonorDefer = components['schemas']['BloodDonorDefer'];
 export type BloodCollection = components['schemas']['BloodCollection'];
 export type BloodCollectionCreate = components['schemas']['BloodCollectionCreate'];

@@ -268,6 +268,39 @@ export const bloodDonorHandlers = [
     return HttpResponse.json<Donor>(full(row));
   }),
 
+  http.patch('*/api/blood/donors/:donorId', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'bloodDonor:manage',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const row = rows.find((r) => r.id === params.donorId && r.tenantId === access.tenantId);
+    if (!row) return error(404, 'blood_donor_not_found', 'No such donor');
+    const body = (await request.json().catch(() => null)) as {
+      expectedVersion?: number;
+      fullName?: string;
+      dateOfBirth?: string;
+      sex?: Sex;
+      phone?: string | null;
+    } | null;
+    if (!body || typeof body.expectedVersion !== 'number') {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (body.expectedVersion !== row.version) {
+      return error(409, 'conflict', 'The donor has changed since it was read');
+    }
+    if (body.dateOfBirth !== undefined && !ageOk(body.dateOfBirth, new Date())) {
+      return error(422, 'donor_age', 'A donor is 18 to 65 years old');
+    }
+    if (body.fullName !== undefined) row.fullName = body.fullName.trim();
+    if (body.dateOfBirth !== undefined) row.dateOfBirth = body.dateOfBirth;
+    if (body.sex !== undefined) row.sex = body.sex;
+    if (body.phone === null) delete row.phone;
+    else if (body.phone !== undefined) row.phone = body.phone;
+    row.version += 1;
+    return HttpResponse.json<Donor>(full(row));
+  }),
+
   http.post('*/api/blood/donors/:donorId/defer', async ({ request, params }) => {
     const access = authorize(request, {
       permission: 'bloodDonor:manage',

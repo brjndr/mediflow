@@ -321,6 +321,43 @@ describe('blood donors', () => {
     expect(errorOf(await get('/blood/donors/not-a-uuid'))).toEqual([404, 'blood_donor_not_found']);
   });
 
+  it('edits a donor with a version check, keeps the group and number, and audits it', async () => {
+    await wipe();
+    const donor = await ok<Donor & { version: number }>(await addDonor(), 201);
+    const patch = (body: object, options: Options = {}) =>
+      app.inject({
+        method: 'PATCH',
+        url: `/blood/donors/${donor.id}`,
+        headers: headers({ ...options, key: fresh() }),
+        payload: body,
+      });
+    const edited = await ok<Donor & { version: number; phone?: string }>(
+      await patch({ expectedVersion: donor.version, fullName: 'Ravi K Sharma', phone: null }),
+    );
+    expect(edited).toMatchObject({ fullName: 'Ravi K Sharma', donorNumber: donor.donorNumber });
+    expect(edited.phone).toBeUndefined();
+    expect(edited.version).toBeGreaterThan(donor.version);
+    expect(await audited('blood_donor', donor.id)).toEqual(['create', 'update']);
+    expect(errorOf(await patch({ expectedVersion: donor.version, sex: 'other' }))).toEqual([
+      409,
+      'conflict',
+    ]);
+    expect(
+      errorOf(await patch({ expectedVersion: edited.version, dateOfBirth: birthYearsAgo(17) })),
+    ).toEqual([422, 'donor_age']);
+    const stripped = await patch({ expectedVersion: edited.version, bloodGroup: 'B-' });
+    if (stripped.statusCode === 200) {
+      expect(stripped.json<{ bloodGroup: string }>().bloodGroup).not.toBe('B-');
+    }
+    const asNurse = await patch({ expectedVersion: edited.version, sex: 'other' }, { user: nurse });
+    expect(asNurse.statusCode).toBe(403);
+    const elsewhere = await patch(
+      { expectedVersion: edited.version, sex: 'other' },
+      { tenant: clinic, user: clinicAdmin },
+    );
+    expect(elsewhere.statusCode).toBe(404);
+  });
+
   it('keeps the donation interval and refuses a deferred donor', async () => {
     await wipe();
     const donor = await ok<Donor>(await addDonor(), 201);

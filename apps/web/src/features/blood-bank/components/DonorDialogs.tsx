@@ -1,8 +1,8 @@
 import { TriangleAlert } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Can, usePermission } from '@/access';
-import { errorMessageKey } from '@/shared/api';
+import { errorMessageKey, isApiError } from '@/shared/api';
 import { todayIn, utcToZoned, zonedToUtc } from '@/shared/utils/timezone';
 import { Button } from '@/shared/ui/button';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
@@ -34,6 +34,7 @@ import {
   useDonorTrace,
   useRecordCollection,
   useRegisterDonor,
+  useUpdateDonor,
 } from '../hooks/use-blood';
 import { BLOOD_COMPONENTS, BLOOD_GROUPS, REASON_MAX, UNIT_NUMBER_MAX } from '../schemas';
 import type { BloodCollection, BloodDonor, BloodDonorSummary } from '../types';
@@ -135,6 +136,194 @@ export function RegisterDonorDialog({
           autoComplete="off"
         />
         {failure && (
+          <p role="alert" className="text-sm text-destructive">
+            {failure}
+          </p>
+        )}
+      </Form>
+    </Dialog>
+  );
+}
+
+const EDIT_FIELDS = ['fullName', 'dateOfBirth', 'sex', 'phone'] as const;
+type EditField = (typeof EDIT_FIELDS)[number];
+type EditValues = Pick<DonorFormValues, EditField>;
+const editValues = (donor: BloodDonor): EditValues => ({
+  fullName: donor.fullName,
+  dateOfBirth: donor.dateOfBirth,
+  sex: donor.sex,
+  phone: donor.phone ?? '',
+});
+
+/** Reads the donor (an audited read), then offers the form: only what is typed over is sent. */
+export function EditDonorDialog({
+  donor,
+  onClose,
+  onDone,
+}: {
+  donor: BloodDonorSummary;
+  onClose: () => void;
+  onDone: (donor: BloodDonor) => void;
+}) {
+  const { t } = useTranslation('blood-bank');
+  const { t: tCommon } = useTranslation();
+  const record = useDonor(donor.id);
+  if (record.data) {
+    return (
+      <EditDonorForm
+        key={donor.id}
+        record={record.data}
+        reread={() => record.refetch().then((result) => result.data)}
+        onClose={onClose}
+        onDone={onDone}
+      />
+    );
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => !next && onClose()}
+      title={t('donor.edit.title', { number: donor.donorNumber })}
+      description={t('donor.edit.description')}
+      closeLabel={t('close')}
+    >
+      {record.isError ? (
+        <div className="flex flex-col gap-2">
+          <p role="alert" className="text-sm text-destructive">
+            {tCommon(errorMessageKey(record.error))}
+          </p>
+          <Button variant="outline" onClick={() => void record.refetch()}>
+            {t('retry')}
+          </Button>
+        </div>
+      ) : (
+        <p role="status">{t('donor.detail.loading')}</p>
+      )}
+    </Dialog>
+  );
+}
+
+function EditDonorForm({
+  record,
+  reread,
+  onClose,
+  onDone,
+}: {
+  record: BloodDonor;
+  reread: () => Promise<BloodDonor | undefined>;
+  onClose: () => void;
+  onDone: (donor: BloodDonor) => void;
+}) {
+  const { t } = useTranslation('blood-bank');
+  const update = useUpdateDonor();
+  const today = useToday();
+  const schema = useMemo(() => donorFormSchema(today).omit({ bloodGroup: true }), [today]);
+  // The record as the form opened on. After a conflict it moves to what was saved meanwhile,
+  // while the form keeps what was typed.
+  const [base, setBase] = useState(record);
+  const [theirs, setTheirs] = useState<EditField[]>([]);
+  const [conflict, setConflict] = useState(false);
+  const form = useZodForm(schema, editValues(record));
+  const failure = useDonorFailure(update.error);
+
+  const submit = async (values: EditValues) => {
+    const dirty = form.formState.dirtyFields;
+    const body: Record<string, string | null> = {};
+    for (const field of EDIT_FIELDS) {
+      if (dirty[field] === true) {
+        body[field] = field === 'phone' && values.phone === '' ? null : values[field];
+      }
+    }
+    if (Object.keys(body).length === 0) return onClose();
+    try {
+      onDone(
+        await update.mutateAsync({
+          donorId: base.id,
+          body: { ...body, expectedVersion: base.version },
+        }),
+      );
+    } catch (error) {
+      if (!isApiError(error) || error.serverCode !== 'conflict') return;
+      const latest = await reread();
+      if (!latest) return;
+      const before = editValues(base);
+      const after = editValues(latest);
+      setTheirs(
+        EDIT_FIELDS.filter((field) => dirty[field] === true && before[field] !== after[field]),
+      );
+      setBase(latest);
+      setConflict(true);
+      form.reset(after, { keepDirtyValues: true });
+    }
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => !next && onClose()}
+      title={t('donor.edit.title', { number: base.donorNumber })}
+      description={t('donor.edit.description')}
+      closeLabel={t('close')}
+      busy={update.isPending}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button type="submit" form="blood-donor-edit-form" aria-disabled={update.isPending}>
+            {update.isPending ? t('donor.edit.saving') : t('donor.edit.submit')}
+          </Button>
+        </>
+      }
+    >
+      <Form form={form} id="blood-donor-edit-form" onSubmit={submit}>
+        <TextField<EditValues>
+          name="fullName"
+          label={t('donor.fullName')}
+          required
+          maxLength={NAME_MAX}
+          autoComplete="off"
+          data-autofocus
+        />
+        <TextField<EditValues>
+          name="dateOfBirth"
+          type="date"
+          label={t('donor.dateOfBirth')}
+          hint={t('donor.dateOfBirthHint')}
+          required
+        />
+        <SelectField<EditValues>
+          name="sex"
+          label={t('donor.sex')}
+          required
+          options={DONOR_SEXES.map((value) => ({ value, label: t(`donor.sexes.${value}`) }))}
+        />
+        <TextField<EditValues>
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          label={t('donor.phone')}
+          maxLength={PHONE_MAX}
+          autoComplete="off"
+        />
+        <div role="status" className="flex flex-col gap-1 text-sm">
+          {conflict && <p>{t('donor.edit.savedMeanwhile')}</p>}
+          {theirs.map((field) => (
+            <p key={field}>
+              {t(
+                field === 'fullName'
+                  ? 'donor.fullName'
+                  : field === 'dateOfBirth'
+                    ? 'donor.dateOfBirth'
+                    : field === 'sex'
+                      ? 'donor.sex'
+                      : 'donor.phone',
+              )}
+              : {t('donor.edit.theirs', { value: editValues(base)[field] || t('donor.none') })}
+            </p>
+          ))}
+        </div>
+        {failure && !conflict && (
           <p role="alert" className="text-sm text-destructive">
             {failure}
           </p>

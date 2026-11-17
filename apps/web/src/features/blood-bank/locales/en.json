@@ -309,7 +309,17 @@
     "actions": {
       "collect": "Record collection",
       "defer": "Defer",
-      "detail": "Open record"
+      "detail": "Open record",
+      "edit": "Edit"
+    },
+    "edit": {
+      "title": "Edit donor {{number}}",
+      "description": "Correct the name, date of birth, sex or phone. The blood group and the number never change.",
+      "submit": "Save changes",
+      "saving": "Saving...",
+      "nothing": "Nothing has been changed.",
+      "savedMeanwhile": "Someone else saved this donor first. Your changes are kept; the fields you did not change show what was saved.",
+      "theirs": "Saved by someone else: {{value}}"
     },
     "register": {
       "open": "Register donor",
@@ -320,6 +330,7 @@
     },
     "done": {
       "registered": "Donor {{number}} registered.",
+      "edited": "Donor {{number}} saved.",
       "collected_one": "Collection from donor {{number}} recorded. Unit {{units}} is waiting for testing.",
       "collected_other": "Collection from donor {{number}} recorded. {{count}} units ({{units}}) are waiting for testing.",
       "deferred": "Donor {{number}} deferred."
