@@ -4082,6 +4082,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/consents/{consentId}/witnesses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Adds a witness signature to a signed consent (MR-09, #989) as a new entry with its author and time; the signed consent is not changed. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). 409 `consent_withdrawn` once the consent was withdrawn, 409 `patient_merged` for a merged record. Emits consent.witnessed. Requires consent:sign. */
+        post: operations["witnessConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/consents/{consentId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Withdraws a signed consent with a reason (MR-09, #989), once: a new entry with its author and time, the signed text stays as it was. 409 `already_withdrawn` the second time, 409 `patient_merged` for a merged record. Emits consent.withdrawn. Requires consent:sign. */
+        post: operations["withdrawConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients/{patientId}/certificates": {
         parameters: {
             query?: never;
@@ -11033,9 +11067,18 @@ export interface components {
             signedAt: string;
             /** @description The member of staff who recorded the signature. */
             signedByName: string;
+            /**
+             * Format: date-time
+             * @description When the consent was withdrawn; absent while it stands.
+             */
+            withdrawnAt?: string;
+            /** @description How many witness signatures it has. */
+            witnessCount: number;
         };
         ConsentDetail: {
             consent: components["schemas"]["Consent"];
+            witnesses: components["schemas"]["ConsentWitness"][];
+            withdrawal?: components["schemas"]["ConsentWithdrawal"];
             /** @description The text as it was signed, placeholders filled in. The rich text document of the app, never HTML, reduced to its allowlist on the way in. */
             body: {
                 [key: string]: unknown;
@@ -11062,6 +11105,34 @@ export interface components {
             signerRole: components["schemas"]["ConsentSigner"];
             signatureMethod: components["schemas"]["ConsentSignature"];
             signature?: string;
+        };
+        /** @description A witness signature added to a signed consent. */
+        ConsentWitness: {
+            id: string;
+            witnessName: string;
+            relation?: string;
+            signatureMethod: components["schemas"]["ConsentSignature"];
+            /** @description SVG path data of a drawn signature. */
+            signature?: string;
+            /** Format: date-time */
+            recordedAt: string;
+            recordedByName: string;
+        };
+        /** @description Why, when and by whom a consent was withdrawn. */
+        ConsentWithdrawal: {
+            reason: string;
+            /** Format: date-time */
+            withdrawnAt: string;
+            withdrawnByName: string;
+        };
+        ConsentWitnessCreate: {
+            witnessName: string;
+            relation?: string;
+            signatureMethod: components["schemas"]["ConsentSignature"];
+            signature?: string;
+        };
+        ConsentWithdraw: {
+            reason: string;
         };
         /** @description One field of a certificate format. The name is the key the value is stored under; a label of a standard field is left out and the screen uses its own. */
         CertificateFieldDef: {
@@ -36280,6 +36351,181 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    witnessConsent: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                consentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentWitnessCreate"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    withdrawConsent: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                consentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentWithdraw"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentDetail"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

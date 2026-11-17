@@ -9916,7 +9916,8 @@
           "signerRole",
           "signatureMethod",
           "signedAt",
-          "signedByName"
+          "signedByName",
+          "witnessCount"
         ],
         "properties": {
           "id": {
@@ -9950,15 +9951,33 @@
           "signedByName": {
             "description": "The member of staff who recorded the signature.",
             "type": "string"
+          },
+          "withdrawnAt": {
+            "format": "date-time",
+            "description": "When the consent was withdrawn; absent while it stands.",
+            "type": "string"
+          },
+          "witnessCount": {
+            "description": "How many witness signatures it has.",
+            "type": "integer"
           }
         }
       },
       "ConsentDetail": {
         "type": "object",
-        "required": ["consent", "body"],
+        "required": ["consent", "witnesses", "body"],
         "properties": {
           "consent": {
             "$ref": "#/components/schemas/Consent"
+          },
+          "witnesses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentWitness"
+            }
+          },
+          "withdrawal": {
+            "$ref": "#/components/schemas/ConsentWithdrawal"
           },
           "body": {
             "type": "object",
@@ -10046,6 +10065,94 @@
             "minLength": 1,
             "maxLength": 20000,
             "pattern": "^[ML0-9 .,-]+$",
+            "type": "string"
+          }
+        }
+      },
+      "ConsentWitness": {
+        "description": "A witness signature added to a signed consent.",
+        "type": "object",
+        "required": ["id", "witnessName", "signatureMethod", "recordedAt", "recordedByName"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "witnessName": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string"
+          },
+          "signatureMethod": {
+            "$ref": "#/components/schemas/ConsentSignature"
+          },
+          "signature": {
+            "description": "SVG path data of a drawn signature.",
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "recordedByName": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsentWithdrawal": {
+        "description": "Why, when and by whom a consent was withdrawn.",
+        "type": "object",
+        "required": ["reason", "withdrawnAt", "withdrawnByName"],
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "withdrawnAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "withdrawnByName": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsentWitnessCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["witnessName", "signatureMethod"],
+        "properties": {
+          "witnessName": {
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "relation": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "signatureMethod": {
+            "$ref": "#/components/schemas/ConsentSignature"
+          },
+          "signature": {
+            "minLength": 1,
+            "maxLength": 20000,
+            "pattern": "^[ML0-9 .,-]+$",
+            "type": "string"
+          }
+        }
+      },
+      "ConsentWithdraw": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u0009\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
           }
         }
@@ -49768,6 +49875,238 @@
             }
           },
           "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consents/{consentId}/witnesses": {
+      "post": {
+        "operationId": "witnessConsent",
+        "tags": ["consents"],
+        "description": "Adds a witness signature to a signed consent (MR-09, #989) as a new entry with its author and time; the signed consent is not changed. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). 409 `consent_withdrawn` once the consent was withdrawn, 409 `patient_merged` for a merged record. Emits consent.witnessed. Requires consent:sign.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentWitnessCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "consentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consents/{consentId}/withdraw": {
+      "post": {
+        "operationId": "withdrawConsent",
+        "tags": ["consents"],
+        "description": "Withdraws a signed consent with a reason (MR-09, #989), once: a new entry with its author and time, the signed text stays as it was. 409 `already_withdrawn` the second time, 409 `patient_merged` for a merged record. Emits consent.withdrawn. Requires consent:sign.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentWithdraw"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "consentId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
