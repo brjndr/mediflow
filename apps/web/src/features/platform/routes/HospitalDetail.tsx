@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { HospitalAdminInvites } from '../components/HospitalAdminInvites';
+import { HospitalExports } from '../components/HospitalExports';
 import { HospitalDeletion } from '../components/HospitalDeletion';
 import { HospitalLimits } from '../components/HospitalLimits';
 import { HospitalStatus } from '../components/HospitalStatus';
@@ -61,6 +62,9 @@ export default function HospitalDetail() {
         </p>
       </div>
       <HospitalStatus key={`status-${record.id}`} hospital={record} />
+      {(record.status === 'offboarding' || record.status === 'deleted') && (
+        <HospitalExports key={`exports-${record.id}`} hospital={record} />
+      )}
       {(record.status === 'offboarding' || record.status === 'deleted') && (
         <HospitalDeletion key={`deletion-${record.id}`} hospital={record} />
       )}

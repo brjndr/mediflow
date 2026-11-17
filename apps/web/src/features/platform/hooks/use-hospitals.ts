@@ -5,6 +5,8 @@ import {
   cancelHospitalDeletion,
   createHospital,
   fetchHospitalDeletion,
+  issueExportLink,
+  startHospitalExport,
   fetchHospitalExports,
   requestHospitalDeletion,
   fetchAudit,
@@ -239,3 +241,32 @@ export const useApproveDeletion = (id: string) =>
   useDeletionStep(id, () => approveHospitalDeletion(id));
 export const useCancelDeletion = (id: string) =>
   useDeletionStep(id, () => cancelHospitalDeletion(id));
+
+/** Exports being made are followed until they finish. */
+export function useExportList(id: string) {
+  return useQuery({
+    queryKey: deletionKeys.exports(id),
+    queryFn: ({ signal }) => fetchHospitalExports(id, signal),
+    refetchInterval: (query) =>
+      query.state.data?.some((item) => item.status === 'queued' || item.status === 'running')
+        ? 5000
+        : false,
+  });
+}
+
+export function useStartExport(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => startHospitalExport(id),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: deletionKeys.exports(id) }),
+  });
+}
+
+export function useIssueExportLink(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (value: { exportId: string; adminUserId: string }) =>
+      issueExportLink(id, value.exportId, value.adminUserId),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: deletionKeys.exports(id) }),
+  });
+}

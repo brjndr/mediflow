@@ -208,7 +208,9 @@
       "description": "Hospitals, their modules and the platform audit trail are managed from here. No hospital's patient data is reachable from this area."
     },
     "title": "Platform",
-    "regions": { "in": "India" },
+    "regions": {
+      "in": "India"
+    },
     "hospitals": {
       "title": "Hospitals",
       "description": "Every hospital on the platform, with its status and head count. No patient data is shown here.",
@@ -448,7 +450,11 @@
       "resend": "Send again",
       "revoke": "Withdraw",
       "expired": "Expired {{when}}",
-      "columns": { "email": "Email address", "name": "Name", "expires": "Expires" },
+      "columns": {
+        "email": "Email address",
+        "name": "Name",
+        "expires": "Expires"
+      },
       "hasAdmin": "This hospital already has an admin. Its admins invite their own staff.",
       "notActive": "The hospital is not active, so it cannot be sent an invite.",
       "notAllowed": "This address cannot be invited. Check it and try again."
@@ -492,6 +498,56 @@
       "nursing": "Nursing",
       "roster": "Duty roster",
       "theatre": "Operation theatre"
+    },
+    "exports": {
+      "heading": "Exports",
+      "hint": "The hospital is closed, so its data leaves as an export. The download link is for one of its admins and works for 7 days.",
+      "start": "Start a new export",
+      "started": "An export was queued. It appears below when it is done.",
+      "empty": "No export has been made yet.",
+      "gridLabel": "Exports of this hospital",
+      "columns": {
+        "requested": "Requested",
+        "status": "Status",
+        "size": "Contents",
+        "downloads": "Downloads"
+      },
+      "status": {
+        "queued": "Queued",
+        "running": "Running",
+        "succeeded": "Ready",
+        "failed": "Failed"
+      },
+      "reason": {
+        "too_large": "It was too large for one export.",
+        "not_offboarding": "The hospital was not offboarding.",
+        "failed": "It failed."
+      },
+      "none": "Not yet",
+      "size": "{{size}} MB, {{tables}} tables, {{rows}} rows, {{files}} files",
+      "neverDownloaded": "Never downloaded",
+      "downloads": "{{count}} time(s). First on {{first}}, last on {{last}}.",
+      "issue": "Make a download link",
+      "dialogTitle": "Make a download link?",
+      "dialogDescription": "The link lets one admin of the hospital download the export, and works for 7 days. Anyone who holds it can download, so pass it on safely.",
+      "dialogConfirm": "Make link",
+      "adminId": "Admin user id",
+      "adminIdHint": "The id of an active admin of the hospital.",
+      "linkMade": "The link was made.",
+      "linkHeading": "Download link",
+      "linkExpires": "Works until {{when}}.",
+      "linkWarning": "It is shown only here and is not sent to anyone. Treat it as a password.",
+      "linkLabel": "Download link",
+      "copy": "Copy link",
+      "copied": "The link was copied.",
+      "copyFailed": "The link could not be copied. Select it and copy it by hand.",
+      "hide": "Hide link",
+      "refused": {
+        "export_in_progress": "An export is already queued or running.",
+        "hospital_not_offboarding": "The hospital is not offboarding.",
+        "not_a_hospital_admin": "That user is not an active admin of this hospital.",
+        "export_not_ready": "The export is not ready."
+      }
     }
   },
   "access": {
