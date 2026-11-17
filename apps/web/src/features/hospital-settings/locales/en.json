@@ -1,0 +1,5 @@
+{
+  "heading": "Hospital settings",
+  "description": "Rules that apply to the whole hospital. Each section belongs to a module.",
+  "none": "There are no settings you can change here."
+}

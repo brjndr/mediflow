@@ -33,7 +33,7 @@ async function dischargeStay(id: string) {
 describe('requiring a signed discharge summary', () => {
   it('is a switch for the hospital admin that saves and is announced', async () => {
     addMockAdmission({ id: 'adm_set', status: 'admitted', version: 1 });
-    renderApp({ entry: '/admissions' });
+    renderApp({ entry: '/settings' });
     const toggle = await screen.findByRole('switch', { name: SWITCH });
     await waitFor(() => expect(toggle).not.toHaveAttribute('aria-disabled'));
     expect(toggle).not.toBeChecked();
@@ -49,8 +49,8 @@ describe('requiring a signed discharge summary', () => {
   it('is not shown without admission:configure', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'admission:configure');
     addMockAdmission({ id: 'adm_none', status: 'admitted', version: 1 });
-    renderApp({ entry: '/admissions' });
-    await screen.findByRole('table', { name: 'Admissions' });
+    renderApp({ entry: '/settings' });
+    await screen.findByRole('heading', { name: 'Hospital settings' });
     expect(screen.queryByRole('switch', { name: SWITCH })).toBeNull();
   });
 

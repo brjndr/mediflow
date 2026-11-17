@@ -8,7 +8,6 @@ import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { maskMrn } from '@/shared/utils/mask';
-import { AdmissionSettings } from '../components/AdmissionSettings';
 import { AdmissionDetailsPanel } from '../components/AdmissionDetailsPanel';
 import { BedHistoryPanel } from '../components/BedHistoryPanel';
 import { BedPicker } from '../components/BedPicker';
@@ -304,8 +303,6 @@ export default function Admissions() {
           </Button>
         </Can>
       </div>
-
-      <AdmissionSettings />
 
       <label className="flex min-w-52 flex-col gap-1 text-sm font-medium">
         {t('filters.status')}
