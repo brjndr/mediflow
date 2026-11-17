@@ -8,6 +8,7 @@ import { tidyLines } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { findAdmission, type AdmissionRow } from './repository.js';
 import { userIdOf } from './routes.js';
+import { readAdmissionSettings, summarySigned } from './settings.js';
 import {
   ADVICE_MAX,
   CLEARANCE_KINDS,
@@ -67,8 +68,11 @@ export async function planOf(client: pg.ClientBase, admissionId: string) {
     [admissionId],
   );
   const row = plan.rows[0];
+  const { requireDischargeSummary } = await readAdmissionSettings(client);
   return {
     admissionId,
+    summaryRequired: requireDischargeSummary,
+    summarySigned: await summarySigned(client, admissionId),
     ...(row?.advice ? { advice: row.advice } : {}),
     clearances: CLEARANCE_KINDS.map((kind) => {
       const found = rows.find((each) => each.kind === kind);
