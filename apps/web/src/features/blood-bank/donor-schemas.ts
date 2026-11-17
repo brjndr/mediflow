@@ -124,7 +124,25 @@ const digits = z
   .min(1, 'validation.required')
   .regex(/^[0-9]+$/, 'validation.invalid_format');
 
-/** A collection with the one unit made of it. The times are the hospital's clock. */
+/** Most units one collection can make; the API refuses more. */
+export const COLLECTION_UNITS_MAX = 4;
+
+const collectionUnitSchema = z.object({
+  unitNumber: z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(UNIT_NUMBER_MAX)
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+  component: z.enum(BLOOD_COMPONENTS),
+  unitVolumeMl: digits.refine(
+    (value) => Number(value) >= 10 && Number(value) <= 1000,
+    'validation.invalid_format',
+  ),
+  expiresAt: z.string().min(1, 'validation.required'),
+});
+
+/** A collection with the one to four units made of it. The times are the hospital's clock. */
 export const collectionFormSchema = z
   .object({
     collectedAt: z.string().min(1, 'validation.required'),
@@ -132,22 +150,28 @@ export const collectionFormSchema = z
       (value) => Number(value) >= 50 && Number(value) <= 1000,
       'validation.invalid_format',
     ),
-    unitNumber: z
-      .string()
-      .trim()
-      .min(1, 'validation.required')
-      .max(UNIT_NUMBER_MAX)
-      .regex(PLAIN_TEXT, 'validation.plain_text'),
-    component: z.enum(BLOOD_COMPONENTS),
-    unitVolumeMl: digits.refine(
-      (value) => Number(value) >= 10 && Number(value) <= 1000,
-      'validation.invalid_format',
-    ),
-    expiresAt: z.string().min(1, 'validation.required'),
+    units: z.array(collectionUnitSchema).min(1).max(COLLECTION_UNITS_MAX),
   })
-  .refine((value) => value.expiresAt > value.collectedAt, {
-    path: ['expiresAt'],
-    message: 'validation.invalid_format',
+  .superRefine((value, ctx) => {
+    const seen = new Set<string>();
+    value.units.forEach((unit, index) => {
+      if (unit.expiresAt && unit.expiresAt <= value.collectedAt) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['units', index, 'expiresAt'],
+          message: 'validation.invalid_format',
+        });
+      }
+      const number = unit.unitNumber.trim();
+      if (number && seen.has(number)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['units', index, 'unitNumber'],
+          message: 'blood-bank:collection.duplicateNumber',
+        });
+      }
+      seen.add(number);
+    });
   });
 export type CollectionFormValues = z.infer<typeof collectionFormSchema>;
 
