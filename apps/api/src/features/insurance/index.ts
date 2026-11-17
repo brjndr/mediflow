@@ -9,6 +9,7 @@ import { mastersRoutes } from './masters.js';
 import { INSURANCE_PERMISSIONS } from './permissions.js';
 import { INSURANCE_SCHEMAS } from './schemas.js';
 import { splitRoutes } from './split.js';
+import { subscribeToPayerReceipts } from './split-receipts.js';
 import { SPLIT_INVOICE_SCHEMAS, splitInvoiceRoutes } from './split-invoices.js';
 
 /**
@@ -33,4 +34,5 @@ export const insuranceFeature: FastifyPluginAsync = async (app) => {
   await app.register(claimRoutes);
   await app.register(claimExportRoutes);
   await app.register(creditRoutes);
+  subscribeToPayerReceipts(app);
 };

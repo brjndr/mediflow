@@ -146,6 +146,7 @@ export interface InvoiceRow {
   payer_id: string | null;
   payer_name: string | null;
   split_group: string | null;
+  split_review: string | null;
   bill_discount_bp: number | null;
   bill_discount_amount_minor: string | null;
   bill_discount_reason: string | null;
@@ -178,7 +179,7 @@ const INVOICE_SELECT = `
     i.currency, i.version, i.created_at, i.issued_at,
     i.discount_minor::text, i.discount_status, i.discount_applied_by, i.discount_approved_at,
     i.bill_discount_bp, i.bill_discount_amount_minor::text, i.bill_discount_reason,
-    i.payer_id, py.name as payer_name, i.split_group,
+    i.payer_id, py.name as payer_name, i.split_group, i.split_review,
     coalesce((select json_agg(json_build_object('id', l.id, 'chargeId', l.charge_id,
         'source', l.source, 'description', l.description, 'quantity', l.quantity,
         'unitPriceMinor', l.unit_price_minor, 'totalMinor', l.total_minor,
@@ -291,6 +292,8 @@ export interface LockedInvoice {
   discount_status: string;
   discount_applied_by: string | null;
   split_group: string | null;
+  split_review: string | null;
+  payer_id: string | null;
 }
 
 /** Holds the invoice against every other change until the transaction ends. */
@@ -302,7 +305,7 @@ export async function lockInvoice(
   const { rows } = await client.query<LockedInvoice>(
     `select id, encounter_id, patient_id, status, total_minor::text, paid_minor::text,
        credited_minor::text, version,
-       discount_status, discount_applied_by, split_group
+       discount_status, discount_applied_by, split_group, split_review, payer_id
      from invoices where id = $1 for update`,
     [id],
   );

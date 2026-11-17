@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
   addMembership,
   as,
@@ -22,6 +23,7 @@ import {
  */
 
 let app: FastifyInstance;
+let jobs: MemoryQueue;
 let pool: pg.Pool;
 let hospital: TestTenant;
 let clinic: TestTenant;
@@ -74,6 +76,7 @@ const audited = async (entity: string, entityId: string) =>
 
 const tenants = () => [hospital, clinic, closed].map((tenant) => tenant.id);
 const TABLES = [
+  'claim_receipts',
   'claim_events',
   'claims',
   'claim_counters',
@@ -210,7 +213,9 @@ const invoiceOf = async (id: string, options: Options = {}) =>
   ok<InvoiceBody>(await get(`/invoices/${id}`, options));
 
 beforeAll(async () => {
+  jobs = new MemoryQueue();
   app = await buildTestApp({
+    jobQueue: jobs,
     resolveSession: resolveTestSession,
     config: { RATE_LIMIT_USER_PER_MINUTE: 100_000, RATE_LIMIT_TENANT_PER_MINUTE: 100_000 },
   });
@@ -243,7 +248,13 @@ afterAll(async () => {
     try {
       await client.query('begin');
       await client.query('set local session_replication_role = replica');
-      for (const table of ['invoice_lines', 'invoices', 'invoice_counters']) {
+      for (const table of [
+        'payments',
+        'credit_notes',
+        'invoice_lines',
+        'invoices',
+        'invoice_counters',
+      ]) {
         await client.query(`delete from ${table} where tenant_id = any($1)`, [tenants()]);
       }
       await client.query('commit');
@@ -427,5 +438,172 @@ describe('the payer share as its own invoice', () => {
         body.payerInvoiceId,
       ]),
     ).rejects.toThrow(/keeps its split/);
+  });
+});
+
+describe('voiding one invoice of a split pair and the payer receipts (#1033)', () => {
+  interface Flagged extends InvoiceBody {
+    splitReview?: string;
+  }
+  interface ClaimBody {
+    id: string;
+    version: number;
+    status: string;
+    receivedMinor: number;
+    outstandingMinor: number;
+  }
+  const settle = async () => {
+    await app.events.dispatch();
+    await jobs.drain();
+  };
+  const issue = async (id: string) => {
+    const invoice = await invoiceOf(id);
+    return ok<InvoiceBody>(await post(`/invoices/${id}/issue`, { version: invoice.version }));
+  };
+  async function issuedPair(price = 10_000) {
+    const { patientId, encounterId } = await visit([[serviceA, price]]);
+    const payerId = await cover(patientId, { copayPercent: 20 });
+    const body = await ok<SplitBody>(await split(encounterId), 201);
+    await issue(body.patientInvoiceId as string);
+    await issue(body.payerInvoiceId);
+    return { ...body, encounterId, patientId, payerId };
+  }
+  const creditAll = (id: string, amountMinor: number, options: Options = {}) =>
+    post(`/invoices/${id}/credit-notes`, { amountMinor, reason: 'Entered wrongly' }, options);
+  const review = (id: string, reason: string, options: Options = {}) =>
+    post(`/invoices/${id}/split-review`, { reason }, options);
+
+  it('flags the other invoice when one is voided, with the reason in the audit log, and the desk decides', async () => {
+    const pair = await issuedPair();
+    await ok(await creditAll(pair.patientInvoiceId as string, pair.patientMinor), 201);
+    const other = (await invoiceOf(pair.payerInvoiceId)) as Flagged;
+    expect(other).toMatchObject({ status: 'issued', splitReview: 'sibling_void' });
+    const voided = (await invoiceOf(pair.patientInvoiceId as string)) as Flagged;
+    expect(voided.status).toBe('void');
+    expect(voided.splitReview).toBeUndefined();
+    const detail = await pool.query<{ detail: string }>(
+      "select detail from audit_log where tenant_id = $1 and entity = 'invoice' and entity_id = $2 and detail like 'sibling_void%'",
+      [hospital.id, pair.payerInvoiceId],
+    );
+    expect(detail.rows[0]?.detail).toBe('sibling_void: Entered wrongly');
+
+    expect(errorOf(await review(pair.payerInvoiceId, ''))[0]).toBe(400);
+    const cleared = await ok<Flagged>(await review(pair.payerInvoiceId, 'Payer still owes it'));
+    expect(cleared.splitReview).toBeUndefined();
+    expect(errorOf(await review(pair.payerInvoiceId, 'Again'))).toEqual([409, 'not_flagged']);
+    expect(await audited('invoice', pair.payerInvoiceId)).toContain('review');
+  });
+
+  it('does not issue a flagged draft until the flag is taken off', async () => {
+    const { patientId, encounterId } = await visit([[serviceA, 10_000]]);
+    await cover(patientId, { copayPercent: 20 });
+    const body = await ok<SplitBody>(await split(encounterId), 201);
+    await issue(body.patientInvoiceId as string);
+    await ok(await creditAll(body.patientInvoiceId as string, body.patientMinor), 201);
+    const draft = (await invoiceOf(body.payerInvoiceId)) as Flagged;
+    expect(draft).toMatchObject({ status: 'draft', splitReview: 'sibling_void' });
+    expect(errorOf(await post(`/invoices/${draft.id}/issue`, { version: draft.version }))).toEqual([
+      409,
+      'split_review',
+    ]);
+    await ok(await review(draft.id, 'Bill the payer anyway'));
+    expect((await issue(draft.id)).status).toBe('issued');
+  });
+
+  it('keeps the review to the hospital and the permission that own it', async () => {
+    const pair = await issuedPair();
+    await ok(await creditAll(pair.payerInvoiceId, pair.payerMinor), 201);
+    const id = pair.patientInvoiceId as string;
+    expect(errorOf(await review(id, 'x', { tenant: clinic, user: clinicAdmin }))[0]).toBe(404);
+    expect(errorOf(await review(id, 'x', { user: nurse }))[0]).toBe(403);
+    expect(((await invoiceOf(id)) as Flagged).splitReview).toBe('sibling_void');
+    expect(errorOf(await review(id, 'x', { tenant: closed }))[1]).toBe('feature_disabled');
+  });
+
+  async function approvedClaim(encounterId: string, approved: number) {
+    const draft = await ok<ClaimBody>(
+      await post(`/encounters/${encounterId}/claims`, { documents: [] }),
+      201,
+    );
+    const sent = await ok<ClaimBody>(
+      await post(`/claims/${draft.id}/actions`, { version: draft.version, action: 'submit' }),
+    );
+    await ok(
+      await post(`/claims/${draft.id}/actions`, {
+        version: sent.version,
+        action: 'approve',
+        approvedMinor: approved,
+      }),
+    );
+    return draft.id;
+  }
+  const pay = (invoiceId: string, amountMinor: number) =>
+    post(`/invoices/${invoiceId}/payments`, { amountMinor, method: 'card' });
+
+  it('sets a payer receipt against the claim, a short one leaving it partly settled', async () => {
+    const pair = await issuedPair();
+    const claimId = await approvedClaim(pair.encounterId, pair.payerMinor);
+    const first = await ok<{ id: string }>(await pay(pair.payerInvoiceId, 3_000), 201);
+    await settle();
+    expect(await ok<ClaimBody>(await get(`/claims/${claimId}`))).toMatchObject({
+      status: 'settled',
+      receivedMinor: 3_000,
+      outstandingMinor: pair.payerMinor - 3_000,
+    });
+
+    // The same event delivered again allocates nothing more.
+    await pool.query(
+      `insert into outbox (tenant_id, event, entity_id, actor_id, payload)
+       values ($1, 'payment.recorded', $2, $3, $4)`,
+      [
+        hospital.id,
+        first.id,
+        admin.id,
+        JSON.stringify({
+          paymentId: first.id,
+          encounterId: pair.encounterId,
+          payerId: pair.payerId,
+          amountMinor: 3_000,
+        }),
+      ],
+    );
+    await settle();
+    expect((await ok<ClaimBody>(await get(`/claims/${claimId}`))).receivedMinor).toBe(3_000);
+
+    await ok(await pay(pair.payerInvoiceId, pair.payerMinor - 3_000), 201);
+    await settle();
+    expect(await ok<ClaimBody>(await get(`/claims/${claimId}`))).toMatchObject({
+      status: 'settled',
+      receivedMinor: pair.payerMinor,
+      outstandingMinor: 0,
+    });
+
+    // A payment on the patient's invoice is not the payer's.
+    await ok(await pay(pair.patientInvoiceId as string, 500), 201);
+    await settle();
+    expect((await ok<ClaimBody>(await get(`/claims/${claimId}`))).receivedMinor).toBe(
+      pair.payerMinor,
+    );
+  });
+
+  it('leaves a claim that is not yet decided alone and takes nothing across hospitals', async () => {
+    const pair = await issuedPair();
+    const draft = await ok<ClaimBody>(
+      await post(`/encounters/${pair.encounterId}/claims`, { documents: [] }),
+      201,
+    );
+    await ok(await pay(pair.payerInvoiceId, 1_000), 201);
+    await settle();
+    expect(await ok<ClaimBody>(await get(`/claims/${draft.id}`))).toMatchObject({
+      status: 'draft',
+      receivedMinor: 0,
+    });
+    const other = await pool.query('select 1 from claim_receipts where tenant_id = any($1)', [
+      [clinic.id, closed.id],
+    ]);
+    expect(other.rowCount).toBe(0);
+    expect(
+      (await get(`/claims/${draft.id}`, { tenant: clinic, user: clinicAdmin })).statusCode,
+    ).toBe(404);
   });
 });

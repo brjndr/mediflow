@@ -171,6 +171,12 @@ export const paymentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       request.idempotentId = id;
       request.audit('create', 'payment', id);
+      await request.emit('payment.recorded', id, {
+        ...ids(locked),
+        paymentId: id,
+        amountMinor: body.amountMinor,
+        ...(locked.payer_id ? { payerId: locked.payer_id } : {}),
+      });
       if (settled) await request.emit('invoice.paid', locked.id, ids(locked));
       return replayPayment(request, reply);
     },
@@ -342,8 +348,30 @@ export const paymentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const paid = num(locked.paid_minor);
       const whole = after === total;
       const status = whole ? 'void' : paid + after === total ? 'paid' : 'issued';
+      if (whole && locked.split_review) {
+        // A voided invoice has nothing left to decide.
+        await client.query(
+          'update invoices set split_review = null, split_review_at = null where id = $1',
+          [locked.id],
+        );
+      }
       await updateSettlement(client, locked.id, { paid, credited: after, status });
-      if (whole) await releaseCharges(client, locked.id);
+      if (whole) {
+        await releaseCharges(client, locked.id);
+        if (locked.split_group) {
+          // The other invoice of a split pair is not voided on its own: it may be paid. It is
+          // flagged for the desk, and the reason of the credit note goes with it (#1033).
+          const flagged = await client.query<{ id: string }>(
+            `update invoices set split_review = 'sibling_void', split_review_at = now()
+               where split_group = $1 and id <> $2 and status <> 'void' and split_review is null
+               returning id`,
+            [locked.split_group, locked.id],
+          );
+          for (const sibling of flagged.rows) {
+            request.audit('update', 'invoice', sibling.id, `sibling_void: ${reason}`);
+          }
+        }
+      }
       request.idempotentId = id;
       request.audit('create', 'credit_note', id);
       await request.emit('invoice.credited', locked.id, { ...ids(locked), creditNoteId: id });

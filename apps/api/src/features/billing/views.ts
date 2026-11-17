@@ -96,6 +96,7 @@ export const invoiceView = (row: InvoiceRow): Invoice => ({
   ...optional('payerId', row.payer_id),
   ...optional('payerName', row.payer_name),
   ...optional('splitGroup', row.split_group),
+  ...optional('splitReview', row.split_review as 'sibling_void' | null),
   paidMinor: num(row.paid_minor),
   creditedMinor: num(row.credited_minor),
   currency: row.currency,
