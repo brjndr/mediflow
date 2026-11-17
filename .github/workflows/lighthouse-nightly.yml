@@ -1,0 +1,57 @@
+name: Lighthouse nightly
+
+# Runs the three Lighthouse configs against main once a night and on demand, with the same ceilings
+# as a pull request, so a breach can be traced to the commits since the last green night and a failing
+# PR has a baseline to compare with (#1036). Not run on every push to main: see scripts/ci-mode.mjs.
+on:
+  schedule:
+    - cron: '30 21 * * *'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to audit (default main)
+        required: false
+        default: main
+
+concurrency:
+  group: lighthouse-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    name: Lighthouse (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: desktop
+            config: lighthouserc.cjs
+          - name: slow 4G
+            config: lighthouserc.slow4g.cjs
+          - name: phone
+            config: lighthouserc.mobile.cjs
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+      - run: echo "Auditing $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec lhci autorun --config=${{ matrix.config }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: lighthouse-nightly-${{ strategy.job-index }}
+          path: |
+            apps/web/.lighthouseci
+            apps/web/.lighthouseci-slow4g
+          retention-days: 30
