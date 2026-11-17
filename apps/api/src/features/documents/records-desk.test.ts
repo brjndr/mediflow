@@ -422,6 +422,31 @@ describe('requests for copies of a record', () => {
     expect(rest.nextCursor).toBeNull();
   });
 
+  it('filters and counts the open requests past their due day', async () => {
+    const late = (await create({ dueOn: hospitalDay(3), purpose: 'Late one' })).json<Req>();
+    const today = (await create({ dueOn: hospitalDay(), purpose: 'Due today' })).json<Req>();
+    const closedLate = (
+      await create({ dueOn: hospitalDay(3), purpose: 'Closed late' })
+    ).json<Req>();
+    await pool.query('update record_requests set due_on = $2 where id = any($1::uuid[])', [
+      [late.id, closedLate.id],
+      hospitalDay(-2),
+    ]);
+    await post(`/record-requests/${closedLate.id}/close`, {
+      outcome: 'declined',
+      note: 'No',
+      version: 2,
+    });
+    const overdue = (await get('/record-requests?overdue=true&limit=1')).json<{
+      items: Req[];
+      total: number;
+    }>();
+    expect(overdue.total).toBe(1);
+    expect(overdue.items.map((item) => item.id)).toEqual([late.id]);
+    const all = (await get('/record-requests?overdue=true&limit=100')).json<{ items: Req[] }>();
+    expect(all.items.some((item) => item.id === today.id)).toBe(false);
+  });
+
   it('closes a request once, at the version read, and never changes it after', async () => {
     const made = (await create({ purpose: 'Second opinion' })).json<Req>();
     const url = `/record-requests/${made.id}/close`;
