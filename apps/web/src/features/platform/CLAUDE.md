@@ -60,6 +60,6 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 
 ## Exports section (#975)
 
-- **Section** `HospitalExports` on the hospital's page, above `HospitalDeletion`, for `offboarding` (and read-only once `deleted`): a `DataGrid` of the exports (`GET .../exports`, followed every 5 seconds while one is queued or running) with status, contents and how often each was downloaded; "Start a new export" (`POST .../exports`, 409 `export_in_progress`); "Make a download link" on a ready export (`POST .../download-link`).
-- **The link needs an admin's user id**, which the platform cannot look up (no endpoint lists a hospital's admins; the platform role has no grant on `users`). The dialog takes the id as typed. The link is shown once in a read-only field with a copy button, kept in component state only (never in the query cache or storage), and is not sent to anyone from here.
+- **Section** `HospitalExports` on the hospital's page, above `HospitalDeletion`, for `offboarding` (and read-only once `deleted`): a `DataGrid` of the exports (`GET .../exports`, followed every 5 seconds while one is queued or running) with status, contents and how often each was downloaded; "Start a new export" (`POST .../exports`, 409 `export_in_progress`); "Email a download link" on a ready export (`POST .../email-link`, 202): a job emails the link to the chosen admin, so the screen only says it was sent and never holds the link.
+- **The link needs an admin's user id**, which the platform cannot look up (no endpoint lists a hospital's admins; the platform role has no grant on `users`). The dialog takes the id as typed. The link is emailed by the API and never shown here.
 - **Mock:** `MOCK_ADMIN_ID` is the one id the mock accepts as an active admin.

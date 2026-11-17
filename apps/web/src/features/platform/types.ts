@@ -32,4 +32,4 @@ export type HospitalDeletion = components['schemas']['PlatformDeletion'];
 /** One offboarding export of a hospital: what the deletion checks. */
 export type HospitalExport = components['schemas']['PlatformExport'];
 /** A signed download link for an export, with when it stops working. */
-export type ExportLink = components['schemas']['ExportLink'];
+export type ExportLinkSent = components['schemas']['ExportLinkSent'];

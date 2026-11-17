@@ -560,7 +560,7 @@ export const platformHandlers = [
   }),
 
   http.post(
-    '*/api/platform/hospitals/:id/exports/:exportId/download-link',
+    '*/api/platform/hospitals/:id/exports/:exportId/email-link',
     async ({ params, request }) => {
       const denied = platformOnly();
       if (denied) return denied;
@@ -571,10 +571,10 @@ export const platformHandlers = [
       if (body.adminUserId !== MOCK_ADMIN_ID) {
         return error(409, 'not_a_hospital_admin', 'Not an admin of the hospital');
       }
-      return HttpResponse.json({
-        url: `/offboarding-exports/${found.id}?admin=${body.adminUserId}&expires=1&signature=mock`,
-        expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
-      });
+      return HttpResponse.json(
+        { adminUserId: body.adminUserId, expiresInDays: 7 },
+        { status: 202 },
+      );
     },
   ),
 

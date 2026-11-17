@@ -21,7 +21,7 @@ describe('offboarding exports (platform)', () => {
     expect(screen.queryByRole('heading', { name: 'Exports' })).toBeNull();
   });
 
-  it('lists the exports with their downloads and makes a link for an admin', async () => {
+  it('lists the exports with their downloads and emails a link to an admin', async () => {
     setMockOffboarding('hosp_city', { downloadedExport: true });
     asPlatformAdmin();
     const user = userEvent.setup();
@@ -32,7 +32,7 @@ describe('offboarding exports (platform)', () => {
     expect(await within(section).findByText('Ready')).toBeInTheDocument();
     expect(within(section).getByText(/1 time\(s\)/)).toBeInTheDocument();
 
-    await user.click(within(section).getByRole('button', { name: /Make a download link/ }));
+    await user.click(within(section).getByRole('button', { name: /Email a download link/ }));
     await expectNoAxeViolations();
 
     // Not an admin of the hospital: the API's reason is shown.
@@ -40,18 +40,19 @@ describe('offboarding exports (platform)', () => {
       within(dialog()).getByLabelText(/Admin user id/),
       MOCK_ADMIN_ID.replace('1', '2'),
     );
-    await user.click(within(dialog()).getByRole('button', { name: 'Make link' }));
+    await user.click(within(dialog()).getByRole('button', { name: 'Send link' }));
     expect(await within(dialog()).findByRole('alert')).toHaveTextContent('not an active admin');
 
     await user.clear(within(dialog()).getByLabelText(/Admin user id/));
     await user.type(within(dialog()).getByLabelText(/Admin user id/), MOCK_ADMIN_ID);
-    await user.click(within(dialog()).getByRole('button', { name: 'Make link' }));
+    await user.click(within(dialog()).getByRole('button', { name: 'Send link' }));
 
-    const field = await within(section).findByLabelText('Download link');
-    expect((field as HTMLInputElement).value).toContain('/offboarding-exports/export_hosp_city');
-    expect(within(section).getByText(/is not sent to anyone/)).toBeInTheDocument();
+    expect(
+      await within(section).findByText(/emailed to that admin. It works for 7 days/),
+    ).toBeInTheDocument();
+    expect(within(section).queryByLabelText('Download link')).toBeNull();
     expect(document.activeElement).not.toBe(document.body);
-  });
+  }, 20_000);
 
   it('starts another export, and refuses a second while one is queued', async () => {
     setMockOffboarding('hosp_city', { downloadedExport: false });
