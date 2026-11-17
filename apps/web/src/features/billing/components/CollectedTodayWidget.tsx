@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
-import widgetStringsHi from '../widget-strings.hi.json';
 import { errorMessageKey } from '@/shared/api';
 import { Card } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -11,6 +10,7 @@ import { useCollectedToday } from '../hooks/use-billing';
 import { netOf } from '../lib/register';
 import type { RegisterTotal } from '../types';
 import { Link } from 'react-router-dom';
+const loadHindi = () => import('../widget-strings.hi.json');
 
 const METHODS: RegisterTotal['method'][] = ['cash', 'card', 'upi', 'bank', 'other'];
 
@@ -20,7 +20,7 @@ const METHODS: RegisterTotal['method'][] = ['cash', 'card', 'upi', 'bank', 'othe
  * no patient, invoice or payer. Default export: a `dashboard.widgets` contribution.
  */
 export default function CollectedTodayWidget() {
-  const { t } = useWidgetStrings('billing-widget', widgetStrings, widgetStringsHi);
+  const { t } = useWidgetStrings('billing-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const sessions = useCollectedToday();
