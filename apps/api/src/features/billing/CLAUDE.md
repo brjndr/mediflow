@@ -43,3 +43,5 @@ Behind the `billing` switch. Permissions: `charge:read|create`, `invoice:read|cr
 - An invoice left as a draft is never deleted; a draft's charges stay held until it is changed.
 
 - **Stay routes need `admission:read` with the scope `all` (#798):** running bill, settlement, deposits (read and take), apply and refund all go through `requireAll`, so a caller scoped to `own` or `department` is refused (403) rather than narrowed; the billing desk works the whole hospital.
+
+- **Tax on a split invoice** (#1032): `invoice_lines.tax_adjust_minor` (default 0, -1 to 1) is added to a line's tax by the generated `tax_minor`. Only `POST /encounters/{id}/split-invoices` sets it, to carry the rounding remainder of a charge split between two lines. Ordinary lines keep 0.

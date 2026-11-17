@@ -5,6 +5,7 @@ import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { taxRatesOf, type TaxClass } from '../billing/tax.js';
 import { EncounterParams } from './schemas.js';
 import { computeSplit, visitPatient } from './split.js';
 import { isCode, requirePatient, userIdOf } from './util.js';
@@ -37,7 +38,14 @@ interface Share {
   source: string;
   description: string;
   minor: number;
+  taxClass: TaxClass | null;
+  taxRateBp: number;
+  /** The rounding remainder of the charge's tax, carried by one of its two lines. */
+  taxAdjust: number;
 }
+
+/** Tax on an amount at a rate in basis points, rounded half up as the database rounds. */
+const taxOf = (minor: number, rateBp: number) => Math.round((minor * rateBp) / 10000);
 
 /** A draft invoice of the visit with a line for each share, priced as the split worked it out. */
 async function insertDraft(
@@ -52,7 +60,6 @@ async function insertDraft(
   },
   shares: Share[],
 ): Promise<void> {
-  const total = shares.reduce((sum, share) => sum + share.minor, 0);
   await client.query(
     `insert into invoices (id, tenant_id, encounter_id, patient_id, currency, created_by,
        split_group, payer_id)
@@ -69,12 +76,28 @@ async function insertDraft(
   for (const [index, share] of shares.entries()) {
     await client.query(
       `insert into invoice_lines (tenant_id, invoice_id, line_number, charge_id, source,
-         description, quantity, unit_price_minor)
-       values (app_tenant_id(), $1, $2, $3, $4, $5, 1, $6)`,
-      [invoice.id, index + 1, share.chargeId, share.source, share.description, share.minor],
+         description, quantity, unit_price_minor, tax_class, tax_rate_bp, tax_adjust_minor)
+       values (app_tenant_id(), $1, $2, $3, $4, $5, 1, $6, $7, $8, $9)`,
+      [
+        invoice.id,
+        index + 1,
+        share.chargeId,
+        share.source,
+        share.description,
+        share.minor,
+        share.taxClass,
+        share.taxRateBp,
+        share.taxAdjust,
+      ],
     );
   }
-  await client.query('update invoices set total_minor = $2 where id = $1', [invoice.id, total]);
+  await client.query(
+    `update invoices i set tax_minor = t.tax, total_minor = t.base + t.tax
+       from (select coalesce(sum(total_minor), 0) as base, coalesce(sum(tax_minor), 0) as tax
+               from invoice_lines where invoice_id = $1) t
+      where i.id = $1`,
+    [invoice.id],
+  );
 }
 
 async function answerOf(client: pg.ClientBase, payerInvoiceId: string): Promise<SplitInvoices> {
@@ -150,8 +173,13 @@ export const splitInvoiceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'encounter_cancelled', 'A cancelled visit has nothing to bill');
       }
       // The ledger is held while it is divided, so no draft takes a charge in between.
-      const held = await client.query<{ id: string; source: string; ok: boolean }>(
-        `select id, source, (status = 'pending' and invoice_id is null) as ok from charges
+      const held = await client.query<{
+        id: string;
+        source: string;
+        tax_class: TaxClass | null;
+        ok: boolean;
+      }>(
+        `select id, source, tax_class, (status = 'pending' and invoice_id is null) as ok from charges
           where encounter_id = $1 and status <> 'void' order by id for update`,
         [encounterId],
       );
@@ -167,7 +195,28 @@ export const splitInvoiceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(422, 'nothing_to_bill', 'The payer owes nothing');
       }
       const sources = new Map(held.rows.map((row) => [row.id, row.source]));
-      const share = (pick: 'payerMinor' | 'patientMinor', suffix: string): Share[] =>
+      const classes = new Map(held.rows.map((row) => [row.id, row.tax_class]));
+      const rates = await taxRatesOf(client);
+      const rateOf = (chargeId: string) => {
+        const taxClass = classes.get(chargeId) ?? null;
+        return taxClass === null ? 0 : rates[taxClass];
+      };
+      // A charge's tax is worked on the whole of it, each share takes its own rounded part, and
+      // the remainder goes to the patient's line (a charge on one side only has no remainder).
+      const remainder = (line: (typeof visit.split.lines)[number]) => {
+        if (line.payerMinor <= 0 || line.patientMinor <= 0) return 0;
+        const rate = rateOf(line.chargeId);
+        return (
+          taxOf(line.payerMinor + line.patientMinor, rate) -
+          taxOf(line.payerMinor, rate) -
+          taxOf(line.patientMinor, rate)
+        );
+      };
+      const share = (
+        pick: 'payerMinor' | 'patientMinor',
+        suffix: string,
+        carriesRemainder: boolean,
+      ): Share[] =>
         visit.split.lines
           .filter((line) => line[pick] > 0)
           .map((line) => ({
@@ -176,9 +225,12 @@ export const splitInvoiceRoutes: FastifyPluginAsyncTypebox = async (app) => {
             source: lineSource(sources.get(line.chargeId)),
             description: label(line.description, suffix),
             minor: line[pick],
+            taxClass: classes.get(line.chargeId) ?? null,
+            taxRateBp: rateOf(line.chargeId),
+            taxAdjust: carriesRemainder ? remainder(line) : 0,
           }));
-      const payerShares = share('payerMinor', '(payer share)');
-      const patientShares = share('patientMinor', '(patient share)');
+      const payerShares = share('payerMinor', '(payer share)', false);
+      const patientShares = share('patientMinor', '(patient share)', true);
       const group = randomUUID();
       const by = userIdOf(request);
       const payerInvoiceId = randomUUID();

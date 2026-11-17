@@ -110,7 +110,7 @@ const one = async (sql: string, params: unknown[]) =>
 
 let mrn = 0;
 /** A new patient with a visit and charges `[service, price]`. */
-async function visit(charges: [string, number][], tenant: TestTenant = hospital) {
+async function visit(charges: [string, number, string?][], tenant: TestTenant = hospital) {
   const patientId = await one(
     `insert into patients (tenant_id, mrn, first_name, last_name, dob, gender, phone, created_by)
      values ($1, $2, 'Clm', 'Patient', '1980-05-01', 'female', '+91 9800000000', 'test') returning id`,
@@ -120,15 +120,23 @@ async function visit(charges: [string, number][], tenant: TestTenant = hospital)
     `insert into encounters (tenant_id, patient_id, type, opened_by) values ($1, $2, 'ipd', $3) returning id`,
     [tenant.id, patientId, admin.id],
   );
-  for (const [service, price] of charges) await charge(encounterId, patientId, service, price);
+  for (const [service, price, taxClass] of charges) {
+    await charge(encounterId, patientId, service, price, taxClass);
+  }
   return { patientId, encounterId };
 }
-async function charge(encounterId: string, patientId: string, service: string, price: number) {
+async function charge(
+  encounterId: string,
+  patientId: string,
+  service: string,
+  price: number,
+  taxClass?: string,
+) {
   await pool.query(
     `insert into charges (tenant_id, encounter_id, patient_id, service_id, source, source_ref,
-       description, quantity, unit_price_minor)
-     values ($1, $2, $3, $4, 'manual', $5, 'Charge', 1, $6)`,
-    [hospital.id, encounterId, patientId, service, `clm-test:${++keys}`, price],
+       description, quantity, unit_price_minor, tax_class)
+     values ($1, $2, $3, $4, 'manual', $5, 'Charge', 1, $6, $7)`,
+    [hospital.id, encounterId, patientId, service, `clm-test:${++keys}`, price, taxClass ?? null],
   );
 }
 
@@ -194,7 +202,7 @@ interface InvoiceBody {
   payerName?: string;
   splitGroup?: string;
   version: number;
-  lines: { chargeId?: string; description: string; totalMinor: number }[];
+  lines: { chargeId?: string; description: string; totalMinor: number; taxClass?: string }[];
 }
 const split = (encounterId: string, options: Options = {}) =>
   post(`/encounters/${encounterId}/split-invoices`, undefined, options);
@@ -299,6 +307,32 @@ describe('the payer share as its own invoice', () => {
       'read',
       'update',
       'read',
+    ]);
+  });
+
+  it('carries each charge’s tax class onto its shares, so both invoices add up to the taxed ledger', async () => {
+    const { patientId, encounterId } = await visit([
+      [serviceA, 25, 'higher'],
+      [serviceA, 1_000, 'standard'],
+      [serviceB, 2_000],
+    ]);
+    await cover(patientId, { copayPercent: 50 });
+    const body = await ok<SplitBody>(await split(encounterId), 201);
+    // 25 splits 12 / 13: tax 4.5 on the whole is 5, but 2 and 2 on the shares, so one is added.
+    const rows = await pool.query<{ tax: string; base: string }>(
+      `select coalesce(sum(l.tax_minor), 0)::text as tax, coalesce(sum(l.total_minor), 0)::text as base
+         from invoice_lines l where l.invoice_id = any($1::uuid[])`,
+      [[body.payerInvoiceId, body.patientInvoiceId]],
+    );
+    expect(rows.rows[0]).toEqual({ tax: String(5 + 120), base: String(3_025) });
+    const payerInvoice = await invoiceOf(body.payerInvoiceId);
+    const patientInvoice = await invoiceOf(body.patientInvoiceId as string);
+    expect(payerInvoice.totalMinor + patientInvoice.totalMinor).toBe(3_025 + 125);
+    expect(body.payerMinor + body.patientMinor).toBe(3_025 + 125);
+    expect(patientInvoice.lines.map((line) => line.taxClass ?? 'none').sort()).toEqual([
+      'higher',
+      'none',
+      'standard',
     ]);
   });
 
