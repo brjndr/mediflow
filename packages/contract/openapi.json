@@ -76678,12 +76678,11 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["deleteAfterDays"],
                 "properties": {
                   "deleteAfterDays": {
                     "minimum": 1,
                     "maximum": 3650,
-                    "description": "Days from now until the hospital’s data may be deleted, after its export.",
+                    "description": "Days from now until the hospital’s data may be deleted, after its export. Defaults to 90 (docs/OPEN_DECISIONS.md).",
                     "type": "integer"
                   }
                 }

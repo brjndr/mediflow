@@ -6,10 +6,11 @@ import { Switch } from '@/shared/ui/switch';
 import { useAdmissionSettings, useSaveAdmissionSettings } from '../hooks/use-admission-settings';
 
 /**
- * The hospital's admission rules (#952), for `admission:configure`. One switch for now: a
- * discharge waits for a signed discharge summary.
+ * The hospital's admission rules (#952), for `admission:configure`, a section of the hospital
+ * settings screen (#992, slot `settings.sections`). One switch for now: a discharge waits for a
+ * signed discharge summary.
  */
-export function AdmissionSettings() {
+export default function AdmissionSettings() {
   const allowed = usePermission('admission:configure');
   const { t } = useTranslation('admissions');
   const { t: tCommon } = useTranslation();

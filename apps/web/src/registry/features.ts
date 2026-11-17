@@ -23,6 +23,7 @@ import { inventoryFeature } from '@/features/inventory';
 import { pharmacyFeature } from '@/features/pharmacy';
 import { purchasingFeature } from '@/features/purchasing';
 import { hospitalProfileFeature } from '@/features/hospital-profile';
+import { hospitalSettingsFeature } from '@/features/hospital-settings';
 import { rolesFeature } from '@/features/roles';
 import { servicesFeature } from '@/features/services';
 import { staffFeature } from '@/features/staff';
@@ -85,6 +86,7 @@ export const features: FeatureManifest[] = [
   staffFeature,
   rolesFeature,
   hospitalProfileFeature,
+  hospitalSettingsFeature,
   billingFeature,
   reportsFeature,
   insuranceFeature,

@@ -16,6 +16,7 @@ import {
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
   DELETE_JOB,
+  MAX_FILE_ATTEMPTS,
   assertOwnKeys,
   deleteHospitalRows,
   deletionBlocker,
@@ -613,6 +614,55 @@ describe('a deletion that does not go ahead', () => {
     );
     expect(row.rows[0].files_deleted_at).toBeInstanceOf(Date);
     expect(row.rows[0].file_keys).toBeNull();
+  });
+
+  it('stops retrying file removal at the cap and writes one trail row', async () => {
+    const key = seeds.get(hospitalA.id)?.reportKey as string;
+    await app.files.put(key, Buffer.from('stuck'));
+    await pool.query(
+      `update tenant_deletions set files_deleted_at = null, file_keys = $2, file_attempts = 0,
+         files_stuck_at = null, finished_at = now() - interval '1 hour'
+       where hospital_id = $1 and status = 'done'`,
+      [hospitalA.id, [key]],
+    );
+    const broken = {
+      ...app.files,
+      delete: () => Promise.reject(new Error('store down')),
+      get: app.files.get.bind(app.files),
+    } as typeof app.files;
+    const state = () =>
+      pool.query<{ file_attempts: number; files_stuck_at: Date | null }>(
+        "select file_attempts, files_stuck_at from tenant_deletions where hospital_id = $1 and status = 'done'",
+        [hospitalA.id],
+      );
+    const stuckRows = () =>
+      pool.query(
+        "select detail from platform_audit_log where hospital_id = $1 and action = 'hospital.deletion_files_stuck'",
+        [hospitalA.id],
+      );
+    for (let i = 1; i < MAX_FILE_ATTEMPTS; i += 1) await sweepDeletions(pool, broken, queue);
+    expect((await state()).rows[0]).toMatchObject({ file_attempts: MAX_FILE_ATTEMPTS - 1 });
+    expect((await state()).rows[0]?.files_stuck_at).toBeNull();
+    expect((await stuckRows()).rowCount).toBe(0);
+
+    await sweepDeletions(pool, broken, queue);
+    expect((await state()).rows[0]?.file_attempts).toBe(MAX_FILE_ATTEMPTS);
+    expect((await state()).rows[0]?.files_stuck_at).toBeInstanceOf(Date);
+    const trail = await stuckRows();
+    expect(trail.rows.map((r) => r.detail)).toEqual([{ attempts: MAX_FILE_ATTEMPTS }]);
+
+    // Past the cap the sweep leaves the row alone, even with a working store.
+    expect((await sweepDeletions(pool, app.files, queue)).filesFinished).toBe(0);
+    expect(await app.files.get(key)).not.toBeNull();
+    expect((await stuckRows()).rowCount).toBe(1);
+
+    // An operator clears the mark and the sweep finishes the removal.
+    await pool.query(
+      "update tenant_deletions set files_stuck_at = null, file_attempts = 0 where hospital_id = $1 and status = 'done'",
+      [hospitalA.id],
+    );
+    expect((await sweepDeletions(pool, app.files, queue)).filesFinished).toBe(1);
+    expect(await app.files.get(key)).toBeNull();
   });
 
   it('refuses a key that is not in the hospital’s own folder', () => {
