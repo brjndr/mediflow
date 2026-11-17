@@ -74,6 +74,9 @@ export const Consent = Type.Object(
       }),
     ),
     witnessCount: Type.Integer({ description: 'How many witness signatures it has.' }),
+    encounterId: Type.Optional(
+      Type.String({ description: 'The encounter it was signed for, when one was named.' }),
+    ),
   },
   { $id: 'Consent', description: 'A signed consent, without its text and signature.' },
 );
@@ -134,6 +137,7 @@ export const ConsentCreate = Type.Object(
     templateId: Id,
     templateVersion: Type.Integer({ minimum: 1 }),
     procedureName: Type.String({ minLength: 1, maxLength: 200, pattern: PLAIN_TEXT }),
+    encounterId: Type.Optional(Id),
     body: RichText('The text signed, placeholders filled in.'),
     signerName: Type.String({ minLength: 1, maxLength: 200, pattern: PLAIN_TEXT }),
     signerRole: Signer,
@@ -262,6 +266,7 @@ interface ConsentRow {
   signed_by_name: string | null;
   withdrawn_at: Date | null;
   witness_count: number;
+  encounter_id: string | null;
 }
 interface WitnessRow {
   id: string;
@@ -277,7 +282,7 @@ interface WithdrawalRow {
   withdrawn_at: Date;
   withdrawn_by_name: string | null;
 }
-const CONSENT_SELECT = `select c.id, c.patient_id, c.procedure_name, c.template_id, c.template_version,
+const CONSENT_SELECT = `select c.id, c.patient_id, c.procedure_name, c.template_id, c.template_version, c.encounter_id,
   c.signer_name, c.signer_role, c.signature_method, c.body, c.signature, c.signed_at,
   u.name as signed_by_name,
   (select w.withdrawn_at from consent_withdrawals w where w.consent_id = c.id) as withdrawn_at,
@@ -297,6 +302,7 @@ const consentView = (row: ConsentRow) => ({
   signedByName: row.signed_by_name ?? '',
   ...(row.withdrawn_at ? { withdrawnAt: row.withdrawn_at.toISOString() } : {}),
   witnessCount: row.witness_count,
+  ...(row.encounter_id ? { encounterId: row.encounter_id } : {}),
 });
 const consentDetail = (
   row: ConsentRow,
@@ -561,7 +567,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['consents'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign.',
+          'Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). An optional `encounterId` must be an encounter of the patient (422 `encounter_mismatch`); the records desk reads it. A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign.',
         params: PatientParams,
         body: ref(ConsentCreate),
         response: { 201: ref(ConsentDetail), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -605,10 +611,20 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!known) {
         throw new HttpError(422, 'template_not_found', 'That is not a consent template version');
       }
+      if (body.encounterId) {
+        const { rowCount } = await request.txClient.query(
+          'select 1 from encounters where id = $1 and patient_id = $2',
+          [body.encounterId, patientId],
+        );
+        if (rowCount !== 1) {
+          throw new HttpError(422, 'encounter_mismatch', 'The encounter is not this patient’s');
+        }
+      }
       const { rows } = await request.txClient.query<{ id: string }>(
         `insert into patient_consents (tenant_id, patient_id, procedure_name, template_id,
-           template_version, body, signer_name, signer_role, signature_method, signature, signed_by)
-         values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+           template_version, body, signer_name, signer_role, signature_method, signature, signed_by,
+           encounter_id)
+         values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
         [
           patientId,
           procedureName,
@@ -620,6 +636,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
           body.signatureMethod,
           body.signature ?? null,
           userId,
+          body.encounterId ?? null,
         ],
       );
       const id = rows[0]!.id;

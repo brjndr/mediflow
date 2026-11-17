@@ -9960,6 +9960,10 @@
           "witnessCount": {
             "description": "How many witness signatures it has.",
             "type": "integer"
+          },
+          "encounterId": {
+            "description": "The encounter it was signed for, when one was named.",
+            "type": "string"
           }
         }
       },
@@ -10042,6 +10046,10 @@
             "minLength": 1,
             "maxLength": 200,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          },
+          "encounterId": {
+            "format": "uuid",
             "type": "string"
           },
           "body": {
@@ -10340,7 +10348,7 @@
       "RecordGap": {
         "type": "string",
         "enum": ["unsigned_note", "no_diagnosis", "no_discharge_summary", "missing_consent"],
-        "description": "What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure."
+        "description": "What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure (a signed consent naming the encounter that was not withdrawn, or an uploaded consent document)."
       },
       "CodingState": {
         "type": "string",
@@ -49737,7 +49745,7 @@
       "post": {
         "operationId": "signConsent",
         "tags": ["consents"],
-        "description": "Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign.",
+        "description": "Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). An optional `encounterId` must be an encounter of the patient (422 `encounter_mismatch`); the records desk reads it. A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign.",
         "requestBody": {
           "required": true,
           "content": {
@@ -50582,7 +50590,7 @@
       "get": {
         "operationId": "listIncompleteRecords",
         "tags": ["records"],
-        "description": "Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure. `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited.",
+        "description": "Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure (a signed consent naming the encounter that was not withdrawn, or an uploaded consent document). `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited.",
         "parameters": [
           {
             "schema": {

@@ -202,6 +202,10 @@ afterAll(async () => {
     await client.query('set local session_replication_role = replica');
     const tenants = [hospital.id, clinic.id, bare.id];
     for (const table of [
+      'consent_withdrawals',
+      'patient_consents',
+      'template_versions',
+      'templates',
       'record_requests',
       'record_assignments',
       'diagnosis_codings',
@@ -277,6 +281,38 @@ describe('incomplete records', () => {
     const items = (await get('/records/incomplete?limit=100')).json<{ items: Incomplete[] }>()
       .items;
     expect(items.some((item) => item.encounterId === ids.noConsent)).toBe(false);
+  });
+
+  it('reads a structured consent for the encounter, unless it was withdrawn', async () => {
+    await pool.query('delete from patient_documents where encounter_id = $1', [ids.noConsent]);
+    const gaps = async () =>
+      (await get('/records/incomplete?limit=100'))
+        .json<{ items: Incomplete[] }>()
+        .items.find((item) => item.encounterId === ids.noConsent)?.gaps;
+    expect(await gaps()).toEqual(['missing_consent']);
+    const template = await one(
+      "insert into templates (tenant_id, kind, name) values ($1, 'consent', 'Consent') returning id",
+      [hospital.id],
+    );
+    await pool.query(
+      `insert into template_versions (tenant_id, template_id, version, name, body, saved_by)
+       values ($1, $2, 1, 'Consent', '{"type":"doc","content":[]}', $3)`,
+      [hospital.id, template, admin.id],
+    );
+    const consent = await one(
+      `insert into patient_consents (tenant_id, patient_id, encounter_id, procedure_name, template_id,
+         template_version, body, signer_name, signer_role, signature_method, signed_by)
+       values ($1, $2, $3, 'Procedure', $4, 1, '{"type":"doc"}', 'Asha', 'patient', 'typed', $5)
+       returning id`,
+      [hospital.id, ids.patient, ids.noConsent, template, admin.id],
+    );
+    expect(await gaps()).toBeUndefined();
+    await pool.query(
+      `insert into consent_withdrawals (tenant_id, consent_id, patient_id, reason, withdrawn_by)
+       values ($1, $2, $3, 'Changed mind', $4)`,
+      [hospital.id, consent, ids.patient, admin.id],
+    );
+    expect(await gaps()).toEqual(['missing_consent']);
   });
 
   it('assigns a record to a practising doctor, replaces and removes the assignment', async () => {
