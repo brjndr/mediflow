@@ -232,6 +232,7 @@ describe('what the platform role can reach in the database', () => {
       [PLATFORM_ROLE],
     );
     expect(rows.map((row) => row.table_name).sort()).toEqual([
+      'deletion_reminders',
       'invites',
       'memberships',
       'platform_audit_log',
