@@ -62,6 +62,13 @@ export const admissionsFeature: FeatureManifest = {
     },
   ],
   extensions: [
+    // The require-discharge-summary rule, on the hospital settings screen (#992).
+    {
+      slot: 'settings.sections',
+      component: () => import('./components/AdmissionSettings'),
+      requires: ['admission:configure'],
+      order: 10,
+    },
     // "Admit to hospital" (#576), given ids and the visit's status only.
     {
       slot: 'patient.detail.actions',
