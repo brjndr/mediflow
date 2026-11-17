@@ -316,7 +316,8 @@ export const bloodDonorRoutes: FastifyPluginAsyncTypebox = async (app) => {
         fullName: sent.fullName?.trim() ?? row.full_name,
         dateOfBirth: sent.dateOfBirth ?? row.dob,
         sex: sent.sex ?? row.sex,
-        phone: sent.phone === undefined ? row.phone : (sent.phone?.trim() ?? null),
+        phone:
+          sent.phone === undefined ? row.phone : ((sent.phone as string | null)?.trim() ?? null),
       };
       const changed =
         next.fullName !== row.full_name ||
