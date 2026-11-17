@@ -1,5 +1,10 @@
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { Readable } from 'node:stream';
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
@@ -28,6 +33,9 @@ export interface S3StoreOptions {
  * permission, scan status, announced size and type). Keys carry the hospital's id as their first
  * part, as with the local store.
  */
+/** A part of a multipart upload: S3 wants at least 5 MiB for every part but the last. */
+const PART_BYTES = 8 * 1024 * 1024;
+
 export class S3FileStore implements FileStore {
   private readonly client: S3Client;
 
@@ -53,6 +61,71 @@ export class S3FileStore implements FileStore {
         ServerSideEncryption: this.options.serverSideEncryption,
       }),
     );
+  }
+
+  async putStreaming(key: string, data: Readable): Promise<void> {
+    assertKey(key);
+    const Bucket = this.options.bucket;
+    const started = await this.client.send(
+      new CreateMultipartUploadCommand({
+        Bucket,
+        Key: key,
+        ServerSideEncryption: this.options.serverSideEncryption,
+      }),
+    );
+    const UploadId = started.UploadId;
+    if (!UploadId) throw new Error('multipart_not_started');
+    const parts: { ETag: string; PartNumber: number }[] = [];
+    const sendPart = async (body: Buffer): Promise<void> => {
+      const PartNumber = parts.length + 1;
+      const done = await this.client.send(
+        new UploadPartCommand({ Bucket, Key: key, UploadId, PartNumber, Body: body }),
+      );
+      if (!done.ETag) throw new Error('multipart_part_failed');
+      parts.push({ ETag: done.ETag, PartNumber });
+    };
+    try {
+      let pending: Buffer[] = [];
+      let held = 0;
+      for await (const chunk of data) {
+        const buffer = Buffer.from(chunk as Uint8Array);
+        pending.push(buffer);
+        held += buffer.length;
+        if (held >= PART_BYTES) {
+          await sendPart(Buffer.concat(pending));
+          pending = [];
+          held = 0;
+        }
+      }
+      // The last part may be small; a stream of no bytes is still one (empty) part.
+      if (held > 0 || parts.length === 0) await sendPart(Buffer.concat(pending));
+      await this.client.send(
+        new CompleteMultipartUploadCommand({
+          Bucket,
+          Key: key,
+          UploadId,
+          MultipartUpload: { Parts: parts },
+        }),
+      );
+    } catch (error) {
+      await this.client
+        .send(new AbortMultipartUploadCommand({ Bucket, Key: key, UploadId }))
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async getStreaming(key: string): Promise<Readable | null> {
+    assertKey(key);
+    try {
+      const result = await this.client.send(
+        new GetObjectCommand({ Bucket: this.options.bucket, Key: key }),
+      );
+      return (result.Body as Readable | undefined) ?? null;
+    } catch (error) {
+      if ((error as { name?: string }).name === 'NoSuchKey') return null;
+      throw error;
+    }
   }
 
   async get(key: string): Promise<Buffer | null> {

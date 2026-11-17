@@ -1,4 +1,7 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -35,6 +38,29 @@ export interface FileStore {
   ): Promise<string>;
   /** The size in bytes of a stored file, or null when there is none. */
   size?(key: string): Promise<number | null>;
+  /**
+   * Writes a file from a stream without holding it whole in memory (a multipart upload on S3, a
+   * temporary file renamed on disk). A stream that errors leaves no file. Call `putStream` below,
+   * which falls back to buffering for a store without this.
+   */
+  putStreaming?(key: string, data: Readable): Promise<void>;
+  /** The file as a stream, or null when there is none. Call `getStream` below. */
+  getStreaming?(key: string): Promise<Readable | null>;
+}
+
+/** Stores a stream: streamed when the store can, otherwise gathered in memory first. */
+export async function putStream(store: FileStore, key: string, data: Readable): Promise<void> {
+  if (store.putStreaming) return store.putStreaming(key, data);
+  const chunks: Buffer[] = [];
+  for await (const chunk of data) chunks.push(Buffer.from(chunk as Uint8Array));
+  await store.put(key, Buffer.concat(chunks));
+}
+
+/** A stored file as a stream, or null when there is none. */
+export async function getStream(store: FileStore, key: string): Promise<Readable | null> {
+  if (store.getStreaming) return store.getStreaming(key);
+  const data = await store.get(key);
+  return data ? Readable.from([data]) : null;
 }
 
 const KEY = /^[a-z0-9][a-z0-9/_.-]{0,199}$/;
@@ -71,6 +97,39 @@ export class LocalFileStore implements FileStore {
       await rename(temp, target);
     } catch (error) {
       await rm(temp, { force: true });
+      throw error;
+    }
+  }
+
+  async putStreaming(key: string, data: Readable): Promise<void> {
+    const target = this.locate(key);
+    await mkdir(path.dirname(target), { recursive: true });
+    const temp = `${target}.${randomUUID()}.tmp`;
+    try {
+      await pipeline(data, createWriteStream(temp, { mode: 0o600 }));
+      await rename(temp, target);
+    } catch (error) {
+      await rm(temp, { force: true });
+      throw error;
+    }
+  }
+
+  async getStreaming(key: string): Promise<Readable | null> {
+    const target = this.locate(key);
+    try {
+      await stat(target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+    return createReadStream(target);
+  }
+
+  async size(key: string): Promise<number | null> {
+    try {
+      return (await stat(this.locate(key))).size;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw error;
     }
   }

@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import type pg from 'pg';
+import { getStream } from '../../core/files/store.js';
 import { verifyOffboardExport } from '../../core/files/signing.js';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
@@ -270,7 +271,7 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
         return row;
       });
       if (!found) throw NOT_FOUND();
-      const file = await app.files.get(found.file_key);
+      const file = await getStream(app.files, found.file_key);
       if (!file) throw NOT_FOUND();
       await withPlatformTransaction(pool, async (client) => {
         await client.query(
