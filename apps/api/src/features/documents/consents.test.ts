@@ -142,6 +142,7 @@ afterAll(async () => {
       'consent_witnesses',
       'consent_withdrawals',
       'patient_consents',
+      'encounters',
       'patient_certificates',
       'certificate_counters',
       'certificate_formats',
@@ -169,6 +170,28 @@ interface Detail {
 }
 
 describe('consents', () => {
+  it('keeps the encounter it was signed for, and refuses one of another patient', async () => {
+    const encounterId = await one(
+      `insert into encounters (tenant_id, patient_id, type, status, opened_by)
+       values ($1, $2, 'opd', 'open', $3) returning id`,
+      [hospital.id, ids.patient, admin.id],
+    );
+    const signed = await send(
+      'POST',
+      `/patients/${ids.patient}/consents`,
+      consent({ encounterId }),
+    );
+    expect(signed.statusCode).toBe(201);
+    expect(signed.json<{ consent: { encounterId?: string } }>().consent.encounterId).toBe(
+      encounterId,
+    );
+    const other = await send('POST', `/patients/${ids.other}/consents`, consent({ encounterId }));
+    expect([other.statusCode, other.json<{ error: { code: string } }>().error.code]).toEqual([
+      422,
+      'encounter_mismatch',
+    ]);
+  });
+
   it('signs, lists and reads one, keeping the text and signature as sent', async () => {
     const signed = await send('POST', `/patients/${ids.patient}/consents`, consent());
     expect(signed.statusCode).toBe(201);

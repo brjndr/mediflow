@@ -4057,7 +4057,7 @@ export interface paths {
         /** @description Signed consents of one patient, newest first, one cursor page at a time, including those of records merged into it (MR-02, #566). The text and signature are in the single read. Each consent listed is audited as read. Requires consent:read. */
         get: operations["listConsents"];
         put?: never;
-        /** @description Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign. */
+        /** @description Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). An optional `encounterId` must be an encounter of the patient (422 `encounter_mismatch`); the records desk reads it. A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign. */
         post: operations["signConsent"];
         delete?: never;
         options?: never;
@@ -4176,7 +4176,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure. `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited. */
+        /** @description Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure (a signed consent naming the encounter that was not withdrawn, or an uploaded consent document). `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited. */
         get: operations["listIncompleteRecords"];
         put?: never;
         post?: never;
@@ -11091,6 +11091,8 @@ export interface components {
             withdrawnAt?: string;
             /** @description How many witness signatures it has. */
             witnessCount: number;
+            /** @description The encounter it was signed for, when one was named. */
+            encounterId?: string;
         };
         ConsentDetail: {
             consent: components["schemas"]["Consent"];
@@ -11114,6 +11116,8 @@ export interface components {
             templateId: string;
             templateVersion: number;
             procedureName: string;
+            /** Format: uuid */
+            encounterId?: string;
             /** @description The text signed, placeholders filled in. The rich text document of the app, never HTML, reduced to its allowlist on the way in. */
             body: {
                 [key: string]: unknown;
@@ -11205,7 +11209,7 @@ export interface components {
             fields: components["schemas"]["CertificateFieldDef"][];
         };
         /**
-         * @description What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure.
+         * @description What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure (a signed consent naming the encounter that was not withdrawn, or an uploaded consent document).
          * @enum {string}
          */
         RecordGap: "unsigned_note" | "no_diagnosis" | "no_discharge_summary" | "missing_consent";

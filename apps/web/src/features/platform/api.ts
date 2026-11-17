@@ -1,6 +1,8 @@
-import { api, requireData } from '@/shared/api';
+import { api, isApiError, requireData } from '@/shared/api';
 import {
   auditPageSchema,
+  hospitalDeletionSchema,
+  hospitalExportListSchema,
   hospitalInvitePageSchema,
   hospitalInviteSchema,
   hospitalPageSchema,
@@ -11,6 +13,8 @@ import type {
   AuditPage,
   Hospital,
   HospitalCreate,
+  HospitalDeletion,
+  HospitalExport,
   HospitalInvite,
   HospitalInvitePage,
   HospitalLimitsUpdate,
@@ -146,4 +150,59 @@ export async function fetchAudit(
     signal,
   });
   return auditPageSchema.parse(requireData(result));
+}
+
+/** The hospital's offboarding exports, newest first: what the deletion checks. */
+export async function fetchHospitalExports(
+  id: string,
+  signal?: AbortSignal,
+): Promise<HospitalExport[]> {
+  const result = await api.GET('/platform/hospitals/{id}/exports', {
+    params: { path: { id } },
+    signal,
+  });
+  return hospitalExportListSchema.parse(requireData(result)).items;
+}
+
+/** The latest request to delete the hospital's data, or null when there has been none. */
+export async function fetchHospitalDeletion(
+  id: string,
+  signal?: AbortSignal,
+): Promise<HospitalDeletion | null> {
+  try {
+    const result = await api.GET('/platform/hospitals/{id}/deletion', {
+      params: { path: { id } },
+      signal,
+    });
+    return hospitalDeletionSchema.parse(requireData(result));
+  } catch (error) {
+    if (isApiError(error) && error.serverCode === 'no_deletion') return null;
+    throw error;
+  }
+}
+
+/** Asks for the data to be deleted. Nothing is deleted until a second platform admin approves. */
+export async function requestHospitalDeletion(
+  id: string,
+  waiverReference: string,
+): Promise<HospitalDeletion> {
+  const result = await api.POST('/platform/hospitals/{id}/deletion', {
+    params: { path: { id } },
+    body: waiverReference === '' ? {} : { waiverReference },
+  });
+  return hospitalDeletionSchema.parse(requireData(result));
+}
+
+export async function approveHospitalDeletion(id: string): Promise<HospitalDeletion> {
+  const result = await api.POST('/platform/hospitals/{id}/deletion/approve', {
+    params: { path: { id } },
+  });
+  return hospitalDeletionSchema.parse(requireData(result));
+}
+
+export async function cancelHospitalDeletion(id: string): Promise<HospitalDeletion> {
+  const result = await api.POST('/platform/hospitals/{id}/deletion/cancel', {
+    params: { path: { id } },
+  });
+  return hospitalDeletionSchema.parse(requireData(result));
 }

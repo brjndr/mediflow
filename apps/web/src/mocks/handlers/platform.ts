@@ -9,6 +9,8 @@ type Invite = components['schemas']['PlatformInvite'];
 type InvitePage = components['schemas']['PlatformInvitePage'];
 type AuditEntry = components['schemas']['PlatformAuditEntry'];
 type AuditPage = components['schemas']['PlatformAuditPage'];
+type Deletion = components['schemas']['PlatformDeletion'];
+type HospitalExport = components['schemas']['PlatformExport'];
 
 /** Older actions, newest first, by two platform admins. */
 const AUDIT: AuditEntry[] = [
@@ -102,7 +104,17 @@ let created = 0;
 /** Open invites by hospital id. */
 let invites = new Map<string, Invite[]>();
 let invited = 0;
+/** The latest deletion request and the exports of each hospital, by hospital id. */
+let deletions = new Map<string, Deletion>();
+let exportsOf = new Map<string, HospitalExport[]>();
+/** A reason that blocks a deletion (legal_hold, medico_legal_open), set by tests. */
+let blockers = new Map<string, string>();
+let deletionCount = 0;
 onMockReset(() => {
+  deletions = new Map();
+  exportsOf = new Map();
+  blockers = new Map();
+  deletionCount = 0;
   hospitals = seed();
   created = 0;
   invites = new Map();
@@ -168,6 +180,84 @@ const MODULE_IDS = [
   'roles',
   'consents',
 ].sort();
+
+/** Test set-up: an offboarding hospital whose grace period is over, with or without an export. */
+export function setMockOffboarding(
+  id: string,
+  options: { downloadedExport?: boolean; blocker?: string } = {},
+): void {
+  const hospital = hospitals.find((h) => h.id === id);
+  if (!hospital) throw new Error('no such mock hospital');
+  hospital.status = 'offboarding';
+  hospital.offboardingRequestedAt = '2026-01-01T00:00:00Z';
+  hospital.deleteAfter = '2026-02-01T00:00:00Z';
+  if (options.blocker) blockers.set(id, options.blocker);
+  if (options.downloadedExport !== undefined) {
+    exportsOf.set(id, [
+      {
+        id: `export_${id}`,
+        hospitalId: id,
+        status: 'succeeded',
+        failure: null,
+        requestedAt: '2026-01-02T00:00:00Z',
+        finishedAt: '2026-01-02T00:10:00Z',
+        fileBytes: 1024,
+        sha256: 'abc',
+        tableCount: 10,
+        rowCount: 100,
+        fileCount: 0,
+        downloadCount: options.downloadedExport ? 1 : 0,
+        firstDownloadedAt: options.downloadedExport ? '2026-01-03T00:00:00Z' : null,
+        lastDownloadedAt: options.downloadedExport ? '2026-01-03T00:00:00Z' : null,
+      },
+    ]);
+  }
+}
+
+/** Test set-up: a request that another platform admin made, waiting for approval. */
+export function setMockDeletionBy(id: string, requestedBy: string): void {
+  deletions.set(id, {
+    id: `deletion_${++deletionCount}`,
+    hospitalId: id,
+    status: 'requested',
+    basis: 'export',
+    exportId: `export_${id}`,
+    waiverReference: null,
+    requestedBy,
+    requestedAt: '2026-02-02T00:00:00Z',
+    approvedBy: null,
+    approvedAt: null,
+    finishedAt: null,
+    failure: null,
+    tableCount: null,
+    rowCount: null,
+    fileCount: null,
+  });
+}
+
+/** The API's reasons a deletion may not go ahead, in its order. */
+function deletionBlocker(hospital: Hospital, waiver: string | null): string | null {
+  if (hospital.status !== 'offboarding') return 'hospital_not_offboarding';
+  if (hospital.deleteAfter === null || Date.parse(hospital.deleteAfter) > Date.now()) {
+    return 'grace_period_not_over';
+  }
+  const downloaded = (exportsOf.get(hospital.id) ?? []).some(
+    (e) => e.status === 'succeeded' && e.firstDownloadedAt !== null,
+  );
+  if (!downloaded && waiver === null) return 'export_not_downloaded';
+  return blockers.get(hospital.id) ?? null;
+}
+
+function deletionStep(
+  id: string,
+  step: (hospital: Hospital, current: Deletion | undefined, userId: string) => Response,
+): Response {
+  const denied = platformOnly();
+  if (denied) return denied;
+  const hospital = hospitals.find((h) => h.id === id);
+  if (!hospital) return error(404, 'not_found', 'No such hospital');
+  return step(hospital, deletions.get(id), currentSession()?.user.id ?? '');
+}
 
 export const platformHandlers = [
   http.get('*/api/platform/modules', () => {
@@ -426,6 +516,87 @@ export const platformHandlers = [
       h.deleteAfter = new Date(Date.now() + days * 86_400_000).toISOString();
     });
   }),
+
+  http.get('*/api/platform/hospitals/:id/exports', ({ params }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    return HttpResponse.json({ items: exportsOf.get(String(params.id)) ?? [] });
+  }),
+
+  http.get('*/api/platform/hospitals/:id/deletion', ({ params }) =>
+    deletionStep(String(params.id), (_h, current) =>
+      current ? HttpResponse.json(current) : error(404, 'no_deletion', 'No request'),
+    ),
+  ),
+
+  http.post('*/api/platform/hospitals/:id/deletion', async ({ params, request }) => {
+    const body = (await request.json().catch(() => ({}))) as { waiverReference?: string };
+    return deletionStep(String(params.id), (hospital, current, userId) => {
+      if (current && (current.status === 'requested' || current.status === 'approved')) {
+        return error(409, 'deletion_in_progress', 'A request is already open');
+      }
+      const waiver = body.waiverReference ?? null;
+      const blocker = deletionBlocker(hospital, waiver);
+      if (blocker) return error(409, blocker, 'Not allowed');
+      const made = (exportsOf.get(hospital.id) ?? []).find((e) => e.firstDownloadedAt !== null);
+      const created: Deletion = {
+        id: `deletion_${++deletionCount}`,
+        hospitalId: hospital.id,
+        status: 'requested',
+        basis: made ? 'export' : 'waiver',
+        exportId: made?.id ?? null,
+        waiverReference: made ? null : waiver,
+        requestedBy: userId,
+        requestedAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null,
+        finishedAt: null,
+        failure: null,
+        tableCount: null,
+        rowCount: null,
+        fileCount: null,
+      };
+      deletions.set(hospital.id, created);
+      return HttpResponse.json(created, { status: 202 });
+    });
+  }),
+
+  http.post('*/api/platform/hospitals/:id/deletion/approve', ({ params }) =>
+    deletionStep(String(params.id), (hospital, current, userId) => {
+      if (!current || current.status !== 'requested') {
+        return error(409, 'no_deletion_awaiting_approval', 'Nothing to approve');
+      }
+      if (current.requestedBy === userId) {
+        return error(409, 'approver_must_differ', 'A second admin must approve');
+      }
+      const blocker = deletionBlocker(hospital, current.waiverReference);
+      if (blocker) return error(409, blocker, 'Not allowed');
+      const approved: Deletion = {
+        ...current,
+        status: 'approved',
+        approvedBy: userId,
+        approvedAt: new Date().toISOString(),
+      };
+      deletions.set(hospital.id, approved);
+      return HttpResponse.json(approved, { status: 202 });
+    }),
+  ),
+
+  http.post('*/api/platform/hospitals/:id/deletion/cancel', ({ params }) =>
+    deletionStep(String(params.id), (hospital, current) => {
+      if (current?.status === 'running') return error(409, 'deletion_running', 'Already started');
+      if (!current || (current.status !== 'requested' && current.status !== 'approved')) {
+        return error(409, 'no_open_deletion', 'Nothing to cancel');
+      }
+      const cancelled: Deletion = {
+        ...current,
+        status: 'cancelled',
+        finishedAt: new Date().toISOString(),
+      };
+      deletions.set(hospital.id, cancelled);
+      return HttpResponse.json(cancelled);
+    }),
+  ),
 
   http.post('*/api/platform/hospitals/:id/admin-invites/:inviteId/revoke', ({ params }) => {
     const denied = platformOnly();
