@@ -541,6 +541,9 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (locked.status !== 'draft') {
         throw new HttpError(409, 'invoice_not_draft', 'An issued invoice is never changed');
       }
+      if (locked.split_group !== null) {
+        throw new HttpError(409, 'split_invoice_locked', 'A split invoice is issued as it is made');
+      }
       if (locked.version !== body.version) throw versionConflict();
       const typedBefore = await manualLinesOf(request.txClient, locked.id);
       await fillDraft(

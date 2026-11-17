@@ -5156,6 +5156,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{encounterId}/split-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Bills an insured visit as two drafts (#977): the payer's share to the payer of the patient's active policy and the patient's share, each line priced as the coverage split works it out now (never a client figure), with a line for each charge that has a share. The charges of the visit go to the patient's invoice (to the payer's when the patient owes nothing), so each is billed once, and neither draft is edited (409 `split_invoice_locked`): they are issued, paid and credited as they are. Every charge of the visit must be pending and free (409 `charges_not_pending`); the payer owing nothing is 422 `nothing_to_bill`; no active policy is 404 `no_active_policy`; a visit with a live payer invoice is 409 `split_exists` until that is void; a hospital without billing is 403 `feature_disabled`. The Idempotency-Key header is required: a repeat bills nothing more. Needs invoice:create, invoice:read, charge:read and policy:read with the scope `all`, and the insurance and billing feature flags. Audited. */
+        post: operations["createSplitInvoices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/claims": {
         parameters: {
             query?: never;
@@ -12588,6 +12605,15 @@ export interface components {
             /** @description The file, as text. */
             content: string;
         };
+        SplitInvoices: {
+            splitGroup: string;
+            /** @description The payer's share, billed to the payer. */
+            payerInvoiceId: string;
+            /** @description The patient's share; none when the patient owes nothing. */
+            patientInvoiceId?: string;
+            payerMinor: number;
+            patientMinor: number;
+        };
         /** @enum {string} */
         EmergencyCaseStatus: "waiting" | "in_treatment" | "disposed";
         /** @enum {string} */
@@ -13847,6 +13873,11 @@ export interface components {
             discountApprovedAt?: string;
             /** @description The part of the total that is tax; never changes once issued. */
             taxMinor: number;
+            /** @description Set on the payer share of a split visit (#977): who is billed. */
+            payerId?: string;
+            payerName?: string;
+            /** @description Shared by the patient invoice and the payer invoice of one split visit; such a draft is not edited. */
+            splitGroup?: string;
             /** @description Payments less refunds. */
             paidMinor: number;
             /** @description The credit notes against the invoice. */
@@ -42743,6 +42774,94 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createSplitInvoices: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SplitInvoices"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
