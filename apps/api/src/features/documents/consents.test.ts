@@ -139,6 +139,8 @@ afterAll(async () => {
     await client.query('set local session_replication_role = replica');
     const tenants = [hospital.id, clinic.id, bare.id];
     for (const table of [
+      'consent_witnesses',
+      'consent_withdrawals',
       'patient_consents',
       'patient_certificates',
       'certificate_counters',
@@ -312,6 +314,100 @@ describe('consents', () => {
     ).toBe(422);
     const clinicList = await get(`/patients/${ids.clinicPatient}/consents`, asClinic);
     expect(clinicList.json<{ items: unknown[] }>().items).toEqual([]);
+  });
+});
+
+describe('witnesses and withdrawal (#989)', () => {
+  const witness = (overrides: Record<string, unknown> = {}) => ({
+    witnessName: 'Ravi Menon',
+    relation: 'Nurse',
+    signatureMethod: 'typed',
+    ...overrides,
+  });
+  const newConsent = async (patientId = ids.patient) =>
+    (await send('POST', `/patients/${patientId}/consents`, consent())).json<Detail>().consent.id;
+
+  it('adds witnesses as new entries and leaves the signed consent as it was', async () => {
+    const id = await newConsent();
+    const first = await send('POST', `/consents/${id}/witnesses`, witness());
+    expect(first.statusCode).toBe(201);
+    await send(
+      'POST',
+      `/consents/${id}/witnesses`,
+      witness({ witnessName: 'Lata Iyer', signatureMethod: 'drawn', signature: 'M 1 1 L 5 5' }),
+    );
+    const read = (await get(`/consents/${id}`)).json<
+      Detail & { witnesses: { witnessName: string; recordedByName: string; signature?: string }[] }
+    >();
+    expect(read.witnesses.map((w) => w.witnessName)).toEqual(['Ravi Menon', 'Lata Iyer']);
+    expect(read.witnesses[0]!.recordedByName).toBe('Consent Admin');
+    expect(read.witnesses[1]!.signature).toBe('M 1 1 L 5 5');
+    expect(read.signature).toBe('M 10 10 L 50 40 L 90 20');
+    const list = await get(`/patients/${ids.patient}/consents?limit=100`);
+    const row = list
+      .json<{ items: { id: string; witnessCount: number }[] }>()
+      .items.find((item) => item.id === id);
+    expect(row?.witnessCount).toBe(2);
+    const bad = await send('POST', `/consents/${id}/witnesses`, witness({ signature: 'M 1 1' }));
+    expect(errorOf(bad)).toEqual([422, 'signature_invalid']);
+  });
+
+  it('withdraws once with a reason, and takes no witness afterwards', async () => {
+    const id = await newConsent();
+    const done = await send('POST', `/consents/${id}/withdraw`, { reason: 'Changed my mind' });
+    expect(done.statusCode).toBe(200);
+    const detail = done.json<
+      Detail & {
+        consent: { withdrawnAt?: string };
+        withdrawal: { reason: string; withdrawnByName: string };
+      }
+    >();
+    expect(detail.consent.withdrawnAt).toBeTruthy();
+    expect(detail.withdrawal).toMatchObject({
+      reason: 'Changed my mind',
+      withdrawnByName: 'Consent Admin',
+    });
+    expect(errorOf(await send('POST', `/consents/${id}/withdraw`, { reason: 'Again' }))).toEqual([
+      409,
+      'already_withdrawn',
+    ]);
+    expect(errorOf(await send('POST', `/consents/${id}/witnesses`, witness()))).toEqual([
+      409,
+      'consent_withdrawn',
+    ]);
+    // The signed text is untouched.
+    expect((await get(`/consents/${id}`)).json<Detail>().body).toEqual(
+      text('I agree to the appendicectomy.'),
+    );
+    const { rows } = await pool.query(
+      "select 1 from outbox where tenant_id = $1 and event = 'consent.withdrawn'",
+      [hospital.id],
+    );
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it('cannot be changed or removed, and stays inside the hospital', async () => {
+    const id = await newConsent();
+    await send('POST', `/consents/${id}/witnesses`, witness());
+    await send('POST', `/consents/${id}/withdraw`, { reason: 'No' });
+    for (const table of ['consent_witnesses', 'consent_withdrawals']) {
+      await expect(
+        asTenantSql(pool, hospital.id, (client) => client.query(`delete from ${table}`)),
+      ).rejects.toMatchObject({ code: '42501' });
+      await expect(
+        asTenantSql(pool, hospital.id, (client) =>
+          client.query(`update ${table} set tenant_id = tenant_id`),
+        ),
+      ).rejects.toMatchObject({ code: '42501' });
+    }
+    const asClinic = { tenant: clinic, user: clinicAdmin };
+    expect(errorOf(await send('POST', `/consents/${id}/witnesses`, witness(), asClinic))).toEqual([
+      404,
+      'not_found',
+    ]);
+    expect(
+      errorOf(await send('POST', `/consents/${id}/withdraw`, { reason: 'x' }, asClinic)),
+    ).toEqual([404, 'not_found']);
   });
 });
 

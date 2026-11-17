@@ -58,6 +58,8 @@ export const consentSchema: z.ZodType<Consent> = z.object({
   signatureMethod: z.enum(SIGNATURES),
   signedAt: z.string(),
   signedByName: z.string(),
+  withdrawnAt: z.string().optional(),
+  witnessCount: z.number().int().default(0),
 });
 
 export const consentPageSchema: z.ZodType<ConsentPage> = z.object({
@@ -66,11 +68,29 @@ export const consentPageSchema: z.ZodType<ConsentPage> = z.object({
   total: z.number().int().optional(),
 });
 
+const consentWitnessSchema = z.object({
+  id: z.string(),
+  witnessName: z.string(),
+  relation: z.string().optional(),
+  signatureMethod: z.enum(SIGNATURES),
+  signature: z.string().regex(SIGNATURE_PATH).max(SIGNATURE_MAX).optional(),
+  recordedAt: z.string(),
+  recordedByName: z.string(),
+});
+
+const consentWithdrawalSchema = z.object({
+  reason: z.string(),
+  withdrawnAt: z.string(),
+  withdrawnByName: z.string(),
+});
+
 export const consentDetailSchema = z
   .object({
     consent: consentSchema,
     body: z.unknown(),
     signature: z.string().regex(SIGNATURE_PATH).max(SIGNATURE_MAX).optional(),
+    witnesses: z.array(consentWitnessSchema).default([]),
+    withdrawal: consentWithdrawalSchema.optional(),
   })
   .transform((detail): ConsentDetail => ({ ...detail, body: sanitizeRichText(detail.body) }));
 

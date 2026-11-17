@@ -16,6 +16,9 @@ export const DOMAIN_EVENTS = [
   'correction.rejected',
   // A consent was signed or a certificate issued (MR-02, #566): ids and the kind only.
   'consent.signed',
+  // A witness signed a consent, or it was withdrawn (MR-09, #989): ids only.
+  'consent.witnessed',
+  'consent.withdrawn',
   'certificate.issued',
   // A scan blocked an uploaded document (#673): the document id and its status, the uploader as actor.
   'document.blocked',
