@@ -27,6 +27,13 @@ export interface TemplateData {
     /** The date in the hospital's own time zone, YYYY-MM-DD. */
     deleteOn: string;
   };
+  /** The download of an offboarded hospital's data, for its admin (#974). The link is the credential. */
+  export_link: {
+    hospitalName: string;
+    /** A path on the web app, with the signed query. */
+    linkPath: string;
+    expiresInDays: number;
+  };
 }
 
 export type TemplateName = keyof TemplateData;
@@ -132,6 +139,20 @@ const renderers: {
         ],
         null,
         'Once deleted, the data cannot be brought back. You are receiving this as an administrator of the hospital.',
+      ),
+    };
+  },
+  export_link(data, appBaseUrl) {
+    const hospital = oneLine(data.hospitalName);
+    return {
+      subject: `${hospital}: download your data from Mediflow`,
+      ...layout(
+        [
+          `${hospital} has left Mediflow. The link below downloads a copy of its data, including its patient records, as one archive.`,
+          'Keep the file somewhere safe: it holds patient information.',
+        ],
+        { href: appLink(appBaseUrl, data.linkPath), label: 'Download the export' },
+        `Anyone with this link can download the data, so do not forward this email. The link expires in ${data.expiresInDays} days; ask the Mediflow operator for another if it does. You are receiving this as an administrator of the hospital.`,
       ),
     };
   },

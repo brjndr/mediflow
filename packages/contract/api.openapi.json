@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.12.0",
+    "version": "0.13.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {
@@ -21539,16 +21539,17 @@
           }
         }
       },
-      "ExportLink": {
+      "ExportLinkSent": {
+        "description": "The link is queued to that admin by email; it is not returned.",
         "type": "object",
-        "required": ["url", "expiresAt"],
+        "required": ["adminUserId", "expiresInDays"],
         "properties": {
-          "url": {
+          "adminUserId": {
+            "format": "uuid",
             "type": "string"
           },
-          "expiresAt": {
-            "format": "date-time",
-            "type": "string"
+          "expiresInDays": {
+            "type": "integer"
           }
         }
       },
@@ -76978,11 +76979,11 @@
         }
       }
     },
-    "/platform/hospitals/{id}/exports/{exportId}/download-link": {
+    "/platform/hospitals/{id}/exports/{exportId}/email-link": {
       "post": {
-        "operationId": "platformIssueHospitalExportLink",
+        "operationId": "platformEmailHospitalExportLink",
         "tags": ["platform"],
-        "description": "A signed link to a made export, valid for seven days, for one active admin of the hospital. Whoever holds it can download, so give it only to that admin; each download is in the platform trail under that admin. Issue another during the grace period when it has expired. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`.",
+        "description": "Emails a signed download link of a made export, valid for seven days, to one active admin of the hospital. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -77022,12 +77023,12 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Default Response",
+          "202": {
+            "description": "The link is queued to that admin by email; it is not returned.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExportLink"
+                  "$ref": "#/components/schemas/ExportLinkSent"
                 }
               }
             }
@@ -77099,7 +77100,7 @@
       "get": {
         "operationId": "downloadOffboardingExport",
         "tags": ["platform"],
-        "description": "The archive of an offboarded hospital’s data, for a link made by `platformIssueHospitalExportLink`. The signature in the query is the only credential; the download is audited under the admin the link was made for. 404 `export_not_found` for anything else.",
+        "description": "The archive of an offboarded hospital’s data, for a link emailed by `platformEmailHospitalExportLink`. The signature in the query is the only credential; the download is audited under the admin the link was made for. 404 `export_not_found` for anything else.",
         "parameters": [
           {
             "schema": {
