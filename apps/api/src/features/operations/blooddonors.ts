@@ -16,6 +16,7 @@ import {
   BloodDonorPage,
   BloodDonorParams,
   BloodDonorSearch,
+  BloodDonorUpdate,
 } from './schemas.js';
 import { isCode, iso, userIdOf } from './util.js';
 
@@ -274,6 +275,70 @@ export const bloodDonorRoutes: FastifyPluginAsyncTypebox = async (app) => {
         ...(row.phone === null ? {} : { phone: row.phone }),
         ...(row.deferral_reason === null ? {} : { deferralReason: row.deferral_reason }),
         collections: await collectionsOf(request.txClient, row.id),
+      };
+    },
+  );
+
+  app.patch(
+    '/blood/donors/:donorId',
+    {
+      config: { permissions: [MANAGE, READ], feature: FEATURE },
+      schema: {
+        operationId: 'updateBloodDonor',
+        tags: ['bloodbank'],
+        description:
+          "Corrects a donor's name, date of birth, sex or phone (null clears the phone); the blood group and number never change. Only the fields sent change. `expectedVersion` is the version the caller read, else 409 `conflict` and nothing changes. The age rule of registration holds for a new date of birth (422 `donor_age`). Audited. Requires bloodDonor:manage and bloodDonor:read.",
+        params: BloodDonorParams,
+        body: BloodDonorUpdate,
+        response: { 200: ref(BloodDonor), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      const client = request.txClient;
+      const { expectedVersion, ...sent } = request.body;
+      const probe = await findDonor(client, request.params.donorId);
+      if (!probe) throw notFound();
+      const row = (await findDonor(client, probe.id, true)) as DonorRow;
+      if (row.version !== expectedVersion) {
+        throw new HttpError(409, 'conflict', 'The donor has changed since it was read');
+      }
+      if (sent.dateOfBirth !== undefined) {
+        const age = ageOn(sent.dateOfBirth, new Date());
+        if (age < DONOR_MIN_AGE || age > DONOR_MAX_AGE) {
+          throw new HttpError(
+            422,
+            'donor_age',
+            `A donor is aged ${DONOR_MIN_AGE} to ${DONOR_MAX_AGE}`,
+          );
+        }
+      }
+      const next = {
+        fullName: sent.fullName?.trim() ?? row.full_name,
+        dateOfBirth: sent.dateOfBirth ?? row.dob,
+        sex: sent.sex ?? row.sex,
+        phone:
+          sent.phone === undefined ? row.phone : ((sent.phone as string | null)?.trim() ?? null),
+      };
+      const changed =
+        next.fullName !== row.full_name ||
+        next.dateOfBirth !== row.dob ||
+        next.sex !== row.sex ||
+        next.phone !== row.phone;
+      if (changed) {
+        await client.query(
+          'update blood_donors set full_name = $2, date_of_birth = $3, sex = $4, phone = $5 where id = $1',
+          [row.id, next.fullName, next.dateOfBirth, next.sex, next.phone],
+        );
+        request.audit('update', 'blood_donor', row.id);
+      }
+      const fresh = (await findDonor(client, row.id)) as DonorRow;
+      return {
+        ...common(fresh),
+        fullName: fresh.full_name,
+        dateOfBirth: fresh.dob,
+        ...(fresh.phone === null ? {} : { phone: fresh.phone }),
+        ...(fresh.deferral_reason === null ? {} : { deferralReason: fresh.deferral_reason }),
+        collections: await collectionsOf(client, fresh.id),
       };
     },
   );

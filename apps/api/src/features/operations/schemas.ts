@@ -494,6 +494,26 @@ export const BloodDonorCreate = Type.Object(
 );
 export type BloodDonorCreate = Static<typeof BloodDonorCreate>;
 
+export const BloodDonorUpdate = Type.Object(
+  {
+    expectedVersion: Type.Integer({ minimum: 1, description: 'The version the caller read.' }),
+    fullName: Type.Optional(Type.String({ minLength: 1, maxLength: 100, pattern: PLAIN_TEXT })),
+    dateOfBirth: Type.Optional(Type.String({ format: 'date' })),
+    sex: Type.Optional(ref(DonorSex)),
+    phone: Type.Optional(
+      Type.Unsafe<string | null>({
+        type: ['string', 'null'],
+        minLength: 4,
+        maxLength: 20,
+        pattern: PLAIN_TEXT,
+        description: 'Null clears the phone.',
+      }),
+    ),
+  },
+  { $id: 'BloodDonorUpdate', additionalProperties: false },
+);
+export type BloodDonorUpdate = Static<typeof BloodDonorUpdate>;
+
 export const BloodDonorSearch = Type.Object(
   {
     q: Type.Optional(
@@ -998,6 +1018,7 @@ export const OPERATIONS_SCHEMAS = [
   BloodDonor,
   BloodDonorCreate,
   BloodDonorSearch,
+  BloodDonorUpdate,
   BloodDonorDefer,
   BloodCollectionCreate,
   BloodScreeningCreate,

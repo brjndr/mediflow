@@ -9,6 +9,7 @@ import {
   fetchDonorTrace,
   recordCollection,
   registerDonor,
+  updateDonor,
   searchDonors,
   setPatientBloodGroup,
   type DonorFilters,
@@ -31,6 +32,7 @@ import type {
   BloodCollectionCreate,
   BloodDonorCreate,
   BloodDonorDefer,
+  BloodDonorUpdate,
   PatientBloodGroupSet,
   BloodComponent,
   BloodScreeningCreate,
@@ -267,6 +269,17 @@ export function useRegisterDonor() {
     mutationFn: (body: BloodDonorCreate) =>
       registerDonor(body, attempt.keyFor(JSON.stringify(body))),
     onSuccess: () => attempt.done(),
+    onSettled: refresh,
+  });
+}
+
+/** A correction is not retried blindly: the version in the body makes a second send a conflict. */
+export function useUpdateDonor() {
+  const refresh = useRefreshAll();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (input: { donorId: string; body: BloodDonorUpdate }) =>
+      updateDonor(input.donorId, input.body),
     onSettled: refresh,
   });
 }

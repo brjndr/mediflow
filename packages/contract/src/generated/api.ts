@@ -4563,7 +4563,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** @description Corrects a donor's name, date of birth, sex or phone (null clears the phone); the blood group and number never change. Only the fields sent change. `expectedVersion` is the version the caller read, else 409 `conflict` and nothing changes. The age rule of registration holds for a new date of birth (422 `donor_age`). Audited. Requires bloodDonor:manage and bloodDonor:read. */
+        patch: operations["updateBloodDonor"];
         trace?: never;
     };
     "/blood/donors/{donorId}/defer": {
@@ -11601,6 +11602,16 @@ export interface components {
             cursor?: string;
             /** @default 25 */
             limit: number;
+        };
+        BloodDonorUpdate: {
+            /** @description The version the caller read. */
+            expectedVersion: number;
+            fullName?: string;
+            /** Format: date */
+            dateOfBirth?: string;
+            sex?: components["schemas"]["DonorSex"];
+            /** @description Null clears the phone. */
+            phone?: string | null;
         };
         BloodDonorDefer: {
             reason: string;
@@ -38977,6 +38988,104 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateBloodDonor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                donorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the caller read. */
+                    expectedVersion: number;
+                    fullName?: string;
+                    /** Format: date */
+                    dateOfBirth?: string;
+                    sex?: components["schemas"]["DonorSex"];
+                    /** @description Null clears the phone. */
+                    phone?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloodDonor"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

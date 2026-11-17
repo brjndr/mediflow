@@ -12,12 +12,20 @@ import { useFormatters } from '@/tenancy';
 import { useDonors } from '../hooks/use-blood';
 import { BLOOD_GROUPS } from '../schemas';
 import type { BloodDonorSummary, BloodGroup, DonorStatus } from '../types';
-import { CollectionDialog, DeferDialog, DonorDialog, RegisterDonorDialog } from './DonorDialogs';
+import {
+  CollectionDialog,
+  DeferDialog,
+  DonorDialog,
+  EditDonorDialog,
+  RegisterDonorDialog,
+} from './DonorDialogs';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 
 type Open =
-  { kind: 'register' } | { kind: 'collect' | 'defer' | 'detail'; donor: BloodDonorSummary } | null;
+  | { kind: 'register' }
+  | { kind: 'collect' | 'defer' | 'detail' | 'edit'; donor: BloodDonorSummary }
+  | null;
 
 /**
  * The Donors tab of the blood bank (#586): donors from `POST /blood/donors/search` with the name
@@ -89,6 +97,13 @@ export function DonorsPanel() {
       // The server decides (age, 90 days); a deferred donor is not offered at all.
       disabled: (row) => row.status === 'deferred',
       onSelect: (row) => setOpen({ kind: 'collect', donor: row }),
+    },
+    {
+      id: 'edit',
+      label: t('donor.actions.edit'),
+      requires: 'bloodDonor:manage',
+      disabled: () => false,
+      onSelect: (row) => setOpen({ kind: 'edit', donor: row }),
     },
     {
       id: 'defer',
@@ -217,6 +232,13 @@ export function DonorsPanel() {
           donor={open.donor}
           onClose={() => setOpen(null)}
           onDone={(donor) => finish(t('donor.done.deferred', { number: donor.donorNumber }))}
+        />
+      )}
+      {open?.kind === 'edit' && (
+        <EditDonorDialog
+          donor={open.donor}
+          onClose={() => setOpen(null)}
+          onDone={(saved) => finish(t('donor.done.edited', { number: saved.donorNumber }))}
         />
       )}
       {open?.kind === 'detail' && <DonorDialog donor={open.donor} onClose={() => setOpen(null)} />}

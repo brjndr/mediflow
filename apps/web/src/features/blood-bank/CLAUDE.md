@@ -34,9 +34,13 @@ All on the Units screen, on the operations API (`bloodtesting.ts`, `bloodcompat.
 
 ## Not here yet
 
-Editing a donor, a list of all reactions, notifying the recipient's doctor and recalling cleared units of a reactive donor.
+A list of all reactions, notifying the recipient's doctor and recalling cleared units of a reactive donor.
 
 ## Decisions
 
 - The list never names a patient; only the history dialog does, from the patient's own record.
 - The mock (`mocks/handlers/blood-bank.ts`) seeds an available and a testing unit for the sample hospital; only it has `bloodbank` on.
+
+## Editing a donor (#981)
+
+- **Edit** (`bloodDonor:manage`, `EditDonorDialog` in `DonorDialogs.tsx`): reads the full record first (an audited read), then a form of name, date of birth, sex and phone; the blood group and number never change (units carry the group). `PATCH /blood/donors/{id}` sends only the dirty fields with `expectedVersion`; an emptied phone is `null`. On 409 `conflict` the record is read again, the form keeps what was typed (`reset(..., { keepDirtyValues })`), takes what was saved in the other fields, and says what the other person saved under a field both changed.
