@@ -12,7 +12,7 @@ type Field = Schemas['CertificateFieldDef'];
 
 const FEATURE_FLAG = 'consents';
 
-interface StoredConsent extends Consent {
+interface StoredConsent extends Omit<Consent, 'witnessCount' | 'withdrawnAt'> {
   tenantId: string;
   body: unknown;
   signature?: string;
@@ -96,10 +96,18 @@ const SIGNERS = ['patient', 'guardian', 'representative'];
 const METHODS = ['drawn', 'typed'];
 const SIGNATURE_PATH = /^[ML0-9 .,-]*$/;
 
-const summary = ({ tenantId: _t, body: _b, signature: _s, ...consent }: StoredConsent): Consent =>
-  consent;
+const summary = ({
+  tenantId: _t,
+  body: _b,
+  signature: _s,
+  ...consent
+}: StoredConsent): Consent => ({
+  ...consent,
+  witnessCount: 0,
+});
 const detail = (one: StoredConsent) => ({
   consent: summary(one),
+  witnesses: [],
   body: one.body,
   ...(one.signature !== undefined ? { signature: one.signature } : {}),
 });

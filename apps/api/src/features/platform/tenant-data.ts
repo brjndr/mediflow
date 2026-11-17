@@ -49,6 +49,8 @@ export const EXPORTED_PLAIN: readonly string[] = [
   'cleaning_tasks',
   'clinical_notes',
   'code_favourites',
+  'consent_withdrawals',
+  'consent_witnesses',
   'coverage_splits',
   'credit_accounts',
   'credit_bills',
