@@ -148,6 +148,10 @@ export const DOMAIN_EVENTS = [
   'surgery.checklist_step_completed',
   // A recovery-room note added (#917): ids only, never the text or the pain score.
   'surgery.recovery_note_added',
+  // Medical records desk (#986): ids only.
+  'record.request_created',
+  'record.request_closed',
+  'diagnosis.coded',
   'claim.submitted',
   'claim.settled',
   // A record of a catalog (a service, a price, later a drug, a test, a bed) was added or changed.

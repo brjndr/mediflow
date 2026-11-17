@@ -216,6 +216,30 @@ export function subscribeToPostings(app: FastifyInstance): void {
     });
   });
 
+  // A fulfilled request for a copy of a record that named a service and a visit is charged as
+  // that service, once per copy (#986).
+  app.events.subscribe('record.request_closed', async (message, tx) => {
+    const { payload } = message;
+    const requestId = idOf(message.entityId);
+    const encounterId = idOf(payload.encounterId);
+    const patientId = idOf(payload.patientId);
+    const serviceId = idOf(payload.serviceId);
+    const copies = payload.copies;
+    if (!requestId || !encounterId || !patientId || !serviceId) return;
+    if (payload.outcome !== 'fulfilled' || typeof copies !== 'number' || copies < 1) return;
+    await postCharge(tx, {
+      encounterId,
+      patientId,
+      serviceId,
+      source: 'service',
+      sourceRef: `record_request:${requestId}`,
+      description: '',
+      quantity: copies,
+      unitPriceMinor: 0,
+      flag: null,
+    });
+  });
+
   // A blood unit issued with a visit and a service is charged as that service, once per unit.
   app.events.subscribe('blood.unit_status_changed', async (message, tx) => {
     const { payload } = message;
