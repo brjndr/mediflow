@@ -231,11 +231,17 @@ const INCOMPLETE = `
            case when not exists (select 1 from encounter_diagnoses g
                                   where g.encounter_id = e.id and g.retracted_at is null)
                 then 'no_diagnosis' end,
-           case when e.type = 'ipd' and not exists (
+           case when (e.type = 'ipd' and not exists (
                   select 1 from admissions a
                     join discharge_summaries s on s.tenant_id = a.tenant_id
                      and s.admission_id = a.id and s.status = 'signed'
-                   where a.encounter_id = e.id)
+                   where a.encounter_id = e.id))
+                 or (e.type in ('daycare', 'er') and exists (
+                  select 1 from admissions a
+                   where a.source_encounter_id = e.id
+                     and not exists (select 1 from discharge_summaries s
+                                      where s.tenant_id = a.tenant_id
+                                        and s.admission_id = a.id and s.status = 'signed')))
                 then 'no_discharge_summary' end,
            case when exists (select 1 from orders o
                               where o.encounter_id = e.id and o.type = 'procedure'
