@@ -143,6 +143,9 @@ export interface InvoiceRow {
   discount_status: string;
   discount_applied_by: string | null;
   discount_approved_at: Date | null;
+  payer_id: string | null;
+  payer_name: string | null;
+  split_group: string | null;
   bill_discount_bp: number | null;
   bill_discount_amount_minor: string | null;
   bill_discount_reason: string | null;
@@ -175,6 +178,7 @@ const INVOICE_SELECT = `
     i.currency, i.version, i.created_at, i.issued_at,
     i.discount_minor::text, i.discount_status, i.discount_applied_by, i.discount_approved_at,
     i.bill_discount_bp, i.bill_discount_amount_minor::text, i.bill_discount_reason,
+    i.payer_id, py.name as payer_name, i.split_group,
     coalesce((select json_agg(json_build_object('id', l.id, 'chargeId', l.charge_id,
         'source', l.source, 'description', l.description, 'quantity', l.quantity,
         'unitPriceMinor', l.unit_price_minor, 'totalMinor', l.total_minor,
@@ -186,7 +190,8 @@ const INVOICE_SELECT = `
       from invoice_lines l where l.tenant_id = i.tenant_id and l.invoice_id = i.id), '[]') as lines,
     ${EXACT('i.created_at')} as at_exact, count(*) over ()::int as total
   from invoices i
-  join patients pt on pt.tenant_id = i.tenant_id and pt.id = i.patient_id`;
+  join patients pt on pt.tenant_id = i.tenant_id and pt.id = i.patient_id
+  left join payers py on py.tenant_id = i.tenant_id and py.id = i.payer_id`;
 
 export async function findInvoice(client: pg.ClientBase, id: string): Promise<InvoiceRow | null> {
   if (!isUuid(id)) return null;
@@ -285,6 +290,7 @@ export interface LockedInvoice {
   version: number;
   discount_status: string;
   discount_applied_by: string | null;
+  split_group: string | null;
 }
 
 /** Holds the invoice against every other change until the transaction ends. */
@@ -296,7 +302,7 @@ export async function lockInvoice(
   const { rows } = await client.query<LockedInvoice>(
     `select id, encounter_id, patient_id, status, total_minor::text, paid_minor::text,
        credited_minor::text, version,
-       discount_status, discount_applied_by
+       discount_status, discount_applied_by, split_group
      from invoices where id = $1 for update`,
     [id],
   );
