@@ -6,6 +6,7 @@ import { StatCard } from '@/shared/ui/stat-card';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
 import { useBlockedDocuments, useDismissBlocked } from '../hooks/use-documents';
+const loadHindi = () => import('../widget-strings.hi.json');
 
 /**
  * Files the person attached that the scan blocked (#673), told on the home page whatever screen
@@ -13,7 +14,7 @@ import { useBlockedDocuments, useDismissBlocked } from '../hooks/use-documents';
  * patient. Default export: a `dashboard.widgets` contribution.
  */
 export default function BlockedFilesWidget() {
-  const { t } = useWidgetStrings('documents-widget', widgetStrings);
+  const { t } = useWidgetStrings('documents-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   const blocked = useBlockedDocuments();
   const dismiss = useDismissBlocked();

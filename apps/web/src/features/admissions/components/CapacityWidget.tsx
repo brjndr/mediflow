@@ -6,6 +6,7 @@ import { RingGauge } from '@/shared/ui/ring-gauge';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { StatCard } from '@/shared/ui/stat-card';
 import { useOccupancy } from '../hooks/use-census';
+const loadHindi = () => import('../widget-strings.hi.json');
 
 /**
  * Bed occupancy as a ring: occupied beds of the beds in use (a blocked bed leaves the rate, as on
@@ -13,7 +14,7 @@ import { useOccupancy } from '../hooks/use-census';
  * contribution.
  */
 export default function CapacityWidget() {
-  const { t } = useWidgetStrings('admissions-widget', widgetStrings);
+  const { t } = useWidgetStrings('admissions-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   // Read when it opens: the bed events stream belongs to the board, not to the landing page.
   const occupancy = useOccupancy('', false);
