@@ -132,12 +132,16 @@ export function useCodeDiagnosis(diagnosisId: string) {
   });
 }
 
-export function useRecordRequests(state: RecordRequestState | '', limit = RECORDS_PAGE_SIZE) {
+export function useRecordRequests(
+  state: RecordRequestState | '',
+  patientId?: string,
+  limit = RECORDS_PAGE_SIZE,
+) {
   const tenantId = useTenant()?.id;
   return useInfiniteQuery({
-    queryKey: requestKeys.list(tenantId ?? '', { state, limit }),
+    queryKey: requestKeys.list(tenantId ?? '', { state, patientId, limit }),
     queryFn: ({ pageParam, signal }) =>
-      fetchRecordRequests({ state, cursor: pageParam, limit }, signal),
+      fetchRecordRequests({ state, patientId, cursor: pageParam, limit }, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     placeholderData: keepPreviousData,

@@ -78,11 +78,16 @@ export async function codeDiagnosis(
 }
 
 export async function fetchRecordRequests(
-  { state, cursor, limit }: { state: RecordRequestState | ''; cursor?: string; limit: number },
+  {
+    state,
+    patientId,
+    cursor,
+    limit,
+  }: { state: RecordRequestState | ''; patientId?: string; cursor?: string; limit: number },
   signal?: AbortSignal,
 ): Promise<RecordRequestPage> {
   const result = await api.GET('/record-requests', {
-    params: { query: { state: state || undefined, cursor, limit } },
+    params: { query: { state: state || undefined, patientId, cursor, limit } },
     signal,
   });
   return recordRequestPageSchema.parse(requireData(result));

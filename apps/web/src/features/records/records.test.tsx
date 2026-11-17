@@ -158,6 +158,20 @@ describe('the record request log', () => {
     await expectNoAxeViolations();
   });
 
+  it('narrows the log to one patient and back', async () => {
+    renderApp({ entry: '/records/requests' });
+    const table = await screen.findByRole('table', { name: 'Record requests' });
+    await within(table).findByText('Rohan Verma (Patient)');
+    await userEvent.type(screen.getByRole('combobox', { name: /Patient/ }), 'MRN-PTH-00001');
+    await userEvent.click(await screen.findByRole('option', { name: /MRN-PTH-00001/ }));
+    await waitFor(() =>
+      expect(within(table).queryByText('Rohan Verma (Patient)')).not.toBeInTheDocument(),
+    );
+    expect(within(table).getByText('Sample Insurance Co (Insurer)')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show all patients' }));
+    expect(await within(table).findByText('Rohan Verma (Patient)')).toBeInTheDocument();
+  });
+
   it('logs a request for a patient', async () => {
     renderApp({ entry: '/records/requests' });
     await screen.findByRole('table', { name: 'Record requests' });
