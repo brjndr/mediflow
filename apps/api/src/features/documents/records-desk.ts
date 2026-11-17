@@ -146,6 +146,9 @@ export const RecordRequestClose = Type.Object(
     outcome: StringEnum(['fulfilled', 'declined']),
     note: Type.String({ minLength: 1, maxLength: 500, pattern: PLAIN_TEXT }),
     version: Type.Integer({ minimum: 1 }),
+    feeServiceId: Type.Optional(Type.String({ format: 'uuid' })),
+    feeEncounterId: Type.Optional(Type.String({ format: 'uuid' })),
+    copies: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
   },
   { $id: 'RecordRequestClose', additionalProperties: false },
 );
@@ -672,6 +675,7 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'version_conflict', 'The diagnosis was coded by someone else');
       }
       request.audit(current.rowCount === 0 ? 'create' : 'update', 'diagnosis_coding', diagnosisId);
+      await request.emit('diagnosis.coded', diagnosisId, { codeId: code.id });
       const row = await codingOne(request, diagnosisId);
       if (!row) throw notFound();
       return codingView(row);
@@ -810,6 +814,10 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const id = rows[0]!.id;
       request.idempotentId = id;
       request.audit('create', 'record_request', id);
+      await request.emit('record.request_created', id, {
+        patientId: body.patientId,
+        requesterKind: body.requesterKind,
+      });
       const row = await requestOne(request, id);
       return reply.status(201).send(requestView(row!));
     },
@@ -827,7 +835,7 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'closeRecordRequest',
         tags: ['records'],
         description:
-          'Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited.',
+          'Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. With `feeServiceId`, `feeEncounterId` (a visit of the patient, not cancelled, 422 `unknown_encounter`) and `copies`, a fulfilled request carries a fee that billing charges to the visit (422 `fee_incomplete`, `fee_needs_fulfilled`, `unknown_service`). Emits `record.request_closed`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited.',
         params: Type.Object({ requestId: Type.String({ format: 'uuid' }) }),
         headers: RequiredIdempotencyHeaders,
         body: ref(RecordRequestClose),
@@ -865,12 +873,56 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const note = tidyWithin(body.note, 500);
       if (!note) throw new HttpError(400, 'validation_failed', 'A note is needed');
+      // A fee names the service, the visit it is charged to and the copies; billing posts it.
+      const feeParts = [body.feeServiceId, body.feeEncounterId, body.copies].filter(
+        (part) => part !== undefined,
+      ).length;
+      if (feeParts !== 0 && feeParts !== 3) {
+        throw new HttpError(422, 'fee_incomplete', 'A fee needs a service, a visit and the copies');
+      }
+      if (feeParts === 3) {
+        if (body.outcome !== 'fulfilled') {
+          throw new HttpError(422, 'fee_needs_fulfilled', 'Only a fulfilled request carries a fee');
+        }
+        const service = await request.txClient.query(
+          'select 1 from services where id = $1 and not archived',
+          [body.feeServiceId],
+        );
+        if (service.rowCount === 0) throw new HttpError(422, 'unknown_service', 'No such service');
+        const visit = await request.txClient.query(
+          `select 1 from encounters where id = $1 and patient_id = $2 and status <> 'cancelled'`,
+          [body.feeEncounterId, current.patient_id],
+        );
+        if (visit.rowCount === 0) {
+          throw new HttpError(422, 'unknown_encounter', 'No such visit of this patient');
+        }
+      }
       await request.txClient.query(
-        `update record_requests set state = $2, closed_at = now(), closed_by = $3, note = $4
+        `update record_requests set state = $2, closed_at = now(), closed_by = $3, note = $4,
+                fee_service_id = $5, fee_encounter_id = $6, fee_copies = $7
           where id = $1`,
-        [requestId, body.outcome, userIdOf(request), note],
+        [
+          requestId,
+          body.outcome,
+          userIdOf(request),
+          note,
+          body.feeServiceId ?? null,
+          body.feeEncounterId ?? null,
+          body.copies ?? null,
+        ],
       );
       request.audit('update', 'record_request', requestId);
+      await request.emit('record.request_closed', requestId, {
+        patientId: current.patient_id,
+        outcome: body.outcome,
+        ...(feeParts === 3
+          ? {
+              serviceId: body.feeServiceId,
+              encounterId: body.feeEncounterId,
+              copies: body.copies,
+            }
+          : {}),
+      });
       return requestView((await requestOne(request, requestId))!);
     },
   );

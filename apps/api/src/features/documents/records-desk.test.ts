@@ -424,6 +424,14 @@ describe('the coding queue', () => {
       [ids.fever],
     );
     expect(actions.rows.map((row) => row.action)).toEqual(['create', 'update']);
+    const emitted = await pool.query(
+      "select payload from outbox where tenant_id = $1 and entity_id = $2 and event = 'diagnosis.coded' order by occurred_at",
+      [hospital.id, ids.fever],
+    );
+    expect(emitted.rows.map((row) => row.payload)).toEqual([
+      { codeId: ids.icd },
+      { codeId: ids.icd2 },
+    ]);
     // The diagnosis itself was never touched.
     const stored = await pool.query('select code_id from encounter_diagnoses where id = $1', [
       ids.fever,
@@ -564,6 +572,51 @@ describe('requests for copies of a record', () => {
     await expect(
       pool.query("update record_requests set state = 'open' where id = $1", [made.id]),
     ).rejects.toThrow();
+  });
+
+  it('emits events for a request logged and closed, with the fee kept on a fulfilled one', async () => {
+    const made = (await create({ purpose: 'Events' })).json<Req>();
+    const url = `/record-requests/${made.id}/close`;
+    const events = async (event: string) =>
+      (
+        await pool.query<{ payload: Record<string, unknown> }>(
+          'select payload from outbox where tenant_id = $1 and entity_id = $2 and event = $3',
+          [hospital.id, made.id, event],
+        )
+      ).rows.map((row) => row.payload);
+    expect(await events('record.request_created')).toEqual([
+      { patientId: ids.patient, requesterKind: 'insurer' },
+    ]);
+    const service = await one('select id from services where tenant_id = $1 limit 1', [
+      hospital.id,
+    ]);
+    const closing = { outcome: 'fulfilled', note: 'Handed over', version: 1 };
+    expect(errorOf(await post(url, { ...closing, feeServiceId: service }))).toEqual([
+      422,
+      'fee_incomplete',
+    ]);
+    const fee = { feeServiceId: service, feeEncounterId: ids.complete, copies: 2 };
+    expect(errorOf(await post(url, { ...closing, outcome: 'declined', ...fee }))).toEqual([
+      422,
+      'fee_needs_fulfilled',
+    ]);
+    expect(
+      errorOf(await post(url, { ...closing, ...fee, feeEncounterId: ids.clinicEncounter })),
+    ).toEqual([422, 'unknown_encounter']);
+    expect(errorOf(await post(url, { ...closing, ...fee, feeServiceId: randomUUID() }))).toEqual([
+      422,
+      'unknown_service',
+    ]);
+    expect((await post(url, { ...closing, ...fee })).statusCode).toBe(200);
+    expect(await events('record.request_closed')).toEqual([
+      {
+        patientId: ids.patient,
+        outcome: 'fulfilled',
+        serviceId: service,
+        encounterId: ids.complete,
+        copies: 2,
+      },
+    ]);
   });
 
   it('is refused for another hospital, a role without the permission, and a hospital with the module off', async () => {
