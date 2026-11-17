@@ -263,12 +263,15 @@ export const ExportLinkBody = Type.Object({
   }),
 });
 
-export const ExportLink = Type.Object(
+export const ExportLinkSent = Type.Object(
   {
-    url: Type.String(),
-    expiresAt: Type.String({ format: 'date-time' }),
+    adminUserId: Type.String({ format: 'uuid' }),
+    expiresInDays: Type.Integer(),
   },
-  { $id: 'ExportLink' },
+  {
+    $id: 'ExportLinkSent',
+    description: 'The link is queued to that admin by email; it is not returned.',
+  },
 );
 
 export const ExportDownloadParams = Type.Object({ exportId: Type.String({ format: 'uuid' }) });
@@ -324,7 +327,7 @@ export const PLATFORM_SCHEMAS = [
   PlatformDeletion,
   PlatformExport,
   PlatformExportList,
-  ExportLink,
+  ExportLinkSent,
   PlatformModule,
   PlatformModuleList,
   PlatformHospital,

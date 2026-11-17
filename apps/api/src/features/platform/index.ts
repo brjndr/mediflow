@@ -8,6 +8,7 @@ import {
 } from './deletion.js';
 import { DELETION_REMINDER_JOB, sendDeletionReminders } from './deletion-reminders.js';
 import { deletionRoutes } from './deletion-routes.js';
+import { EXPORT_LINK_JOB, sendExportLink, type ExportLinkJob } from './export-link.js';
 import { exportRoutes } from './export-routes.js';
 import { EXPORT_JOB, runExport, type ExportJob } from './export.js';
 import { OFFBOARD_JOB, prepareOffboarding, type OffboardJob } from './jobs.js';
@@ -28,6 +29,9 @@ export const platformFeature: FastifyPluginAsync = async (app) => {
   });
   app.jobs.work<ExportJob>(EXPORT_JOB, async (job) => {
     await runExport(app.database.pool, app.files, job);
+  });
+  app.jobs.work<ExportLinkJob>(EXPORT_LINK_JOB, async (job) => {
+    await sendExportLink(app.database.pool, app.notifier, app.config.REPORT_URL_SECRET, job);
   });
   app.jobs.work<DeleteJob>(DELETE_JOB, async (job) => {
     await runDeletion(app.database.pool, app.files, job, app.log);
