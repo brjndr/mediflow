@@ -55947,8 +55947,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description Days from now until the hospital’s data may be deleted, after its export. */
-                    deleteAfterDays: number;
+                    /** @description Days from now until the hospital’s data may be deleted, after its export. Defaults to 90 (docs/OPEN_DECISIONS.md). */
+                    deleteAfterDays?: number;
                 };
             };
         };

@@ -36,6 +36,7 @@ import {
   HospitalParams,
   InviteParams,
   ListHospitalsQuery,
+  DEFAULT_DELETE_AFTER_DAYS,
   OffboardBody,
   PlatformAuditPage,
   PlatformHospital,
@@ -686,6 +687,7 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const userId = admin(request);
       const { id } = request.params;
+      const deleteAfterDays = request.body?.deleteAfterDays ?? DEFAULT_DELETE_AFTER_DAYS;
       let exportId: string | null = null;
       const hospital = await withPlatformTransaction(pool, async (client) => {
         await transition(
@@ -694,7 +696,7 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
           ['active', 'suspended'],
           `status = 'offboarding', offboarding_requested_at = now(),
            delete_after = now() + make_interval(days => $3)`,
-          [request.body.deleteAfterDays],
+          [deleteAfterDays],
         );
         await withdrawOpenInvites(client, id);
         await recordPlatformAudit(client, {
@@ -703,7 +705,7 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
           entity: 'hospital',
           entityId: id,
           hospitalId: id,
-          detail: { deleteAfterDays: request.body.deleteAfterDays },
+          detail: { deleteAfterDays },
           requestId: request.id,
         });
         // The export of the hospital's data starts with the offboarding (#960).

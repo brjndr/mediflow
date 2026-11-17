@@ -840,6 +840,18 @@ describe('suspension and the first admin', () => {
     expect(open.rowCount).toBe(0);
   });
 
+  it('offboards with a 90 day grace period when none is given', async () => {
+    const hospital = await createHospital();
+    const response = await call('POST', `/platform/hospitals/${hospital.id}/offboard`, {
+      payload: {},
+    });
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    const days =
+      (Date.parse(body.deleteAfter) - Date.parse(body.offboardingRequestedAt)) / 86_400_000;
+    expect(Math.round(days)).toBe(90);
+  });
+
   it('offboards a suspended hospital, and reactivating clears every date', async () => {
     const hospital = await createHospital();
     await call('POST', `/platform/hospitals/${hospital.id}/suspend`);

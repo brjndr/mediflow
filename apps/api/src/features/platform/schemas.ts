@@ -167,12 +167,16 @@ export const InviteParams = Type.Object({
   inviteId: Type.String({ format: 'uuid' }),
 });
 
+export const DEFAULT_DELETE_AFTER_DAYS = 90;
+
 export const OffboardBody = Type.Object({
-  deleteAfterDays: Type.Integer({
-    minimum: 1,
-    maximum: 3650,
-    description: 'Days from now until the hospital’s data may be deleted, after its export.',
-  }),
+  deleteAfterDays: Type.Optional(
+    Type.Integer({
+      minimum: 1,
+      maximum: 3650,
+      description: `Days from now until the hospital’s data may be deleted, after its export. Defaults to ${DEFAULT_DELETE_AFTER_DAYS} (docs/OPEN_DECISIONS.md).`,
+    }),
+  ),
 });
 
 export const PlatformAuditEntry = Type.Object(
