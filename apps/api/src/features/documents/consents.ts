@@ -67,12 +67,58 @@ export const Consent = Type.Object(
     signatureMethod: SignatureMethod,
     signedAt: Type.String({ format: 'date-time' }),
     signedByName: Type.String({ description: 'The member of staff who recorded the signature.' }),
+    withdrawnAt: Type.Optional(
+      Type.String({
+        format: 'date-time',
+        description: 'When the consent was withdrawn; absent while it stands.',
+      }),
+    ),
+    witnessCount: Type.Integer({ description: 'How many witness signatures it has.' }),
   },
   { $id: 'Consent', description: 'A signed consent, without its text and signature.' },
 );
+export const ConsentWitness = Type.Object(
+  {
+    id: Type.String(),
+    witnessName: Type.String(),
+    relation: Type.Optional(Type.String()),
+    signatureMethod: SignatureMethod,
+    signature: Type.Optional(Type.String({ description: 'SVG path data of a drawn signature.' })),
+    recordedAt: Type.String({ format: 'date-time' }),
+    recordedByName: Type.String(),
+  },
+  { $id: 'ConsentWitness', description: 'A witness signature added to a signed consent.' },
+);
+export const ConsentWithdrawal = Type.Object(
+  {
+    reason: Type.String(),
+    withdrawnAt: Type.String({ format: 'date-time' }),
+    withdrawnByName: Type.String(),
+  },
+  { $id: 'ConsentWithdrawal', description: 'Why, when and by whom a consent was withdrawn.' },
+);
+export const ConsentWitnessCreate = Type.Object(
+  {
+    witnessName: Type.String({ minLength: 1, maxLength: 200, pattern: PLAIN_TEXT }),
+    relation: Type.Optional(Type.String({ minLength: 1, maxLength: 100, pattern: PLAIN_TEXT })),
+    signatureMethod: SignatureMethod,
+    signature: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 20000, pattern: '^[ML0-9 .,-]+$' }),
+    ),
+  },
+  { $id: 'ConsentWitnessCreate', additionalProperties: false },
+);
+type ConsentWitnessCreate = Static<typeof ConsentWitnessCreate>;
+export const ConsentWithdraw = Type.Object(
+  { reason: Type.String({ minLength: 1, maxLength: 500, pattern: PLAIN_LINES }) },
+  { $id: 'ConsentWithdraw', additionalProperties: false },
+);
+type ConsentWithdraw = Static<typeof ConsentWithdraw>;
 export const ConsentDetail = Type.Object(
   {
     consent: ref(Consent),
+    witnesses: Type.Array(ref(ConsentWitness)),
+    withdrawal: Type.Optional(ref(ConsentWithdrawal)),
     body: RichText('The text as it was signed, placeholders filled in.'),
     signature: Type.Optional(
       Type.String({
@@ -179,6 +225,10 @@ export const CONSENT_SCHEMAS = [
   ConsentDetail,
   ConsentPage,
   ConsentCreate,
+  ConsentWitness,
+  ConsentWithdrawal,
+  ConsentWitnessCreate,
+  ConsentWithdraw,
   CertificateFieldDef,
   Certificate,
   CertificatePage,
@@ -210,10 +260,28 @@ interface ConsentRow {
   signature: string | null;
   signed_at: Date;
   signed_by_name: string | null;
+  withdrawn_at: Date | null;
+  witness_count: number;
+}
+interface WitnessRow {
+  id: string;
+  witness_name: string;
+  witness_relation: string | null;
+  signature_method: 'drawn' | 'typed';
+  signature: string | null;
+  recorded_at: Date;
+  recorded_by_name: string | null;
+}
+interface WithdrawalRow {
+  reason: string;
+  withdrawn_at: Date;
+  withdrawn_by_name: string | null;
 }
 const CONSENT_SELECT = `select c.id, c.patient_id, c.procedure_name, c.template_id, c.template_version,
   c.signer_name, c.signer_role, c.signature_method, c.body, c.signature, c.signed_at,
-  u.name as signed_by_name
+  u.name as signed_by_name,
+  (select w.withdrawn_at from consent_withdrawals w where w.consent_id = c.id) as withdrawn_at,
+  (select count(*)::int from consent_witnesses n where n.consent_id = c.id) as witness_count
   from patient_consents c left join users u on u.id = c.signed_by`;
 
 const consentView = (row: ConsentRow) => ({
@@ -227,11 +295,35 @@ const consentView = (row: ConsentRow) => ({
   signatureMethod: row.signature_method,
   signedAt: row.signed_at.toISOString(),
   signedByName: row.signed_by_name ?? '',
+  ...(row.withdrawn_at ? { withdrawnAt: row.withdrawn_at.toISOString() } : {}),
+  witnessCount: row.witness_count,
 });
-const consentDetail = (row: ConsentRow) => ({
+const consentDetail = (
+  row: ConsentRow,
+  witnesses: WitnessRow[] = [],
+  withdrawal?: WithdrawalRow,
+) => ({
   consent: consentView(row),
   body: row.body,
   ...(row.signature ? { signature: row.signature } : {}),
+  witnesses: witnesses.map((w) => ({
+    id: w.id,
+    witnessName: w.witness_name,
+    ...(w.witness_relation ? { relation: w.witness_relation } : {}),
+    signatureMethod: w.signature_method,
+    ...(w.signature ? { signature: w.signature } : {}),
+    recordedAt: w.recorded_at.toISOString(),
+    recordedByName: w.recorded_by_name ?? '',
+  })),
+  ...(withdrawal
+    ? {
+        withdrawal: {
+          reason: withdrawal.reason,
+          withdrawnAt: withdrawal.withdrawn_at.toISOString(),
+          withdrawnByName: withdrawal.withdrawn_by_name ?? '',
+        },
+      }
+    : {}),
 });
 
 interface CertificateRow {
@@ -353,6 +445,29 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (!inScope) throw new HttpError(404, 'not_found', 'No such patient');
   }
 
+  /** One consent with its witnesses and withdrawal, or undefined. */
+  async function loadConsent(request: FastifyRequest, id: string) {
+    const { rows } = await request.txClient.query<ConsentRow>(`${CONSENT_SELECT} where c.id = $1`, [
+      id,
+    ]);
+    const row = rows[0];
+    if (!row) return undefined;
+    const witnesses = await request.txClient.query<WitnessRow>(
+      `select w.id, w.witness_name, w.witness_relation, w.signature_method, w.signature,
+         w.recorded_at, u.name as recorded_by_name
+         from consent_witnesses w left join users u on u.id = w.recorded_by
+         where w.consent_id = $1 order by w.recorded_at, w.id`,
+      [id],
+    );
+    const withdrawal = await request.txClient.query<WithdrawalRow>(
+      `select w.reason, w.withdrawn_at, u.name as withdrawn_by_name
+         from consent_withdrawals w left join users u on u.id = w.withdrawn_by
+         where w.consent_id = $1`,
+      [id],
+    );
+    return { row, detail: consentDetail(row, witnesses.rows, withdrawal.rows[0]) };
+  }
+
   /** A hospital's fields for a kind: its own, or the standard ones. */
   async function formatOf(request: FastifyRequest, kind: (typeof CERTIFICATE_KINDS)[number]) {
     const { rows } = await request.txClient.query<{ fields: FieldDef[] }>(
@@ -420,11 +535,8 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request) => {
-      const { rows } = await request.txClient.query<ConsentRow>(
-        `${CONSENT_SELECT} where c.id = $1`,
-        [request.params.consentId],
-      );
-      const row = rows[0];
+      const loaded = await loadConsent(request, request.params.consentId);
+      const row = loaded?.row;
       if (!row) throw new HttpError(404, 'not_found', 'No such consent');
       try {
         await reachable(request, row.patient_id, CONSENT_READ);
@@ -432,7 +544,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(404, 'not_found', 'No such consent');
       }
       request.audit('read', 'patient_consent', row.id);
-      return consentDetail(row);
+      return loaded.detail;
     },
   );
 
@@ -519,6 +631,119 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         [id],
       );
       return reply.status(201).send(consentDetail(created.rows[0]!));
+    },
+  );
+
+  /** A consent the caller may act on, or the one 404 an unknown or out-of-scope one gets. */
+  async function actableConsent(request: FastifyRequest, consentId: string) {
+    const loaded = await loadConsent(request, consentId);
+    if (!loaded) throw new HttpError(404, 'not_found', 'No such consent');
+    try {
+      await reachable(request, loaded.row.patient_id, CONSENT_SIGN);
+    } catch {
+      throw new HttpError(404, 'not_found', 'No such consent');
+    }
+    return loaded.row;
+  }
+
+  app.post(
+    '/consents/:consentId/witnesses',
+    {
+      config: {
+        permissions: [CONSENT_SIGN],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'witnessConsent',
+        tags: ['consents'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Adds a witness signature to a signed consent (MR-09, #989) as a new entry with its author and time; the signed consent is not changed. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). 409 `consent_withdrawn` once the consent was withdrawn, 409 `patient_merged` for a merged record. Emits consent.witnessed. Requires consent:sign.',
+        params: ConsentParams,
+        body: ref(ConsentWitnessCreate),
+        response: { 201: ref(ConsentDetail), ...errors(400, 401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as ConsentWitnessCreate;
+      const userId = userIdOf(request);
+      const { consentId } = request.params;
+      const consentRow = await actableConsent(request, consentId);
+      if (request.replayOf !== null) {
+        return reply.status(201).send((await loadConsent(request, consentId))!.detail);
+      }
+      if (consentRow.withdrawn_at) {
+        throw new HttpError(409, 'consent_withdrawn', 'This consent was withdrawn');
+      }
+      const witnessName = tidyWithin(body.witnessName, 200);
+      const relation = body.relation ? tidyWithin(body.relation, 100) : null;
+      if (!witnessName) throw new HttpError(400, 'validation_failed', 'Name the witness');
+      if ((body.signatureMethod === 'drawn') !== (body.signature !== undefined)) {
+        throw new HttpError(422, 'signature_invalid', 'The signature does not match its method');
+      }
+      const { rows } = await request.txClient.query<{ id: string }>(
+        `insert into consent_witnesses (tenant_id, consent_id, patient_id, witness_name,
+           witness_relation, signature_method, signature, recorded_by)
+         values (app_tenant_id(), $1, $2, $3, $4, $5, $6, $7) returning id`,
+        [
+          consentId,
+          consentRow.patient_id,
+          witnessName,
+          relation,
+          body.signatureMethod,
+          body.signature ?? null,
+          userId,
+        ],
+      );
+      const id = rows[0]!.id;
+      request.idempotentId = id;
+      request.audit('create', 'consent_witness', id);
+      await request.emit('consent.witnessed', consentId, { patientId: consentRow.patient_id });
+      return reply.status(201).send((await loadConsent(request, consentId))!.detail);
+    },
+  );
+
+  app.post(
+    '/consents/:consentId/withdraw',
+    {
+      config: {
+        permissions: [CONSENT_SIGN],
+        feature: FEATURE,
+        idempotent: { body: 'none', required: true },
+      },
+      schema: {
+        operationId: 'withdrawConsent',
+        tags: ['consents'],
+        headers: RequiredIdempotencyHeaders,
+        description:
+          'Withdraws a signed consent with a reason (MR-09, #989), once: a new entry with its author and time, the signed text stays as it was. 409 `already_withdrawn` the second time, 409 `patient_merged` for a merged record. Emits consent.withdrawn. Requires consent:sign.',
+        params: ConsentParams,
+        body: ref(ConsentWithdraw),
+        response: { 200: ref(ConsentDetail), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      const body = request.body as ConsentWithdraw;
+      const userId = userIdOf(request);
+      const { consentId } = request.params;
+      const consentRow = await actableConsent(request, consentId);
+      if (request.replayOf !== null) return (await loadConsent(request, consentId))!.detail;
+      if (consentRow.withdrawn_at) {
+        throw new HttpError(409, 'already_withdrawn', 'This consent was already withdrawn');
+      }
+      const reason = tidyLines(body.reason);
+      if (!reason) throw new HttpError(400, 'validation_failed', 'Give a reason');
+      const { rows } = await request.txClient.query<{ id: string }>(
+        `insert into consent_withdrawals (tenant_id, consent_id, patient_id, reason, withdrawn_by)
+         values (app_tenant_id(), $1, $2, $3, $4) returning id`,
+        [consentId, consentRow.patient_id, reason, userId],
+      );
+      const id = rows[0]!.id;
+      request.idempotentId = id;
+      request.audit('create', 'consent_withdrawal', id);
+      await request.emit('consent.withdrawn', consentId, { patientId: consentRow.patient_id });
+      return (await loadConsent(request, consentId))!.detail;
     },
   );
 
