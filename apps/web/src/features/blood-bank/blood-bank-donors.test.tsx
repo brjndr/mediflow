@@ -260,6 +260,57 @@ describe('deferring a donor', () => {
   }, 30_000);
 });
 
+describe('editing a donor', () => {
+  it('saves a corrected name and phone, leaving the group alone', async () => {
+    await openDonors();
+    await press('DN-0001', /^Edit/);
+    const dialog = await screen.findByRole('dialog', { name: 'Edit donor DN-0001' });
+    const name = await within(dialog).findByLabelText(/Full name/);
+    expect(name).toHaveValue('Rohan Test-Donor');
+    expect(within(dialog).queryByLabelText(/Blood group/)).not.toBeInTheDocument();
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Rohan T Donor');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: '' })).toHaveTextContent('Donor DN-0001 saved'),
+    );
+    await press('DN-0001', /Open record/);
+    const record = await screen.findByRole('dialog', { name: 'Donor DN-0001' });
+    expect(await within(record).findByText('Rohan T Donor')).toBeVisible();
+  }, 30_000);
+
+  it('keeps what was typed when the save is refused as changed', async () => {
+    let first = true;
+    server.use(
+      http.patch('*/api/blood/donors/:donorId', () => {
+        if (!first) return undefined;
+        first = false;
+        return HttpResponse.json(
+          { error: { code: 'conflict', message: 'x', requestId: 'req_mock' } },
+          { status: 409 },
+        );
+      }),
+    );
+    await openDonors();
+    await press('DN-0001', /^Edit/);
+    const dialog = await screen.findByRole('dialog', { name: 'Edit donor DN-0001' });
+    const name = await within(dialog).findByLabelText(/Full name/);
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Rohan Typed');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    expect(await within(dialog).findByText(/Someone else saved this donor first/)).toBeVisible();
+    expect(within(dialog).getByLabelText(/Full name/)).toHaveValue('Rohan Typed');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Edit donor/ })).toBeNull());
+  }, 30_000);
+
+  it('has no Edit action without bloodDonor:manage', async () => {
+    revokePermission(TENANT_IDS.hospital, 'admin', 'bloodDonor:manage');
+    await openDonors();
+    expect(screen.queryByRole('button', { name: /^Edit/ })).not.toBeInTheDocument();
+  });
+});
+
 describe('access to donors', () => {
   it('has no Donors tab without bloodDonor:read', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'bloodDonor:read');
