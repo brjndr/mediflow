@@ -9,6 +9,7 @@ import { mastersRoutes } from './masters.js';
 import { INSURANCE_PERMISSIONS } from './permissions.js';
 import { INSURANCE_SCHEMAS } from './schemas.js';
 import { splitRoutes } from './split.js';
+import { SPLIT_INVOICE_SCHEMAS, splitInvoiceRoutes } from './split-invoices.js';
 
 /**
  * Insurance (BE-28, #187), first slice behind the `insurance` switch: the payers (insurers, TPAs,
@@ -22,11 +23,13 @@ export const insuranceFeature: FastifyPluginAsync = async (app) => {
     ...CLAIM_SCHEMAS,
     ...CREDIT_SCHEMAS,
     ...CLAIM_EXPORT_SCHEMAS,
+    ...SPLIT_INVOICE_SCHEMAS,
   ])
     app.addSchema(schema);
   await app.register(mastersRoutes);
   await app.register(coverageRoutes);
   await app.register(splitRoutes);
+  await app.register(splitInvoiceRoutes);
   await app.register(claimRoutes);
   await app.register(claimExportRoutes);
   await app.register(creditRoutes);

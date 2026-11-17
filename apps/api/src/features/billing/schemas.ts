@@ -230,6 +230,18 @@ export const Invoice = Type.Object(
     ),
     discountApprovedAt: Type.Optional(Type.String({ format: 'date-time' })),
     taxMinor: Minor('The part of the total that is tax; never changes once issued.'),
+    payerId: Type.Optional(
+      Type.String({
+        description: 'Set on the payer share of a split visit (#977): who is billed.',
+      }),
+    ),
+    payerName: Type.Optional(Type.String()),
+    splitGroup: Type.Optional(
+      Type.String({
+        description:
+          'Shared by the patient invoice and the payer invoice of one split visit; such a draft is not edited.',
+      }),
+    ),
     paidMinor: Minor('Payments less refunds.'),
     creditedMinor: Minor('The credit notes against the invoice.'),
     currency: Type.String({ minLength: 3, maxLength: 3 }),
