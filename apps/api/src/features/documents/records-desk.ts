@@ -55,7 +55,7 @@ const named = <const Values extends readonly [string, ...string[]]>(
 export const RecordGap = named(
   'RecordGap',
   GAPS,
-  'What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure.',
+  'What is missing from a closed record: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure (a signed consent naming the encounter that was not withdrawn, or an uploaded consent document).',
 );
 export const CodingState = named('CodingState', CODING_STATES);
 export const RecordRequester = named('RecordRequester', REQUESTERS);
@@ -244,6 +244,11 @@ const INCOMPLETE = `
                                   where d.encounter_id = e.id and d.category = 'consent'
                                     and d.status in ('scanning', 'clean')
                                     and d.retired_at is null)
+                 and not exists (select 1 from patient_consents c
+                                  where c.encounter_id = e.id
+                                    and not exists (select 1 from consent_withdrawals w
+                                                     where w.tenant_id = c.tenant_id
+                                                       and w.consent_id = c.id))
                 then 'missing_consent' end
          ], null) as gaps
     from encounters e
@@ -421,7 +426,7 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listIncompleteRecords',
         tags: ['records'],
         description:
-          'Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure. `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited.',
+          'Closed encounters whose record is not complete, with what is missing, the oldest first (MR-04, #192). The server works out each gap from the encounter: a note left unsigned, no diagnosis, no signed discharge summary for an inpatient stay, no consent on file for a procedure (a signed consent naming the encounter that was not withdrawn, or an uploaded consent document). `gap` and `kind` narrow; `total` comes with the first page. Needs medicalRecord:read with the scope `all` and the records feature flag. Reads are audited.',
         querystring: IncompleteQuery,
         response: { 200: ref(IncompleteRecordPage), ...errors(400, 401, 403, 429) },
       },
