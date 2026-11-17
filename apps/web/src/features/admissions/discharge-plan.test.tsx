@@ -24,6 +24,8 @@ describe('openClearances', () => {
   const plan: DischargePlan = {
     admissionId: 'a',
     version: 1,
+    summaryRequired: false,
+    summarySigned: false,
     clearances: [
       { kind: 'nursing', status: 'cleared' },
       { kind: 'pharmacy', status: 'pending' },
