@@ -181,6 +181,9 @@ const MODULE_IDS = [
   'consents',
 ].sort();
 
+/** The one user id the mock accepts as an active admin of an offboarding hospital. */
+export const MOCK_ADMIN_ID = '11111111-1111-4111-8111-111111111111';
+
 /** Test set-up: an offboarding hospital whose grace period is over, with or without an export. */
 export function setMockOffboarding(
   id: string,
@@ -522,6 +525,58 @@ export const platformHandlers = [
     if (denied) return denied;
     return HttpResponse.json({ items: exportsOf.get(String(params.id)) ?? [] });
   }),
+
+  http.post('*/api/platform/hospitals/:id/exports', ({ params }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    const id = String(params.id);
+    const hospital = hospitals.find((h) => h.id === id);
+    if (!hospital) return error(404, 'not_found', 'No such hospital');
+    if (hospital.status !== 'offboarding') {
+      return error(409, 'hospital_not_offboarding', 'Not offboarding');
+    }
+    const list = exportsOf.get(id) ?? [];
+    if (list.some((e) => e.status === 'queued' || e.status === 'running')) {
+      return error(409, 'export_in_progress', 'An export is already running');
+    }
+    const made: HospitalExport = {
+      id: `export_${id}_${list.length + 1}`,
+      hospitalId: id,
+      status: 'queued',
+      failure: null,
+      requestedAt: new Date().toISOString(),
+      finishedAt: null,
+      fileBytes: null,
+      sha256: null,
+      tableCount: null,
+      rowCount: null,
+      fileCount: null,
+      downloadCount: 0,
+      firstDownloadedAt: null,
+      lastDownloadedAt: null,
+    };
+    exportsOf.set(id, [made, ...list]);
+    return HttpResponse.json(made, { status: 202 });
+  }),
+
+  http.post(
+    '*/api/platform/hospitals/:id/exports/:exportId/download-link',
+    async ({ params, request }) => {
+      const denied = platformOnly();
+      if (denied) return denied;
+      const body = (await request.json().catch(() => ({}))) as { adminUserId?: string };
+      const found = (exportsOf.get(String(params.id)) ?? []).find((e) => e.id === params.exportId);
+      if (!found) return error(404, 'not_found', 'No such export');
+      if (found.status !== 'succeeded') return error(409, 'export_not_ready', 'Not ready');
+      if (body.adminUserId !== MOCK_ADMIN_ID) {
+        return error(409, 'not_a_hospital_admin', 'Not an admin of the hospital');
+      }
+      return HttpResponse.json({
+        url: `/offboarding-exports/${found.id}?admin=${body.adminUserId}&expires=1&signature=mock`,
+        expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+      });
+    },
+  ),
 
   http.get('*/api/platform/hospitals/:id/deletion', ({ params }) =>
     deletionStep(String(params.id), (_h, current) =>

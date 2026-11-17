@@ -5,6 +5,7 @@ import type {
   AuditEntry,
   AuditPage,
   Hospital,
+  ExportLink,
   HospitalDeletion,
   HospitalExport,
   HospitalInvite,
@@ -280,6 +281,16 @@ export const hospitalExportSchema: z.ZodType<HospitalExport> = z.object({
 });
 
 export const hospitalExportListSchema = z.object({ items: z.array(hospitalExportSchema) });
+
+export const exportLinkSchema: z.ZodType<ExportLink> = z.object({
+  url: z.string(),
+  expiresAt: z.string(),
+});
+
+/** The admin the link is made for: a user id, as the API gives it. */
+export const exportLinkRequestSchema = z.object({
+  adminUserId: z.string().trim().uuid('validation.invalid_format'),
+});
 
 export const hospitalDeletionSchema: z.ZodType<HospitalDeletion> = z.object({
   id: z.string(),
