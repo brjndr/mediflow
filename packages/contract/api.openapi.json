@@ -10680,6 +10680,19 @@
           "version": {
             "minimum": 1,
             "type": "integer"
+          },
+          "feeServiceId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "feeEncounterId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "copies": {
+            "minimum": 1,
+            "maximum": 500,
+            "type": "integer"
           }
         }
       },
@@ -51169,7 +51182,7 @@
       "post": {
         "operationId": "closeRecordRequest",
         "tags": ["records"],
-        "description": "Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited.",
+        "description": "Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. With `feeServiceId`, `feeEncounterId` (a visit of the patient, not cancelled, 422 `unknown_encounter`) and `copies`, a fulfilled request carries a fee that billing charges to the visit (422 `fee_incomplete`, `fee_needs_fulfilled`, `unknown_service`). Emits `record.request_closed`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited.",
         "requestBody": {
           "required": true,
           "content": {

@@ -1300,6 +1300,25 @@ describe('posting charges from events', () => {
     expect(await chargesOf(`order:${orderId}`)).toEqual([]);
   });
 
+  it('charges a fulfilled record copy request once per copy, and nothing for a declined or fee-less one', async () => {
+    const id = randomUUID();
+    const base = { patientId: patients.asha, encounterId: encounters.other, serviceId: service };
+    await publish('record.request_closed', id, { ...base, outcome: 'fulfilled', copies: 3 });
+    await publish('record.request_closed', id, { ...base, outcome: 'fulfilled', copies: 3 });
+    expect(await chargesOf(`record_request:${id}`)).toEqual([
+      { unit_price_minor: '45000', description: 'Chest X-ray', flag: null, status: 'pending' },
+    ]);
+    const declined = randomUUID();
+    await publish('record.request_closed', declined, { ...base, outcome: 'declined', copies: 1 });
+    const free = randomUUID();
+    await publish('record.request_closed', free, {
+      patientId: patients.asha,
+      outcome: 'fulfilled',
+    });
+    expect(await chargesOf(`record_request:${declined}`)).toEqual([]);
+    expect(await chargesOf(`record_request:${free}`)).toEqual([]);
+  });
+
   it('charges a completed ambulance trip once, at the list price, and nothing before or without a service', async () => {
     const tripId = randomUUID();
     const base = { patientId: patients.asha, encounterId: encounters.other, serviceId: service };

@@ -4264,7 +4264,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited. */
+        /** @description Closes an open request as fulfilled or declined, with a note, at the version read; once only, and a closed request is never changed. 409 `already_closed`, 409 `version_conflict`. With `feeServiceId`, `feeEncounterId` (a visit of the patient, not cancelled, 422 `unknown_encounter`) and `copies`, a fulfilled request carries a fee that billing charges to the visit (422 `fee_incomplete`, `fee_needs_fulfilled`, `unknown_service`). Emits `record.request_closed`. Releasing the record itself is a later step. Needs recordRequest:manage and the records feature flag. Audited. */
         post: operations["closeRecordRequest"];
         delete?: never;
         options?: never;
@@ -11309,6 +11309,11 @@ export interface components {
             outcome: "fulfilled" | "declined";
             note: string;
             version: number;
+            /** Format: uuid */
+            feeServiceId?: string;
+            /** Format: uuid */
+            feeEncounterId?: string;
+            copies?: number;
         };
         /**
          * @description What kind of duty a shift is.
