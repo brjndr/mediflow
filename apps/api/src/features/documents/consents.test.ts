@@ -434,6 +434,47 @@ describe('witnesses and withdrawal (#989)', () => {
   });
 });
 
+describe('withdrawing needs its own permission (#1035)', () => {
+  const grant = (sql: string) => pool.query(sql, [hospital.id]);
+
+  it('refuses a caller who can sign but was not granted consent:withdraw', async () => {
+    const created = await send('POST', `/patients/${ids.patient}/consents`, consent());
+    const id = created.json<Detail>().consent.id;
+    const asReceptionist = { user: receptionist };
+    const withdraw = (options: Options) =>
+      send('POST', `/consents/${id}/withdraw`, { reason: 'Changed my mind' }, options);
+    // The built-in role holds both by default.
+    await grant(
+      "delete from role_permissions where tenant_id = $1 and role_id = 'receptionist' and permission = 'consent:withdraw'",
+    );
+    try {
+      const witnessed = await send(
+        'POST',
+        `/consents/${id}/witnesses`,
+        { witnessName: 'Ravi Menon', relation: 'Nurse', signatureMethod: 'typed' },
+        asReceptionist,
+      );
+      expect(witnessed.statusCode).toBe(201);
+      expect(errorOf(await withdraw(asReceptionist))).toEqual([403, 'permission_denied']);
+    } finally {
+      await grant(
+        "insert into role_permissions (tenant_id, role_id, permission) values ($1, 'receptionist', 'consent:withdraw') on conflict do nothing",
+      );
+    }
+    expect((await withdraw(asReceptionist)).statusCode).toBe(200);
+  });
+
+  it('is off while the hospital’s consents switch is off', async () => {
+    const reply = await send(
+      'POST',
+      `/consents/${randomUUID()}/withdraw`,
+      { reason: 'x' },
+      { tenant: bare, user: bareAdmin },
+    );
+    expect(errorOf(reply)).toEqual([403, 'feature_disabled']);
+  });
+});
+
 describe('certificates', () => {
   it('numbers them in order for each kind and year and keeps what was entered', async () => {
     const url = `/patients/${ids.patient}/certificates`;

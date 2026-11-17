@@ -4108,7 +4108,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Withdraws a signed consent with a reason (MR-09, #989), once: a new entry with its author and time, the signed text stays as it was. 409 `already_withdrawn` the second time, 409 `patient_merged` for a merged record. Emits consent.withdrawn. Requires consent:sign. */
+        /** @description Withdraws a signed consent with a reason (MR-09, #989), once: a new entry with its author and time, the signed text stays as it was. 409 `already_withdrawn` the second time, 409 `patient_merged` for a merged record. Emits consent.withdrawn. Requires consent:withdraw, a separate grant from consent:sign. */
         post: operations["withdrawConsent"];
         delete?: never;
         options?: never;

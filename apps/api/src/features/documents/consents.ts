@@ -30,6 +30,7 @@ import { PatientDocument } from './schemas.js';
 const FEATURE = 'consents';
 const CONSENT_READ = 'consent:read';
 const CONSENT_SIGN = 'consent:sign';
+const CONSENT_WITHDRAW = 'consent:withdraw';
 const CERT_READ = 'certificate:read';
 const CERT_ISSUE = 'certificate:issue';
 const CERT_CONFIGURE = 'certificate:configure';
@@ -656,11 +657,15 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   /** A consent the caller may act on, or the one 404 an unknown or out-of-scope one gets. */
-  async function actableConsent(request: FastifyRequest, consentId: string) {
+  async function actableConsent(
+    request: FastifyRequest,
+    consentId: string,
+    permission: Permission,
+  ) {
     const loaded = await loadConsent(request, consentId);
     if (!loaded) throw new HttpError(404, 'not_found', 'No such consent');
     try {
-      await reachable(request, loaded.row.patient_id, CONSENT_SIGN);
+      await reachable(request, loaded.row.patient_id, permission);
     } catch {
       throw new HttpError(404, 'not_found', 'No such consent');
     }
@@ -690,7 +695,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const body = request.body as ConsentWitnessCreate;
       const userId = userIdOf(request);
       const { consentId } = request.params;
-      const consentRow = await actableConsent(request, consentId);
+      const consentRow = await actableConsent(request, consentId, CONSENT_SIGN);
       if (request.replayOf !== null) {
         return reply.status(201).send((await loadConsent(request, consentId))!.detail);
       }
@@ -729,7 +734,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
     '/consents/:consentId/withdraw',
     {
       config: {
-        permissions: [CONSENT_SIGN],
+        permissions: [CONSENT_WITHDRAW],
         feature: FEATURE,
         idempotent: { body: 'none', required: true },
       },
@@ -738,7 +743,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['consents'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Withdraws a signed consent with a reason (MR-09, #989), once: a new entry with its author and time, the signed text stays as it was. 409 `already_withdrawn` the second time, 409 `patient_merged` for a merged record. Emits consent.withdrawn. Requires consent:sign.',
+          'Withdraws a signed consent with a reason (MR-09, #989), once: a new entry with its author and time, the signed text stays as it was. 409 `already_withdrawn` the second time, 409 `patient_merged` for a merged record. Emits consent.withdrawn. Requires consent:withdraw, a separate grant from consent:sign.',
         params: ConsentParams,
         body: ref(ConsentWithdraw),
         response: { 200: ref(ConsentDetail), ...errors(400, 401, 403, 404, 409, 429) },
@@ -748,7 +753,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const body = request.body as ConsentWithdraw;
       const userId = userIdOf(request);
       const { consentId } = request.params;
-      const consentRow = await actableConsent(request, consentId);
+      const consentRow = await actableConsent(request, consentId, CONSENT_WITHDRAW);
       if (request.replayOf !== null) return (await loadConsent(request, consentId))!.detail;
       if (consentRow.withdrawn_at) {
         throw new HttpError(409, 'already_withdrawn', 'This consent was already withdrawn');

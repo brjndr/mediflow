@@ -17,6 +17,11 @@ export const CONSENT_PERMISSIONS = [
     defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
   },
   {
+    id: 'consent:withdraw',
+    description: 'Withdraw a patient’s signed consent',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
+  },
+  {
     id: 'certificate:read',
     description: 'See the certificates issued to a patient',
     defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
