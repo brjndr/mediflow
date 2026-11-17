@@ -120,6 +120,23 @@ export async function fetchClaim(claimId: string, signal?: AbortSignal): Promise
   return detailSchema.parse(requireData(result));
 }
 
+export const CLAIM_EXPORT_FORMATS = ['generic_csv', 'generic_json'] as const;
+export type ClaimExportFormat = (typeof CLAIM_EXPORT_FORMATS)[number];
+
+const exportSchema = z.object({
+  filename: z.string(),
+  contentType: z.string(),
+  content: z.string(),
+});
+
+/** The claim in a payer's format, as text the browser saves; policy numbers and amounts, no names. */
+export async function fetchClaimExport(claimId: string, format: ClaimExportFormat) {
+  const result = await api.GET('/claims/{claimId}/export', {
+    params: { path: { claimId }, query: { format } },
+  });
+  return exportSchema.parse(requireData(result));
+}
+
 export async function fetchClaimAging(signal?: AbortSignal): Promise<ClaimAging> {
   const result = await api.GET('/claims/aging', { signal });
   return agingSchema.parse(requireData(result));
