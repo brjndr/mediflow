@@ -20,6 +20,13 @@ export interface TemplateData {
   };
   /** The password of this account was just changed from the account page. No link, no data. */
   password_changed: Record<string, never>;
+  /** An offboarded hospital's data will be deleted on this date (#998). No link, no data. */
+  deletion_reminder: {
+    hospitalName: string;
+    daysLeft: number;
+    /** The date in the hospital's own time zone, YYYY-MM-DD. */
+    deleteOn: string;
+  };
 }
 
 export type TemplateName = keyof TemplateData;
@@ -110,6 +117,21 @@ const renderers: {
         ['The password of your Mediflow account was just changed.'],
         null,
         'If you did this, nothing more is needed. If you did not, reset your password from the sign-in page now and tell your hospital administrator.',
+      ),
+    };
+  },
+  deletion_reminder(data) {
+    const hospital = oneLine(data.hospitalName);
+    const days = data.daysLeft === 1 ? '1 day' : `${data.daysLeft} days`;
+    return {
+      subject: `${hospital}: your data on Mediflow will be deleted in ${days}`,
+      ...layout(
+        [
+          `${hospital} has left Mediflow. Its data, including its patient records, will be permanently deleted on ${data.deleteOn}, in ${days}.`,
+          'To keep a copy, ask the Mediflow operator for the export of your hospital. If the hospital is coming back, ask for it to be reactivated before that date.',
+        ],
+        null,
+        'Once deleted, the data cannot be brought back. You are receiving this as an administrator of the hospital.',
       ),
     };
   },
