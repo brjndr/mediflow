@@ -252,6 +252,51 @@ describe('incomplete records', () => {
     );
   });
 
+  it('asks a daycare or ER stay admitted from it for the discharge summary of the admission', async () => {
+    const department = await one('select department_id as id from doctors where id = $1', [
+      ids.doctor,
+    ]);
+    const made: string[] = [];
+    const stay = async (type: string) => {
+      const source = await encounter(hospital, ids.patient, type);
+      await diagnosis(source, 'Observation');
+      const ipd = await encounter(hospital, ids.patient, 'ipd');
+      await pool.query(
+        `insert into admissions (tenant_id, patient_id, encounter_id, source_encounter_id,
+           admitting_doctor_id, department_id, admission_type, status, admitted_by, discharged_at,
+           discharged_by, discharge_type)
+         values ($1, $2, $3, $4, $5, $6, 'planned', 'discharged', $7, now(), $7, 'routine')`,
+        [hospital.id, ids.patient, ipd, source, ids.doctor, department, admin.id],
+      );
+      made.push(source, ipd);
+      return source;
+    };
+    const daycare = await stay('daycare');
+    const er = await stay('er');
+    const plain = await encounter(hospital, ids.patient, 'daycare');
+    await diagnosis(plain, 'Day procedure');
+    made.push(plain);
+    try {
+      const body = (await get('/records/incomplete?limit=100')).json<{ items: Incomplete[] }>();
+      const gapsOf = (id: string) => body.items.find((item) => item.encounterId === id)?.gaps;
+      expect(gapsOf(daycare)).toEqual(['no_discharge_summary']);
+      expect(gapsOf(er)).toEqual(['no_discharge_summary']);
+      expect(gapsOf(plain)).toBeUndefined();
+    } finally {
+      const client = await pool.connect();
+      try {
+        await client.query('begin');
+        await client.query('set local session_replication_role = replica');
+        await client.query('delete from admissions where encounter_id = any($1)', [made]);
+        await client.query('delete from encounter_diagnoses where encounter_id = any($1)', [made]);
+        await client.query('delete from encounters where id = any($1)', [made]);
+        await client.query('commit');
+      } finally {
+        client.release();
+      }
+    }
+  });
+
   it('narrows by gap and kind, and pages oldest first with the total on the first page only', async () => {
     const byGap = await get('/records/incomplete?gap=missing_consent');
     expect(byGap.json<{ items: Incomplete[] }>().items.map((item) => item.encounterId)).toEqual([
