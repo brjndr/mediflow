@@ -1,25 +1,23 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
 import type pg from 'pg';
-import { signOffboardExport, verifyOffboardExport } from '../../core/files/signing.js';
+import { verifyOffboardExport } from '../../core/files/signing.js';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { withPlatformTransaction } from '../../core/platform/db.js';
 import { createExport, EXPORT_JOB, type ExportJob } from './export.js';
+import { EXPORT_LINK_JOB, EXPORT_LINK_TTL_SECONDS, type ExportLinkJob } from './export-link.js';
 import { getHospital, recordPlatformAudit } from './repository.js';
 import {
   ExportDownloadParams,
   ExportDownloadQuery,
-  ExportLink,
   ExportLinkBody,
+  ExportLinkSent,
   ExportParams,
   HospitalParams,
   PlatformExport,
   PlatformExportList,
 } from './schemas.js';
-
-/** How long a download link lasts (decided in #959): seven days, then the platform issues another. */
-export const EXPORT_LINK_TTL_SECONDS = 7 * 24 * 3600;
 
 interface ExportRow {
   id: string;
@@ -170,20 +168,20 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   app.post(
-    '/platform/hospitals/:id/exports/:exportId/download-link',
+    '/platform/hospitals/:id/exports/:exportId/email-link',
     {
       config: { access: 'platform', ...limit },
       schema: {
-        operationId: 'platformIssueHospitalExportLink',
+        operationId: 'platformEmailHospitalExportLink',
         tags,
         description:
-          'A signed link to a made export, valid for seven days, for one active admin of the hospital. Whoever holds it can download, so give it only to that admin; each download is in the platform trail under that admin. Issue another during the grace period when it has expired. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`.',
+          'Emails a signed download link of a made export, valid for seven days, to one active admin of the hospital. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`.',
         params: ExportParams,
         body: ExportLinkBody,
-        response: { 200: ref(ExportLink), ...errors(400, 401, 403, 404, 409, 429) },
+        response: { 202: ref(ExportLinkSent), ...errors(400, 401, 403, 404, 409, 429) },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const userId = admin(request);
       const { id, exportId } = request.params;
       const { adminUserId } = request.body;
@@ -213,16 +211,16 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
           requestId: request.id,
         });
       });
-      const expires = Math.floor(Date.now() / 1000) + EXPORT_LINK_TTL_SECONDS;
-      const signature = signOffboardExport(
-        app.config.REPORT_URL_SECRET,
-        `${exportId}.${adminUserId}`,
-        expires,
-      );
-      return {
-        url: `/offboarding-exports/${exportId}?admin=${adminUserId}&expires=${expires}&signature=${signature}`,
-        expiresAt: new Date(expires * 1000).toISOString(),
-      };
+      const job: ExportLinkJob = { exportId, adminUserId };
+      await app.jobs.send(EXPORT_LINK_JOB, job, {
+        id: `${EXPORT_LINK_JOB}:${exportId}:${adminUserId}:${request.id}`,
+        retryLimit: 3,
+        retryDelay: 60,
+      });
+      return reply.status(202).send({
+        adminUserId,
+        expiresInDays: EXPORT_LINK_TTL_SECONDS / 86_400,
+      });
     },
   );
 
@@ -237,7 +235,7 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'downloadOffboardingExport',
         tags,
         description:
-          'The archive of an offboarded hospital’s data, for a link made by `platformIssueHospitalExportLink`. The signature in the query is the only credential; the download is audited under the admin the link was made for. 404 `export_not_found` for anything else.',
+          'The archive of an offboarded hospital’s data, for a link emailed by `platformEmailHospitalExportLink`. The signature in the query is the only credential; the download is audited under the admin the link was made for. 404 `export_not_found` for anything else.',
         params: ExportDownloadParams,
         querystring: ExportDownloadQuery,
         response: {

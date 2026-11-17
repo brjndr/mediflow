@@ -15,6 +15,7 @@ import {
   type TestUser,
 } from '../../../test/helpers.js';
 import { MemoryQueue } from '../../core/jobs/queue.js';
+import { createMemoryNotifier } from '../../core/notifier/notifier.js';
 import { exportKeyOf, runExport } from './export.js';
 import { EXPORTED_PLAIN, EXPORTED_SPECIAL, NOT_EXPORTED } from './tenant-data.js';
 
@@ -24,6 +25,7 @@ import { EXPORTED_PLAIN, EXPORTED_SPECIAL, NOT_EXPORTED } from './tenant-data.js
  */
 
 const queue = new MemoryQueue();
+const notifier = createMemoryNotifier('http://localhost:5173');
 let app: FastifyInstance;
 let pool: pg.Pool;
 let operator: TestUser;
@@ -80,7 +82,7 @@ async function seedHospital(tenant: TestTenant, admin: TestUser, label: string) 
 let seededA: { key: string };
 
 beforeAll(async () => {
-  app = await buildTestApp({ resolveSession: resolveTestSession, jobQueue: queue });
+  app = await buildTestApp({ resolveSession: resolveTestSession, jobQueue: queue, notifier });
   pool = app.database.pool;
   operator = await createUser(pool, 'Export Operator');
   await pool.query('update users set is_platform_admin = true where id = $1', [operator.id]);
@@ -195,19 +197,33 @@ describe('the offboarding export', () => {
     expect(row.rows[0]).toEqual({ status: 'failed', failure: 'not_offboarding' });
   });
 
-  it('is handed over by a signed link made for an active admin of that hospital', async () => {
+  it('is emailed as a signed link made for an active admin of that hospital', async () => {
     const [made] = (await call('GET', `/platform/hospitals/${hospitalA.id}/exports`)).json().items;
-    const link = `/platform/hospitals/${hospitalA.id}/exports/${made.id}/download-link`;
+    const link = `/platform/hospitals/${hospitalA.id}/exports/${made.id}/email-link`;
 
     const stranger = await call('POST', link, { adminUserId: adminB.id });
     expect(stranger.json().error.code).toBe('not_a_hospital_admin');
     const staff = await call('POST', link, { adminUserId: operator.id });
     expect(staff.statusCode).toBe(409);
 
+    notifier.sent.length = 0;
     const issued = await call('POST', link, { adminUserId: adminA.id });
-    expect(issued.statusCode).toBe(200);
-    const { url, expiresAt } = issued.json();
-    const days = (Date.parse(expiresAt) - Date.now()) / 86_400_000;
+    expect(issued.statusCode).toBe(202);
+    // The operator is told it was queued and holds no link.
+    expect(issued.json()).toEqual({ adminUserId: adminA.id, expiresInDays: 7 });
+    expect(issued.body).not.toContain('signature');
+    expect(notifier.sent).toHaveLength(0);
+    await queue.drain();
+    expect(notifier.sent).toHaveLength(1);
+    const [mail] = notifier.sent;
+    expect(mail?.to).toBe(adminA.email);
+    expect(mail?.template).toBe('export_link');
+    const path = (mail?.data as { linkPath: string }).linkPath;
+    expect(path.startsWith('/api/offboarding-exports/')).toBe(true);
+    expect(mail?.text).toContain(`http://localhost:5173${path}`);
+    const url = path.slice('/api'.length);
+    const expires = Number(new URL(url, 'http://x').searchParams.get('expires'));
+    const days = (expires * 1000 - Date.now()) / 86_400_000;
     expect(days).toBeGreaterThan(6.99);
     expect(days).toBeLessThanOrEqual(7);
 
@@ -232,6 +248,15 @@ describe('the offboarding export', () => {
       [hospitalA.id],
     );
     expect(trail.rows).toEqual([{ actor_id: adminA.id }]);
+
+    // A job that runs after the person lost the role sends nothing.
+    notifier.sent.length = 0;
+    await call('POST', link, { adminUserId: adminA.id });
+    await pool.query("update memberships set status = 'suspended' where tenant_id = $1", [
+      hospitalA.id,
+    ]);
+    await queue.drain();
+    expect(notifier.sent).toHaveLength(0);
 
     // The admin who loses the role, or a hospital that is reactivated, ends the link.
     await pool.query("update memberships set status = 'suspended' where tenant_id = $1", [

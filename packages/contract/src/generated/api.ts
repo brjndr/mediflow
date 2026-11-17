@@ -7534,7 +7534,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/platform/hospitals/{id}/exports/{exportId}/download-link": {
+    "/platform/hospitals/{id}/exports/{exportId}/email-link": {
         parameters: {
             query?: never;
             header?: never;
@@ -7543,8 +7543,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description A signed link to a made export, valid for seven days, for one active admin of the hospital. Whoever holds it can download, so give it only to that admin; each download is in the platform trail under that admin. Issue another during the grace period when it has expired. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`. */
-        post: operations["platformIssueHospitalExportLink"];
+        /** @description Emails a signed download link of a made export, valid for seven days, to one active admin of the hospital. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`. */
+        post: operations["platformEmailHospitalExportLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7558,7 +7558,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The archive of an offboarded hospital’s data, for a link made by `platformIssueHospitalExportLink`. The signature in the query is the only credential; the download is audited under the admin the link was made for. 404 `export_not_found` for anything else. */
+        /** @description The archive of an offboarded hospital’s data, for a link emailed by `platformEmailHospitalExportLink`. The signature in the query is the only credential; the download is audited under the admin the link was made for. 404 `export_not_found` for anything else. */
         get: operations["downloadOffboardingExport"];
         put?: never;
         post?: never;
@@ -14685,10 +14685,11 @@ export interface components {
         PlatformExportList: {
             items: components["schemas"]["PlatformExport"][];
         };
-        ExportLink: {
-            url: string;
-            /** Format: date-time */
-            expiresAt: string;
+        /** @description The link is queued to that admin by email; it is not returned. */
+        ExportLinkSent: {
+            /** Format: uuid */
+            adminUserId: string;
+            expiresInDays: number;
         };
         PlatformModule: {
             /** @description The id `PUT .../features` and the create route accept. */
@@ -56209,7 +56210,7 @@ export interface operations {
             };
         };
     };
-    platformIssueHospitalExportLink: {
+    platformEmailHospitalExportLink: {
         parameters: {
             query?: never;
             header?: never;
@@ -56231,13 +56232,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Default Response */
-            200: {
+            /** @description The link is queued to that admin by email; it is not returned. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExportLink"];
+                    "application/json": components["schemas"]["ExportLinkSent"];
                 };
             };
             /** @description Standard error body. */
