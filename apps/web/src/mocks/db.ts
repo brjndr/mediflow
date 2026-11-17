@@ -192,6 +192,7 @@ const ADMIN: PermissionGrantDto[] = [
   // Consents and certificates (MR-02).
   { permission: 'consent:read' },
   { permission: 'consent:sign' },
+  { permission: 'consent:withdraw' },
   { permission: 'certificate:read' },
   { permission: 'certificate:issue' },
   { permission: 'certificate:configure' },

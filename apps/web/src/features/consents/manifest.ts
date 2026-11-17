@@ -29,6 +29,7 @@ export const consentsFeature: FeatureManifest = {
   permissions: [
     'consent:read',
     'consent:sign',
+    'consent:withdraw',
     'certificate:read',
     'certificate:issue',
     'certificate:configure',
