@@ -9,6 +9,9 @@ import { deletedTables, deletionOrder, EXPORTED_SPECIAL } from './tenant-data.js
 
 export const DELETE_JOB = 'platform.delete';
 
+/** The role the rows are deleted as. Created in migrations/0145. */
+export const DELETION_ROLE = 'mediflow_deletion';
+
 /** Ids only: the queue's own table has no row-level security. */
 export interface DeleteJob {
   deletionId: string;
@@ -198,6 +201,9 @@ export async function deleteHospitalRows(
   let broken: Error | undefined;
   try {
     await client.query('begin');
+    // The job's own role (#999): the privileges below and nothing the API's login holds. It
+    // bypasses row-level security, so the explicit tenant_id in every statement is the guard.
+    await client.query(`set local role ${DELETION_ROLE}`);
     // The same row locks as reactivate, suspend and offboard take (the hospital first, then the
     // deletion), so none of them changes the hospital while this runs.
     await client.query("select set_config('app.tenant_id', $1, true)", [hospitalId]);
@@ -221,8 +227,8 @@ export async function deleteHospitalRows(
     assertOwnKeys(keys, hospitalId);
 
     // Append-only triggers refuse a delete, and they are right to for every request; this is the
-    // one place a hospital's records go. Needs a login that may set this (a superuser, or one
-    // granted SET on session_replication_role). The order below does not depend on it.
+    // one place a hospital's records go. Needs a role that may set this (a superuser, or
+    // `mediflow_deletion` granted SET on session_replication_role by migration 0145). The order below does not depend on it.
     await client.query('set local session_replication_role = replica');
     const refs = await client.query<{ child: string; parent: string }>(
       `select c.relname as child, p.relname as parent
@@ -379,6 +385,7 @@ export async function runDeletion(
   files: FileStore,
   job: DeleteJob,
   log?: DeletionLog,
+  rowsPool: pg.Pool = pool,
 ): Promise<'deleted' | 'skipped' | 'blocked' | 'failed'> {
   // The lock lives as long as this connection's session, so a run that dies frees it by itself
   // and a live one can never be taken over, however long it takes.
@@ -391,7 +398,7 @@ export async function runDeletion(
     );
     if (!got.rows[0]?.ok) return 'skipped';
     try {
-      return await run(pool, files, job, log);
+      return await run(pool, files, job, log, rowsPool);
     } finally {
       await lock
         .query('select pg_advisory_unlock(hashtextextended($1, 0))', [job.deletionId])
@@ -409,6 +416,7 @@ async function run(
   files: FileStore,
   job: DeleteJob,
   log?: DeletionLog,
+  rowsPool: pg.Pool = pool,
 ): Promise<'deleted' | 'skipped' | 'blocked' | 'failed'> {
   const claimed = await claim(pool, job.deletionId);
   if (!claimed) return 'skipped';
@@ -443,7 +451,7 @@ async function run(
     await withPlatformTransaction(pool, (client) =>
       audit(client, 'hospital.deletion_started', { requestedBy }),
     );
-    keys = await deleteHospitalRows(pool, hospitalId, job.deletionId, approvedBy);
+    keys = await deleteHospitalRows(rowsPool, hospitalId, job.deletionId, approvedBy);
   } catch (error) {
     const code = failureCode(error);
     log?.error(

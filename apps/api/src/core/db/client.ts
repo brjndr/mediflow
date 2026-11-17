@@ -12,6 +12,11 @@ export interface DbHandle {
    * so a heavy report cannot take connections from requests), otherwise the primary's pool.
    */
   reportPool: pg.Pool;
+  /**
+   * Where the hospital deletion job writes (#999): its own login when `DELETION_DATABASE_URL` is
+   * set, a member of `mediflow_deletion` and nothing else, otherwise the primary's pool.
+   */
+  deletionPool: pg.Pool;
   db: Database;
   /** True when the database answers a trivial query. Used by the readiness check. */
   ping(): Promise<boolean>;
@@ -19,7 +24,10 @@ export interface DbHandle {
 }
 
 export function createDb(
-  config: Pick<Config, 'DATABASE_URL' | 'DATABASE_POOL_MAX'> & { DATABASE_REPLICA_URL?: string },
+  config: Pick<Config, 'DATABASE_URL' | 'DATABASE_POOL_MAX'> & {
+    DATABASE_REPLICA_URL?: string;
+    DELETION_DATABASE_URL?: string;
+  },
 ): DbHandle {
   const pool = new pg.Pool({
     connectionString: config.DATABASE_URL,
@@ -41,9 +49,21 @@ export function createDb(
     : undefined;
   replica?.on('error', () => {});
 
+  // Two at most: the job deletes one hospital per run, in one transaction.
+  const deletion = config.DELETION_DATABASE_URL
+    ? new pg.Pool({
+        connectionString: config.DELETION_DATABASE_URL,
+        max: 2,
+        connectionTimeoutMillis: 5_000,
+        idleTimeoutMillis: 30_000,
+      })
+    : undefined;
+  deletion?.on('error', () => {});
+
   return {
     pool,
     reportPool: replica ?? pool,
+    deletionPool: deletion ?? pool,
     db: drizzle(pool, { schema }),
     async ping() {
       try {
@@ -54,7 +74,7 @@ export function createDb(
       }
     },
     close: async () => {
-      await Promise.all([pool.end(), replica?.end()]);
+      await Promise.all([pool.end(), replica?.end(), deletion?.end()]);
     },
   };
 }

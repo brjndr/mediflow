@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import type pg from 'pg';
+import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   addMembership,
@@ -10,6 +10,7 @@ import {
   createUser,
   deleteUsers,
   resolveTestSession,
+  testConfig,
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
@@ -118,8 +119,41 @@ const releaseHolds = (tenant: TestTenant, by: TestUser) =>
     [tenant.id, by.id],
   );
 
+/**
+ * The job's own login (#999): a member of mediflow_deletion and of nothing else, as in production.
+ * Every test below deletes through it. The role is shared by the workers' databases, so it is made
+ * once and a clash with another worker doing the same is ignored.
+ */
+const LOGIN = 'mediflow_deletion_test';
+async function deletionLoginUrl(owner: pg.Pool): Promise<string> {
+  try {
+    await owner.query(
+      `create role ${LOGIN} login password 'deletion' nosuperuser nobypassrls nocreatedb nocreaterole`,
+    );
+  } catch (error) {
+    if (
+      (error as { code?: string }).code !== '42710' &&
+      (error as { code?: string }).code !== '23505'
+    ) {
+      throw error;
+    }
+  }
+  await owner.query(`grant mediflow_deletion to ${LOGIN}`);
+  const url = new URL(testConfig().DATABASE_URL);
+  url.username = LOGIN;
+  url.password = 'deletion';
+  return url.toString();
+}
+
 beforeAll(async () => {
-  app = await buildTestApp({ resolveSession: resolveTestSession, jobQueue: queue });
+  const setup = new pg.Pool({ connectionString: testConfig().DATABASE_URL, max: 1 });
+  const deletionUrl = await deletionLoginUrl(setup);
+  await setup.end();
+  app = await buildTestApp({
+    config: { DELETION_DATABASE_URL: deletionUrl },
+    resolveSession: resolveTestSession,
+    jobQueue: queue,
+  });
   pool = app.database.pool;
   first = await platformAdmin('Delete Operator One');
   second = await platformAdmin('Delete Operator Two');
@@ -156,6 +190,27 @@ afterAll(async () => {
   await app.close();
 });
 
+describe('the deletion login', () => {
+  it('is its own pool, and the login is neither a superuser nor the API login', async () => {
+    expect(app.database.deletionPool).not.toBe(app.database.pool);
+    const { rows } = await app.database.deletionPool.query<{ u: string; s: boolean; b: boolean }>(
+      `select current_user as u, rolsuper as s, rolbypassrls as b from pg_roles
+       where rolname = current_user`,
+    );
+    expect(rows[0]).toEqual({ u: LOGIN, s: false, b: false });
+    // Without the role, only its inherited privileges, row-level security still applies: no row
+    // seen, none deleted, and nothing may be written or dropped.
+    const own = app.database.deletionPool;
+    expect((await own.query('select 1 from patients limit 1')).rowCount).toBe(0);
+    const gone = await own.query('delete from patients where tenant_id = $1', [hospitalB.id]);
+    expect(gone.rowCount).toBe(0);
+    await expect(
+      own.query('insert into patients (tenant_id) values ($1)', [hospitalB.id]),
+    ).rejects.toThrow();
+    await expect(own.query('drop table patients')).rejects.toThrow();
+    expect((await counts(hospitalB)).patients).toBeGreaterThan(0);
+  });
+});
 describe('the order of deletion', () => {
   it('puts a table after every table that points at it, and keeps a cycle at the end', () => {
     const order = deletionOrder(
