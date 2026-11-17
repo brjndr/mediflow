@@ -44,6 +44,7 @@ export const EXPORTED_PLAIN: readonly string[] = [
   'certificate_formats',
   'charges',
   'claim_counters',
+  'claim_receipts',
   'claim_events',
   'claims',
   'cleaning_tasks',

@@ -18761,6 +18761,20 @@
           }
         }
       },
+      "SplitReview": {
+        "additionalProperties": false,
+        "description": "Why the desk takes the split review flag off an invoice.",
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
+            "type": "string"
+          }
+        }
+      },
       "ManualLine": {
         "additionalProperties": false,
         "description": "A line the billing desk types in: something not in the price catalog.",
@@ -18963,6 +18977,11 @@
           "splitGroup": {
             "description": "Shared by the patient invoice and the payer invoice of one split visit; such a draft is not edited.",
             "type": "string"
+          },
+          "splitReview": {
+            "description": "The other invoice of the split pair was voided (#1033): the desk decides what to do with this one, and a draft is not issued until it takes the flag off.",
+            "type": "string",
+            "enum": ["sibling_void"]
           },
           "paidMinor": {
             "minimum": 0,
@@ -69458,6 +69477,106 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Charge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{invoiceId}/split-review": {
+      "post": {
+        "operationId": "resolveSplitReview",
+        "tags": ["billing"],
+        "description": "Takes the split review flag (`sibling_void`, #1033) off an invoice of a split pair once the desk has decided about it, with the reason: the other invoice of the pair was voided, and this one is voided by a credit note, kept, or issued as it is. A draft with the flag is not issued before this (409 `split_review`). An invoice with no flag is 409 `not_flagged`. The reason is in the audit log. Requires invoice:issue and invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitReview"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bill of one visit. A draft can be changed; once issued it never is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
                 }
               }
             }

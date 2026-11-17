@@ -83,6 +83,8 @@ export const DOMAIN_EVENTS = [
   'invoice.issued',
   'invoice.paid',
   'payment.refunded',
+  // A payment recorded against an invoice (#1033): ids and the amount; the payer when it is the payer's share.
+  'payment.recorded',
   // A credit note against an issued invoice, and a cash register session settled (#114): ids only.
   'invoice.credited',
   'register.closed',

@@ -34,6 +34,7 @@ import {
   Charge,
   ChargeCreate,
   ChargeReview,
+  SplitReview,
   ChargePage,
   ChargeQuery,
   DESCRIPTION_MAX,
@@ -352,6 +353,38 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
   );
 
+  app.post(
+    '/invoices/:invoiceId/split-review',
+    {
+      config: { permissions: ['invoice:issue', 'invoice:read'], feature: FEATURE },
+      schema: {
+        operationId: 'resolveSplitReview',
+        tags: ['billing'],
+        description:
+          'Takes the split review flag (`sibling_void`, #1033) off an invoice of a split pair once the desk has decided about it, with the reason: the other invoice of the pair was voided, and this one is voided by a credit note, kept, or issued as it is. A draft with the flag is not issued before this (409 `split_review`). An invoice with no flag is 409 `not_flagged`. The reason is in the audit log. Requires invoice:issue and invoice:read with the scope `all` and the billing feature flag. Audited.',
+        params: InvoiceParams,
+        body: ref(SplitReview),
+        response: { 200: ref(Invoice), ...errors(400, 401, 403, 404, 409, 429) },
+      },
+    },
+    async (request) => {
+      requireAll(request, 'invoice:issue', 'invoice:read');
+      const { invoiceId } = request.params as { invoiceId: string };
+      const { reason } = request.body as SplitReview;
+      const locked = await lockInvoice(request.txClient, invoiceId);
+      if (!locked) throw invoiceNotFound();
+      if (locked.split_review === null) {
+        throw new HttpError(409, 'not_flagged', 'This invoice is not waiting for a review');
+      }
+      await request.txClient.query(
+        'update invoices set split_review = null, split_review_at = null where id = $1',
+        [locked.id],
+      );
+      request.audit('review', 'invoice', locked.id, `${locked.split_review}: ${reason}`);
+      return invoiceAnswer(request, locked.id);
+    },
+  );
+
   app.get(
     '/encounters/:encounterId/invoices',
     {
@@ -590,6 +623,13 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'invoice_not_draft', 'The invoice is already issued');
       }
       if (locked.version !== body.version) throw versionConflict();
+      if (locked.split_review !== null) {
+        throw new HttpError(
+          409,
+          'split_review',
+          'The other invoice of this split pair was voided: decide about this one first',
+        );
+      }
       if (locked.discount_status === 'pending') {
         throw new HttpError(409, 'discount_needs_approval', 'The discount waits for approval');
       }

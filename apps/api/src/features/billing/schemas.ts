@@ -93,6 +93,16 @@ export const ChargeReview = Type.Object(
 );
 export type ChargeReview = Static<typeof ChargeReview>;
 
+export const SplitReview = Type.Object(
+  { reason: Type.String({ minLength: 1, maxLength: 500, pattern: PLAIN_TEXT }) },
+  {
+    $id: 'SplitReview',
+    additionalProperties: false,
+    description: 'Why the desk takes the split review flag off an invoice.',
+  },
+);
+export type SplitReview = Static<typeof SplitReview>;
+
 export const ChargeQuery = Type.Object({
   status: Type.Optional(StringEnum(['pending', 'invoiced', 'void'])),
   cursor: Type.Optional(Type.String()),
@@ -240,6 +250,12 @@ export const Invoice = Type.Object(
       Type.String({
         description:
           'Shared by the patient invoice and the payer invoice of one split visit; such a draft is not edited.',
+      }),
+    ),
+    splitReview: Type.Optional(
+      Type.Literal('sibling_void', {
+        description:
+          'The other invoice of the split pair was voided (#1033): the desk decides what to do with this one, and a draft is not issued until it takes the flag off.',
       }),
     ),
     paidMinor: Minor('Payments less refunds.'),
@@ -543,6 +559,7 @@ export const BILLING_SCHEMAS = [
   ChargePage,
   ChargeCreate,
   ChargeReview,
+  SplitReview,
   ManualLine,
   InvoiceLine,
   Invoice,

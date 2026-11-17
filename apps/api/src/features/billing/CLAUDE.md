@@ -45,3 +45,5 @@ Behind the `billing` switch. Permissions: `charge:read|create`, `invoice:read|cr
 - **Stay routes need `admission:read` with the scope `all` (#798):** running bill, settlement, deposits (read and take), apply and refund all go through `requireAll`, so a caller scoped to `own` or `department` is refused (403) rather than narrowed; the billing desk works the whole hospital.
 
 - **Tax on a split invoice** (#1032): `invoice_lines.tax_adjust_minor` (default 0, -1 to 1) is added to a line's tax by the generated `tax_minor`. Only `POST /encounters/{id}/split-invoices` sets it, to carry the rounding remainder of a charge split between two lines. Ordinary lines keep 0.
+
+- **Split pairs (#1033):** a whole credit note on one invoice of a split pair flags the other (`split_review`, `POST /invoices/{id}/split-review` clears it); a payment emits `payment.recorded`, which insurance sets against the claim (see the insurance notes).

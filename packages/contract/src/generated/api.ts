@@ -6531,6 +6531,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/invoices/{invoiceId}/split-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Takes the split review flag (`sibling_void`, #1033) off an invoice of a split pair once the desk has decided about it, with the reason: the other invoice of the pair was voided, and this one is voided by a credit note, kept, or issued as it is. A draft with the flag is not issued before this (409 `split_review`). An invoice with no flag is 409 `not_flagged`. The reason is in the audit log. Requires invoice:issue and invoice:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["resolveSplitReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/encounters/{encounterId}/invoices": {
         parameters: {
             query?: never;
@@ -13852,6 +13869,10 @@ export interface components {
         ChargeReview: {
             reason: string;
         };
+        /** @description Why the desk takes the split review flag off an invoice. */
+        SplitReview: {
+            reason: string;
+        };
         /** @description A line the billing desk types in: something not in the price catalog. */
         ManualLine: {
             description: string;
@@ -13921,6 +13942,11 @@ export interface components {
             payerName?: string;
             /** @description Shared by the patient invoice and the payer invoice of one split visit; such a draft is not edited. */
             splitGroup?: string;
+            /**
+             * @description The other invoice of the split pair was voided (#1033): the desk decides what to do with this one, and a draft is not issued until it takes the flag off.
+             * @enum {string}
+             */
+            splitReview?: "sibling_void";
             /** @description Payments less refunds. */
             paidMinor: number;
             /** @description The credit notes against the invoice. */
@@ -50411,6 +50437,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Charge"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resolveSplitReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SplitReview"];
+            };
+        };
+        responses: {
+            /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
                 };
             };
             /** @description Standard error body. */
