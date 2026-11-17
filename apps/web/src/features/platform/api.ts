@@ -1,7 +1,7 @@
 import { api, isApiError, requireData } from '@/shared/api';
 import {
   auditPageSchema,
-  exportLinkSchema,
+  exportLinkSentSchema,
   hospitalDeletionSchema,
   hospitalExportSchema,
   hospitalExportListSchema,
@@ -15,7 +15,7 @@ import type {
   AuditPage,
   Hospital,
   HospitalCreate,
-  ExportLink,
+  ExportLinkSent,
   HospitalDeletion,
   HospitalExport,
   HospitalInvite,
@@ -173,17 +173,17 @@ export async function startHospitalExport(id: string): Promise<HospitalExport> {
   return hospitalExportSchema.parse(requireData(result));
 }
 
-/** A link, good for 7 days, for one active admin of the hospital to download an export. */
-export async function issueExportLink(
+/** Has the API email a link, good for 7 days, to one active admin of the hospital. */
+export async function emailExportLink(
   id: string,
   exportId: string,
   adminUserId: string,
-): Promise<ExportLink> {
-  const result = await api.POST('/platform/hospitals/{id}/exports/{exportId}/download-link', {
+): Promise<ExportLinkSent> {
+  const result = await api.POST('/platform/hospitals/{id}/exports/{exportId}/email-link', {
     params: { path: { id, exportId } },
     body: { adminUserId },
   });
-  return exportLinkSchema.parse(requireData(result));
+  return exportLinkSentSchema.parse(requireData(result));
 }
 
 /** The latest request to delete the hospital's data, or null when there has been none. */

@@ -8,9 +8,9 @@ import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { Form, TextField, useZodForm } from '@/shared/ui/form';
 import { StatusBadge, type StatusTone } from '@/shared/ui/status-badge';
 import { useFormatters } from '@/tenancy/use-formatters';
-import { useExportList, useIssueExportLink, useStartExport } from '../hooks/use-hospitals';
+import { useExportList, useEmailExportLink, useStartExport } from '../hooks/use-hospitals';
 import { exportLinkRequestSchema } from '../schemas';
-import type { ExportLink, Hospital, HospitalExport } from '../types';
+import type { Hospital, HospitalExport } from '../types';
 
 const LINK_FORM = 'export-link-form';
 
@@ -31,18 +31,16 @@ const TONE: Record<HospitalExport['status'], StatusTone> = {
 
 /**
  * The offboarding exports of a hospital: where each one stands, how often it was downloaded, a new
- * export, and a download link for one admin of the hospital (the hospital is closed, so the link is
- * the only way in). The link is shown on screen and held in memory only; it is a credential. It is
- * not sent to the admin from here: the operator passes it on.
+ * export, and a download link emailed to one admin of the hospital (the hospital is closed, so the
+ * link is the only way in). The link is made and sent by a job: it never reaches this screen.
  */
 export function HospitalExports({ hospital }: { hospital: Hospital }) {
   const { t } = useTranslation();
   const format = useFormatters();
   const exports = useExportList(hospital.id);
   const start = useStartExport(hospital.id);
-  const issue = useIssueExportLink(hospital.id);
+  const issue = useEmailExportLink(hospital.id);
   const [target, setTarget] = useState<HospitalExport | null>(null);
-  const [link, setLink] = useState<ExportLink | null>(null);
   const [message, setMessage] = useState('');
   const [refused, setRefused] = useState('');
   const statusLine = useRef<HTMLParagraphElement>(null);
@@ -81,27 +79,15 @@ export function HospitalExports({ hospital }: { hospital: Hospital }) {
     issue.mutate(
       { exportId: target.id, adminUserId: values.adminUserId },
       {
-        onSuccess: (made) => {
+        onSuccess: (sent) => {
           setTarget(null);
           setRefused('');
           form.reset();
-          setLink(made);
-          say(t('platform.exports.linkMade'));
+          say(t('platform.exports.linkSent', { days: sent.expiresInDays }));
         },
         onError: (error) => setRefused(refusal(error)),
       },
     );
-  };
-
-  const fullLink = link === null ? '' : new URL(link.url, window.location.origin).toString();
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(fullLink);
-      say(t('platform.exports.copied'));
-    } catch {
-      say(t('platform.exports.copyFailed'));
-    }
   };
 
   const columns = useMemo<GridColumn<HospitalExport>[]>(
@@ -183,31 +169,6 @@ export function HospitalExports({ hospital }: { hospital: Hospital }) {
       >
         {message}
       </p>
-
-      {link !== null && (
-        <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
-          <p className="font-medium">{t('platform.exports.linkHeading')}</p>
-          <p className="text-muted-foreground">
-            {t('platform.exports.linkExpires', { when: format.dateTime(link.expiresAt) })}{' '}
-            {t('platform.exports.linkWarning')}
-          </p>
-          <input
-            readOnly
-            aria-label={t('platform.exports.linkLabel')}
-            value={fullLink}
-            onFocus={(event) => event.currentTarget.select()}
-            className="w-full rounded-md border bg-background px-2 py-1 font-mono text-xs"
-          />
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => void copy()}>
-              {t('platform.exports.copy')}
-            </Button>
-            <Button variant="ghost" onClick={() => setLink(null)}>
-              {t('platform.exports.hide')}
-            </Button>
-          </div>
-        </div>
-      )}
 
       <DataGrid
         label={t('platform.exports.gridLabel')}
