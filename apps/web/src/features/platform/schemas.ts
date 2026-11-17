@@ -5,6 +5,8 @@ import type {
   AuditEntry,
   AuditPage,
   Hospital,
+  HospitalDeletion,
+  HospitalExport,
   HospitalInvite,
   HospitalInvitePage,
   HospitalPage,
@@ -259,3 +261,50 @@ export type OffboardValues = z.infer<ReturnType<typeof offboardSchema>>;
 export const moduleListSchema: z.ZodType<PlatformModuleList> = z.object({
   items: z.array(z.object({ id: z.string(), kind: z.enum(['module', 'switch']) })),
 });
+
+export const hospitalExportSchema: z.ZodType<HospitalExport> = z.object({
+  id: z.string(),
+  hospitalId: z.string(),
+  status: z.enum(['queued', 'running', 'succeeded', 'failed']),
+  failure: z.string().nullable(),
+  requestedAt: z.string(),
+  finishedAt: z.string().nullable(),
+  fileBytes: z.number().int().nullable(),
+  sha256: z.string().nullable(),
+  tableCount: z.number().int().nullable(),
+  rowCount: z.number().int().nullable(),
+  fileCount: z.number().int().nullable(),
+  downloadCount: z.number().int(),
+  firstDownloadedAt: z.string().nullable(),
+  lastDownloadedAt: z.string().nullable(),
+});
+
+export const hospitalExportListSchema = z.object({ items: z.array(hospitalExportSchema) });
+
+export const hospitalDeletionSchema: z.ZodType<HospitalDeletion> = z.object({
+  id: z.string(),
+  hospitalId: z.string(),
+  status: z.enum(['requested', 'approved', 'running', 'done', 'failed', 'cancelled']),
+  basis: z.enum(['export', 'waiver']),
+  exportId: z.string().nullable(),
+  waiverReference: z.string().nullable(),
+  requestedBy: z.string(),
+  requestedAt: z.string(),
+  approvedBy: z.string().nullable(),
+  approvedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+  failure: z.string().nullable(),
+  tableCount: z.number().int().nullable(),
+  rowCount: z.number().int().nullable(),
+  fileCount: z.number().int().nullable(),
+});
+
+/** The waiver reference is a document number: optional, plain text, 80 characters at most. */
+export const deletionRequestSchema = z.object({
+  waiverReference: z
+    .string()
+    .trim()
+    .max(80, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text'),
+});
+export type DeletionRequestValues = z.infer<typeof deletionRequestSchema>;

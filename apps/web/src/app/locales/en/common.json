@@ -354,6 +354,86 @@
         "done": "Offboarding has started."
       }
     },
+    "deletion": {
+      "heading": "Deleting the data",
+      "loading": "Loading.",
+      "exportHeading": "Export",
+      "exportNone": "No export has been made yet. A deletion needs a downloaded export or a waiver reference.",
+      "exportMade": "The latest export was made on {{when}}.",
+      "exportNotDownloaded": "It has not been downloaded.",
+      "exportDownloaded": "It was first downloaded on {{when}}.",
+      "requestHeading": "Deletion request",
+      "none": "Deletion of this hospital's data has not been requested.",
+      "requestedOn": "Requested on {{when}}.",
+      "approvedOn": "Approved on {{when}}.",
+      "finishedOn": "Finished on {{when}}.",
+      "basisExport": "Allowed by a downloaded export.",
+      "basisWaiver": "Allowed by the waiver {{reference}}.",
+      "failure": "Stopped: {{reason}}",
+      "counts": "{{tables}} tables, {{rows}} rows and {{files}} files were deleted.",
+      "secondAdmin": "A second platform admin must approve this request. You asked for it, so you cannot.",
+      "status": {
+        "requested": "Waiting for approval",
+        "approved": "Approved",
+        "running": "Deleting",
+        "done": "Deleted",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "explain": {
+        "requested": "Nothing is deleted until a second platform admin approves.",
+        "approved": "The deletion is queued. It can still be cancelled until it starts.",
+        "running": "The data is being deleted. This cannot be stopped.",
+        "done": "The hospital's data has been deleted. It cannot be brought back.",
+        "failed": "The deletion did not finish. A new request needs a new approval.",
+        "cancelled": "The request was withdrawn. Nothing was deleted."
+      },
+      "reason": {
+        "legal_hold": "a legal hold is still in place",
+        "medico_legal_open": "a medico-legal case is not yet disposed of",
+        "export_not_downloaded": "the export was not downloaded and there is no waiver",
+        "grace_period_not_over": "the grace period is not over",
+        "hospital_not_offboarding": "the hospital is not offboarding",
+        "verification_failed": "the check after deleting failed, so nothing was deleted",
+        "failed": "it failed"
+      },
+      "refused": {
+        "hospital_not_offboarding": "The hospital is not offboarding.",
+        "grace_period_not_over": "The grace period is not over yet.",
+        "export_not_downloaded": "The export was not downloaded. Download it, or give a waiver reference.",
+        "legal_hold": "A legal hold on a patient's records is still in place.",
+        "medico_legal_open": "A medico-legal case is not yet disposed of.",
+        "deletion_in_progress": "A request is already open.",
+        "approver_must_differ": "A second platform admin must approve. You asked for this request.",
+        "no_deletion_awaiting_approval": "There is no request waiting for approval.",
+        "no_open_deletion": "There is no open request to cancel.",
+        "deletion_running": "The deletion has started and cannot be cancelled."
+      },
+      "request": {
+        "action": "Request deletion",
+        "title": "Request deletion of {{name}}'s data?",
+        "description": "This asks for every record of the hospital to be deleted for good. Nothing is deleted until a second platform admin approves.",
+        "waiver": "Waiver reference",
+        "waiverHint": "Only when there is no downloaded export: the number of the signed waiver. The waiver itself is kept outside this system.",
+        "confirm": "Request deletion",
+        "done": "Deletion requested. A second platform admin must approve it."
+      },
+      "approve": {
+        "action": "Approve deletion",
+        "title": "Approve deletion of {{name}}'s data?",
+        "description": "The data is deleted for good and cannot be brought back. Backups keep it until they rotate out.",
+        "confirm": "Approve and delete",
+        "done": "Approved. The deletion is queued."
+      },
+      "cancel": {
+        "action": "Cancel request",
+        "title": "Cancel the deletion request for {{name}}?",
+        "description": "Nothing is deleted. A new request needs a new approval.",
+        "keep": "Keep the request",
+        "confirm": "Cancel request",
+        "done": "The request was cancelled."
+      }
+    },
     "invite": {
       "heading": "First hospital admin",
       "hint": "Invite the person who will run this hospital. They get an email with a link to set a password and an authenticator. Once the hospital has an admin, its admins invite their own staff.",
