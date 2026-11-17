@@ -199,6 +199,12 @@ export function loadConfig(env: Env = process.env): Config {
   if (mode === 'production' && candidate.REPORT_URL_SECRET === LOCAL_SERVICES.REPORT_URL_SECRET) {
     throw new ConfigError(['REPORT_URL_SECRET: the development key cannot be used in production']);
   }
+  // Deleting a hospital's data is a legal duty: without its own login the job would fail later.
+  if (mode === 'production' && !candidate.DELETION_DATABASE_URL) {
+    throw new ConfigError([
+      'DELETION_DATABASE_URL: required in production, the login of the hospital deletion job',
+    ]);
+  }
   if (mode === 'production' && candidate.MALWARE_SCANNER !== 'clamav') {
     throw new ConfigError([
       'MALWARE_SCANNER: production must use clamav, the test scanner finds only EICAR',
