@@ -4,6 +4,8 @@ import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
   addReactionUpdate,
+  fetchReactions,
+  type ReactionFilters,
   deferDonor,
   fetchDonor,
   fetchDonorTrace,
@@ -221,6 +223,22 @@ export function useTrace(unitId: string) {
     queryKey: bloodKeys.detail(tenantId ?? '', `trace:${unitId}`),
     queryFn: ({ signal }) => fetchTrace(unitId, signal),
     enabled: tenantId !== undefined,
+  });
+}
+
+export const REACTION_PAGE_SIZE = 25;
+
+export function useReactions(filters: ReactionFilters) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: bloodKeys.list(tenantId ?? '', { kind: 'reactions', ...filters }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchReactions({ filters, cursor: pageParam, limit: REACTION_PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === tenantId ? previous : undefined,
   });
 }
 

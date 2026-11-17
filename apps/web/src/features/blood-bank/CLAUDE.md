@@ -34,7 +34,7 @@ All on the Units screen, on the operations API (`bloodtesting.ts`, `bloodcompat.
 
 ## Not here yet
 
-A list of all reactions, notifying the recipient's doctor and recalling cleared units of a reactive donor.
+Notifying the recipient's doctor and recalling cleared units of a reactive donor.
 
 ## Decisions
 
@@ -44,3 +44,7 @@ A list of all reactions, notifying the recipient's doctor and recalling cleared 
 ## Editing a donor (#981)
 
 - **Edit** (`bloodDonor:manage`, `EditDonorDialog` in `DonorDialogs.tsx`): reads the full record first (an audited read), then a form of name, date of birth, sex and phone; the blood group and number never change (units carry the group). `PATCH /blood/donors/{id}` sends only the dirty fields with `expectedVersion`; an emptied phone is `null`. On 409 `conflict` the record is read again, the form keeps what was typed (`reset(..., { keepDirtyValues })`), takes what was saved in the other fields, and says what the other person saved under a field both changed.
+
+## Reactions list (#982)
+
+- A third tab, **Reactions**, with `transfusionReaction:read` (`ReactionsPanel.tsx`): `DataGrid` from `GET /transfusion-reactions`, newest first, 25 a page by cursor, filtered by the severity first reported. Rows show the kind, the current severity, the patient (`PatientLabel`, by id) and the onset; "Open trace" reads the unit (`useUnitHistory`) for its number and opens the same `TraceDialog`, where updates are added. The list never shows donor data.

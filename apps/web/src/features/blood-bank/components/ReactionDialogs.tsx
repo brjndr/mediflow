@@ -28,7 +28,7 @@ const TONES: Record<ReactionSeverity, StatusTone> = {
   severe: 'danger',
 };
 
-function SeverityBadge({ severity }: { severity: ReactionSeverity }) {
+export function SeverityBadge({ severity }: { severity: ReactionSeverity }) {
   const { t } = useTranslation('blood-bank');
   return <StatusBadge tone={TONES[severity]} label={t(`severity.${severity}`)} />;
 }

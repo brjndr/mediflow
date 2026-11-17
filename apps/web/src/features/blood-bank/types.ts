@@ -1,6 +1,7 @@
 import type { components } from '@mediflow/contract';
 
 export type BloodUnit = components['schemas']['BloodUnit'];
+export type TransfusionReactionPage = components['schemas']['TransfusionReactionPage'];
 export type BloodUnitPage = components['schemas']['BloodUnitPage'];
 export type BloodUnitStatus = components['schemas']['BloodUnitStatus'];
 export type BloodUnitDetail = components['schemas']['BloodUnitDetail'];

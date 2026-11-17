@@ -129,6 +129,24 @@ test('registering a blood unit is reachable with the keyboard alone', async ({ p
   await expect(open).toBeFocused();
 });
 
+test('the blood bank reactions list fits the screen and its tab opens with the keyboard', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await goTo(page, 'Blood bank');
+  const tab = page.getByRole('tab', { name: 'Reactions' });
+  await focusWithKeyboard(page, page.getByRole('tab', { name: 'Units' }));
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(tab).toBeFocused();
+  await expectFocusRing(page);
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'Transfusion reactions' })).toBeVisible();
+  await expect(page.getByText('No reaction has been reported.')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});
+
 test('adding a document and recording a consent are reachable with the keyboard alone', async ({
   page,
 }) => {

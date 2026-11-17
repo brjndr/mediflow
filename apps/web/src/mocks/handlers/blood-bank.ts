@@ -703,6 +703,27 @@ export const bloodBankHandlers = [
     return HttpResponse.json<Reaction>({ ...shown, heldUnitIds: held }, { status: 201 });
   }),
 
+  http.get('*/api/transfusion-reactions', ({ request }) => {
+    const access = authorize(request, {
+      permission: 'transfusionReaction:read',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const url = new URL(request.url);
+    const severity = url.searchParams.get('severity');
+    const limit = Number(url.searchParams.get('limit') ?? 25);
+    const start = Number(url.searchParams.get('cursor') ?? 0);
+    const all = extras.reactions
+      .filter((r) => r.tenantId === access.tenantId && (!severity || r.severity === severity))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+    const items = all.slice(start, start + limit).map(({ tenantId: _tenantId, ...shown }) => shown);
+    return HttpResponse.json({
+      items,
+      nextCursor: start + limit < all.length ? String(start + limit) : null,
+      total: all.length,
+    });
+  }),
+
   http.post('*/api/transfusion-reactions/:reactionId/updates', async ({ request, params }) => {
     const access = authorize(request, {
       permission: 'transfusionReaction:record',
