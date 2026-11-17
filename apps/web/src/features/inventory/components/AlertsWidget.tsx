@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
+import widgetStringsHi from '../widget-strings.hi.json';
 import { errorMessageKey } from '@/shared/api';
 import { Stat, StatCard } from '@/shared/ui/stat-card';
 import { useAlertCounts } from '../hooks/use-inventory';
@@ -8,7 +9,7 @@ import { EXPIRING_DEFAULT } from '../schemas';
 
 // Default export: contributed to the `dashboard.widgets` slot through the manifest.
 export default function AlertsWidget() {
-  const { t } = useWidgetStrings('inventory-widget', widgetStrings);
+  const { t } = useWidgetStrings('inventory-widget', widgetStrings, widgetStringsHi);
   const { t: tCommon } = useTranslation();
   const counts = useAlertCounts({ locationId: '', expiringWithinDays: EXPIRING_DEFAULT });
 

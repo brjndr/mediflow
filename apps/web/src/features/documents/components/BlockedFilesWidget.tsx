@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/button';
 import { StatCard } from '@/shared/ui/stat-card';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
+import widgetStringsHi from '../widget-strings.hi.json';
 import { useBlockedDocuments, useDismissBlocked } from '../hooks/use-documents';
 
 /**
@@ -13,7 +14,7 @@ import { useBlockedDocuments, useDismissBlocked } from '../hooks/use-documents';
  * patient. Default export: a `dashboard.widgets` contribution.
  */
 export default function BlockedFilesWidget() {
-  const { t } = useWidgetStrings('documents-widget', widgetStrings);
+  const { t } = useWidgetStrings('documents-widget', widgetStrings, widgetStringsHi);
   const { t: tCommon } = useTranslation();
   const blocked = useBlockedDocuments();
   const dismiss = useDismissBlocked();
