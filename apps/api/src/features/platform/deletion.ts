@@ -465,17 +465,52 @@ async function run(
   try {
     await deleteFiles(pool, files, job.deletionId, hospitalId, approvedBy, keys);
   } catch {
-    log?.error(
-      {
-        event: 'hospital_deletion_files_pending',
-        deletionId: job.deletionId,
-        hospitalId,
-        code: 'files_pending',
-      },
-      'hospital deletion files pending',
-    );
+    await fileFailed(pool, job.deletionId, hospitalId, approvedBy, log);
   }
   return 'deleted';
+}
+
+/**
+ * Failed attempts at removing a deleted hospital's files before the sweep gives up (#1001). The
+ * first is the run's own, the rest are the sweep's, 15 minutes apart: about five hours.
+ */
+export const MAX_FILE_ATTEMPTS = 20;
+
+/**
+ * Counts a failed removal. At the cap the sweep stops taking the row up and the platform trail
+ * gets `hospital.deletion_files_stuck`, so an operator notices; clearing `files_stuck_at` and
+ * `file_attempts` on the row lets the sweep try again. Every attempt still logs its line.
+ */
+async function fileFailed(
+  pool: pg.Pool,
+  deletionId: string,
+  hospitalId: string,
+  approvedBy: string,
+  log?: DeletionLog,
+): Promise<void> {
+  log?.error(
+    { event: 'hospital_deletion_files_pending', deletionId, hospitalId, code: 'files_pending' },
+    'hospital deletion files pending',
+  );
+  await withPlatformTransaction(pool, async (client) => {
+    const { rows } = await client.query<{ file_attempts: number }>(
+      `update tenant_deletions set file_attempts = file_attempts + 1,
+         files_stuck_at = case when file_attempts + 1 >= $2 then now() else files_stuck_at end
+       where id = $1 and status = 'done' and files_deleted_at is null and files_stuck_at is null
+       returning file_attempts`,
+      [deletionId, MAX_FILE_ATTEMPTS],
+    );
+    const attempts = rows[0]?.file_attempts;
+    if (attempts === undefined || attempts < MAX_FILE_ATTEMPTS) return;
+    await recordPlatformAudit(client, {
+      actorId: approvedBy,
+      action: 'hospital.deletion_files_stuck',
+      entity: 'hospital_deletion',
+      entityId: deletionId,
+      hospitalId,
+      detail: { attempts },
+    });
+  });
 }
 
 export const DELETE_SWEEP_JOB = 'platform.delete-sweep';
@@ -503,6 +538,7 @@ export async function sweepDeletions(
     }>(
       `select id, hospital_id, approved_by, file_keys from tenant_deletions
        where status = 'done' and files_deleted_at is null and file_keys is not null
+         and files_stuck_at is null
          and finished_at < now() - interval '5 minutes'`,
     );
     return rows;
@@ -513,15 +549,7 @@ export async function sweepDeletions(
       await deleteFiles(pool, files, row.id, row.hospital_id, row.approved_by, row.file_keys);
       filesFinished += 1;
     } catch {
-      log?.error(
-        {
-          event: 'hospital_deletion_files_pending',
-          deletionId: row.id,
-          hospitalId: row.hospital_id,
-          code: 'files_pending',
-        },
-        'hospital deletion files pending',
-      );
+      await fileFailed(pool, row.id, row.hospital_id, row.approved_by, log);
     }
   }
   const due = await withPlatformTransaction(pool, async (client) => {
