@@ -236,6 +236,13 @@ export async function deleteHospitalRows(
     // points into it would keep orphans unseen. None may exist: refuse before touching a row.
     if (unregisteredChildren(refs.rows, registry).length > 0) throw new VerificationFailed();
 
+    // Who belonged here, read before the memberships go: only these accounts may be removed below.
+    const members = await client.query<{ user_id: string }>(
+      'select distinct user_id from memberships where tenant_id = $1',
+      [hospitalId],
+    );
+    const memberIds = members.rows.map((m) => m.user_id);
+
     let rows = 0;
     const order = deletionOrder(deletedTables(), refs.rows);
     for (const table of order) {
@@ -267,6 +274,17 @@ export async function deleteHospitalRows(
 
     // The records of the deletion itself go through the triggers like any other write.
     await client.query('set local session_replication_role = origin');
+    // Accounts (#997, DPDP): a person of this hospital with no membership anywhere now has no
+    // reason to be kept. Someone who also belongs to another hospital stays, and so does a
+    // platform admin (who has no membership by design) and any account that never belonged here.
+    // With the triggers and cascades back on, their sessions, authenticator and reset tokens go too.
+    const accounts = await client.query(
+      `delete from users u
+       where u.id = any($1::uuid[]) and not u.is_platform_admin
+         and not exists (select 1 from memberships m where m.user_id = u.id)`,
+      [memberIds],
+    );
+    const accountCount = accounts.rowCount ?? 0;
     // The tombstone: the row stays, without the hospital's contact details.
     const tombstone = await client.query(
       `update tenants set status = 'deleted', deleted_at = now(), address = null, phone = null,
@@ -289,7 +307,7 @@ export async function deleteHospitalRows(
       entity: 'hospital_deletion',
       entityId: deletionId,
       hospitalId,
-      detail: { tables: order.length + 1, rows, files: keys.length },
+      detail: { tables: order.length + 1, rows, files: keys.length, accounts: accountCount },
     });
     await client.query('commit');
     return keys;

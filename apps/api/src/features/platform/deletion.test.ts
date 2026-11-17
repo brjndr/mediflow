@@ -265,6 +265,15 @@ describe('asking for a deletion', () => {
 
 describe('the deletion of a hospital', () => {
   it('waits for a second platform admin, then deletes that hospital and nothing else', async () => {
+    // Accounts: one person of both hospitals, one account that belongs to neither.
+    const shared = await createUser(pool, 'Shared Nurse');
+    const stray = await createUser(pool, 'Stray Account');
+    users.push(shared, stray);
+    await addMembership(pool, shared, hospitalA, 'admin');
+    await addMembership(pool, shared, hospitalB, 'admin');
+    const present = async (user: TestUser) =>
+      (await pool.query('select 1 from users where id = $1', [user.id])).rowCount === 1;
+
     const before = await counts(hospitalB);
     const beforeA = await counts(hospitalA);
     for (const table of ['departments', 'patients', 'audit_log', 'report_runs', 'memberships']) {
@@ -307,6 +316,18 @@ describe('the deletion of a hospital', () => {
     for (const [table, n] of Object.entries(after)) expect(n, table).toBe(0);
     // The other hospital: every table as it was.
     expect(await counts(hospitalB)).toEqual(before);
+    // Accounts: the hospital's own admin is gone, a person of two hospitals stays, and so do
+    // an account that never belonged here and the platform admins.
+    expect(await present(adminA)).toBe(false);
+    expect(await present(shared)).toBe(true);
+    expect(await present(stray)).toBe(true);
+    expect(await present(adminB)).toBe(true);
+    expect(await present(first)).toBe(true);
+    const trail = await pool.query<{ detail: { accounts: number } }>(
+      "select detail from platform_audit_log where hospital_id = $1 and action = 'hospital.deleted'",
+      [hospitalA.id],
+    );
+    expect(trail.rows[0]?.detail.accounts).toBe(1);
     // Files: the hospital's report and its export are gone, the other's is not.
     expect(await app.files.get(seeds.get(hospitalA.id)?.reportKey as string)).toBeNull();
     const archive = await pool.query<{ file_key: string }>(
