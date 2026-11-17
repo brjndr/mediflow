@@ -61,21 +61,44 @@ describe('requiring a signed discharge summary', () => {
     expect(await screen.findByText(/is discharged\. The bed is being cleaned/)).toBeInTheDocument();
   }, 30_000);
 
-  it('refuses without a signed summary, with a link to it, then discharges once signed', async () => {
+  it('says before submit that the summary is needed and holds the button', async () => {
     setMockSummaryRequired(TENANT_IDS.hospital, true);
     addMockAdmission({ id: 'adm_on', status: 'admitted', version: 1 });
     renderApp({ entry: '/admissions' });
     await dischargeStay('adm_on');
 
-    expect(await screen.findByText(/needs the discharge summary signed/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open the discharge summary' })).toHaveAttribute(
-      'href',
-      '/admissions/adm_on/summary',
+    expect(await screen.findByTestId('summary-gate')).toHaveTextContent(
+      /needs the discharge summary signed/,
     );
+    expect(screen.getByRole('button', { name: 'Discharge patient' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.queryByText(/is discharged. The bed is being cleaned/)).toBeNull();
+  }, 30_000);
 
-    addMockSignedSummary(TENANT_IDS.hospital, 'adm_on');
-    await userEvent.click(screen.getByRole('button', { name: 'Discharge patient' }));
-    expect(await screen.findByText(/is discharged\. The bed is being cleaned/)).toBeInTheDocument();
+  it('does not wait for the summary of an absconded patient', async () => {
+    setMockSummaryRequired(TENANT_IDS.hospital, true);
+    addMockAdmission({ id: 'adm_abs', status: 'admitted', version: 1 });
+    renderApp({ entry: '/admissions' });
+    const grid = await screen.findByRole('table', { name: 'Admissions' });
+    await userEvent.click(await within(grid).findByRole('button', { name: /Discharge/ }));
+    const panel = await screen.findByRole('region', { name: /Discharge / });
+    await userEvent.selectOptions(
+      await within(panel).findByRole('combobox', { name: 'How the stay ends' }),
+      'absconded',
+    );
+    expect(screen.queryByTestId('summary-gate')).toBeNull();
+  }, 30_000);
+
+  it('discharges once the summary is signed', async () => {
+    setMockSummaryRequired(TENANT_IDS.hospital, true);
+    addMockAdmission({ id: 'adm_signed', status: 'admitted', version: 1 });
+    addMockSignedSummary(TENANT_IDS.hospital, 'adm_signed');
+    renderApp({ entry: '/admissions' });
+    await dischargeStay('adm_signed');
+    expect(screen.queryByTestId('summary-gate')).toBeNull();
+    expect(await screen.findByText(/is discharged. The bed is being cleaned/)).toBeInTheDocument();
   }, 30_000);
 
   it('does not apply to a second hospital', async () => {

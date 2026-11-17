@@ -8947,6 +8947,10 @@ export interface components {
             admissionId: string;
             advice?: string;
             clearances: components["schemas"]["DischargeClearance"][];
+            /** @description The hospital requires a signed discharge summary before a discharge other than absconded (setting requireDischargeSummary), so a doctor who cannot read the setting can still see it. */
+            summaryRequired: boolean;
+            /** @description The stay’s discharge summary is signed. */
+            summarySigned: boolean;
             version: number;
         };
         DischargeAdviceSet: {

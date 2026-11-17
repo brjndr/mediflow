@@ -32,6 +32,11 @@ export const DischargePlan = Type.Object(
     admissionId: Type.String(),
     advice: Type.Optional(Type.String({ maxLength: ADVICE_MAX })),
     clearances: Type.Array(ref(DischargeClearance)),
+    summaryRequired: Type.Boolean({
+      description:
+        'The hospital requires a signed discharge summary before a discharge other than absconded (setting requireDischargeSummary), so a doctor who cannot read the setting can still see it.',
+    }),
+    summarySigned: Type.Boolean({ description: 'The stay’s discharge summary is signed.' }),
     version: Type.Integer({ minimum: 1 }),
   },
   {

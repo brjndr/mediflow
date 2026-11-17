@@ -296,6 +296,7 @@
   },
   "plan": {
     "gate": "Discharge waits for: {{kinds}}.",
+    "summaryGate": "This hospital needs the discharge summary signed before this patient is discharged, and this stay's is not signed yet.",
     "advice": {
       "label": "Advice for the patient",
       "save": "Save advice",
