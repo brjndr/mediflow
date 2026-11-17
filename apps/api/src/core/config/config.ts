@@ -31,6 +31,12 @@ const ConfigSchema = Type.Object({
    * may lag a little behind the primary, which a report can bear and a bill cannot.
    */
   DATABASE_REPLICA_URL: Type.Optional(Type.String({ pattern: '^postgres(ql)?://.+' })),
+  /**
+   * The login of the hospital deletion job (`postgres://...`): a member of `mediflow_deletion` and
+   * of no other role (#999). Unset, the job runs on the API's own login, which works only where
+   * that login may become `mediflow_deletion` (development and CI).
+   */
+  DELETION_DATABASE_URL: Type.Optional(Type.String({ pattern: '^postgres(ql)?://.+' })),
   /** Upper bound on pooled connections. Small, because each request holds one for its duration. */
   DATABASE_POOL_MAX: Type.Integer({ minimum: 1, maximum: 100, default: 10 }),
   /** Where staff email is handed off, e.g. smtp://user:pass@host:587. */

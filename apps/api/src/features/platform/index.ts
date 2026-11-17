@@ -34,7 +34,7 @@ export const platformFeature: FastifyPluginAsync = async (app) => {
     await sendExportLink(app.database.pool, app.notifier, app.config.REPORT_URL_SECRET, job);
   });
   app.jobs.work<DeleteJob>(DELETE_JOB, async (job) => {
-    await runDeletion(app.database.pool, app.files, job, app.log);
+    await runDeletion(app.database.pool, app.files, job, app.log, app.database.deletionPool);
   });
   app.jobs.work(DELETE_SWEEP_JOB, async () => {
     await sweepDeletions(app.database.pool, app.files, app.jobs, app.log);
