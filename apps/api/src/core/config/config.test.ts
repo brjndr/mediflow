@@ -14,6 +14,7 @@ const production = {
   S3_REGION: 'ap-south-1',
   MALWARE_SCANNER: 'clamav',
   CLAMAV_HOST: 'clamav',
+  DELETION_DATABASE_URL: 'postgres://deleter:pw@db:5432/hms',
 };
 
 describe('loadConfig', () => {
@@ -57,6 +58,7 @@ describe('loadConfig', () => {
       CLAMAV_HOST: 'clamav',
       CLAMAV_PORT: 3310,
       CLAMAV_TIMEOUT_MS: 60000,
+      DELETION_DATABASE_URL: 'postgres://deleter:pw@db:5432/hms',
       REPORT_SYNC_TIMEOUT_MS: 10000,
       REPORT_RUN_TIMEOUT_MS: 120000,
     });
@@ -103,6 +105,12 @@ describe('loadConfig', () => {
       const { [name]: _omitted, ...rest } = production as Record<string, string>;
       expect(() => loadConfig(rest)).toThrow(new RegExp(name));
     }
+  });
+
+  it('refuses to start in production without the deletion login, and allows it elsewhere', () => {
+    const { DELETION_DATABASE_URL: _d, ...rest } = production;
+    expect(() => loadConfig(rest)).toThrow(/DELETION_DATABASE_URL/);
+    expect(loadConfig({ NODE_ENV: 'test' }).DELETION_DATABASE_URL).toBeUndefined();
   });
 
   it('refuses the test scanner in production', () => {
