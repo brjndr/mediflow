@@ -1,9 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
   closeUnsentImages,
+  resendStuckImageScans,
   imageRoutes,
   scanImage,
   SCAN_JOB,
+  STUCK_SCAN_JOB,
   UNSENT_JOB,
   type ScanJob,
 } from './images.js';
@@ -27,4 +29,8 @@ export const radiologyFeature: FastifyPluginAsync = async (app) => {
     await closeUnsentImages(app);
   });
   app.jobs.schedule(UNSENT_JOB, '15 * * * *');
+  app.jobs.work(STUCK_SCAN_JOB, async () => {
+    await resendStuckImageScans(app);
+  });
+  app.jobs.schedule(STUCK_SCAN_JOB, '45 * * * *');
 };

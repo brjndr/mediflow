@@ -4,8 +4,10 @@ import {
   scanDocument,
   SCAN_JOB,
   closeUnsentDocuments,
+  resendStuckScans,
   sweepDocuments,
   UNSENT_JOB,
+  STUCK_SCAN_JOB,
   SWEEP_JOB,
   type ScanJob,
 } from './files.js';
@@ -109,4 +111,8 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
     await closeUnsentDocuments(app);
   });
   app.jobs.schedule(UNSENT_JOB, '15 * * * *');
+  app.jobs.work(STUCK_SCAN_JOB, async () => {
+    await resendStuckScans(app);
+  });
+  app.jobs.schedule(STUCK_SCAN_JOB, '45 * * * *');
 };

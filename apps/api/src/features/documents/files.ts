@@ -12,6 +12,7 @@ import { DOCUMENT_MAX_BYTES, DOCUMENT_TYPES, DocumentParams, SignedQuery } from 
 
 export const SCAN_JOB = 'documents.scan';
 export const SWEEP_JOB = 'documents.sweep';
+export const STUCK_SCAN_JOB = 'documents.stuck_scan';
 export const UNSENT_JOB = 'documents.unsent';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -323,4 +324,37 @@ export async function closeUnsentDocuments(app: FastifyInstance): Promise<number
     app.log.info({ event: 'documents_unsent_closed', count: closed }, 'unsent uploads closed');
   }
   return closed;
+}
+
+/**
+ * The sweep of documents stuck in `scanning` (#1063), hourly across hospitals as the worker role: a
+ * file whose scan job outlived its retries (`SCAN_RETRIES`) would stay held for ever. One held for
+ * more than `STUCK_SCAN_HOURS` gets a new scan job (a fresh id for each hour, since the old id is
+ * spent) and a warning for whoever watches the logs. Only a row still `scanning` is touched, and
+ * the scan itself is idempotent. Returns how many it sent again.
+ */
+export const STUCK_SCAN_HOURS = 3;
+export async function resendStuckScans(app: FastifyInstance): Promise<number> {
+  const rows = await asWorker(app, async (client) => {
+    const result = await client.query<{ id: string }>(
+      `select id from patient_documents
+       where status = 'scanning' and uploaded_at < now() - make_interval(hours => $1)`,
+      [STUCK_SCAN_HOURS],
+    );
+    return result.rows;
+  });
+  const hour = Math.floor(Date.now() / 3_600_000);
+  for (const { id } of rows) {
+    await app.jobs.send(SCAN_JOB, { documentId: id } satisfies ScanJob, {
+      id: `scan-${id}-${hour}`,
+      ...SCAN_RETRIES,
+    });
+  }
+  if (rows.length > 0) {
+    app.log.warn(
+      { event: 'patient_documents_scan_stuck', count: rows.length },
+      'files stuck in scanning',
+    );
+  }
+  return rows.length;
 }

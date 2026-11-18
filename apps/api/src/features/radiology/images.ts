@@ -42,6 +42,7 @@ const READ = 'imagingStudy:read';
 const PERFORM = 'imagingStudy:perform';
 export const SCAN_JOB = 'radiology.scan';
 export const UNSENT_JOB = 'radiology.unsent';
+export const STUCK_SCAN_JOB = 'radiology.stuck_scan';
 
 export interface ScanJob {
   imageId: string;
@@ -626,4 +627,37 @@ export async function closeUnsentImages(app: FastifyInstance): Promise<number> {
     app.log.info({ event: 'images_unsent_closed', count: closed }, 'unsent uploads closed');
   }
   return closed;
+}
+
+/**
+ * The sweep of images stuck in `scanning` (#1063), hourly across hospitals as the worker role: a
+ * file whose scan job outlived its retries (`SCAN_RETRIES`) would stay held for ever. One held for
+ * more than `STUCK_SCAN_HOURS` gets a new scan job (a fresh id for each hour, since the old id is
+ * spent) and a warning for whoever watches the logs. Only a row still `scanning` is touched, and
+ * the scan itself is idempotent. Returns how many it sent again.
+ */
+export const STUCK_SCAN_HOURS = 3;
+export async function resendStuckImageScans(app: FastifyInstance): Promise<number> {
+  const rows = await asWorker(app, async (client) => {
+    const result = await client.query<{ id: string }>(
+      `select id from imaging_images
+       where status = 'scanning' and uploaded_at < now() - make_interval(hours => $1)`,
+      [STUCK_SCAN_HOURS],
+    );
+    return result.rows;
+  });
+  const hour = Math.floor(Date.now() / 3_600_000);
+  for (const { id } of rows) {
+    await app.jobs.send(SCAN_JOB, { imageId: id } satisfies ScanJob, {
+      id: `scan-${id}-${hour}`,
+      ...SCAN_RETRIES,
+    });
+  }
+  if (rows.length > 0) {
+    app.log.warn(
+      { event: 'imaging_images_scan_stuck', count: rows.length },
+      'files stuck in scanning',
+    );
+  }
+  return rows.length;
 }

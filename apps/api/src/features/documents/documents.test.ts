@@ -859,6 +859,40 @@ describe('merging two records', () => {
   });
 });
 
+describe('files stuck in scanning (#1063)', () => {
+  it('sends the scan again for an old file in either hospital and once an hour', async () => {
+    const stuck = (await ask(ids.a, { size: PDF.length })).json<Upload>();
+    // Files are only asked for (the upload address is rate limited), then marked received.
+    const stuckClinic = (
+      await ask(ids.clinicPatient, { size: PDF.length }, { tenant: clinic, user: clinicAdmin })
+    ).json<Upload>();
+    await queue.drain();
+    await pool.query(
+      `update patient_documents set status = 'scanning', uploaded_at = now() - interval '4 hours',
+         file_key = 'documents/' || tenant_id || '/' || id, sha256 = repeat('a', 64) where id = any($1)`,
+      [[stuck.document.id, stuckClinic.document.id]],
+    );
+    const { resendStuckScans } = await import('./files.js');
+    const before = queue.sent.length;
+    expect(await resendStuckScans(app)).toBe(2);
+    const resent = queue.sent.slice(before).map((job) => job.data);
+    expect(resent).toEqual(
+      expect.arrayContaining([
+        { documentId: stuck.document.id },
+        { documentId: stuckClinic.document.id },
+      ]),
+    );
+    // The same hour sends nothing new; the scan then releases both files.
+    await resendStuckScans(app);
+    expect(queue.sent.length).toBe(before + 2);
+    await queue.drain();
+    expect(await statusOf(stuck.document.id)).toBe('failed');
+    // Their files never existed, so the scans end as lost; the point is that it was sent again.
+    expect(await statusOf(stuckClinic.document.id)).toBe('failed');
+    expect(await resendStuckScans(app)).toBe(0);
+  });
+});
+
 describe('uploads asked for and never sent (#560)', () => {
   it('closes an old pending request, leaves a recent one and a received file alone', async () => {
     const old = (await ask(ids.a)).json<Upload>();
