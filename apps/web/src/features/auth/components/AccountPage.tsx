@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 /** The frame of the pages people reach from an email: generic and unbranded, like sign-in. */
 export function AccountPage({ title, children }: { title: string; children: ReactNode }) {

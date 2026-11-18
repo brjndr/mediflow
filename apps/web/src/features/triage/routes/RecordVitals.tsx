@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { useFeatureFlag, usePermission } from '@/access';
 import { usePatientName } from '@/features/patients';
 import { errorMessageKey, isApiError } from '@/shared/api';

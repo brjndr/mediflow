@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router';
 import { PLATFORM_NAV } from '@/features/platform';
 import { cn } from '@/shared/lib/utils';
 import { DesktopOnly } from '@/shared/ui/desktop-only';

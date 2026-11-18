@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { usePermission } from '@/access';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';

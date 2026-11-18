@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router';
 import { Can, useFeatureFlag, usePermission } from '@/access';
 import { useLocations } from '@/features/inventory';
 import { useAllergies } from '@/features/triage';

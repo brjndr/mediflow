@@ -1,12 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
 import { Suspense, type ReactElement, type ReactNode } from 'react';
-import {
-  createMemoryRouter,
-  MemoryRouter,
-  RouterProvider,
-  type RouteObject,
-} from 'react-router-dom';
+import { createMemoryRouter, MemoryRouter, RouterProvider, type RouteObject } from 'react-router';
 import { AppProviders } from '@/app/AppProviders';
 import { createI18n, type CoreLocales } from '@/app/i18n';
 import { sessionKey, type Session } from '@/app/session';
@@ -117,7 +112,7 @@ export function renderApp(options: AppOptions = {}): AppResult {
       i18n={createTestI18n(registry, coreLocales)}
       registry={registry}
     >
-      <RouterProvider router={router} />
+      <RouterProvider router={router} useTransitions={false} />
     </AppProviders>,
   );
   return { queryClient, store, router, ...result };

@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { DrugSearch, useMedicineName } from '@/features/drugs';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';

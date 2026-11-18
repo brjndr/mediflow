@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { useFormatters } from '@/tenancy';

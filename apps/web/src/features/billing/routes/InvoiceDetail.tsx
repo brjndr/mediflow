@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router';
 import { Can, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';

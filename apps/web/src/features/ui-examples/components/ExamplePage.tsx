@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 /** Shared frame of the example pages: a heading and a way back to the index. */
 export function ExamplePage({ heading, children }: { heading: string; children: ReactNode }) {

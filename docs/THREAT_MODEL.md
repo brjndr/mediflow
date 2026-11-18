@@ -122,7 +122,7 @@ The PDF preview and print views use blob and data URLs; the report-only phase mu
 | `picomatch` via `lint-staged` | high            | Developer machines only          | Update `lint-staged`                                                |
 | `minimatch` via `eslint`      | moderate        | Developer machines only          | Update eslint                                                       |
 | `fast-uri` via `ajv` (API)    | low to moderate | Production API (schema compiler) | Override to 3.1.9 or later; it parses schema `$id`s, not user input |
-| `react-router` 6              | moderate        | Shipped client                   | Known; CI gates at high; plan the move to 7 (F-3)                   |
+| `react-router` 6              | moderate        | Shipped client                   | Fixed: moved to 7 (#1067)                                           |
 
 None of the high findings reaches production code. They are tracked in F-3, which also removes `continue-on-error` so the gate blocks.
 

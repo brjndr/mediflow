@@ -1,4 +1,4 @@
-import { createMemoryRouter } from 'react-router-dom';
+import { createMemoryRouter } from 'react-router';
 import type { Metric } from 'web-vitals';
 import { routePattern, toVitalReport, type VitalReport } from './web-vitals';
 

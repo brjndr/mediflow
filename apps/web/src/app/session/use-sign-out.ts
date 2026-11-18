@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useAppDispatch } from '../store-hooks';
 import { signOut } from './api';
 import { announceSignedOut } from './session-channel';

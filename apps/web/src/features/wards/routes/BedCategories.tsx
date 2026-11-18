@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { usePermission } from '@/access';
 import { useServiceOptions } from '@/features/services';
 import { errorMessageKey, isApiError } from '@/shared/api';

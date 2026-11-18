@@ -1,7 +1,7 @@
 import { AlertTriangle, Clock } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { allergyCovers } from '@/features/clinical';
 import { useAllergies } from '@/features/triage';

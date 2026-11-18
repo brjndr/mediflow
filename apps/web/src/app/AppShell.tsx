@@ -1,7 +1,7 @@
 import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';

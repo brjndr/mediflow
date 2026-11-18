@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { dropSessionData, onSessionChangeElsewhere, sessionKey, type Session } from '@/app/session';
 import { useAppDispatch } from '@/app/store-hooks';
 import { setNotice } from '@/app/ui-slice';

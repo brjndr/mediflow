@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { RouterProvider } from 'react-router-dom';
+import { RouterProvider } from 'react-router';
 import { AppProviders } from './app/AppProviders';
 import { createI18n } from './app/i18n';
 import { createQueryClient } from './app/query-client';
@@ -36,7 +36,7 @@ void enableMocking().then(() => {
   createRoot(root).render(
     <StrictMode>
       <AppProviders client={queryClient} store={createStore()} i18n={i18n} registry={appRegistry}>
-        <RouterProvider router={router} />
+        <RouterProvider router={router} useTransitions={false} />
       </AppProviders>
     </StrictMode>,
   );

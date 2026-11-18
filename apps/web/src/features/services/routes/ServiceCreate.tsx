@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';

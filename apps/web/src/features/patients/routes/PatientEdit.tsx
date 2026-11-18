@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';

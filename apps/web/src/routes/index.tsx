@@ -1,7 +1,7 @@
 // Route configuration, not a component module, so fast refresh boundaries do not apply.
 /* eslint-disable react-refresh/only-export-components */
 import { lazy, Suspense, type ReactNode } from 'react';
-import type { RouteObject } from 'react-router-dom';
+import type { RouteObject } from 'react-router';
 import { ForbiddenPage, PermissionGuard } from '@/access';
 import { AppShell } from '@/app/AppShell';
 import { PlatformShell } from '@/app/PlatformShell';
