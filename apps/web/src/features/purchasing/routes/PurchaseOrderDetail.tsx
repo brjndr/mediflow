@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Can, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';

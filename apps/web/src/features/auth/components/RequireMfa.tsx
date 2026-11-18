@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router';
 import { useAccessPolicy, useFeatureFlag } from '@/access';
 import { useSession } from '@/app/session';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';

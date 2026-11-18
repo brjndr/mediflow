@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router';
 import { useAccessPolicy, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import type { PermissionScope } from '@/shared/types';

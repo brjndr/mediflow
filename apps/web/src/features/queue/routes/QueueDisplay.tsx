@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { Card } from '@/shared/ui/card';
 import { LiveStatus } from '../components/LiveStatus';

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { Slot } from '@/registry';
 import { EncounterOrders } from '@/features/clinical';

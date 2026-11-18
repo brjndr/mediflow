@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { ServiceSearch, type ServiceOption } from '@/features/services';
 import { errorMessageKey } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';

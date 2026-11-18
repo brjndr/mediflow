@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { DocumentTitle } from './DocumentTitle';
-import { useRouteError } from 'react-router-dom';
+import { useRouteError } from 'react-router';
 import { ErrorFallback } from './ErrorFallback';
 import { reportError } from './observability';
 

@@ -1,7 +1,7 @@
 import { AlertTriangle } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';

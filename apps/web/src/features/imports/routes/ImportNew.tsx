@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SelectField, SubmitButton, useZodForm } from '@/shared/ui/form';

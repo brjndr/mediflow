@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router';
 import { useRegistry } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';

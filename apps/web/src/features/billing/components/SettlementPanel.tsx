@@ -1,7 +1,7 @@
 import { CheckCircle2, CircleAlert } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { usePermission } from '@/access';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';

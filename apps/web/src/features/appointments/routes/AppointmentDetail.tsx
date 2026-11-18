@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router';
 import { Can, useAllowed } from '@/access';
 import { Slot } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';

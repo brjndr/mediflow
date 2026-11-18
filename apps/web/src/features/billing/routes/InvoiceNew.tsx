@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router';
 import { usePermission } from '@/access';
 import { useEncounter } from '@/features/clinical';
 import { errorMessageKey, isApiError } from '@/shared/api';

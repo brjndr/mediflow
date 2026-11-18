@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import type { SlotProps } from '@/registry';
 
 /** Tokens whose patient is still to be seen: triage comes before the consultation. */

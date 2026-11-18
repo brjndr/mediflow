@@ -1,7 +1,7 @@
 import { Ban, Check, ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { Can, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { useDepartmentOptions } from '@/features/departments';

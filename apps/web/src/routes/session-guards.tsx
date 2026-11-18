@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { DocumentTitle } from '@/app/DocumentTitle';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router';
 import { ForbiddenPage, usePolicyRefresh } from '@/access';
 import { useSession, useSessionEndReason } from '@/app/session';
 import { safeAppPath } from '@/shared/lib/safe-path';

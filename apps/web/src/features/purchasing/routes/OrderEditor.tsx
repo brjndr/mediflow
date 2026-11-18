@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useFeatureFlag, usePermission } from '@/access';
 import { DrugSearch, useMedicineName } from '@/features/drugs';
 import { usePlaces } from '@/features/inventory';

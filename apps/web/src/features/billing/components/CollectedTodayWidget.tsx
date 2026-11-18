@@ -9,7 +9,7 @@ import { useFormatters } from '@/tenancy';
 import { useCollectedToday } from '../hooks/use-billing';
 import { netOf } from '../lib/register';
 import type { RegisterTotal } from '../types';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 const loadHindi = () => import('../widget-strings.hi.json');
 
 const METHODS: RegisterTotal['method'][] = ['cash', 'card', 'upi', 'bank', 'other'];

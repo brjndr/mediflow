@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { isInvalidLink, passwordErrorKey, useResetPassword } from '../hooks/use-account-links';
 import { useLinkToken } from '../hooks/use-link-token';

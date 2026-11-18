@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { expectNoAxeViolations } from '@/test/axe';
 import { Button } from './button';
 import { Card } from './card';

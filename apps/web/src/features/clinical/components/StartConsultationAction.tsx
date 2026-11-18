@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { usePermission } from '@/access';
 import type { SlotProps } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';

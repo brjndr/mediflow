@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';

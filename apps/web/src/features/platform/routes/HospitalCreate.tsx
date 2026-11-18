@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { HospitalWizard } from '../components/HospitalWizard';
 import { useCreateHospital } from '../hooks/use-hospitals';

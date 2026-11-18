@@ -1,7 +1,7 @@
 import { differenceInCalendarDays } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { Can } from '@/access';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';

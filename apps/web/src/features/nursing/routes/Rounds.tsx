@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
 import { errorMessageKey } from '@/shared/api';

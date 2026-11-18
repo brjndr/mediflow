@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router';
 import { useSession } from '@/app/session';
 import { useDoctorOptions } from '@/features/doctors';
 import { PatientSearch, usePatientName, type PatientName } from '@/features/patients';

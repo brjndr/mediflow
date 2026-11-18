@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { nextDay, zonedToUtc } from '@/shared/utils/timezone';

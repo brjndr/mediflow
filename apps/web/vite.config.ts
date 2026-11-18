@@ -8,7 +8,7 @@ const analyze = process.env.ANALYZE === 'true';
 
 // Only stable vendor libraries go in the long-cached vendor chunk (CLAUDE.md Performance > Build).
 const VENDOR =
-  /[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom|@remix-run[\\/]router|@tanstack[\\/](react-query|query-core))[\\/]/;
+  /[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|cookie|set-cookie-parser|@tanstack[\\/](react-query|query-core))[\\/]/;
 
 // The home page's tiles: each widget is its own lazy import, which cost a request apiece plus the
 // small modules they share. They load together as one chunk, so the home page asks for one file
