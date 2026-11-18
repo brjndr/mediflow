@@ -9,6 +9,7 @@ Multi-tenant hospital management system for hospital staff: OPD, inpatient, emer
 - **Product reference (journeys, releases, role matrix, entities to build):** [`docs/PRODUCT.md`](docs/PRODUCT.md); **adding a feature module:** [`docs/EXTENDING.md`](docs/EXTENDING.md); **performance:** [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md); **open decisions:** [`docs/OPEN_DECISIONS.md`](docs/OPEN_DECISIONS.md)
 - **Architecture reference (technology choices, infrastructure, platform admin, patient messaging):** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - **Roadmap (milestones and issues):** [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- **Runbooks (local onboarding, hospital onboarding, incident response):** [`docs/runbooks`](docs/runbooks/README.md)
 - **How we work with GitHub issues:** [`docs/WORKFLOW.md`](docs/WORKFLOW.md)
 - **Prompts for Claude Code:** [`docs/CLAUDE_PROMPTS.md`](docs/CLAUDE_PROMPTS.md)
 
