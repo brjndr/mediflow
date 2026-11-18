@@ -95,7 +95,7 @@ Checked 2026-11-18.
 
 ## CSP and security headers
 
-Current state: none. No `@fastify/helmet`, no CORS policy (same-origin through the proxy), no CSP in `apps/web/index.html`, no headers file for the static host (F-1).
+Current state (#1048): `@fastify/helmet` on the API (`core/http/security-headers.ts`: a closed CSP, HSTS, nosniff, no-referrer, frame deny) and `apps/web/public/_headers` for the static host with the CSP in report-only. Still open: enforcing the CSP after the report-only phase; no CORS policy (same origin through the proxy).
 
 Target, to be decided and tested in F-1:
 
