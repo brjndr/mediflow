@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
+import { patientFamily } from '../../core/patient-merge/family.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { IdempotencyHeaders, RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import type { Claim } from './claim-schemas.js';
@@ -167,9 +168,10 @@ export const claimRoutes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         operationId: 'listClaims',
         tags: ['insurance'],
-        description: 'Insurance claims, newest first, one cursor page. Needs claim:read.',
+        description:
+          'Insurance claims, newest first, one cursor page. `patientId` limits them to one patient and adds the claims already sent to a payer that stayed on a record merged into that patient (#1044). Needs claim:read.',
         querystring: ClaimListQuery,
-        response: { 200: ref(ClaimPage), ...errors(400, 401, 403, 429) },
+        response: { 200: ref(ClaimPage), ...errors(400, 401, 403, 404, 429) },
       },
     },
     async (request) => {
@@ -179,6 +181,11 @@ export const claimRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (q.status) {
         params.push(q.status);
         where.push(`c.status = $${params.length}`);
+      }
+      if (q.patientId) {
+        await requirePatient(request, q.patientId);
+        params.push(await patientFamily(request.txClient, q.patientId));
+        where.push(`c.patient_id = any($${params.length}::uuid[])`);
       }
       const totalRow = await request.txClient.query<{ n: number }>(
         `select count(*)::int as n from claims c where ${where.join(' and ')}`,
