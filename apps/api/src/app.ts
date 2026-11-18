@@ -13,6 +13,7 @@ import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
 import { NO_STORE, registerCacheDefault } from './core/http/cache.js';
+import { registerCors } from './core/http/cors.js';
 import { registerSecurityHeaders } from './core/http/security-headers.js';
 import { registerErrorHandling } from './core/http/errors.js';
 import { registerStrictBodies } from './core/http/strict-body.js';
@@ -160,6 +161,7 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   // No answer is kept by a browser or a cache unless its route says otherwise.
   registerCacheDefault(app);
   await registerSecurityHeaders(app);
+  await registerCors(app);
   // Before any route: a JSON body is checked for the types it was sent with.
   registerStrictBodies(app);
 

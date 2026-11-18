@@ -45,6 +45,10 @@ const ConfigSchema = Type.Object({
   MAIL_FROM: Type.String({ minLength: 3 }),
   /** Public address of the web app. Links in emails are built from it, and from nothing else. */
   APP_BASE_URL: Type.String({ pattern: '^https?://[^/?#]+$' }),
+  /** Further origins a browser may call the API from (CORS), comma separated. Empty: only the app's own. Never `*`. */
+  CORS_ALLOWED_ORIGINS: Type.Optional(
+    Type.String({ pattern: '^https?://[^/?#, ]+( *, *https?://[^/?#, ]+)*$' }),
+  ),
   /** A session unused for this long ends. Per-hospital configuration comes later. */
   SESSION_IDLE_MINUTES: Type.Integer({ minimum: 1, maximum: 1440, default: 30 }),
   /** A session ends this long after sign-in, however active it is. */
