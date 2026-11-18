@@ -576,6 +576,26 @@ describe('direct links to the bucket (#765)', () => {
   });
 });
 
+describe('files stuck in scanning (#1063)', () => {
+  it('sends the scan again for an old image and leaves a recent one alone', async () => {
+    const orderId = await performedOrder();
+    const stuck = await uploaded(orderId);
+    const recent = await uploaded(orderId);
+    await queue.drain();
+    await pool.query(
+      "update imaging_images set status = 'scanning', uploaded_at = now() - interval '4 hours' where id = $1",
+      [stuck.image.id],
+    );
+    const { resendStuckImageScans } = await import('./images.js');
+    const before = queue.sent.length;
+    expect(await resendStuckImageScans(app)).toBe(1);
+    expect(queue.sent.slice(before).map((job) => job.data)).toEqual([{ imageId: stuck.image.id }]);
+    await queue.drain();
+    expect(await statusOf(stuck.image.id)).toBe('clean');
+    expect(await statusOf(recent.image.id)).toBe('clean');
+  });
+});
+
 describe('uploads asked for and never sent (#560)', () => {
   it('closes an old pending request and leaves a recent one and a received file alone', async () => {
     const orderId = await performedOrder();
