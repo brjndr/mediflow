@@ -52,7 +52,7 @@ Done in the web app and the API: patients, departments, doctors, staff, and ever
 
 **Not built yet, although described below as the target**
 
-- API: `@fastify/helmet` and CORS; object storage in use (files live in a local folder behind the `FileStore` interface, `core/files`; the S3 adapter has presigned uploads and downloads for radiology images and reports behind `S3_DIRECT_LINKS`, off by default, #765). Server-sent events exist for the queue board only (`core/live`).
+- API: object storage in use (files live in a local folder behind the `FileStore` interface, `core/files`; the S3 adapter has presigned uploads and downloads for radiology images and reports behind `S3_DIRECT_LINKS`, off by default, #765). Server-sent events exist for the queue board only (`core/live`).
 - Platform admins: the platform API exists (`/platform/*`, BE-15, #132: hospitals, module flags, the first admin's invite, suspend and offboard, an audit trail; `apps/api/src/features/platform/CLAUDE.md`), and the first one is made with `pnpm --filter api platform:bootstrap`; routes need a confirmed authenticator. Built: the shell and guard (PL-01, #125), the hospital list and create wizard (PL-02, #126) a hospital's modules and limits (PL-03, #127) the first admin's invite (PL-04, #128) the status changes (PL-05, #129) and the audit trail (PL-06, #130). Also built: the platform tests (PL-07, #131). Not built: enforcing the hospital limits, the export and deletion of an offboarded hospital, and break-glass access (designed only).
 - Deployment: no infrastructure code and no hosted environment. CI builds the API image and runs the tests.
 
