@@ -375,6 +375,5 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Report only for now. Make it blocking (drop continue-on-error) once the tree is clean.
+      # Blocking: production dependencies at high or critical. Dev-only findings with no patch are tracked in docs/THREAT_MODEL.md.
       - run: pnpm audit --prod --audit-level high
-        continue-on-error: true
