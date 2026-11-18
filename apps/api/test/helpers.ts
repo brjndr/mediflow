@@ -14,6 +14,10 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     JOBS_ENABLED: false,
     // Event streams check the session again before every event.
     LIVE_RECHECK_MS: 0,
+    // One test file drives many searches, reports and uploads as a single user.
+    RATE_LIMIT_SEARCH_PER_MINUTE: 100_000,
+    RATE_LIMIT_REPORT_PER_MINUTE: 100_000,
+    RATE_LIMIT_UPLOAD_PER_MINUTE: 100_000,
     ...overrides,
   };
 }
