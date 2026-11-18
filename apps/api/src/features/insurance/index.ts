@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { CLAIM_SCHEMAS } from './claim-schemas.js';
 import { CREDIT_SCHEMAS } from './credit-schemas.js';
 import { creditRoutes } from './credit.js';
+import { CLAIM_FILE_SCHEMAS, claimFileRoutes } from './claim-files.js';
 import { claimExportRoutes, CLAIM_EXPORT_SCHEMAS } from './claim-export.js';
 import { claimRoutes } from './claims.js';
 import { coverageRoutes } from './coverage.js';
@@ -24,6 +25,7 @@ export const insuranceFeature: FastifyPluginAsync = async (app) => {
     ...CLAIM_SCHEMAS,
     ...CREDIT_SCHEMAS,
     ...CLAIM_EXPORT_SCHEMAS,
+    ...CLAIM_FILE_SCHEMAS,
     ...SPLIT_INVOICE_SCHEMAS,
   ])
     app.addSchema(schema);
@@ -33,6 +35,7 @@ export const insuranceFeature: FastifyPluginAsync = async (app) => {
   await app.register(splitInvoiceRoutes);
   await app.register(claimRoutes);
   await app.register(claimExportRoutes);
+  await app.register(claimFileRoutes);
   await app.register(creditRoutes);
   subscribeToPayerReceipts(app);
 };

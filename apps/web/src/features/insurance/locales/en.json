@@ -508,6 +508,21 @@
     "errors": {
       "overClaimed": "This is more than was claimed.",
       "overApproved": "This is more than was approved."
+    },
+    "files": {
+      "heading": "Files in the packet",
+      "loading": "Loading files.",
+      "empty": "No files attached.",
+      "retired": "retired",
+      "open": "Open",
+      "remove": "Remove",
+      "choose": "Add a document from the patient’s record",
+      "none": "Choose a document",
+      "attach": "Add to the packet",
+      "attached": "File added to the packet.",
+      "removed": "File taken out of the packet.",
+      "openFailed": "The file could not be opened.",
+      "hint": "Only documents that passed the scan can be added. Taking a file out does not delete the document."
     }
   },
   "credit": {

@@ -56,3 +56,6 @@ export type Receipt = Schemas['Receipt'];
 export type ReceiptPage = Schemas['ReceiptPage'];
 export type ReceiptCreate = Schemas['ReceiptCreate'];
 export type ReceiptMethod = Schemas['ReceiptMethod'];
+
+/** A file in a claim's packet: a document of the patient's record (#976). */
+export type ClaimFile = Schemas['ClaimFile'];

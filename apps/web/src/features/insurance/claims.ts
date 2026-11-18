@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { toMinor } from '@/features/services';
 import { api, requireData } from '@/shared/api';
+import { env } from '@/shared/config/env';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 import { documentNames } from './coverage-schemas';
 import type {
@@ -264,4 +265,69 @@ export function toClaimAction(
       : {}),
     ...(fields.documents && documents.length > 0 ? { documents } : {}),
   };
+}
+
+// The files of a claim's packet (#976): documents on the patient's record, linked to the claim.
+const fileListSchema = z.object({
+  items: z.array(
+    z.object({
+      documentId: z.string(),
+      title: z.string(),
+      fileName: z.string(),
+      contentType: z.string(),
+      size: z.number().int(),
+      category: z.string(),
+      status: z.string(),
+      retired: z.boolean(),
+      attachedAt: z.string(),
+    }),
+  ),
+});
+
+export async function fetchClaimFiles(claimId: string, signal?: AbortSignal) {
+  const result = await api.GET('/claims/{claimId}/files', {
+    params: { path: { claimId } },
+    signal,
+  });
+  return fileListSchema.parse(requireData(result)).items;
+}
+
+export async function attachClaimFile(claimId: string, documentId: string) {
+  const result = await api.POST('/claims/{claimId}/files', {
+    params: { path: { claimId } },
+    body: { documentId },
+  });
+  return fileListSchema.parse(requireData(result)).items;
+}
+
+export async function detachClaimFile(claimId: string, documentId: string) {
+  const result = await api.DELETE('/claims/{claimId}/files/{documentId}', {
+    params: { path: { claimId, documentId } },
+  });
+  return fileListSchema.parse(requireData(result)).items;
+}
+
+const attachableSchema = z.object({
+  items: z.array(z.object({ id: z.string(), title: z.string(), status: z.string() })),
+});
+
+/** The patient's documents that passed the scan and are not retired: what a packet can take. */
+export async function fetchAttachableDocuments(patientId: string, signal?: AbortSignal) {
+  const result = await api.GET('/patients/{patientId}/documents', {
+    params: { path: { patientId }, query: { limit: 100 } },
+    signal,
+  });
+  return attachableSchema.parse(requireData(result)).items.filter((one) => one.status === 'clean');
+}
+
+const downloadSchema = z.object({ url: z.string() });
+
+/** A signed, short-lived address for one file (the document's own route, audited there). */
+export async function fetchFileUrl(documentId: string): Promise<string> {
+  const result = await api.GET('/documents/{documentId}/download-url', {
+    params: { path: { documentId } },
+  });
+  const { url } = downloadSchema.parse(requireData(result));
+  const base = new URL(env.apiBaseUrl, window.location.origin).href.replace(/\/$/, '');
+  return `${base}${url}`;
 }

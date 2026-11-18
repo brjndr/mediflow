@@ -8,7 +8,11 @@ import {
   createClaim,
   fetchClaim,
   fetchClaimAging,
+  attachClaimFile,
+  detachClaimFile,
+  fetchAttachableDocuments,
   fetchClaimExport,
+  fetchClaimFiles,
   type ClaimExportFormat,
   fetchClaims,
 } from '../claims';
@@ -96,6 +100,37 @@ export function useActOnClaim(claimId: string) {
   return useMutation({
     gcTime: 0,
     mutationFn: (body: ClaimAction) => actOnClaim(claimId, body),
+    onSettled: refresh,
+  });
+}
+
+/** The files of a claim packet; `enabled` is false when the caller cannot read documents. */
+export function useClaimFiles(claimId: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: claimKeys.list(tenantId ?? '', { kind: 'files', claimId }),
+    queryFn: ({ signal }) => fetchClaimFiles(claimId, signal),
+    enabled: enabled && tenantId !== undefined && claimId !== '',
+    staleTime: STALE_TIME_MS,
+  });
+}
+
+export function useAttachableDocuments(patientId: string, enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: claimKeys.list(tenantId ?? '', { kind: 'attachable', patientId }),
+    queryFn: ({ signal }) => fetchAttachableDocuments(patientId, signal),
+    enabled: enabled && tenantId !== undefined,
+    staleTime: STALE_TIME_MS,
+  });
+}
+
+export function useChangeClaimFiles(claimId: string) {
+  const refresh = useRefresh();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ documentId, attach }: { documentId: string; attach: boolean }) =>
+      attach ? attachClaimFile(claimId, documentId) : detachClaimFile(claimId, documentId),
     onSettled: refresh,
   });
 }
