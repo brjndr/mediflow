@@ -6,3 +6,10 @@ packages:
 onlyBuiltDependencies:
   - esbuild # Vite and tsx need its native binary
   - simple-git-hooks # installs the pre-commit hook
+
+# Patched versions of transitive dependencies that their parents have not bumped yet (#1050).
+# Drop an entry once the parent requires a fixed version.
+overrides:
+  undici@<7.30.1: '^7.30.1' # via jsdom (tests only)
+  basic-ftp@<6.2.4: '>=6.2.4' # via @lhci/cli (CI only)
+  fast-uri@<3.1.9: '>=3.1.9' # via ajv in the API
