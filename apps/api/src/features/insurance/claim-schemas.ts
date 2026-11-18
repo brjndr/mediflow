@@ -263,6 +263,13 @@ export const ClaimAging = Type.Object(
 
 export const ClaimListQuery = Type.Object({
   status: Type.Optional(StringEnum(CLAIM_STATUSES)),
+  patientId: Type.Optional(
+    Type.String({
+      format: 'uuid',
+      description:
+        "One patient's claims, including those still on a record merged into this one (#1044). Needs patient:read for that patient (404 `patient_not_found`).",
+    }),
+  ),
   cursor: Type.Optional(Type.String({ maxLength: 300 })),
   limit: Type.Optional(
     Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),

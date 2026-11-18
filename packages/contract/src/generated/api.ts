@@ -5214,7 +5214,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Insurance claims, newest first, one cursor page. Needs claim:read. */
+        /** @description Insurance claims, newest first, one cursor page. `patientId` limits them to one patient and adds the claims already sent to a payer that stayed on a record merged into that patient (#1044). Needs claim:read. */
         get: operations["listClaims"];
         put?: never;
         post?: never;
@@ -43168,6 +43168,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "draft" | "submitted" | "query" | "approved" | "rejected" | "settled" | "written_off" | "cancelled";
+                /** @description One patient's claims, including those still on a record merged into this one (#1044). Needs patient:read for that patient (404 `patient_not_found`). */
+                patientId?: string;
                 cursor?: string;
                 limit?: number;
             };
@@ -43206,6 +43208,15 @@ export interface operations {
             };
             /** @description Standard error body. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

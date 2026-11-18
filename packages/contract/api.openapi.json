@@ -59354,7 +59354,7 @@
       "get": {
         "operationId": "listClaims",
         "tags": ["insurance"],
-        "description": "Insurance claims, newest first, one cursor page. Needs claim:read.",
+        "description": "Insurance claims, newest first, one cursor page. `patientId` limits them to one patient and adds the claims already sent to a payer that stayed on a record merged into that patient (#1044). Needs claim:read.",
         "parameters": [
           {
             "schema": {
@@ -59373,6 +59373,16 @@
             "in": "query",
             "name": "status",
             "required": false
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "patientId",
+            "required": false,
+            "description": "One patient's claims, including those still on a record merged into this one (#1044). Needs patient:read for that patient (404 `patient_not_found`)."
           },
           {
             "schema": {
@@ -59427,6 +59437,16 @@
             }
           },
           "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard error body.",
             "content": {
               "application/json": {
