@@ -321,6 +321,7 @@ jobs:
           echo 'Acquire::http::Timeout "15";' | sudo tee /etc/apt/apt.conf.d/99ci-network
           echo 'Acquire::https::Timeout "15";' | sudo tee -a /etc/apt/apt.conf.d/99ci-network
           echo 'Acquire::Retries "5";' | sudo tee -a /etc/apt/apt.conf.d/99ci-network
+          echo 'http://azure.archive.ubuntu.com/ubuntu/	priority:1' | sudo tee /etc/apt/apt-mirrors.txt
       - id: pw_install
         run: pnpm --filter web exec playwright install --with-deps chromium webkit
         timeout-minutes: 8
