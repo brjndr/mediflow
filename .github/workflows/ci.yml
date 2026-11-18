@@ -317,6 +317,10 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       # WebKit runs the subset named in playwright.config.ts (the webkit-phone project, #334).
       # The apt mirror sometimes stalls on the WebKit system packages: cap the first try and retry once.
+      - run: |
+          echo 'Acquire::http::Timeout "15";' | sudo tee /etc/apt/apt.conf.d/99ci-network
+          echo 'Acquire::https::Timeout "15";' | sudo tee -a /etc/apt/apt.conf.d/99ci-network
+          echo 'Acquire::Retries "5";' | sudo tee -a /etc/apt/apt.conf.d/99ci-network
       - id: pw_install
         run: pnpm --filter web exec playwright install --with-deps chromium webkit
         timeout-minutes: 8
