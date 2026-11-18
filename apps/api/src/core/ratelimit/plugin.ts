@@ -5,6 +5,18 @@ import { MemoryRateLimiter, type RateLimiter } from './limiter.js';
 
 const WINDOW_MS = 60_000;
 
+type Costly = 'search' | 'report' | 'upload';
+
+/** Which tighter budget a route falls under, from its route pattern (no edit to each route). */
+export function costlyClass(method: string, url: string): Costly | null {
+  if (url.endsWith('/search')) return 'search';
+  if (url === '/reports' || url.startsWith('/reports/')) return 'report';
+  if (method === 'POST' && (url.startsWith('/imports') || /\/(images|documents)$/.test(url))) {
+    return 'upload';
+  }
+  return null;
+}
+
 declare module 'fastify' {
   interface FastifyInstance {
     rateLimiter: RateLimiter;
@@ -24,8 +36,18 @@ export const rateLimitPlugin = fp<{ limiter?: RateLimiter }>(
   async (app, options) => {
     const limiter = options.limiter ?? new MemoryRateLimiter();
     app.decorate('rateLimiter', limiter);
-    const { RATE_LIMIT_TENANT_PER_MINUTE: tenantLimit, RATE_LIMIT_USER_PER_MINUTE: userLimit } =
-      app.config;
+    const {
+      RATE_LIMIT_TENANT_PER_MINUTE: tenantLimit,
+      RATE_LIMIT_USER_PER_MINUTE: userLimit,
+      RATE_LIMIT_SEARCH_PER_MINUTE,
+      RATE_LIMIT_REPORT_PER_MINUTE,
+      RATE_LIMIT_UPLOAD_PER_MINUTE,
+    } = app.config;
+    const costlyLimit: Record<Costly, number> = {
+      search: RATE_LIMIT_SEARCH_PER_MINUTE,
+      report: RATE_LIMIT_REPORT_PER_MINUTE,
+      upload: RATE_LIMIT_UPLOAD_PER_MINUTE,
+    };
 
     // A runaway client is refused thousands of times a minute: log the first refusal of each user
     // in a window, not every one, so the log cannot be flooded. The map is swept as it grows.
@@ -59,6 +81,18 @@ export const rateLimitPlugin = fp<{ limiter?: RateLimiter }>(
         return;
       }
       if (access !== 'tenant' || !session.tenantId) return;
+
+      // Search, report and upload routes have a tighter budget of their own, counted first so a
+      // refused one uses up neither the user's general allowance nor the hospital's.
+      const costly = costlyClass(request.method, request.routeOptions.url ?? '');
+      if (costly) {
+        const own = await limiter.hit(
+          `${costly}:${session.tenantId}:${session.userId}`,
+          costlyLimit[costly],
+          WINDOW_MS,
+        );
+        if (!own.allowed) refuse(request, session.userId, own.retryAfterSeconds);
+      }
 
       // The user's own bucket first: a user who is over their limit is refused without touching the
       // hospital's, so one runaway client cannot use up everyone else's share.

@@ -85,6 +85,12 @@ const ConfigSchema = Type.Object({
   RATE_LIMIT_TENANT_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 1_000_000, default: 1200 }),
   /** Requests one signed-in user may make per minute. */
   RATE_LIMIT_USER_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 1_000_000, default: 240 }),
+  /** Searches (`POST …/search`) one user may make per minute, on top of the general user limit. */
+  RATE_LIMIT_SEARCH_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 1_000_000, default: 120 }),
+  /** Report shows, runs and downloads one user may make per minute. */
+  RATE_LIMIT_REPORT_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 1_000_000, default: 30 }),
+  /** Upload requests and imports one user may make per minute. */
+  RATE_LIMIT_UPLOAD_PER_MINUTE: Type.Integer({ minimum: 1, maximum: 1_000_000, default: 30 }),
   /** How long an Idempotency-Key is remembered. */
   IDEMPOTENCY_TTL_HOURS: Type.Integer({ minimum: 1, maximum: 168, default: 24 }),
   /**

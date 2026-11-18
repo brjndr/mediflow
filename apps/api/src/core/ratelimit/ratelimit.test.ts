@@ -10,6 +10,7 @@ import {
   type TestTenant,
 } from '../../../test/helpers.js';
 import { MemoryRateLimiter } from './limiter.js';
+import { costlyClass } from './plugin.js';
 
 let app: FastifyInstance;
 let pool: pg.Pool;
@@ -22,9 +23,14 @@ const ping = (tenant: TestTenant, user: string) =>
 beforeAll(async () => {
   app = await buildTestApp({
     resolveSession: resolveTestSession,
-    config: { RATE_LIMIT_USER_PER_MINUTE: 3, RATE_LIMIT_TENANT_PER_MINUTE: 8 },
+    config: {
+      RATE_LIMIT_USER_PER_MINUTE: 3,
+      RATE_LIMIT_TENANT_PER_MINUTE: 8,
+      RATE_LIMIT_SEARCH_PER_MINUTE: 1,
+    },
     extend(instance) {
       instance.get('/ping', { config: { permissions: [] } }, async () => ({ ok: true }));
+      instance.post('/things/search', { config: { permissions: [] } }, async () => ({ ok: true }));
       instance.get('/me', { config: { access: 'session' } }, async () => ({ ok: true }));
       instance.get('/open', { config: { access: 'public' } }, async () => ({ ok: true }));
       instance.post('/pay', { config: { permissions: [], idempotent: true } }, async () => {
@@ -60,6 +66,31 @@ describe('per-user limit', () => {
     expect(retryAfter).toBeLessThanOrEqual(60);
 
     expect((await ping(one, 'user_b')).statusCode).toBe(200);
+  });
+});
+
+describe('search budget', () => {
+  it('is tighter than the general one and leaves other routes usable', async () => {
+    const [one] = tenants as [TestTenant];
+    const search = () =>
+      app.inject({
+        method: 'POST',
+        url: '/things/search',
+        headers: as(one.id, 'user_s'),
+        payload: {},
+      });
+    expect((await search()).statusCode).toBe(200);
+    expect((await search()).statusCode).toBe(429);
+    expect((await ping(one, 'user_s')).statusCode).toBe(200);
+  });
+});
+
+describe('costlyClass', () => {
+  it('sorts routes by pattern', () => {
+    expect(costlyClass('POST', '/patients/search')).toBe('search');
+    expect(costlyClass('GET', '/reports/stock')).toBe('report');
+    expect(costlyClass('POST', '/radiology/orders/:orderId/images')).toBe('upload');
+    expect(costlyClass('GET', '/patients')).toBeNull();
   });
 });
 
