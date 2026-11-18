@@ -5,6 +5,7 @@ import { authorize, error } from '../respond';
 import { mockEncounter } from './clinical';
 import { mockActivePolicy } from './coverage';
 import { mockSplit } from './coverage-split';
+import { findMockDocument } from './documents';
 
 type Schemas = components['schemas'];
 type Claim = Schemas['Claim'];
@@ -37,6 +38,8 @@ export const CLAIM_TRANSITIONS: Record<Status, Partial<Record<Action, Status>>> 
 
 interface State {
   claims: Stored[];
+  /** The files of claim packets: a link to a document, by hospital and claim (#976). */
+  files: { tenantId: string; claimId: string; documentId: string; attachedAt: string }[];
   created: number;
   replies: Map<string, string>;
 }
@@ -140,6 +143,7 @@ function seed(): State {
         5,
       ),
     ],
+    files: [],
     created: 4,
     replies: new Map(),
   };
@@ -149,6 +153,35 @@ let state = seed();
 onMockReset(() => {
   state = seed();
 });
+
+/** The claim states in which a packet is still changed. */
+const FILE_STATES: Status[] = ['draft', 'submitted', 'query'];
+
+const ownClaim = (tenantId: string, id: string) =>
+  state.claims.find((one) => one.tenantId === tenantId && one.id === id);
+
+function filesOf(tenantId: string, claimId: string) {
+  return state.files
+    .filter((one) => one.tenantId === tenantId && one.claimId === claimId)
+    .flatMap((link) => {
+      const document = findMockDocument(tenantId, link.documentId);
+      return document
+        ? [
+            {
+              documentId: document.id,
+              title: document.title,
+              fileName: document.fileName,
+              contentType: document.contentType,
+              size: document.size,
+              category: document.category,
+              status: document.status,
+              retired: document.retiredAt !== undefined,
+              attachedAt: link.attachedAt,
+            },
+          ]
+        : [];
+    });
+}
 
 /** Claimed less received and written off, for a claim that is in play; nothing before or after. */
 function outstanding(item: Stored): number {
@@ -280,6 +313,74 @@ export const claimHandlers = [
     );
     if (!found) return error(404, 'not_found', 'No such claim');
     return HttpResponse.json(detail(found));
+  }),
+
+  http.get('*/api/claims/:claimId/files', ({ request, params }) => {
+    const access = authorize(request, { permission: 'claim:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const docs = authorize(request, { permission: 'document:read', featureFlag: 'documents' });
+    if ('denied' in docs) return docs.denied;
+    const found = ownClaim(access.tenantId, String(params.claimId));
+    if (!found) return error(404, 'claim_not_found', 'No such claim');
+    return HttpResponse.json({ items: filesOf(access.tenantId, found.id) });
+  }),
+
+  http.post('*/api/claims/:claimId/files', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'claim:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const docs = authorize(request, { permission: 'document:read', featureFlag: 'documents' });
+    if ('denied' in docs) return docs.denied;
+    const found = ownClaim(access.tenantId, String(params.claimId));
+    if (!found) return error(404, 'claim_not_found', 'No such claim');
+    if (!FILE_STATES.includes(found.status)) {
+      return error(409, 'claim_closed', 'The packet of this claim is no longer changed');
+    }
+    const body = (await request.json().catch(() => null)) as { documentId?: unknown } | null;
+    if (!body || typeof body.documentId !== 'string') {
+      return error(400, 'validation_failed', 'A document is needed');
+    }
+    const document = findMockDocument(access.tenantId, body.documentId);
+    if (!document || document.patientId !== found.patientId) {
+      return error(404, 'document_not_found', 'No such document');
+    }
+    if (document.status !== 'clean') {
+      return error(409, 'document_not_ready', 'The document has not passed the scan');
+    }
+    const mine = state.files.filter(
+      (one) => one.tenantId === access.tenantId && one.claimId === found.id,
+    );
+    if (mine.some((one) => one.documentId === document.id)) {
+      return error(409, 'already_attached', 'The file is already in the packet');
+    }
+    if (mine.length >= 20) return error(422, 'packet_full', 'A packet holds at most 20 files');
+    state.files.push({
+      tenantId: access.tenantId,
+      claimId: found.id,
+      documentId: document.id,
+      attachedAt: new Date().toISOString(),
+    });
+    return HttpResponse.json({ items: filesOf(access.tenantId, found.id) }, { status: 201 });
+  }),
+
+  http.delete('*/api/claims/:claimId/files/:documentId', ({ request, params }) => {
+    const access = authorize(request, { permission: 'claim:manage', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const docs = authorize(request, { permission: 'document:read', featureFlag: 'documents' });
+    if ('denied' in docs) return docs.denied;
+    const found = ownClaim(access.tenantId, String(params.claimId));
+    if (!found) return error(404, 'claim_not_found', 'No such claim');
+    if (!FILE_STATES.includes(found.status)) {
+      return error(409, 'claim_closed', 'The packet of this claim is no longer changed');
+    }
+    const at = state.files.findIndex(
+      (one) =>
+        one.tenantId === access.tenantId &&
+        one.claimId === found.id &&
+        one.documentId === params.documentId,
+    );
+    if (at < 0) return error(404, 'document_not_found', 'No such document');
+    state.files.splice(at, 1);
+    return HttpResponse.json({ items: filesOf(access.tenantId, found.id) });
   }),
 
   http.get('*/api/claims/:claimId/export', ({ request, params }) => {

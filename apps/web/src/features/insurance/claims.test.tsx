@@ -233,3 +233,40 @@ describe('preparing a claim from a visit', () => {
     expect(within(panel).queryByRole('button', { name: 'Prepare a claim' })).toBeNull();
   });
 });
+
+describe('the files of a claim packet', () => {
+  it('adds a document from the patient record, then takes it out', async () => {
+    renderApp({ entry: '/claims/clm_h_1' });
+    const files = await screen.findByRole('region', { name: 'Files in the packet' });
+    expect(await within(files).findByText('No files attached.')).toBeVisible();
+    const choose = await within(files).findByLabelText(/Add a document/);
+    await waitFor(() => expect(within(choose).getAllByRole('option').length).toBeGreaterThan(1));
+    await userEvent.selectOptions(choose, 'doc_h_1');
+    await userEvent.click(within(files).getByRole('button', { name: 'Add to the packet' }));
+    expect(await screen.findByText('File added to the packet.')).toBeVisible();
+    expect(within(files).getByRole('listitem')).toHaveTextContent(
+      'Chest X-ray from another hospital',
+    );
+    // The same document is not offered twice.
+    expect(
+      within(files).queryByRole('option', { name: 'Chest X-ray from another hospital' }),
+    ).toBeNull();
+    await expectNoAxeViolations();
+    await userEvent.click(within(files).getByRole('button', { name: /Remove/ }));
+    expect(await within(files).findByText('No files attached.')).toBeVisible();
+  });
+
+  it('offers no changes on a closed claim and nothing without document:read', async () => {
+    renderApp({ entry: '/claims/clm_h_2' });
+    const files = await screen.findByRole('region', { name: 'Files in the packet' });
+    expect(await within(files).findByText('No files attached.')).toBeVisible();
+    expect(within(files).queryByRole('button', { name: 'Add to the packet' })).toBeNull();
+  });
+
+  it('is left out for someone who cannot read documents', async () => {
+    revokePermission(HOSPITAL, 'admin', 'document:read');
+    renderApp({ entry: '/claims/clm_h_1' });
+    await screen.findByRole('heading', { name: 'Claim CLM-000001', level: 1 });
+    expect(screen.queryByRole('region', { name: 'Files in the packet' })).toBeNull();
+  });
+});

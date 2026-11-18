@@ -91,6 +91,11 @@ export function mockDocumentAudit(tenantId: string) {
   return state.audited.filter((entry) => entry.tenantId === tenantId);
 }
 
+/** A document of a hospital, as the claims mock needs it to build a packet (#976). */
+export function findMockDocument(tenantId: string, id: string) {
+  return state.documents.find((one) => one.tenantId === tenantId && one.id === id);
+}
+
 /** What the malware scan does meanwhile: the file may now be opened. */
 export function finishMockScan(id: string, status: PatientDocument['status'] = 'clean'): void {
   const found = state.documents.find((one) => one.id === id);

@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { useFormatters } from '@/tenancy';
+import { ClaimFiles } from '../components/ClaimFiles';
 import { ClaimActionDialog } from '../components/ClaimDialogs';
 import { ClaimPatient } from '../components/ClaimPatient';
 import { ClaimStatusBadge } from '../components/ClaimStatusBadge';
@@ -139,6 +140,8 @@ export default function ClaimDetail() {
         )}
         <p className="text-sm text-muted-foreground">{t('claims.detail.packetHint')}</p>
       </section>
+
+      <ClaimFiles claimId={record.id} patientId={record.patientId} claimStatus={record.status} />
 
       <section aria-labelledby="claim-actions" className="flex flex-col gap-2">
         <h2 id="claim-actions" className="text-lg font-semibold">
