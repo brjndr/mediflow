@@ -5,6 +5,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type pg from 'pg';
 import type { Permission } from '../../core/access/registry.js';
 import { directLinks } from '../../core/files/direct.js';
+import { SCAN_RETRIES } from '../../core/files/scanner.js';
 import { asWorker, looksLike } from '../../core/files/worker.js';
 import {
   signImageDownload,
@@ -398,6 +399,7 @@ export const imageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       request.audit('update', 'imaging_image', row.id);
       await app.jobs.send(SCAN_JOB, { imageId: row.id } satisfies ScanJob, {
         id: `scan-${row.id}`,
+        ...SCAN_RETRIES,
       });
       request.log.info(
         { event: 'imaging_image_received', imageId: row.id },
@@ -470,7 +472,10 @@ export const imageRoutes: FastifyPluginAsyncTypebox = async (app) => {
           throw error;
         }
       });
-      await app.jobs.send(SCAN_JOB, { imageId } satisfies ScanJob, { id: `scan-${imageId}` });
+      await app.jobs.send(SCAN_JOB, { imageId } satisfies ScanJob, {
+        id: `scan-${imageId}`,
+        ...SCAN_RETRIES,
+      });
       request.log.info({ event: 'imaging_image_received', imageId }, 'imaging file received');
       return reply.status(204).send(null);
     },

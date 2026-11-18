@@ -4,6 +4,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { verifyDocumentDownload, verifyDocumentUpload } from '../../core/files/signing.js';
+import { SCAN_RETRIES } from '../../core/files/scanner.js';
 import { asWorker, looksLike } from '../../core/files/worker.js';
 import { HttpError } from '../../core/http/errors.js';
 import { errors } from '../../core/http/schemas.js';
@@ -99,6 +100,7 @@ export const documentFileRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       await app.jobs.send(SCAN_JOB, { documentId } satisfies ScanJob, {
         id: `scan-${documentId}`,
+        ...SCAN_RETRIES,
       });
       request.log.info({ event: 'document_received', documentId }, 'document file received');
       return reply.status(204).send(null);

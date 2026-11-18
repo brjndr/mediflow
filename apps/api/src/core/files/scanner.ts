@@ -21,3 +21,10 @@ export class TestSignatureScanner implements MalwareScanner {
       : { clean: true as const };
   }
 }
+
+/**
+ * How a scan job is retried while the scanner is unreachable (#1052). A file is held (`scanning`,
+ * never served) until a scan says clean, so a daemon outage delays uploads but never releases
+ * one. Retries at 30 s, 1, 2, 4 ... minutes cover about two hours before the job is given up.
+ */
+export const SCAN_RETRIES = { retryLimit: 8, retryDelay: 30, retryBackoff: true } as const;

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FileStore } from '../../core/files/store.js';
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
@@ -17,7 +17,8 @@ import {
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
-import { sweepDocuments } from './files.js';
+import { signDocumentDownload } from '../../core/files/signing.js';
+import { scanDocument, sweepDocuments } from './files.js';
 
 /**
  * Patient documents and the merge of two patient records (#194) through the real app and
@@ -265,7 +266,21 @@ describe('receiving the file and the scan', () => {
       'document_not_ready',
     ]);
 
-    await queue.drain();
+    // The scanner is down (#1052): the job fails, the file stays held, and a link signed with
+    // the real secret for a file not yet cleared serves nothing.
+    const down = vi.spyOn(app.scanner, 'scan').mockRejectedValue(new Error('clamd unreachable'));
+    await expect(queue.drain()).rejects.toThrow('clamd unreachable');
+    down.mockRestore();
+    expect(await statusOf(id)).toBe('scanning');
+    const expires = Math.floor(Date.now() / 1000) + 300;
+    const signature = signDocumentDownload(app.config.REPORT_URL_SECRET, id, expires);
+    const forged = await app.inject({
+      url: `/document-files/${id}?expires=${expires}&signature=${signature}`,
+    });
+    expect(errorOf(forged)).toEqual([404, 'document_file_not_found']);
+
+    // The scanner is back and the retry clears it.
+    await scanDocument(app, { documentId: id });
     expect(await statusOf(id)).toBe('clean');
     const link = (await get(`/documents/${id}/download-url`)).json<{ url: string }>();
     const file = await app.inject({ url: link.url });
