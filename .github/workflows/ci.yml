@@ -292,7 +292,8 @@ jobs:
   # Builds the app itself, so it does not wait for `verify`; it runs in three shards, one runner each.
   e2e:
     name: Playwright (shard ${{ matrix.shard }}/3)
-    runs-on: ubuntu-latest
+    # ubuntu-latest became 26.04, whose libicu the Playwright WebKit build does not match (libicudata.so.74).
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: plan
     if: needs.plan.outputs.mode == 'full' && needs.plan.outputs.web == 'true'
