@@ -322,7 +322,12 @@ jobs:
         timeout-minutes: 8
         continue-on-error: true
       - if: steps.pw_install.outcome != 'success'
-        run: pnpm --filter web exec playwright install --with-deps chromium webkit
+        run: |
+          sudo pkill -x apt-get || true
+          sudo pkill -x dpkg || true
+          sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock
+          sudo dpkg --configure -a
+          pnpm --filter web exec playwright install --with-deps chromium webkit
         timeout-minutes: 10
       - run: pnpm --filter web exec playwright test --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@v7
