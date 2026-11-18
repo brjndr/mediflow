@@ -36,7 +36,7 @@ void enableMocking().then(() => {
   createRoot(root).render(
     <StrictMode>
       <AppProviders client={queryClient} store={createStore()} i18n={i18n} registry={appRegistry}>
-        <RouterProvider router={router} />
+        <RouterProvider router={router} useTransitions={false} />
       </AppProviders>
     </StrictMode>,
   );

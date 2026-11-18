@@ -112,7 +112,7 @@ export function renderApp(options: AppOptions = {}): AppResult {
       i18n={createTestI18n(registry, coreLocales)}
       registry={registry}
     >
-      <RouterProvider router={router} />
+      <RouterProvider router={router} useTransitions={false} />
     </AppProviders>,
   );
   return { queryClient, store, router, ...result };
