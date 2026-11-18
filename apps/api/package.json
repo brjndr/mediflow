@@ -22,6 +22,7 @@
     "@aws-sdk/s3-request-presigner": "3.1168.0",
     "@fastify/cookie": "^11.1.5",
     "@fastify/fast-json-stringify-compiler": "^5.2.0",
+    "@fastify/helmet": "^13.2.0",
     "@fastify/rate-limit": "^11.2.2",
     "@fastify/swagger": "^9.9.3",
     "@fastify/type-provider-typebox": "^6.3.0",
