@@ -113,6 +113,8 @@ The PDF preview and print views use blob and data URLs; the report-only phase mu
 
 ## Dependency audit
 
+CI blocks on a high or critical advisory in production dependencies (`pnpm audit --prod`) and in all dependencies, dev ones included, through `scripts/audit-gate.mjs` (#1068). A dev-only finding with no patch goes into `scripts/audit-allowlist.json` as `{ id, reason, expires }` (the GitHub advisory id and a YYYY-MM-DD date); an expired entry fails the build, so it is looked at again. The table below is the 2026-11-18 snapshot.
+
 `pnpm audit` on 2026-11-18: 19 advisories (2 low, 11 moderate, 6 high). CI runs `pnpm audit --prod --audit-level high` as report-only.
 
 | Package (path)                | Severity        | Reach                            | Action                                                              |
