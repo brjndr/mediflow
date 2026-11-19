@@ -137,6 +137,18 @@ describe('loadConfig', () => {
     expect(loadConfig({ NODE_ENV: 'test' }).FILE_STORE).toBe('local');
   });
 
+  it('keeps the audit log for ever unless a period of 36 to 240 months is set', () => {
+    expect(loadConfig({ NODE_ENV: 'test' }).AUDIT_RETENTION_MONTHS).toBeUndefined();
+    expect(
+      loadConfig({ NODE_ENV: 'test', AUDIT_RETENTION_MONTHS: '84' }).AUDIT_RETENTION_MONTHS,
+    ).toBe(84);
+    for (const bad of ['35', '241']) {
+      expect(() => loadConfig({ NODE_ENV: 'test', AUDIT_RETENTION_MONTHS: bad })).toThrow(
+        /AUDIT_RETENTION_MONTHS/,
+      );
+    }
+  });
+
   it('refuses the development signing key in production', () => {
     expect(() =>
       loadConfig({

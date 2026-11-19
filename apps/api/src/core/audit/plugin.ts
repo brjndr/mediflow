@@ -3,6 +3,7 @@ import fp from 'fastify-plugin';
 import type pg from 'pg';
 import { replayed } from '../idempotency/state.js';
 import { WORKER_ROLE } from '../outbox/dispatcher.js';
+import { retireAuditPartitions } from './retention.js';
 import { withTenantTransaction } from '../tenancy/transaction.js';
 
 /**
@@ -224,6 +225,23 @@ export const auditPlugin = fp(
       }
     });
     app.jobs.schedule('audit.partitions', '0 3 * * *');
+
+    // Archives and drops months past AUDIT_RETENTION_MONTHS. Does nothing while it is unset.
+    app.jobs.work('audit.retention', async () => {
+      const months = app.config.AUDIT_RETENTION_MONTHS;
+      if (months === undefined) return;
+      const retired = await retireAuditPartitions(app.database.pool, app.files, months, {
+        onFailure: (month, error) =>
+          app.log.error({ event: 'audit_retire_failed', month, code: error.message }, 'audit kept'),
+      });
+      if (retired.length > 0) {
+        app.log.info(
+          { event: 'audit_partitions_retired', count: retired.length, months: retired },
+          'audit retired',
+        );
+      }
+    });
+    app.jobs.schedule('audit.retention', '0 4 * * 0');
   },
-  { name: 'audit', dependencies: ['db', 'jobs', 'session'] },
+  { name: 'audit', dependencies: ['db', 'jobs', 'session', 'files'] },
 );
