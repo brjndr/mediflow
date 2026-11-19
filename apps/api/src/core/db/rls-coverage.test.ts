@@ -10,6 +10,10 @@ const NO_FORCED_RLS: Record<string, string> = {}; // sessions is forced too
 // here; each must pin its search_path so a caller cannot shadow objects it uses.
 const DEFINER_FUNCTIONS = new Set<string>([
   'audit_default_rows',
+  'audit_partition_count',
+  'audit_partition_page',
+  'audit_partitions_before',
+  'audit_retire_partition',
   'bump_policy_revision',
   'ensure_audit_partition',
   'invite_hospital_name',

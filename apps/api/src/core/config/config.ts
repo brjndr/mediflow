@@ -83,6 +83,11 @@ const ConfigSchema = Type.Object({
   OUTBOX_POLL_MS: Type.Integer({ minimum: 100, maximum: 60_000, default: 1000 }),
   /** Days a dispatched domain event stays in the outbox before the nightly purge removes it. */
   OUTBOX_RETENTION_DAYS: Type.Integer({ minimum: 1, maximum: 3650, default: 14 }),
+  /**
+   * Months of audit log kept before a monthly partition is archived to the file store and dropped.
+   * Unset keeps everything (the period is a legal decision, #1065); never below 36.
+   */
+  AUDIT_RETENTION_MONTHS: Type.Optional(Type.Integer({ minimum: 36, maximum: 240 })),
   /** Days an account event (password change, session revoke) is kept; a hospital may ask for longer. */
   ACCOUNT_EVENTS_RETENTION_DAYS: Type.Integer({ minimum: 730, maximum: 3650, default: 730 }),
   /** Requests one hospital may make per minute, across all its users (noisy-neighbour limit). */
