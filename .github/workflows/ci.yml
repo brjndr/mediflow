@@ -393,5 +393,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Blocking: production dependencies at high or critical. Dev-only findings with no patch are tracked in docs/THREAT_MODEL.md.
+      # Blocking: production dependencies at high or critical, with no allowlist.
       - run: pnpm audit --prod --audit-level high
+      # Blocking: every dependency, dev ones too, unless scripts/audit-allowlist.json lists the advisory with a reason and an expiry date (#1068).
+      - run: node scripts/audit-gate.mjs
