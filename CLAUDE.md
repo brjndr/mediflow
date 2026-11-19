@@ -195,7 +195,7 @@ axe in the unit test (`expectNoAxeViolations` from `src/test/axe.ts`), axe in Pl
 - **Drizzle ORM** with plain SQL migrations, one new file each (`apps/api/src/migrations/NNNN_what.sql`), applied in order by the API's own runner, which refuses to go on if an applied file was edited. No `drizzle-kit`. RLS policies, the `tenant_id` convention and exclusion constraints are SQL in migrations, and migrations are additive. Rules: `apps/api/CLAUDE.md`.
 - **Postgres is the only required service in phase 1:** sessions, job queue (**pg-boss**), the transactional outbox and in-process rate limits all live in or beside it. Keep cache, queue and rate limiting behind interfaces so Redis (BullMQ) can replace them in phase 2.
 - **Logging:** pino with a redaction config for PHI fields. Never log request or response bodies for patient routes.
-- **Security:** cookies, Argon2id (`@node-rs/argon2`), TOTP (`otplib`), a per-address rate limit on the auth routes and a cross-site check on every non-GET request are in place; `@fastify/helmet`, strict CORS and per-tenant and per-user limits are the target (the web app reaches the API through the same origin today).
+- **Security:** cookies, Argon2id (`@node-rs/argon2`), TOTP (`otplib`), a per-address rate limit on the auth routes and a cross-site check on every non-GET request are in place; security headers (`core/http/security-headers.ts`) and a strict CORS allowlist (`core/http/cors.ts`: the origin of `APP_BASE_URL` plus `CORS_ALLOWED_ORIGINS`, never `*`; the web app still reaches the API through the same origin) are in place; per-tenant limits are the target.
 - **Tests:** Vitest against a local Postgres database. Cross-tenant RLS tests are mandatory for every tenant table.
 
 ### Core hooks
