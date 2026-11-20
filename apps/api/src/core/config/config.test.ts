@@ -60,6 +60,7 @@ describe('loadConfig', () => {
       MALWARE_SCANNER: 'clamav',
       CLAMAV_HOST: 'clamav',
       CLAMAV_PORT: 3310,
+      CLAMAV_MAX_SIGNATURE_AGE_HOURS: 48,
       CLAMAV_TIMEOUT_MS: 60000,
       DELETION_DATABASE_URL: 'postgres://deleter:pw@db:5432/hms',
       REPORT_SYNC_TIMEOUT_MS: 10000,
