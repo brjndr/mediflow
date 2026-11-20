@@ -48,4 +48,36 @@ export const healthRoutes: FastifyPluginAsyncTypebox = async (app) => {
       return { status: 'ok' as const };
     },
   );
+
+  // Scanner health (#1064): for a monitor, not a load balancer, so an engine outage never takes
+  // an API instance out of rotation. 503 when clamd does not answer or its signatures are older
+  // than CLAMAV_MAX_SIGNATURE_AGE_HOURS (freshclam stopped). Public and free of patient data.
+  app.get(
+    '/health/scanner',
+    {
+      config: { access: 'public' },
+      schema: {
+        operationId: 'getScannerHealth',
+        tags: ['system'],
+        description: 'Malware scanner check. The engine answers and its signatures are recent.',
+        response: { 200: ref(Health), ...errors(503) },
+      },
+    },
+    async () => {
+      const health = await app.scanner.health?.();
+      if (!health) return { status: 'ok' as const };
+      if (!health.reachable) {
+        throw new HttpError(503, 'scanner_unavailable', 'The malware scanner is not reachable');
+      }
+      const maxAgeMs = app.config.CLAMAV_MAX_SIGNATURE_AGE_HOURS * 3_600_000;
+      if (!health.signaturesBuiltAt || Date.now() - health.signaturesBuiltAt.getTime() > maxAgeMs) {
+        throw new HttpError(
+          503,
+          'scanner_signatures_stale',
+          'The scanner signatures are out of date',
+        );
+      }
+      return { status: 'ok' as const };
+    },
+  );
 };

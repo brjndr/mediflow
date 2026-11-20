@@ -1,6 +1,6 @@
 import net from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ClamAvScanner, parseReply } from './clamav.js';
+import { ClamAvScanner, parseReply, parseVersion } from './clamav.js';
 
 const servers: net.Server[] = [];
 afterEach(() => {
@@ -69,5 +69,33 @@ describe('ClamAvScanner', () => {
     const free = await fakeDaemon(() => 'stream: OK');
     servers.splice(0).forEach((server) => server.close());
     await expect(scanner(free).scan(Buffer.from('x'))).rejects.toThrow('clamav_unreachable');
+  });
+});
+
+describe('parseVersion', () => {
+  it('reads the build date of the signatures', () => {
+    expect(parseVersion('ClamAV 1.0.3/27123/Mon Nov 17 08:30:00 2026\0')?.toISOString()).toBe(
+      '2026-11-17T08:30:00.000Z',
+    );
+    expect(parseVersion('ClamAV 1.0.3')).toBeNull();
+    expect(parseVersion('')).toBeNull();
+  });
+});
+
+describe('ClamAvScanner.health', () => {
+  it('reports the signature date, and unreachable when nothing answers', async () => {
+    const server = net.createServer((socket) => {
+      socket.on('data', () => socket.end('ClamAV 1.0.3/27123/Mon Nov 17 08:30:00 2026\0'));
+    });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as net.AddressInfo).port;
+    const up = new ClamAvScanner({ host: '127.0.0.1', port, timeoutMs: 2000 });
+    expect(await up.health()).toEqual({
+      reachable: true,
+      signaturesBuiltAt: new Date('2026-11-17T08:30:00Z'),
+    });
+    servers.splice(0).forEach((s) => s.close());
+    expect(await up.health()).toEqual({ reachable: false, signaturesBuiltAt: null });
   });
 });

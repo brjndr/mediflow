@@ -146,6 +146,8 @@ const ConfigSchema = Type.Object({
   MALWARE_SCANNER: Type.Union([Type.Literal('test'), Type.Literal('clamav')], { default: 'test' }),
   CLAMAV_HOST: Type.Optional(Type.String({ minLength: 1 })),
   CLAMAV_PORT: Type.Integer({ minimum: 1, maximum: 65535, default: 3310 }),
+  /** `/health/scanner` reports unhealthy when the signature database is older than this (#1064). */
+  CLAMAV_MAX_SIGNATURE_AGE_HOURS: Type.Integer({ minimum: 1, maximum: 720, default: 48 }),
   CLAMAV_TIMEOUT_MS: Type.Integer({ minimum: 1000, maximum: 300_000, default: 60_000 }),
   /** A report answered on the spot gives up after this long, so it cannot hold a connection. */
   REPORT_SYNC_TIMEOUT_MS: Type.Integer({ minimum: 1000, maximum: 60_000, default: 10_000 }),

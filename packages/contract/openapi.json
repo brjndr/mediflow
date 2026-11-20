@@ -23587,6 +23587,35 @@
         }
       }
     },
+    "/health/scanner": {
+      "get": {
+        "operationId": "getScannerHealth",
+        "tags": ["system"],
+        "description": "Malware scanner check. The engine answers and its signatures are recent.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/roles": {
       "get": {
         "operationId": "listRoles",

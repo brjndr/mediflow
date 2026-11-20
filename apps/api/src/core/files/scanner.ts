@@ -2,7 +2,15 @@
  * Checks an uploaded file for malware, behind an interface so a real engine (ClamAV over its
  * socket, a cloud scanning service) replaces the built-in check as a configuration change.
  */
+export interface ScannerHealth {
+  reachable: boolean;
+  /** When the signature database was built; null when the engine does not say. */
+  signaturesBuiltAt: Date | null;
+}
+
 export interface MalwareScanner {
+  /** Whether the engine answers and how fresh its signatures are (#1064). Absent: nothing to check. */
+  health?(): Promise<ScannerHealth>;
   /** `clean`, or the name of what was found (a code: letters, digits and `. _ : -`). */
   scan(data: Buffer): Promise<{ clean: true } | { clean: false; signature: string }>;
 }
