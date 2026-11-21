@@ -3,7 +3,13 @@ import type pg from 'pg';
 import type { FileStore } from '../../core/files/store.js';
 import { asWorker } from '../../core/files/worker.js';
 import { withTenantTransaction } from '../../core/tenancy/transaction.js';
-import { computeReport, readAtHospital, RUN_MAX_ROWS, TooLarge } from './compute.js';
+import {
+  computeReport,
+  type ReportFilters,
+  readAtHospital,
+  RUN_MAX_ROWS,
+  TooLarge,
+} from './compute.js';
 import { toCsv } from './csv.js';
 import type { ReportKind } from './schemas.js';
 
@@ -29,6 +35,7 @@ interface Claimed {
   kind: ReportKind;
   from: string | null;
   to: string | null;
+  filters: ReportFilters;
 }
 
 /**
@@ -41,16 +48,18 @@ function claim(pool: pg.Pool, job: RunJob, staleMinutes: number): Promise<Claime
       kind: ReportKind;
       from: string | null;
       to: string | null;
+      filters: ReportFilters | null;
     }>(
       `update report_runs
        set status = 'running', started_at = now()
        where id = $1
          and (status = 'queued'
               or (status = 'running' and started_at < now() - make_interval(mins => $2)))
-       returning kind, range_from::text as from, range_to::text as to`,
+       returning kind, range_from::text as from, range_to::text as to, filters`,
       [job.runId, staleMinutes],
     );
-    return rows[0] ?? null;
+    const row = rows[0];
+    return row ? { ...row, filters: row.filters ?? {} } : null;
   });
 }
 
@@ -82,7 +91,13 @@ export async function runReport(
   const key = fileKeyOf(job.tenantId, job.runId);
   try {
     const result = await readAtHospital(pools.reportPool, job.tenantId, timeoutMs, (client) =>
-      computeReport(client, claimed.kind, { from: claimed.from, to: claimed.to }, RUN_MAX_ROWS),
+      computeReport(
+        client,
+        claimed.kind,
+        { from: claimed.from, to: claimed.to },
+        RUN_MAX_ROWS,
+        claimed.filters,
+      ),
     );
     const csv = toCsv(result);
     await files.put(key, csv);

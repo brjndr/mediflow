@@ -8,7 +8,7 @@ The hospital's own audit trail (#1066, COMPLIANCE 3.4). The root and `apps/api` 
 - **An entry** is `id`, `at`, `actor` (`id` and the account's name from `users`, or null for work the system did itself), `action`, `entity`, `entityId` and `detail`. Record ids and short codes only: no patient is named and no field value is kept, because `audit_log` itself holds none. `denied.<action>` rows (a refused call) show as they are.
 - **Reads go to the request's transaction (the primary),** over the `(tenant_id, at)` index, so a search sees what was written a moment ago. Row-level security filters the hospital; there is no tenant clause in the query beyond `app_tenant_id()` for the clock.
 - **The read is itself audited:** `request.audit('read', 'audit_log')`, so who looked at the trail is in the trail.
-- **The export** is not here: it is the `audit_log` report kind of `features/reports` (a stored run with a CSV, `auditLog:export` besides `report:read` and `report:export`). See that file.
+- **The export** honours the same filters (#1100): `actorId`, `entity`, `entityId` and `action` ride on `POST /reports/audit_log/runs`, are kept on the run (`report_runs.filters`, jsonb) and applied by the job; any other report kind refuses them (422 `filters_not_supported`). It is not here: it is the `audit_log` report kind of `features/reports` (a stored run with a CSV, `auditLog:export` besides `report:read` and `report:export`). See that file.
 - **Permissions:** `auditLog:read` and `auditLog:export`, the admin's by default; a custom role is given them on purpose. A new `auditLog:` prefix is in `OTHER_FEATURES` of `core/access/access.test.ts`.
 
 ## Known gaps

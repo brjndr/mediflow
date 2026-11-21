@@ -21213,6 +21213,26 @@
             "format": "date",
             "description": "Last day, included. At most 366 days from `from` (31 when answered on the spot).",
             "type": "string"
+          },
+          "actorId": {
+            "maxLength": 64,
+            "description": "`audit_log` only: the account that acted.",
+            "type": "string"
+          },
+          "entity": {
+            "maxLength": 63,
+            "description": "`audit_log` only: kind of record, exact.",
+            "type": "string"
+          },
+          "entityId": {
+            "maxLength": 64,
+            "description": "`audit_log` only: the record, exact.",
+            "type": "string"
+          },
+          "action": {
+            "maxLength": 63,
+            "description": "`audit_log` only: the action, exact.",
+            "type": "string"
           }
         }
       },

@@ -39,7 +39,21 @@ function num(value: string | number | null): number {
   return parsed;
 }
 
-type Query = (client: pg.PoolClient, from: string, to: string, limit: number) => Promise<Cell[][]>;
+/** The filters a stored report was asked for with (only the audit log has any, #1100). */
+export interface ReportFilters {
+  actorId?: string;
+  entity?: string;
+  entityId?: string;
+  action?: string;
+}
+
+type Query = (
+  client: pg.PoolClient,
+  from: string,
+  to: string,
+  limit: number,
+  filters: ReportFilters,
+) => Promise<Cell[][]>;
 
 /** The hospital's day range as two instants on its own clock: `lo` inclusive, `hi` exclusive. */
 const DAY_BOUNDS = `
@@ -369,7 +383,7 @@ const pharmacySales: Query = async (client, from, to, limit) => {
  * account's name, the action, the kind of record, the record's id and the short detail. Record
  * ids only: no patient is named. Only the stored report offers it, behind its own permission.
  */
-const auditLog: Query = async (client, from, to, limit) => {
+const auditLog: Query = async (client, from, to, limit, filters) => {
   const { rows } = await client.query<{
     at: string;
     actor: string | null;
@@ -385,9 +399,21 @@ const auditLog: Query = async (client, from, to, limit) => {
      join audit_log a on a.tenant_id = t.id and a.at >= b.lo and a.at < b.hi
      left join users u on u.id::text = a.actor_id
      where t.id = app_tenant_id()
+       and ($4::text is null or a.actor_id = $4)
+       and ($5::text is null or a.entity = $5)
+       and ($6::text is null or a.entity_id = $6)
+       and ($7::text is null or a.action = $7)
      order by a.at, a.id
      limit $3`,
-    [from, to, limit + 1],
+    [
+      from,
+      to,
+      limit + 1,
+      filters.actorId ?? null,
+      filters.entity ?? null,
+      filters.entityId ?? null,
+      filters.action ?? null,
+    ],
   );
   return rows.map((r) => [r.at, r.actor, r.action, r.entity, r.entity_id, r.detail]);
 };
@@ -539,9 +565,10 @@ export async function computeReport(
   kind: ReportKind,
   range: { from: string | null; to: string | null },
   maxRows: number,
+  filters: ReportFilters = {},
 ): Promise<ReportResult> {
   const definition = DEFINITIONS[kind];
-  const rows = await definition.query(client, range.from ?? '', range.to ?? '', maxRows);
+  const rows = await definition.query(client, range.from ?? '', range.to ?? '', maxRows, filters);
   if (rows.length > maxRows) throw new TooLarge();
   const { rows: meta } = await client.query<{ currency: string }>(
     'select currency from tenants where id = app_tenant_id()',

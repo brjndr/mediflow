@@ -14712,6 +14712,14 @@ export interface components {
              * @description Last day, included. At most 366 days from `from` (31 when answered on the spot).
              */
             to?: string;
+            /** @description `audit_log` only: the account that acted. */
+            actorId?: string;
+            /** @description `audit_log` only: kind of record, exact. */
+            entity?: string;
+            /** @description `audit_log` only: the record, exact. */
+            entityId?: string;
+            /** @description `audit_log` only: the action, exact. */
+            action?: string;
         };
         /** @description Money is in minor units of the report currency; minutes are whole minutes. */
         ReportColumn: {

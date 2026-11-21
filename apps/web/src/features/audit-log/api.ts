@@ -26,9 +26,12 @@ export async function searchAudit(
   return auditPageSchema.parse(requireData(result));
 }
 
-/** Asks for the audit log of a range of days as a stored report with a CSV file. */
+/**
+ * Asks for the audit log of a range of days as a stored report with a CSV file. The person,
+ * record and action filters are the ones the search takes, so the file holds what is on screen.
+ */
 export async function requestExport(
-  body: { from: string; to: string },
+  body: AuditFilters,
   idempotencyKey: string,
 ): Promise<ReportRun> {
   const result = await api.POST('/reports/{kind}/runs', {

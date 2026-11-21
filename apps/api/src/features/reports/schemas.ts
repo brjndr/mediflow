@@ -44,6 +44,18 @@ export const ReportRequest = Type.Object(
           'Last day, included. At most 366 days from `from` (31 when answered on the spot).',
       }),
     ),
+    actorId: Type.Optional(
+      Type.String({ maxLength: 64, description: '`audit_log` only: the account that acted.' }),
+    ),
+    entity: Type.Optional(
+      Type.String({ maxLength: 63, description: '`audit_log` only: kind of record, exact.' }),
+    ),
+    entityId: Type.Optional(
+      Type.String({ maxLength: 64, description: '`audit_log` only: the record, exact.' }),
+    ),
+    action: Type.Optional(
+      Type.String({ maxLength: 63, description: '`audit_log` only: the action, exact.' }),
+    ),
   },
   { $id: 'ReportRequest', additionalProperties: false },
 );
