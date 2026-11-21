@@ -10,7 +10,7 @@ export const documentsFeature: FeatureManifest = {
   id: 'documents',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Document retention' } },
+    titles: { en: { title: 'Document retention' }, hi: { title: 'दस्तावेज़ संरक्षण अवधि' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

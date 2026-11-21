@@ -13,6 +13,7 @@ export const emergencyFeature: FeatureManifest = {
   i18n: {
     titles: {
       en: { title: 'Emergency', care: 'Emergency care', mlcRegister: 'Medico-legal cases' },
+      hi: { title: 'आपातकाल', care: 'आपातकालीन देखभाल', mlcRegister: 'मेडिको-लीगल मामले' },
     },
     load: (language) => import(`./locales/${language}.json`),
   },

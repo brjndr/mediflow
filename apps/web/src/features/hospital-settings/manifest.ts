@@ -11,7 +11,7 @@ export const hospitalSettingsFeature: FeatureManifest = {
   id: 'hospital-settings',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Hospital settings' } },
+    titles: { en: { title: 'Hospital settings' }, hi: { title: 'अस्पताल की सेटिंग' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   routes: [{ path: 'settings', lazy: () => import('./routes/SettingsPage'), requires: [] }],

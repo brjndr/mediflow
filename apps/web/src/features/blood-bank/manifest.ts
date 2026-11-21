@@ -10,7 +10,7 @@ export const bloodBankFeature: FeatureManifest = {
   id: 'blood-bank',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Blood bank' } },
+    titles: { en: { title: 'Blood bank' }, hi: { title: 'ब्लड बैंक' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
