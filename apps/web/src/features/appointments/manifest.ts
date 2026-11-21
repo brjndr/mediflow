@@ -59,6 +59,7 @@ export const appointmentsFeature: FeatureManifest = {
       requires: ['appointment:read'],
     },
   ],
+  links: [{ kind: 'appointment', to: (id) => `appointments/${id}` }],
   nav: { icon: CalendarClock, order: 25, requires: ['appointment:read'] },
   permissions: ['appointment:read', 'appointment:create', 'appointment:update'],
   extensions: [

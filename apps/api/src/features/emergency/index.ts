@@ -11,6 +11,7 @@ import { EMERGENCY_SCHEMAS } from './schemas.js';
  */
 export const emergencyFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('emergency', EMERGENCY_PERMISSIONS);
+  app.links.register('er_case', 'er_case_link_owner'); // migration 0158
   for (const schema of EMERGENCY_SCHEMAS) app.addSchema(schema);
   await app.register(emergencyRoutes);
 };

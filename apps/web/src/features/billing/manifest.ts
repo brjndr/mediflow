@@ -44,6 +44,7 @@ export const billingFeature: FeatureManifest = {
     load: (language) => import(`./locales/${language}.json`),
   },
   featureFlag: 'billing',
+  links: [{ kind: 'invoice', to: (id) => `billing/invoices/${id}` }],
   nav: { icon: Receipt, order: 29.9, requires: ['invoice:read'] },
   routes: [
     {

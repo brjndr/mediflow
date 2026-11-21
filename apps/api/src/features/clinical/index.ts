@@ -12,6 +12,7 @@ import { clinicalRoutes } from './routes.js';
  */
 export const clinicalFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('clinical', CLINICAL_PERMISSIONS);
+  app.links.register('encounter', 'encounter_link_owner'); // migration 0158
   await app.register(clinicalRoutes);
 };
 

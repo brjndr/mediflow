@@ -232,4 +232,46 @@ describe('opening a deep link', () => {
     expect(() => app.links.register('thing', 'x; drop table patients')).toThrow(/not a function/);
     expect(() => app.links.register('patient', 'patient_link_owner')).toThrow(/twice/);
   });
+
+  // The audit log's kinds (#1114). Rows of these tables need long setups of their own, so this
+  // checks what is new here: each kind is registered, only the auth role may ask which hospital
+  // owns an id, an id nobody has is one 403 like any refusal, and a request role cannot ask.
+  describe.each(['invoice', 'encounter', 'appointment', 'admission', 'claim', 'er_case'])(
+    'the %s kind',
+    (kind) => {
+      const fn = `${kind}_link_owner`;
+      const nobody = '11111111-2222-4333-8444-555555555555';
+
+      it('is registered with its own lookup function', () => {
+        expect(app.links.ownerFunction(kind)).toBe(fn);
+      });
+
+      it('answers an unknown record with the one unavailable page', async () => {
+        const token = await signInAt(doctor, hospital);
+        const response = await openLink(token, { kind, id: nobody });
+        expect([response.statusCode, response.json().error.code]).toEqual([
+          403,
+          'link_unavailable',
+        ]);
+      });
+
+      it('runs only for the auth role', async () => {
+        await asTenantSql(pool, hospital.id, async (client) => {
+          await expect(client.query(`select ${fn}($1::uuid)`, [nobody])).rejects.toMatchObject({
+            code: '42501',
+          });
+        });
+        const client = await pool.connect();
+        try {
+          await client.query('begin');
+          await client.query('set local role mediflow_auth');
+          const { rows } = await client.query(`select ${fn}($1::uuid) as owner`, [nobody]);
+          expect(rows).toEqual([{ owner: null }]);
+        } finally {
+          await client.query('rollback');
+          client.release();
+        }
+      });
+    },
+  );
 });
