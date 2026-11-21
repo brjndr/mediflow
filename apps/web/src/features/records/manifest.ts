@@ -13,6 +13,7 @@ export const recordsFeature: FeatureManifest = {
   i18n: {
     titles: {
       en: { title: 'Medical records', coding: 'Coding queue', requests: 'Record requests' },
+      hi: { title: 'चिकित्सा रिकॉर्ड', coding: 'कोडिंग कतार', requests: 'रिकॉर्ड के अनुरोध' },
     },
     load: (language) => import(`./locales/${language}.json`),
   },

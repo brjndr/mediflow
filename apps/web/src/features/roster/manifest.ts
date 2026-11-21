@@ -9,7 +9,7 @@ export const rosterFeature: FeatureManifest = {
   id: 'roster',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Duty roster' } },
+    titles: { en: { title: 'Duty roster' }, hi: { title: 'ड्यूटी रोस्टर' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

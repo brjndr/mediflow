@@ -42,6 +42,19 @@ const COMPLETE = [
   'codes',
   'wards',
   'notices',
+  'admissions',
+  'nursing',
+  'blood-bank',
+  'records',
+  'insurance',
+  'roster',
+  'emergency',
+  'ambulances',
+  'theatre',
+  'documents',
+  'consents',
+  'housekeeping',
+  'hospital-settings',
 ];
 
 const files = import.meta.glob<{ default: Tree }>('../../features/*/locales/{en,hi}.json', {

@@ -10,7 +10,7 @@ export const ambulancesFeature: FeatureManifest = {
   id: 'ambulances',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Ambulances' } },
+    titles: { en: { title: 'Ambulances' }, hi: { title: 'एम्बुलेंस' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

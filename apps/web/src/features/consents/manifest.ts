@@ -13,7 +13,7 @@ export const consentsFeature: FeatureManifest = {
   id: 'consents',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Certificate formats' } },
+    titles: { en: { title: 'Certificate formats' }, hi: { title: 'प्रमाणपत्र के प्रारूप' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.
