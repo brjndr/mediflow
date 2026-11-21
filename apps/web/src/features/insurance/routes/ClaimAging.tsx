@@ -5,9 +5,7 @@ import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { useClaimAging } from '../hooks/use-claims';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 interface AgingLine {
   id: string;
@@ -74,7 +72,7 @@ export default function ClaimAging() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('claims.agingPage.heading')}</h1>
         <p className="text-muted-foreground">{t('claims.agingPage.description')}</p>
-        <Link to="/claims" className={link}>
+        <Link to="/claims" className={secondaryLink}>
           {t('claims.backToList')}
         </Link>
       </div>

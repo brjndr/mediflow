@@ -18,6 +18,7 @@ import { INDENT_REFUSED } from '../components/refusals';
 import { useIndent, useStepIndent } from '../hooks/use-indents';
 import { useItemName } from '../hooks/use-item-name';
 import type { StockIndent, StockIndentLine, StockIssue } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 type Panel = 'approve' | 'reject' | 'issue' | 'close';
 
@@ -160,10 +161,7 @@ export default function IndentDetail() {
         <h1 className="text-2xl font-semibold tracking-tight">
           {t('detail.headingOf', { reference: data.reference })}
         </h1>
-        <Link
-          to="/inventory/indents"
-          className="text-sm font-medium text-muted-foreground underline underline-offset-4"
-        >
+        <Link to="/inventory/indents" className={secondaryLink}>
           {t('detail.back')}
         </Link>
       </div>

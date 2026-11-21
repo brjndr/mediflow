@@ -13,9 +13,7 @@ import { WorkingHours } from '../components/WorkingHours';
 import { useDoctor, useUpdateDoctor } from '../hooks/use-doctors';
 import type { DoctorField, DoctorFormValues } from '../schemas';
 import type { Doctor, DoctorUpdate } from '../types';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** The fields the person changed, as the API takes them. */
 function changes(values: DoctorFormValues, changed: DoctorField[]): Partial<DoctorUpdate> {
@@ -227,7 +225,7 @@ export default function DoctorDetail() {
   const doctor = useDoctor(doctorId);
 
   const back = (
-    <Link to="/doctors" className={link}>
+    <Link to="/doctors" className={secondaryLink}>
       {t('backToList')}
     </Link>
   );

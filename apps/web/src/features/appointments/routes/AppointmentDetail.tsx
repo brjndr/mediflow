@@ -58,7 +58,10 @@ function AppointmentRecord({ appointment }: { appointment: Appointment }) {
       <Field label={t('columns.patient')}>
         {canOpenPatient ? (
           // The patient's id only: never a name in an address.
-          <Link to={`/patients/${appointment.patientId}`} className="font-medium underline">
+          <Link
+            to={`/patients/${appointment.patientId}`}
+            className="font-medium underline text-primary-ink"
+          >
             {appointment.patientName}
           </Link>
         ) : (

@@ -9,9 +9,7 @@ import { DrugFields } from '../components/DrugFields';
 import { useCheckDrugDuplicates, useCreateDrug } from '../hooks/use-drugs';
 import { drugFormSchema, toCreate, toFormValues, type DrugFormValues } from '../schemas';
 import type { Drug } from '../types';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** What tells two similar items apart, on one line. */
 function Identity({ drug }: { drug: Drug }) {
@@ -150,7 +148,7 @@ function NewDrug() {
             <SubmitButton pending={check.isPending || create.isPending}>
               {t('create.submit')}
             </SubmitButton>
-            <Link to="/drugs" className={link}>
+            <Link to="/drugs" className={secondaryLink}>
               {t('form.cancel')}
             </Link>
           </div>

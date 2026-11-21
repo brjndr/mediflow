@@ -9,10 +9,9 @@ import { ClaimStatusBadge } from '../components/ClaimStatusBadge';
 import { CLAIM_STATUSES } from '../claims';
 import { useClaims } from '../hooks/use-claims';
 import type { Claim, ClaimStatus } from '../types';
+import { secondaryLink, textLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
-const link =
-  'inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 const DAY_MS = 86_400_000;
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
@@ -33,7 +32,7 @@ export default function ClaimList() {
         value: (row) => row.number,
         hideable: false,
         render: (row, text) => (
-          <Link to={`/claims/${row.id}`} className={link}>
+          <Link to={`/claims/${row.id}`} className={textLink}>
             {text}
           </Link>
         ),
@@ -83,7 +82,7 @@ export default function ClaimList() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('claims.heading')}</h1>
         <p className="text-muted-foreground">{t('claims.description')}</p>
-        <Link to="/claims/aging" className={`${link} pt-2 text-sm underline`}>
+        <Link to="/claims/aging" className={secondaryLink}>
           {t('claims.aging')}
         </Link>
       </div>

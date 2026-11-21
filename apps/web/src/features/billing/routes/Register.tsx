@@ -14,6 +14,7 @@ import { useCloseRegister, useCurrentRegister, useOpenRegister } from '../hooks/
 import { useFocusWhenFormGoes } from '../lib/panel-helpers';
 import { differenceText } from '../lib/register';
 import type { RegisterSession } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /**
  * The caller's own cash drawer (`billing/register`, #118), for `cashRegister:manage`: open it
@@ -43,10 +44,7 @@ export default function Register() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('register.heading')}</h1>
         <p className="text-muted-foreground">{t('register.description')}</p>
         <Can permission="cashRegister:read">
-          <Link
-            to="/billing/register/sessions"
-            className="inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-          >
+          <Link to="/billing/register/sessions" className={secondaryLink}>
             {t('register.sessionsLink')}
           </Link>
         </Can>

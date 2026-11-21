@@ -145,7 +145,7 @@ function Care({ row }: { row: EmergencyCase }) {
           )}
           {row.admissionId && (
             <p>
-              <Link className="underline" to="/admissions">
+              <Link className="underline text-primary-ink" to="/admissions">
                 {t('left.admission')}
               </Link>
             </p>

@@ -108,7 +108,10 @@ function AcceptInvite() {
         <p role="status" className="text-sm">
           {t('account.inviteDoneBody', { hospital: hospitalName })}
         </p>
-        <Link to="/login" className="text-sm font-medium text-primary hover:underline">
+        <Link
+          to="/login"
+          className="text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
+        >
           {t('login.submit')}
         </Link>
       </AccountPage>

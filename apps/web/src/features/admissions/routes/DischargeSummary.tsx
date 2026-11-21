@@ -30,6 +30,7 @@ import {
   type SummaryDraftValues,
 } from '../schemas';
 import { SUMMARY_SECTIONS, type Admission, type DischargeSummary } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -74,10 +75,7 @@ export default function DischargeSummaryPage() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
       <h1 className="text-2xl font-semibold tracking-tight">{t('summary.heading')}</h1>
-      <Link
-        to="/admissions"
-        className="inline-flex w-fit items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-      >
+      <Link to="/admissions" className={secondaryLink}>
         {t('summary.back')}
       </Link>
       {missing ? (

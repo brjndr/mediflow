@@ -12,6 +12,7 @@ import {
   type DiscountLimitInput,
   type DiscountLimitValues,
 } from '../schemas';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const schema = createDiscountLimitSchema(percentToBp);
 
@@ -30,10 +31,7 @@ export default function DiscountLimit() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('discount.limit.heading')}</h1>
         <p className="text-muted-foreground">{t('discount.limit.description')}</p>
-        <Link
-          to="/billing/invoices"
-          className="inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-        >
+        <Link to="/billing/invoices" className={secondaryLink}>
           {t('discount.limit.back')}
         </Link>
       </div>

@@ -11,6 +11,7 @@ import { EstimatePanel } from '../components/EstimatePanel';
 import { SettlementPanel } from '../components/SettlementPanel';
 import { useRunningBill } from '../hooks/use-stay-bill';
 import type { RunningBillLine } from '../stay-bill';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 type BillRow = RunningBillLine & { partLabel?: string; partKey?: string };
 
@@ -81,10 +82,7 @@ export default function StayBill() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
       <h1 className="text-2xl font-semibold tracking-tight">{t('stay.heading')}</h1>
-      <Link
-        to="/admissions"
-        className="inline-flex w-fit items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-      >
+      <Link to="/admissions" className={secondaryLink}>
         {t('stay.back')}
       </Link>
       {missing ? (

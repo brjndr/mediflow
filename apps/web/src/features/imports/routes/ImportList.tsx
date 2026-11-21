@@ -9,6 +9,7 @@ import { useFormatters } from '@/tenancy';
 import { link, useKindName } from '../components/common';
 import { useImportBatches } from '../hooks/use-imports';
 import type { ImportBatch } from '../types';
+import { actionLink } from '@/shared/ui/link-styles';
 
 function Batches() {
   const { t } = useTranslation('imports');
@@ -58,7 +59,7 @@ function Batches() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
         <Can permission="import:run">
-          <Link to="/imports/new" className={`${link} pt-2 text-sm underline`}>
+          <Link to="/imports/new" className={actionLink}>
             {t('add')}
           </Link>
         </Can>

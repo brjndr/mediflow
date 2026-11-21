@@ -23,9 +23,8 @@ import {
   type PayerFormValues,
 } from '../schemas';
 import type { Payer, PayerPlan, RateAgreement } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 const FIELDS: PayerField[] = ['name', 'contactName', 'phone', 'email', 'address'];
 
 /** Today as a calendar date on the hospital's clock. */
@@ -416,7 +415,7 @@ function PayerScreen() {
         title={missing ? t('notFound.title') : t('notFound.errorTitle')}
         description={missing ? t('notFound.body') : tCommon(errorMessageKey(payer.error))}
         actions={
-          <Link to="/insurance" className={link}>
+          <Link to="/insurance" className={secondaryLink}>
             {t('backToList')}
           </Link>
         }
@@ -435,7 +434,7 @@ function PayerScreen() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/insurance" className={link}>
+        <Link to="/insurance" className={secondaryLink}>
           {t('backToList')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{record.name}</h1>
@@ -445,7 +444,7 @@ function PayerScreen() {
         </p>
         {record.kind === 'corporate' && (
           <Can permission="receivable:read">
-            <Link to={`/credit/${record.id}`} className={`${link} block`}>
+            <Link to={`/credit/${record.id}`} className={secondaryLink}>
               {t('credit.openAccount')}
             </Link>
           </Can>

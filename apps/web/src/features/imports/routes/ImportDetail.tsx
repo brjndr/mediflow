@@ -8,10 +8,11 @@ import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { useFormatters } from '@/tenancy';
-import { link, useFieldName, useKindName } from '../components/common';
+import { useFieldName, useKindName } from '../components/common';
 import { useBatchAction, useImportBatch, useImportProblems } from '../hooks/use-imports';
 import { WORKING } from '../schemas';
 import type { ImportBatch, ImportProblem } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** Refusals of an action on a batch that have words of their own. */
 const KNOWN_REFUSALS = ['import_running', 'import_not_ready', 'import_busy', 'import_not_staging'];
@@ -242,7 +243,7 @@ export default function ImportDetail() {
   return (
     <DesktopOnly>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6">
-        <Link to="/imports" className={`${link} text-sm underline`}>
+        <Link to="/imports" className={secondaryLink}>
           {t('backToList')}
         </Link>
         <Batch batchId={batchId} />

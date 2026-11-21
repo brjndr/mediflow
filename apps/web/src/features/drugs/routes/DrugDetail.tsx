@@ -19,9 +19,7 @@ import {
   type DrugFormValues,
 } from '../schemas';
 import type { Drug } from '../types';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const FIELDS: DrugField[] = [
   'type',
@@ -282,7 +280,7 @@ function DrugScreen() {
   const drug = useDrug(drugId);
 
   const back = (
-    <Link to="/drugs" className={link}>
+    <Link to="/drugs" className={secondaryLink}>
       {t('backToList')}
     </Link>
   );

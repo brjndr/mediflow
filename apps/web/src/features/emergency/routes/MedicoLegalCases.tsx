@@ -8,6 +8,7 @@ import { useFormatters } from '@/tenancy';
 import { MedicoLegalBadge } from '../components/MedicoLegalPanel';
 import { useMlcRegister } from '../hooks/use-emergency';
 import type { EmergencyCase } from '../types';
+import { secondaryLink, textLink } from '@/shared/ui/link-styles';
 
 function Who({ row }: { row: EmergencyCase }) {
   const { t } = useTranslation('emergency');
@@ -40,7 +41,7 @@ export default function MedicoLegalCases() {
         value: (row) => row.alias ?? (row.patientId ? t('onRecord') : t('unidentified')),
         render: (row) => (
           <span className="flex flex-wrap items-center gap-2">
-            <Link className="underline" to={`/emergency/${row.id}`}>
+            <Link className={textLink} to={`/emergency/${row.id}`}>
               <Who row={row} />
             </Link>
             <MedicoLegalBadge />
@@ -63,7 +64,7 @@ export default function MedicoLegalCases() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
       <div className="space-y-1">
-        <Link className="text-sm underline" to="/emergency">
+        <Link className={secondaryLink} to="/emergency">
           {t('care.back')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{t('mlcRegister.heading')}</h1>

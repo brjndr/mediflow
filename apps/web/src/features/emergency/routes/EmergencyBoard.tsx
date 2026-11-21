@@ -16,6 +16,7 @@ import { RegisterDialog } from '../components/RegisterDialog';
 import { useCases, useNow } from '../hooks/use-emergency';
 import { isOverdue, minutesSince, TARGET_MINUTES, type Category } from '../schemas';
 import type { EmergencyCase, EmergencyCaseStatus } from '../types';
+import { secondaryLink, textLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const ACTIVE = 'active';
@@ -112,7 +113,7 @@ export default function EmergencyBoard() {
         value: (row) => row.alias ?? (row.patientId ? t('onRecord') : t('unidentified')),
         render: (row) => (
           <span className="flex flex-wrap items-center gap-2">
-            <Link className="underline" to={`/emergency/${row.id}`}>
+            <Link className={textLink} to={`/emergency/${row.id}`}>
               <CaseWho row={row} />
             </Link>
             {row.medicoLegal && <MedicoLegalBadge />}
@@ -199,7 +200,7 @@ export default function EmergencyBoard() {
         </label>
         <div className="flex flex-wrap items-center gap-3">
           {canReadMlc && (
-            <Link className="text-sm underline" to="/emergency/medico-legal">
+            <Link className={secondaryLink} to="/emergency/medico-legal">
               {t('mlcRegister.link')}
             </Link>
           )}

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { isKnownKind } from '../schemas';
 
 export const link =
-  'inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+  'inline-flex items-center rounded-sm font-medium text-primary-ink underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
 /** The name of a kind of record, or its code for a kind this app has no words for. */
 export function useKindName() {

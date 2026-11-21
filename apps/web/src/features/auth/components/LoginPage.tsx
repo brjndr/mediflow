@@ -146,7 +146,10 @@ export function LoginPage() {
               {signIn.isPending ? t('login.submitting') : t('login.submit')}
             </SubmitButton>
           </Form>
-          <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+          <Link
+            to="/forgot-password"
+            className="text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
+          >
             {t('login.forgot')}
           </Link>
         </>

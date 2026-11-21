@@ -7,6 +7,7 @@ import { useFormatters } from '@/tenancy';
 import { REGISTER_PAGE_SIZES, useRegisterSessions } from '../hooks/use-billing';
 import { differenceText } from '../lib/register';
 import type { RegisterSession } from '../types';
+import { textLink } from '@/shared/ui/link-styles';
 
 /**
  * Every cash register session of the hospital (`billing/register/sessions`, #118), for
@@ -33,10 +34,7 @@ export default function RegisterSessions() {
         value: (row) => row.openedByName,
         hideable: false,
         render: (row, text) => (
-          <Link
-            to={`/billing/register/sessions/${row.id}`}
-            className="inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-          >
+          <Link to={`/billing/register/sessions/${row.id}`} className={textLink}>
             {text}
           </Link>
         ),

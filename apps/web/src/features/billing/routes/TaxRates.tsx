@@ -14,6 +14,7 @@ import {
   type TaxRatesValues,
 } from '../schemas';
 import type { TaxRates as Rates } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const schema = createTaxRatesSchema(percentToBp);
 
@@ -32,10 +33,7 @@ export default function TaxRates() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('tax.heading')}</h1>
         <p className="text-muted-foreground">{t('tax.description')}</p>
-        <Link
-          to="/billing/invoices"
-          className="inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-        >
+        <Link to="/billing/invoices" className={secondaryLink}>
           {t('tax.back')}
         </Link>
       </div>

@@ -6,6 +6,7 @@ import { useFormatters } from '@/tenancy';
 import { RegisterFigures } from '../components/RegisterFigures';
 import { SettlementPrint } from '../components/SettlementPrint';
 import { useRegisterSession } from '../hooks/use-billing';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /**
  * One register session (`billing/register/sessions/:sessionId`, #118), for `cashRegister:read`:
@@ -24,10 +25,7 @@ export default function RegisterSessionDetail() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
       <h1 className="text-2xl font-semibold tracking-tight">{t('register.detail.heading')}</h1>
-      <Link
-        to="/billing/register/sessions"
-        className="inline-flex w-fit items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-      >
+      <Link to="/billing/register/sessions" className={secondaryLink}>
         {t('register.detail.back')}
       </Link>
       {found.isPending ? (
