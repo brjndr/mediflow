@@ -115,7 +115,7 @@ describe('signing in', () => {
 
     expect(response.statusCode).toBe(200);
     const cookie = sessionCookie(response);
-    expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' });
+    expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Strict', path: '/' });
     expect(cookie?.domain).toBeUndefined();
     expect(cookie?.value).toMatch(/^[A-Za-z0-9_-]{43}$/);
     // The token travels in the cookie only.
@@ -618,7 +618,7 @@ describe('the cookie in production', () => {
       });
 
       const cookie = response.cookies.find((item) => item.name === '__Host-mediflow_session');
-      expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Lax', path: '/' });
+      expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', path: '/' });
       expect(cookie?.domain).toBeUndefined();
     } finally {
       await production.close();

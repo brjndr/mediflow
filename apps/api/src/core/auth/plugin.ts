@@ -46,7 +46,10 @@ export const authPlugin = fp(
     const cookieOptions = {
       httpOnly: true, // Not readable by scripts.
       secure,
-      sameSite: 'lax', // Not sent on cross-site subrequests or form posts.
+      // Strict (#1084): never sent on a request another site starts, navigations included. The SPA
+      // is served without the cookie and reads the session with a same-origin fetch, which carries
+      // it, so a link from another site still opens once the app has loaded.
+      sameSite: 'strict',
       path: '/',
     } as const;
     const appOrigin = new URL(config.APP_BASE_URL).origin;
