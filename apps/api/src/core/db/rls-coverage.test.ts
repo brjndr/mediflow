@@ -23,6 +23,7 @@ const DEFINER_FUNCTIONS = new Set<string>([
   'invite_hospital_name',
   'is_platform_admin_email',
   'offboarding_admin_contacts',
+  'patient_link_owner',
   'patient_search_count',
   'patient_search_ids',
   'patient_search_short_page',

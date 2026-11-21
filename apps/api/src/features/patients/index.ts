@@ -12,6 +12,8 @@ import { patientRoutes } from './routes.js';
 export const patientsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('patients', PATIENT_PERMISSIONS);
   app.importKinds.register(patientImport);
+  // Deep links to a patient (#1089); the function is in migration 0155.
+  app.links.register('patient', 'patient_link_owner');
   await app.register(patientRoutes);
   await app.register(mergeRoutes);
 };

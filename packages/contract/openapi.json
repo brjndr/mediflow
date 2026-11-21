@@ -22613,6 +22613,89 @@
         }
       }
     },
+    "/session/open-link": {
+      "post": {
+        "operationId": "openLink",
+        "tags": ["auth"],
+        "description": "Opens a deep link to a record by its globally unique id. The server finds the hospital that owns the record, checks that the user is an active member of it, and rebinds the session to that hospital if another one is active (the cookie is replaced). Every refusal is the same 403 link_unavailable, whether the kind is unknown, the record does not exist or belongs to a hospital the user does not work at, so a link cannot be used to find out what exists. The open is recorded in the owning hospital audit log; the record is then read through its own route.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["kind", "id"],
+                "properties": {
+                  "kind": {
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "description": "The kind of record, e.g. patient.",
+                    "type": "string"
+                  },
+                  "id": {
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/invite/inspect": {
       "post": {
         "operationId": "inspectInvite",
@@ -79005,57 +79088,6 @@
             }
           }
         }
-      }
-    },
-    "/session/open-link": {
-      "post": {
-        "operationId": "openLink",
-        "description": "Opens a deep link to a record by its globally unique id. The server finds the hospital that owns the record, checks that the user is an active member of it, and rebinds the session to that hospital if another one (or none) is active. Every refusal is the same 403 link_unavailable, whether the record does not exist or belongs to a hospital the user does not work at, so a link cannot be used to find out what exists.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["kind", "id"],
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "description": "The kind of record, e.g. notice."
-                  },
-                  "id": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The session, bound to the hospital that owns the record",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Session"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "x-planned": true
       }
     },
     "/notices": {
