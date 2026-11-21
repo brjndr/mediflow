@@ -16,10 +16,15 @@ const cell = (value: Cell, type: string): string => {
   return type === 'date' ? value : text(value);
 };
 
-/** The report as CSV with a byte order mark, so Excel reads names in any script as UTF-8. */
-export function toCsv(result: ReportResult): Buffer {
+/**
+ * The report as CSV with a byte order mark (a `preamble` of lines goes above the header, then a
+ * blank line), so Excel reads names in any script as UTF-8. */
+export function toCsv(result: ReportResult, preamble: Cell[][] = []): Buffer {
   const typeAt = (index: number) => result.columns[index]?.type ?? 'text';
   const lines = [
+    ...(preamble.length > 0
+      ? [...preamble.map((line) => line.map((value) => cell(value, 'text')).join(',')), '']
+      : []),
     result.columns.map((column) => column.key).join(','),
     ...result.rows.map((row) => row.map((value, index) => cell(value, typeAt(index))).join(',')),
   ];

@@ -287,6 +287,84 @@ describe('the audit log as a stored report', () => {
     ]);
   });
 
+  it('says what a run was filtered by, in the run view, the list and the file', async () => {
+    const make = async (body: object, key: string, tenant = hospital, user = admin) => {
+      const created = await createRun({ from: day, to: day, ...body }, key, tenant, user);
+      expect(created.statusCode).toBe(202);
+      await queue.drain();
+      return created.json<{ id: string }>().id;
+    };
+    const filtered = await make({ actorId: desk.id, action: 'read' }, 'audit-run-00020');
+    const plain = await make({}, 'audit-run-00021');
+    const other = await make({ entityId: 'p-1' }, 'audit-run-00022', clinic, clinicAdmin);
+
+    const view = (await get(`/reports/runs/${filtered}`)).json<{ filters?: object }>();
+    expect(view.filters).toEqual({ actorId: desk.id, actorName: 'Audit Desk', action: 'read' });
+    const list = (await get('/reports/runs')).json<{ items: { id: string; filters?: object }[] }>();
+    expect(list.items.find((i) => i.id === filtered)?.filters).toEqual(view.filters);
+    expect(list.items.find((i) => i.id === plain)?.filters).toBeUndefined();
+    expect(list.items.map((i) => i.id)).not.toContain(other);
+
+    const file = async (id: string) => {
+      const link = (await get(`/reports/runs/${id}/download-url`)).json<{ url: string }>();
+      return (await app.inject({ url: link.url })).body.replace('﻿', '').split('\r\n');
+    };
+    const lines = await file(filtered);
+    expect(lines.slice(0, 5)).toEqual([
+      `from,${day}`,
+      `to,${day}`,
+      'person,Audit Desk',
+      'action,read',
+      '',
+    ]);
+    expect(lines[5]).toBe('at,actor,action,entity,entityId,detail');
+    expect((await file(plain)).slice(0, 4)).toEqual([
+      `from,${day}`,
+      `to,${day}`,
+      'filters,none',
+      '',
+    ]);
+  });
+
+  it('says what a run was filtered by, in the run view, the list and the file', async () => {
+    const make = async (body: object, key: string, tenant = hospital, user = admin) => {
+      const created = await createRun({ from: day, to: day, ...body }, key, tenant, user);
+      expect(created.statusCode).toBe(202);
+      await queue.drain();
+      return created.json<{ id: string }>().id;
+    };
+    const filtered = await make({ actorId: desk.id, action: 'read' }, 'audit-run-00020');
+    const plain = await make({}, 'audit-run-00021');
+    const other = await make({ entityId: 'p-1' }, 'audit-run-00022', clinic, clinicAdmin);
+
+    const view = (await get(`/reports/runs/${filtered}`)).json<{ filters?: object }>();
+    expect(view.filters).toEqual({ actorId: desk.id, actorName: 'Audit Desk', action: 'read' });
+    const list = (await get('/reports/runs')).json<{ items: { id: string; filters?: object }[] }>();
+    expect(list.items.find((i) => i.id === filtered)?.filters).toEqual(view.filters);
+    expect(list.items.find((i) => i.id === plain)?.filters).toBeUndefined();
+    expect(list.items.map((i) => i.id)).not.toContain(other);
+
+    const file = async (id: string) => {
+      const link = (await get(`/reports/runs/${id}/download-url`)).json<{ url: string }>();
+      return (await app.inject({ url: link.url })).body.replace('﻿', '').split('\r\n');
+    };
+    const lines = await file(filtered);
+    expect(lines.slice(0, 5)).toEqual([
+      `from,${day}`,
+      `to,${day}`,
+      'person,Audit Desk',
+      'action,read',
+      '',
+    ]);
+    expect(lines[5]).toBe('at,actor,action,entity,entityId,detail');
+    expect((await file(plain)).slice(0, 4)).toEqual([
+      `from,${day}`,
+      `to,${day}`,
+      'filters,none',
+      '',
+    ]);
+  });
+
   it('refuses filters on a report that has none', async () => {
     const response = await app.inject({
       method: 'POST',

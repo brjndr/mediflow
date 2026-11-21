@@ -33,6 +33,31 @@
     "heading": "Entries",
     "empty": "No entries match these days and filters."
   },
+  "exports": {
+    "heading": "Earlier exports",
+    "empty": "No exports yet.",
+    "period": "{{from}} to {{to}}",
+    "unfiltered": "Nothing: the whole log for these days",
+    "columns": {
+      "period": "Days",
+      "filters": "Filtered by",
+      "requested": "Asked",
+      "by": "By",
+      "status": "State"
+    },
+    "filters": {
+      "actor": "Person: {{value}}",
+      "entity": "Record type: {{value}}",
+      "entityId": "Record: {{value}}",
+      "action": "Action: {{value}}"
+    },
+    "status": {
+      "queued": "Waiting",
+      "running": "Being made",
+      "succeeded": "Ready",
+      "failed": "Failed"
+    }
+  },
   "export": {
     "button": "Export these days (CSV)",
     "download": "Download CSV",

@@ -1,5 +1,5 @@
 import { api, apiFetchOnce, requireData } from '@/shared/api';
-import { auditPageSchema, downloadSchema, exportRunSchema } from './schemas';
+import { auditPageSchema, downloadSchema, exportPageSchema, exportRunSchema } from './schemas';
 import type { AuditPage, ReportRun } from './types';
 
 // The filters are in the body of a POST, so a record id never sits in an address. An entry holds
@@ -40,6 +40,16 @@ export async function requestExport(
     fetch: apiFetchOnce,
   });
   return exportRunSchema.parse(requireData(result));
+}
+
+/** The hospital's stored audit exports, newest first (the list also holds other reports' runs). */
+export async function fetchExports(
+  { cursor, limit }: { cursor?: string; limit: number },
+  signal?: AbortSignal,
+) {
+  const result = await api.GET('/reports/runs', { params: { query: { cursor, limit } }, signal });
+  const page = exportPageSchema.parse(requireData(result));
+  return { ...page, items: page.items.filter((run) => run.kind === 'audit_log') };
 }
 
 export async function fetchExport(runId: string, signal?: AbortSignal): Promise<ReportRun> {

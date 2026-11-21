@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Can } from '@/access';
+import { Can, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
@@ -11,12 +11,13 @@ import type { AuditFilters } from '../api';
 import {
   useAuditSearch,
   useExportLink,
+  useExportList,
   useExportRun,
   useRequestExport,
 } from '../hooks/use-audit-log';
 import { downloadFile, useStaffNames } from '../lib/bridge';
 import { filterSchema, shiftDay, WORKING, type FilterValues } from '../schemas';
-import type { AuditEntry } from '../types';
+import type { AuditEntry, ReportRun } from '../types';
 
 const KNOWN_ERRORS = ['range_too_long', 'report_quota', 'report_busy'] as const;
 
@@ -58,6 +59,54 @@ export default function AuditLogPage() {
   const link = useExportLink();
   const [runId, setRunId] = useState<string | null>(null);
   const run = useExportRun(runId);
+  const mayList = usePermission('report:read');
+  const exportList = useExportList(mayList);
+  const exportRows = useMemo(
+    () => exportList.data?.pages.flatMap((page) => page.items) ?? [],
+    [exportList.data],
+  );
+  const exportColumns = useMemo<GridColumn<ReportRun>[]>(
+    () => [
+      {
+        id: 'period',
+        header: t('exports.columns.period'),
+        value: (row) =>
+          row.from && row.to
+            ? t('exports.period', {
+                from: format.calendarDate(row.from),
+                to: format.calendarDate(row.to),
+              })
+            : '',
+        hideable: false,
+      },
+      {
+        id: 'filters',
+        header: t('exports.columns.filters'),
+        value: (row) => {
+          const f = row.filters;
+          const parts = [
+            f?.actorId ? t('exports.filters.actor', { value: f.actorName ?? f.actorId }) : '',
+            f?.entity ? t('exports.filters.entity', { value: f.entity }) : '',
+            f?.entityId ? t('exports.filters.entityId', { value: f.entityId }) : '',
+            f?.action ? t('exports.filters.action', { value: f.action }) : '',
+          ].filter(Boolean);
+          return parts.length > 0 ? parts.join('; ') : t('exports.unfiltered');
+        },
+      },
+      {
+        id: 'requested',
+        header: t('exports.columns.requested'),
+        value: (row) => format.dateTime(row.requestedAt),
+      },
+      { id: 'by', header: t('exports.columns.by'), value: (row) => row.requestedBy.name },
+      {
+        id: 'status',
+        header: t('exports.columns.status'),
+        value: (row) => t(`exports.status.${row.status}`),
+      },
+    ],
+    [t, format],
+  );
 
   const askedFor = (error: unknown): string => {
     if (isApiError(error) && error.serverCode !== undefined) {
@@ -191,6 +240,27 @@ export default function AuditLogPage() {
           onLoadMore={() => void query.fetchNextPage()}
         />
       </section>
+      {mayList && (
+        <section aria-labelledby="audit-exports" className="flex flex-col gap-2">
+          <h2 id="audit-exports" className="text-lg font-semibold">
+            {t('exports.heading')}
+          </h2>
+          <DataGrid
+            label={t('exports.heading')}
+            columns={exportColumns}
+            rows={exportRows}
+            rowId={(row) => row.id}
+            rowLabel={(row) => format.dateTime(row.requestedAt)}
+            status={exportList.isPending ? 'loading' : exportList.isError ? 'error' : 'ready'}
+            errorMessage={exportList.isError ? askedFor(exportList.error) : undefined}
+            onRetry={() => void exportList.refetch()}
+            emptyMessage={t('exports.empty')}
+            hasNextPage={exportList.hasNextPage}
+            loadingMore={exportList.isFetchingNextPage}
+            onLoadMore={() => void exportList.fetchNextPage()}
+          />
+        </section>
+      )}
     </div>
   );
 }
