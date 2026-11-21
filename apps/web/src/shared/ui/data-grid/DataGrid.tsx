@@ -147,6 +147,37 @@ function useIsNarrow(element: React.RefObject<HTMLElement | null>): boolean {
   return narrow;
 }
 
+const FOCUSABLE = 'a[href],button,input,select,textarea,summary,[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Whether the table's box needs a tab stop of its own: it is wider than the box, so the box
+ * scrolls sideways, and nothing in it takes focus, so the keyboard could not scroll it (WCAG
+ * 2.1.1, axe `scrollable-region-focusable`). A table with a link or a button in a row is reached
+ * through them, and gets no extra stop, so Tab walks it as before. `watch` re-checks when the rows
+ * or the layout change.
+ */
+function useNeedsTabStop(
+  element: React.RefObject<HTMLElement | null>,
+  watch: readonly unknown[],
+): boolean {
+  const [needs, setNeeds] = useState(false);
+  useLayoutEffect(() => {
+    const node = element.current;
+    // No box while the grid shows cards; the table's box is checked again when it comes back.
+    if (!node) return;
+    const check = () =>
+      setNeeds(node.scrollWidth > node.clientWidth + 1 && !node.querySelector(FOCUSABLE));
+    check();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(check);
+    observer.observe(node);
+    if (node.firstElementChild) observer.observe(node.firstElementChild);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [element, ...watch]);
+  return needs;
+}
+
 export function DataGrid<Row extends RowData>({
   label,
   columns,
@@ -175,6 +206,7 @@ export function DataGrid<Row extends RowData>({
   const scroller = useRef<HTMLDivElement>(null);
   const narrow = useIsNarrow(root);
   const stacked = layout === 'stacked' || (layout === 'auto' && narrow);
+  const needsTabStop = useNeedsTabStop(scroller, [stacked, rows.length, status]);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
 
   // Columns and actions the user may not see are left out entirely, not hidden with CSS.
@@ -335,7 +367,7 @@ export function DataGrid<Row extends RowData>({
 
   const columnsMenu = menuColumns.length > 0 && (
     <details className="relative">
-      <summary className="flex cursor-pointer list-none items-center rounded-md border px-3 py-1.5 text-sm outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11">
+      <summary className="flex cursor-pointer list-none items-center rounded-lg border border-primary/35 bg-primary-soft px-3 py-1.5 text-sm font-semibold text-primary-ink shadow-tinted outline-none hover:border-primary/60 focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11">
         {t('grid.columns')}
       </summary>
       <fieldset
@@ -459,7 +491,7 @@ export function DataGrid<Row extends RowData>({
                     // Only a screenful is in the DOM: say how long the list really is.
                     aria-setsize={rowCount}
                     aria-posinset={rowCount === undefined ? undefined : index + 1}
-                    className="rounded-lg border p-3"
+                    className="rounded-xl border border-l-4 border-l-primary/60 bg-card p-3 shadow-soft"
                   >
                     <p className="font-medium break-words">
                       {/* The column's name, as the other values have theirs. */}
@@ -519,10 +551,14 @@ export function DataGrid<Row extends RowData>({
 
       <div
         ref={scroller}
+        // A box that scrolls sideways with nothing focusable in it is reached with Tab and
+        // scrolled with the arrow keys. A group, not a region: a region would be a landmark with
+        // the same name as the section around the grid (axe `landmark-unique`).
+        {...(needsTabStop && { tabIndex: 0, role: 'group', 'aria-label': label })}
         className={cn(
           // Positioned, so text hidden for screen readers (absolute) is clipped with the table
           // and a table wider than the screen scrolls here, never the page.
-          'relative overflow-x-auto rounded-lg border',
+          'relative overflow-x-auto rounded-xl border bg-card shadow-soft outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
           // The header stays at the top while rows scroll: scroll padding keeps a focused row
           // from going under it (WCAG 2.4.11).
           virtual && 'max-h-[32rem] scroll-pt-10 overflow-y-auto pointer-coarse:scroll-pt-14',
@@ -534,7 +570,13 @@ export function DataGrid<Row extends RowData>({
           aria-rowcount={rowCount === undefined ? undefined : rowCount + 1}
           className="w-full border-collapse text-sm"
         >
-          <thead className={cn('bg-background', virtual && 'sticky top-0 z-[1]')}>
+          {/* The brand gradient behind the column names (#1119), opaque so a sticky header hides the rows. */}
+          <thead
+            className={cn(
+              'bg-brand-gradient text-primary-foreground',
+              virtual && 'sticky top-0 z-[1]',
+            )}
+          >
             <tr className="border-b" aria-rowindex={rowCount === undefined ? undefined : 1}>
               {visibleColumns.map((column) => {
                 const tableColumn = table.getColumn(column.id);
@@ -556,18 +598,18 @@ export function DataGrid<Row extends RowData>({
                             : 'none'
                     }
                     className={cn(
-                      'h-10 px-3 font-medium whitespace-nowrap',
+                      'h-10 px-3 font-semibold whitespace-nowrap',
                       column.align === 'end' ? 'text-right' : 'text-left',
                     )}
                   >
                     {canSort ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded-sm outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+                        className="inline-flex items-center gap-1 rounded-sm outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-primary-foreground pointer-coarse:min-h-11"
                         onClick={tableColumn?.getToggleSortingHandler()}
                       >
                         {column.header}
-                        <SortIcon aria-hidden className="size-3.5 text-muted-foreground" />
+                        <SortIcon aria-hidden className="size-3.5 opacity-80" />
                       </button>
                     ) : (
                       column.header
@@ -630,7 +672,7 @@ export function DataGrid<Row extends RowData>({
                     key={rowId(row)}
                     aria-rowindex={rowCount === undefined ? undefined : index + 2}
                     style={virtual ? { height: ROW_HEIGHT } : undefined}
-                    className="border-b last:border-0 hover:bg-accent/50"
+                    className="border-b transition-colors last:border-0 even:bg-muted hover:bg-primary-soft"
                   >
                     {visibleColumns.map((column) => (
                       <td
@@ -649,7 +691,8 @@ export function DataGrid<Row extends RowData>({
                           <Button
                             key={action.id}
                             size="sm"
-                            variant="ghost"
+                            variant="outline"
+                            className="ml-1.5 first:ml-0"
                             aria-disabled={action.disabled?.(row) || undefined}
                             aria-label={name ? `${action.label}: ${name}` : undefined}
                             onClick={() => action.onSelect(row)}

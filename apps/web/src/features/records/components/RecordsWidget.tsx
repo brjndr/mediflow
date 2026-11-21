@@ -1,3 +1,4 @@
+import { FolderOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
@@ -15,6 +16,8 @@ export default function RecordsWidget() {
   return (
     <StatCard
       id="widget-records"
+      icon={FolderOpen}
+      accent={2}
       title={t('widget.title')}
       to="/records"
       linkLabel={t('widget.open')}

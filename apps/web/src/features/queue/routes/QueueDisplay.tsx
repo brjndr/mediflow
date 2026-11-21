@@ -4,6 +4,7 @@ import { errorMessageKey } from '@/shared/api';
 import { Card } from '@/shared/ui/card';
 import { LiveStatus } from '../components/LiveStatus';
 import { useQueueDisplay, useQueueEvents } from '../hooks/use-queue';
+import { secondaryLink } from '@/shared/ui/button';
 
 /**
  * The waiting-room display (#78): for each department the token numbers being served, the doctor
@@ -25,7 +26,7 @@ export default function QueueDisplay() {
         <p className="text-muted-foreground">{t('display.description')}</p>
         <LiveStatus status={events} />
         <p>
-          <Link to="/queue" className="text-sm font-medium underline underline-offset-4">
+          <Link to="/queue" className={secondaryLink}>
             {t('display.back')}
           </Link>
         </p>

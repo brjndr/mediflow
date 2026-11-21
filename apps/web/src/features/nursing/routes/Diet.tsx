@@ -12,6 +12,7 @@ import { DIET_MAX, DIET_PRIORITIES, dietFormSchema, type DietValues } from '../d
 import { usePlaceDiet, useStayDiet } from '../hooks/use-diet';
 import { useStay } from '../hooks/use-nursing';
 import type { WardDietOrder } from '../types';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** An order still being carried out: the kitchen works from the newest of these. */
 const live = (order: WardDietOrder) => order.status !== 'completed';
@@ -90,7 +91,7 @@ export default function Diet() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/nursing/kitchen" className="text-sm underline underline-offset-2">
+        <Link to="/nursing/kitchen" className={secondaryLink}>
           {t('diet.back')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">

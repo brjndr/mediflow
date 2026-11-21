@@ -5,7 +5,7 @@ import { useAllowed, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { fillPlaceholders, useTemplateChoices } from '@/features/templates';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { Form, SubmitButton, TextAreaField, useZodForm } from '@/shared/ui/form';
 import { PrintSheet } from '@/shared/ui/print-sheet';
@@ -74,10 +74,7 @@ export default function DischargeSummaryPage() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
       <h1 className="text-2xl font-semibold tracking-tight">{t('summary.heading')}</h1>
-      <Link
-        to="/admissions"
-        className="inline-flex w-fit items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-      >
+      <Link to="/admissions" className={secondaryLink}>
         {t('summary.back')}
       </Link>
       {missing ? (

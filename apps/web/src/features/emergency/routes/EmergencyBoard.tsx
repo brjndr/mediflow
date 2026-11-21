@@ -7,7 +7,7 @@ import { usePatientName } from '@/features/patients';
 import { errorMessageKey } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink, textLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { IdentifyDialog, TriageDialog } from '../components/CaseDialogs';
@@ -112,7 +112,7 @@ export default function EmergencyBoard() {
         value: (row) => row.alias ?? (row.patientId ? t('onRecord') : t('unidentified')),
         render: (row) => (
           <span className="flex flex-wrap items-center gap-2">
-            <Link className="underline" to={`/emergency/${row.id}`}>
+            <Link className={textLink} to={`/emergency/${row.id}`}>
               <CaseWho row={row} />
             </Link>
             {row.medicoLegal && <MedicoLegalBadge />}
@@ -199,7 +199,7 @@ export default function EmergencyBoard() {
         </label>
         <div className="flex flex-wrap items-center gap-3">
           {canReadMlc && (
-            <Link className="text-sm underline" to="/emergency/medico-legal">
+            <Link className={secondaryLink} to="/emergency/medico-legal">
               {t('mlcRegister.link')}
             </Link>
           )}

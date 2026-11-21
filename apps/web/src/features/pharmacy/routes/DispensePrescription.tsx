@@ -7,7 +7,7 @@ import { useAllergies } from '@/features/triage';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { maskMrn } from '@/shared/utils/mask';
@@ -184,7 +184,7 @@ export default function DispensePrescription() {
             ? t('detail.notFound')
             : tCommon(errorMessageKey(prescription.error))}
         </p>
-        <Link to="/pharmacy" className="text-sm underline underline-offset-4">
+        <Link to="/pharmacy" className={secondaryLink}>
           {t('detail.back')}
         </Link>
       </div>

@@ -1,3 +1,4 @@
+import { BedDouble } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
@@ -29,6 +30,8 @@ export default function CapacityWidget() {
   return (
     <StatCard
       id="widget-capacity"
+      icon={BedDouble}
+      accent={3}
       title={t('widget.title')}
       to="/census"
       linkLabel={t('widget.open')}

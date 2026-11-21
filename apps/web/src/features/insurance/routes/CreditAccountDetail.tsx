@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { PrintSheet } from '@/shared/ui/print-sheet';
@@ -24,8 +24,6 @@ import {
 import { useCreditAccount, useCreditBills, useReceipts, useStatement } from '../hooks/use-credit';
 import type { CreditAccount, CreditBill, CreditBillStatus, Receipt, StatementLine } from '../types';
 
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -448,7 +446,7 @@ export default function CreditAccountDetail() {
           {canManage && (
             <Button onClick={() => setTerms(true)}>{t('credit.terms.openTitle')}</Button>
           )}
-          <Link to="/credit" className={link}>
+          <Link to="/credit" className={secondaryLink}>
             {t('credit.backToList')}
           </Link>
         </div>
@@ -478,7 +476,7 @@ export default function CreditAccountDetail() {
           missing ? t('credit.detail.notFoundBody') : tCommon(errorMessageKey(account.error))
         }
         actions={
-          <Link to="/credit" className={link}>
+          <Link to="/credit" className={secondaryLink}>
             {t('credit.backToList')}
           </Link>
         }
@@ -494,7 +492,7 @@ export default function CreditAccountDetail() {
           {t('credit.detail.heading', { name: data.payerName })}
         </h1>
         <p className="text-muted-foreground">{t('credit.detail.description')}</p>
-        <Link to="/credit" className={link}>
+        <Link to="/credit" className={secondaryLink}>
           {t('credit.backToList')}
         </Link>
       </div>

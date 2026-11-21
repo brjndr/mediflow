@@ -4,13 +4,11 @@ import { Link } from 'react-router';
 import { ServiceSearch, type ServiceOption } from '@/features/services';
 import { errorMessageKey } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { usePackageContents, useSetPackageContents } from '../hooks/use-billing';
 import { refusalText } from '../lib/panel-helpers';
 import type { PackageItem } from '../types';
 
-const LINK =
-  'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 const REFUSALS = new Set(['invalid_package_item', 'not_a_package', 'service_not_found']);
 /** The most a package holds, as the API allows. */
 const ITEMS_MAX = 100;
@@ -30,7 +28,7 @@ export default function Packages() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('packages.heading')}</h1>
         <p className="text-muted-foreground">{t('packages.description')}</p>
-        <Link to="/billing/invoices" className={LINK}>
+        <Link to="/billing/invoices" className={secondaryLink}>
           {t('packages.back')}
         </Link>
       </div>

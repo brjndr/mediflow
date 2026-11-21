@@ -1,3 +1,4 @@
+import { ListOrdered } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
@@ -19,7 +20,14 @@ export default function WaitingWidget() {
   const total = waiting.data?.pages[0]?.total;
 
   return (
-    <StatCard id="widget-queue" title={t('widget.title')} to="/queue" linkLabel={t('widget.open')}>
+    <StatCard
+      id="widget-queue"
+      icon={ListOrdered}
+      accent={1}
+      title={t('widget.title')}
+      to="/queue"
+      linkLabel={t('widget.open')}
+    >
       {waiting.isError ? (
         <p role="alert" className="text-sm text-muted-foreground">
           {tCommon(errorMessageKey(waiting.error))}

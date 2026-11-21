@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
@@ -28,9 +28,6 @@ import {
   type TemplateDetail as Detail,
   type TemplateVersionInfo,
 } from '../types';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
 const same = (a: RichTextDocument, b: RichTextDocument) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -441,7 +438,7 @@ function Loaded({ detail }: { detail: Detail }) {
   return (
     <div ref={box} className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/templates" className={link}>
+        <Link to="/templates" className={secondaryLink}>
           {t('backToList')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight break-words">{template.name}</h1>
@@ -547,7 +544,7 @@ function TemplateScreen() {
           title={t('detail.notFoundTitle')}
           description={t('detail.notFoundBody')}
           actions={
-            <Link to="/templates" className={link}>
+            <Link to="/templates" className={secondaryLink}>
               {t('backToList')}
             </Link>
           }

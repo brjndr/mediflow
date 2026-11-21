@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink, textLink } from '@/shared/ui/button';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
@@ -20,9 +20,6 @@ import {
   type LabTestFormValues,
 } from '../schemas';
 import type { LabTest } from '../types';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
 /** The fields a test of this kind has. A panel has no result of its own; a test no components. */
 function fieldsOf(test: Pick<LabTest, 'kind' | 'resultType'>): LabTestField[] {
@@ -292,7 +289,7 @@ function Details({ test, refreshFailed }: { test: LabTest; refreshFailed: boolea
               <ol aria-label={t('form.componentIds')} className="list-decimal pl-5">
                 {test.components.map((component) => (
                   <li key={component.id}>
-                    <Link to={`/lab-tests/${component.id}`} className={link}>
+                    <Link to={`/lab-tests/${component.id}`} className={textLink}>
                       {component.name}
                     </Link>
                     <span className="text-muted-foreground"> · {component.code}</span>
@@ -334,7 +331,7 @@ function LabTestScreen() {
   const test = useLabTest(labTestId);
 
   const back = (
-    <Link to="/lab-tests" className={link}>
+    <Link to="/lab-tests" className={secondaryLink}>
       {t('backToList')}
     </Link>
   );

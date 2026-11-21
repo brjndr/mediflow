@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { z } from 'zod';
 import { errorMessageKey } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { Form, SelectField, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { useDischargePolicy, useSetDischargePolicy } from '../hooks/use-stay-bill';
 import { DISCHARGE_POLICY_MODES, type DischargePolicyMode } from '../stay-bill';
@@ -28,10 +28,7 @@ export default function DischargePolicy() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('dischargePolicy.heading')}</h1>
         <p className="text-muted-foreground">{t('dischargePolicy.description')}</p>
-        <Link
-          to="/billing/invoices"
-          className="inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-        >
+        <Link to="/billing/invoices" className={secondaryLink}>
           {t('dischargePolicy.back')}
         </Link>
       </div>

@@ -12,9 +12,7 @@ import {
   toFormValues,
   type LabTestCreateFormValues,
 } from '../schemas';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/button';
 
 function NewLabTest() {
   const { t } = useTranslation('lab_tests');
@@ -61,7 +59,7 @@ function NewLabTest() {
         <LabTestFields adding />
         <div className="flex flex-wrap gap-3">
           <SubmitButton pending={create.isPending}>{t('create.submit')}</SubmitButton>
-          <Link to="/lab-tests" className={link}>
+          <Link to="/lab-tests" className={secondaryLink}>
             {t('form.cancel')}
           </Link>
         </div>

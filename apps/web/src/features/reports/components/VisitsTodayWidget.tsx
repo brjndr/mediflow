@@ -1,9 +1,11 @@
+import { Stethoscope } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { Card } from '@/shared/ui/card';
+import { WidgetHeading } from '@/shared/ui/stat-card';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { todayIn } from '@/shared/utils/timezone';
 import { useFormatters, useTenant } from '@/tenancy';
@@ -32,9 +34,7 @@ export default function VisitsTodayWidget() {
   return (
     <Card asChild>
       <section aria-labelledby="widget-visits" className="flex flex-col gap-2">
-        <h2 id="widget-visits" className="text-sm font-medium">
-          {t('visits.title')}
-        </h2>
+        <WidgetHeading id="widget-visits" title={t('visits.title')} icon={Stethoscope} accent={3} />
         {report.isError ? (
           <p role="alert" className="text-sm text-muted-foreground">
             {tCommon(errorMessageKey(report.error))}

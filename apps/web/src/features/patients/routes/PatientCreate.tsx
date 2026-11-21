@@ -17,6 +17,7 @@ import type {
   PatientDuplicateQuery,
 } from '../types';
 import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** Empty optional fields are left out, and the server adds when and by whom consent was recorded. */
 function toRequest(values: PatientFormValues): PatientCreateBody {
@@ -141,7 +142,7 @@ export default function PatientCreate() {
         <p role="status">
           {t('created.mrn')} <strong>{create.data.mrn}</strong>
         </p>
-        <Link to="/patients" className="text-sm font-medium underline">
+        <Link to="/patients" className={secondaryLink}>
           {t('created.backToList')}
         </Link>
       </div>

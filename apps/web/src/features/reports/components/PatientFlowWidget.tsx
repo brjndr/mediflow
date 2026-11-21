@@ -1,3 +1,4 @@
+import { Activity } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +7,7 @@ import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { todayIn } from '@/shared/utils/timezone';
 import { Card } from '@/shared/ui/card';
+import { WidgetHeading } from '@/shared/ui/stat-card';
 import { CategoryBarChart } from '@/shared/ui/charts';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useFormatters, useTenant } from '@/tenancy';
@@ -63,9 +65,7 @@ export default function PatientFlowWidget() {
   return (
     <Card asChild>
       <section aria-labelledby="widget-flow" className="flex flex-col gap-2">
-        <h2 id="widget-flow" className="text-sm font-medium">
-          {t('flow.title')}
-        </h2>
+        <WidgetHeading id="widget-flow" title={t('flow.title')} icon={Activity} accent={1} />
         {report.isError ? (
           <p role="alert" className="text-sm text-muted-foreground">
             {tCommon(errorMessageKey(report.error))}

@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { TimeSeriesChart } from '@/shared/ui/charts';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
@@ -281,7 +281,7 @@ export default function WardVitals() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/nursing" className="text-sm underline underline-offset-4">
+        <Link to="/nursing" className={secondaryLink}>
           {t('back')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">

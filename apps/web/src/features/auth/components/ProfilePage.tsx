@@ -274,7 +274,10 @@ export function ProfilePage() {
           <p className="text-sm">
             {t(user.mfaEnabled ? 'security.enabled' : 'profile.authenticatorOff')}
           </p>
-          <Link to="/security" className="text-sm font-medium text-primary hover:underline">
+          <Link
+            to="/security"
+            className="text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
+          >
             {t(user.mfaEnabled ? 'security.manage' : 'security.setUp')}
           </Link>
         </section>

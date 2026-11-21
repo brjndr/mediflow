@@ -158,7 +158,7 @@ export default function AuditLogPage() {
         render: (row, text) => {
           const to = recordLink(row.entity, row.entityId);
           return to ? (
-            <Link to={to} className="underline underline-offset-2">
+            <Link to={to} className="underline underline-offset-2 text-primary-ink">
               {text}
             </Link>
           ) : (

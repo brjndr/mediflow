@@ -14,9 +14,7 @@ import {
   toMinor,
   type CreateServiceFormValues,
 } from '../schemas';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/button';
 
 const EMPTY = {
   code: '',
@@ -93,7 +91,7 @@ function NewService() {
         />
         <div className="flex flex-wrap gap-3">
           <SubmitButton pending={create.isPending}>{t('create.submit')}</SubmitButton>
-          <Link to="/services" className={link}>
+          <Link to="/services" className={secondaryLink}>
             {t('form.cancel')}
           </Link>
         </div>

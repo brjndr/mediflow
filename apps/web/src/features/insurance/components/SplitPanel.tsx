@@ -191,7 +191,7 @@ export default function SplitPanel({ context }: SlotProps) {
       <p role="status" className={claim ? 'text-sm' : 'sr-only'}>
         {claim ? t('claims.packet.saved', { number: claim.number }) : ''}{' '}
         {claim && canOpenClaim && (
-          <Link to={`/claims/${claim.id}`} className="font-medium underline">
+          <Link to={`/claims/${claim.id}`} className="font-medium underline text-primary-ink">
             {t('claims.packet.open')}
           </Link>
         )}

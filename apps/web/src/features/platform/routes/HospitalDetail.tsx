@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { HospitalAdminInvites } from '../components/HospitalAdminInvites';
@@ -12,16 +12,13 @@ import { HospitalStatus } from '../components/HospitalStatus';
 import { HospitalModules } from '../components/HospitalModules';
 import { useHospital } from '../hooks/use-hospitals';
 
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
-
 // Default export: route modules are loaded with a dynamic import.
 export default function HospitalDetail() {
   const { t } = useTranslation();
   const { hospitalId = '' } = useParams();
   const hospital = useHospital(hospitalId);
   const back = (
-    <Link to="/platform/hospitals" className={link}>
+    <Link to="/platform/hospitals" className={secondaryLink}>
       {t('platform.detail.back')}
     </Link>
   );

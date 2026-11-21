@@ -6,7 +6,7 @@ import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button, buttonVariants } from '@/shared/ui/button';
+import { Button, buttonVariants, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { useFormatters } from '@/tenancy';
@@ -160,10 +160,7 @@ export default function IndentDetail() {
         <h1 className="text-2xl font-semibold tracking-tight">
           {t('detail.headingOf', { reference: data.reference })}
         </h1>
-        <Link
-          to="/inventory/indents"
-          className="text-sm font-medium text-muted-foreground underline underline-offset-4"
-        >
+        <Link to="/inventory/indents" className={secondaryLink}>
           {t('detail.back')}
         </Link>
       </div>

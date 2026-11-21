@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { usePermission } from '@/access';
 import { useDischargeClearance } from '@/features/billing';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { useDischargePlan } from '../hooks/use-discharge-plan';
 import { DISCHARGE_TYPES, openClearances, type Admission, type DischargeType } from '../types';
 import { DischargePlanSection } from './DischargePlanSection';
@@ -101,10 +101,7 @@ export function DischargePanel({
         </p>
       )}
       {maySeeSummary && (
-        <Link
-          to={`/admissions/${admission.id}/summary`}
-          className="inline-flex w-fit items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-        >
+        <Link to={`/admissions/${admission.id}/summary`} className={secondaryLink}>
           {t('discharge.summaryLink')}
         </Link>
       )}
@@ -123,10 +120,7 @@ export function DischargePanel({
               <li key={reason}>{t(`discharge.bill.reasons.${reason}`)}</li>
             ))}
           </ul>
-          <Link
-            to={`/billing/stays/${admission.id}`}
-            className="inline-flex w-fit items-center rounded-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-          >
+          <Link to={`/billing/stays/${admission.id}`} className={secondaryLink}>
             {t('discharge.bill.open')}
           </Link>
           {needsConfirm && (

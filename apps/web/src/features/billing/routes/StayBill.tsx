@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { DepositPanel } from '../components/DepositPanel';
@@ -81,10 +81,7 @@ export default function StayBill() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
       <h1 className="text-2xl font-semibold tracking-tight">{t('stay.heading')}</h1>
-      <Link
-        to="/admissions"
-        className="inline-flex w-fit items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-      >
+      <Link to="/admissions" className={secondaryLink}>
         {t('stay.back')}
       </Link>
       {missing ? (

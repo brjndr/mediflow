@@ -94,7 +94,7 @@ export default function CreditBillPanel({ context }: SlotProps) {
               : tCommon(errorMessageKey(create.error))
             : ''}{' '}
         {bill && (
-          <Link to={`/credit/${bill.payerId}`} className="font-medium underline">
+          <Link to={`/credit/${bill.payerId}`} className="font-medium underline text-primary-ink">
             {t('credit.panel.open')}
           </Link>
         )}

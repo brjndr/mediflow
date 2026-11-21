@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { useFormatters } from '@/tenancy';
 import { RegisterFigures } from '../components/RegisterFigures';
 import { SettlementPrint } from '../components/SettlementPrint';
@@ -24,10 +24,7 @@ export default function RegisterSessionDetail() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
       <h1 className="text-2xl font-semibold tracking-tight">{t('register.detail.heading')}</h1>
-      <Link
-        to="/billing/register/sessions"
-        className="inline-flex w-fit items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-      >
+      <Link to="/billing/register/sessions" className={secondaryLink}>
         {t('register.detail.back')}
       </Link>
       {found.isPending ? (

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { useDiscountSettings, useSetDiscountSettings } from '../hooks/use-billing';
 import { bpToPercent, percentToBp } from '../lib/tax';
@@ -30,10 +30,7 @@ export default function DiscountLimit() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('discount.limit.heading')}</h1>
         <p className="text-muted-foreground">{t('discount.limit.description')}</p>
-        <Link
-          to="/billing/invoices"
-          className="inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-        >
+        <Link to="/billing/invoices" className={secondaryLink}>
           {t('discount.limit.back')}
         </Link>
       </div>

@@ -4,11 +4,11 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { useFormatters } from '@/tenancy';
-import { link, useFieldName, useKindName } from '../components/common';
+import { useFieldName, useKindName } from '../components/common';
 import { useBatchAction, useImportBatch, useImportProblems } from '../hooks/use-imports';
 import { WORKING } from '../schemas';
 import type { ImportBatch, ImportProblem } from '../types';
@@ -242,7 +242,7 @@ export default function ImportDetail() {
   return (
     <DesktopOnly>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6">
-        <Link to="/imports" className={`${link} text-sm underline`}>
+        <Link to="/imports" className={secondaryLink}>
           {t('backToList')}
         </Link>
         <Batch batchId={batchId} />

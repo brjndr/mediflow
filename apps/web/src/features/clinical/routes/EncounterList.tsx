@@ -11,6 +11,8 @@ import { useFormatters } from '@/tenancy';
 import { useEncounters } from '../hooks/use-clinical';
 import { ENCOUNTER_STATUSES } from '../schemas';
 import type { Encounter, EncounterStatus } from '../types';
+import { cn } from '@/shared/lib/utils';
+import { secondaryLink } from '@/shared/ui/button';
 
 const select =
   'h-9 w-full rounded-md border bg-background px-3 text-base md:text-sm pointer-coarse:h-11 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
@@ -145,10 +147,7 @@ export default function EncounterList() {
       />
       {/* After the rows, so a click on the first link of the page is a consultation. */}
       {canSets && encounters.isSuccess && (
-        <Link
-          to="/prescription-sets"
-          className="self-start text-sm text-primary underline underline-offset-4 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
+        <Link to="/prescription-sets" className={cn(secondaryLink, 'self-start')}>
           {t('list.setsLink')}
         </Link>
       )}

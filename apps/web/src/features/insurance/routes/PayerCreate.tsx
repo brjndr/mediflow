@@ -14,9 +14,7 @@ import {
   toPayerFormValues,
   type PayerCreateFormValues,
 } from '../schemas';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/button';
 
 function NewPayer() {
   const { t } = useTranslation('insurance');
@@ -80,7 +78,7 @@ function NewPayer() {
         <PayerFields />
         <div className="flex flex-wrap gap-3">
           <SubmitButton pending={create.isPending}>{t('create.submit')}</SubmitButton>
-          <Link to="/insurance" className={link}>
+          <Link to="/insurance" className={secondaryLink}>
             {t('cancel')}
           </Link>
         </div>

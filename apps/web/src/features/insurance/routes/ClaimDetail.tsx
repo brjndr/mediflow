@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { useFormatters } from '@/tenancy';
@@ -16,8 +16,6 @@ import { actionPermission, type ClaimExportFormat } from '../claims';
 import { useClaim, useExportClaim } from '../hooks/use-claims';
 import type { ClaimActionKind } from '../types';
 
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** Hands the file to the browser to save; nothing is kept on the page. */
@@ -59,7 +57,7 @@ export default function ClaimDetail() {
           missing ? t('claims.detail.notFoundBody') : tCommon(errorMessageKey(claim.error))
         }
         actions={
-          <Link to="/claims" className={link}>
+          <Link to="/claims" className={secondaryLink}>
             {t('claims.backToList')}
           </Link>
         }
@@ -81,7 +79,7 @@ export default function ClaimDetail() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6">
       <div className="space-y-2">
-        <Link to="/claims" className={link}>
+        <Link to="/claims" className={secondaryLink}>
           {t('claims.backToList')}
         </Link>
         <div className="flex flex-wrap items-center gap-3">

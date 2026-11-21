@@ -56,7 +56,10 @@ export function InvalidLinkNotice({ requestNewTo }: { requestNewTo?: string }) {
       <p className="text-sm">{t('account.invalidLinkBody')}</p>
       <div className="flex flex-col gap-2">
         {requestNewTo && (
-          <Link to={requestNewTo} className="text-sm font-medium text-primary hover:underline">
+          <Link
+            to={requestNewTo}
+            className="text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
+          >
             {t('account.requestNewLink')}
           </Link>
         )}

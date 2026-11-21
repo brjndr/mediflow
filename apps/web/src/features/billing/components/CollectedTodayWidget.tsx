@@ -9,7 +9,7 @@ import { useFormatters } from '@/tenancy';
 import { useCollectedToday } from '../hooks/use-billing';
 import { netOf } from '../lib/register';
 import type { RegisterTotal } from '../types';
-import { Link } from 'react-router';
+import { WidgetLink } from '@/shared/ui/stat-card';
 const loadHindi = () => import('../widget-strings.hi.json');
 
 const METHODS: RegisterTotal['method'][] = ['cash', 'card', 'upi', 'bank', 'other'];
@@ -63,12 +63,7 @@ export default function CollectedTodayWidget() {
             )}
           </>
         )}
-        <Link
-          to="/billing/register/sessions"
-          className="mt-auto inline-flex text-sm underline underline-offset-4 pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
-          {t('collected.open')}
-        </Link>
+        <WidgetLink to="/billing/register/sessions">{t('collected.open')}</WidgetLink>
       </section>
     </Card>
   );

@@ -6,9 +6,7 @@ import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { useCreditAccounts } from '../hooks/use-credit';
 import type { CreditAccount } from '../types';
-
-const link =
-  'inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink, textLink } from '@/shared/ui/button';
 
 /** The corporates billed on credit, with what each owes. The figures are the server's. */
 export default function CreditAccountList() {
@@ -30,7 +28,7 @@ export default function CreditAccountList() {
         value: (row) => row.payerName,
         hideable: false,
         render: (row, text) => (
-          <Link to={`/credit/${row.payerId}`} className={link}>
+          <Link to={`/credit/${row.payerId}`} className={textLink}>
             {text}
           </Link>
         ),
@@ -74,7 +72,7 @@ export default function CreditAccountList() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t('credit.heading')}</h1>
         <p className="text-muted-foreground">{t('credit.description')}</p>
-        <Link to="/insurance" className={`${link} text-sm underline`}>
+        <Link to="/insurance" className={secondaryLink}>
           {t('credit.toPayers')}
         </Link>
       </div>

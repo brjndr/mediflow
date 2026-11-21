@@ -7,9 +7,7 @@ import { StaffPicker } from '../components/StaffPicker';
 import { useCreateDoctor } from '../hooks/use-doctors';
 import type { DoctorFormValues } from '../schemas';
 import type { DoctorCandidate } from '../types';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** What the server said, as a key of this feature's strings, when it has one. */
 function refusal(error: unknown): 'create.exists' | 'create.invalid' | null {
@@ -99,7 +97,7 @@ export default function DoctorCreate() {
             </div>
           }
           after={
-            <Link to="/doctors" className={link}>
+            <Link to="/doctors" className={secondaryLink}>
               {t('form.cancel')}
             </Link>
           }

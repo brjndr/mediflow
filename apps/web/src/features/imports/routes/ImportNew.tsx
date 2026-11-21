@@ -4,11 +4,12 @@ import { Link, useNavigate } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SelectField, SubmitButton, useZodForm } from '@/shared/ui/form';
-import { link, useFieldName, useKindName } from '../components/common';
+import { useFieldName, useKindName } from '../components/common';
 import { useImportKinds, useUploadBatch, type UploadProgress } from '../hooks/use-imports';
 import { readCsvFile, type FileProblem, type ReadFile } from '../read-file';
 import { guessMapping, isKnownKind, mappingSchema, type Mapping } from '../schemas';
 import type { ImportColumn, ImportKind } from '../types';
+import { secondaryLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 
@@ -124,7 +125,7 @@ function NewImport() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/imports" className={`${link} text-sm underline`}>
+        <Link to="/imports" className={secondaryLink}>
           {t('backToList')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{t('new.heading')}</h1>

@@ -9,6 +9,7 @@ import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
 import { useStays } from '../hooks/use-nursing';
 import type { StayRow } from '../types';
+import { secondaryLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 /** The address value that stands for every doctor. */
@@ -85,7 +86,7 @@ export default function Rounds() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/nursing" className="text-sm underline underline-offset-2">
+        <Link to="/nursing" className={secondaryLink}>
           {t('back')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{t('rounds.heading')}</h1>

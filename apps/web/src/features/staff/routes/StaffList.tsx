@@ -6,7 +6,7 @@ import { Can } from '@/access';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { actionLink, Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useResendInvite, useStaff, useStaffAction, type StaffAction } from '../hooks/use-staff';
 import { STAFF_STATUSES } from '../schemas';
@@ -18,9 +18,6 @@ const MANAGE = 'staff:manage';
 const INVITE = 'staff:invite';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
-const link =
-  'inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
-
 /** What the server said, as a key of this feature's strings, when it has one. */
 function refusal(error: unknown) {
   if (!isApiError(error)) return null;
@@ -227,7 +224,7 @@ export default function StaffList() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
         <Can permission={INVITE}>
-          <Link to="/staff/invite" className={`${link} pt-2 text-sm`}>
+          <Link to="/staff/invite" className={actionLink}>
             {t('invite')}
           </Link>
         </Can>

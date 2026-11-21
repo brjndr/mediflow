@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { ImageOff, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
@@ -34,7 +34,7 @@ export default function BlockedImagesWidget() {
   };
 
   return (
-    <StatCard id="widget-blocked-images" title={t('widget.title')}>
+    <StatCard id="widget-blocked-images" icon={ImageOff} accent={5} title={t('widget.title')}>
       {blocked.isError ? (
         <p role="alert" className="text-sm text-muted-foreground">
           {tCommon(errorMessageKey(blocked.error))}

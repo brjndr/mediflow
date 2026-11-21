@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router';
 import { Can, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { Form, SubmitButton, TextAreaField, TextField, useZodForm } from '@/shared/ui/form';
 import { StatusBadge } from '@/shared/ui/status-badge';
 import { maskMrn } from '@/shared/utils/mask';
@@ -264,7 +264,7 @@ export default function CarePlans() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/nursing" className="text-sm underline underline-offset-2">
+        <Link to="/nursing" className={secondaryLink}>
           {t('back')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">

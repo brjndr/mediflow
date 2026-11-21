@@ -77,7 +77,12 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-14 flex-wrap items-center gap-x-2 gap-y-1 border-b bg-card/70 px-3 py-1 shadow-soft sm:gap-x-3 sm:px-4">
+        <header className="relative flex min-h-14 flex-wrap items-center gap-x-2 gap-y-1 border-b bg-card/80 px-3 py-1 shadow-soft sm:gap-x-3 sm:px-4">
+          {/* A strip of the hospital's colour along the top of every screen (#1119). */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-brand-gradient"
+          />
           <Button
             className="lg:hidden"
             size="icon"

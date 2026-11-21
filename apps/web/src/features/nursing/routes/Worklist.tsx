@@ -8,6 +8,7 @@ import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
 import { useStays, useWardOptions } from '../hooks/use-nursing';
 import type { StayRow } from '../types';
+import { secondaryLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 
@@ -94,12 +95,12 @@ export default function Worklist() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
         <Can permission="progressNote:read">
-          <Link to="/nursing/rounds" className="text-sm underline underline-offset-2">
+          <Link to="/nursing/rounds" className={`${secondaryLink} mr-2 mt-2`}>
             {t('rounds.link')}
           </Link>
         </Can>
         <Can permission="order:read">
-          <Link to="/nursing/kitchen" className="ml-4 text-sm underline underline-offset-2">
+          <Link to="/nursing/kitchen" className={`${secondaryLink} mt-2`}>
             {t('kitchen.link')}
           </Link>
         </Can>

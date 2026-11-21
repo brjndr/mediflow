@@ -9,11 +9,9 @@ import { useDoctors } from '../hooks/use-doctors';
 import type { Doctor } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
+import { actionLink, textLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
-const link =
-  'inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
-
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function DoctorList() {
   const { t } = useTranslation('doctors');
@@ -41,7 +39,7 @@ export default function DoctorList() {
         value: (row) => row.name,
         hideable: false,
         render: (row, text) => (
-          <Link to={`/doctors/${row.id}`} className={link}>
+          <Link to={`/doctors/${row.id}`} className={textLink}>
             {text}
           </Link>
         ),
@@ -67,7 +65,7 @@ export default function DoctorList() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
         <Can permission="doctor:manage">
-          <Link to="/doctors/new" className={`${link} pt-2 text-sm underline`}>
+          <Link to="/doctors/new" className={actionLink}>
             {t('add')}
           </Link>
         </Can>

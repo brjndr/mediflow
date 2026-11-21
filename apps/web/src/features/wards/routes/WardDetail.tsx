@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
@@ -15,9 +15,6 @@ import { WardFields } from '../components/WardFields';
 import { useUpdateWard, useWard } from '../hooks/use-wards';
 import { toWardFormValues, wardFormSchema, type WardField, type WardFormValues } from '../schemas';
 import type { Ward } from '../types';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
 const FIELDS: WardField[] = ['name', 'floor', 'departmentId'];
 
@@ -265,7 +262,7 @@ function WardScreen() {
   const ward = useWard(wardId);
 
   const back = (
-    <Link to="/wards" className={link}>
+    <Link to="/wards" className={secondaryLink}>
       {t('backToList')}
     </Link>
   );
