@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { currentSession, onMockReset, TENANT_IDS, USER_IDS } from '../db';
 import { authorize, error } from '../respond';
+import { auditRows, type AuditFilters } from './audit';
 
 type Kind = components['schemas']['ReportResult']['kind'];
 type Result = components['schemas']['ReportResult'];
@@ -55,6 +56,8 @@ interface Stored extends Run {
   reads: number;
   /** Set for a run that will end failed, with this code. */
   willFail?: string;
+  /** The filters an audit log export was asked with, kept with the run. */
+  filters?: AuditFilters;
 }
 
 const seed = (): Stored[] => [
@@ -134,7 +137,13 @@ export const setMockReportBusy = (value: boolean) => {
 const days = (from: string, to: string) =>
   Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / DAY_MS) + 1;
 
-function result(kind: Kind, from: string | null, to: string | null): Result {
+function result(
+  kind: Kind,
+  from: string | null,
+  to: string | null,
+  tenantId: string = TENANT_IDS.hospital,
+  filters: AuditFilters = {},
+): Result {
   const base = { kind, from, to, currency: 'INR', generatedAt: new Date(NOW).toISOString() };
   switch (kind) {
     case 'opd_census':
@@ -268,7 +277,14 @@ function result(kind: Kind, from: string | null, to: string | null): Result {
           { key: 'entityId', type: 'text' },
           { key: 'detail', type: 'text' },
         ],
-        rows: [['2026-11-01T09:00:00.000Z', 'Sample Admin', 'read', 'patient', 'p-1', null]],
+        rows: auditRows(tenantId, to ?? '2026-11-01', filters).map((row) => [
+          row.at,
+          row.actor?.name ?? null,
+          row.action,
+          row.entity,
+          row.entityId,
+          row.detail,
+        ]),
         totals: [null, null, null, null, null, null],
       };
     case 'outstanding':
@@ -308,8 +324,9 @@ function result(kind: Kind, from: string | null, to: string | null): Result {
 
 /** A stored report as the list gives it: how far the job has got follows the reads by id. */
 function shown(run: Stored): Run {
-  const { tenantId: _tenantId, reads, willFail, ...rest } = run;
+  const { tenantId: _tenantId, reads, willFail, filters: _filters, ...rest } = run;
   void _tenantId;
+  void _filters;
   if (run.status === 'succeeded' || run.status === 'failed') return rest;
   const status = reads < 1 ? 'queued' : reads < 2 ? 'running' : willFail ? 'failed' : 'succeeded';
   return {
@@ -382,7 +399,9 @@ export const reportsHandlers = [
     run.reads += 1;
     const now = shown(run);
     return HttpResponse.json<Run>(
-      now.status === 'succeeded' ? { ...now, result: result(run.kind, run.from, run.to) } : now,
+      now.status === 'succeeded'
+        ? { ...now, result: result(run.kind, run.from, run.to, run.tenantId, run.filters) }
+        : now,
     );
   }),
 
@@ -433,6 +452,10 @@ export const reportsHandlers = [
     const known = keys.get(scoped);
     const earlier = runs.find((run) => run.id === known);
     if (earlier) return HttpResponse.json(shown(earlier), { status: 202 });
+    const sent = (await request
+      .clone()
+      .json()
+      .catch(() => ({}))) as AuditFilters;
     const range = await readDays(request, params.kind, STORED_MAX_DAYS);
     if ('problem' in range) return range.problem;
     if (quotaUsed) {
@@ -453,6 +476,16 @@ export const reportsHandlers = [
       requestedAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 30 * DAY_MS).toISOString(),
       reads: 0,
+      ...(params.kind === 'audit_log'
+        ? {
+            filters: {
+              actorId: sent.actorId,
+              entity: sent.entity,
+              entityId: sent.entityId,
+              action: sent.action,
+            },
+          }
+        : {}),
       ...(failNext ? { willFail: failNext } : {}),
     };
     failNext = null;
