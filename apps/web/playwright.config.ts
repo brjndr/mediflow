@@ -16,7 +16,8 @@ export default defineConfig({
   // wrong result. More time, not more retries.
   timeout: isCI ? 60_000 : 30_000,
   expect: { timeout: isCI ? 10_000 : 5_000 },
-  reporter: isCI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  // CI: each job writes a blob report, and the `e2e-report` job merges them into one HTML report (#536).
+  reporter: isCI ? [['github'], ['blob']] : 'list',
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',

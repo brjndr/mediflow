@@ -308,9 +308,13 @@ jobs:
           docker logs api
           exit 1
 
-  # Builds the app itself, so it does not wait for `verify`; it runs in three shards, one runner each.
+  # Builds the app itself, so it does not wait for `verify`. Split by project, not by count (#536):
+  # `--shard` counts a test the tablet or phone skips at run time (most of a11y and hindi) as much as
+  # one that runs, so three even shards gave one 10 minutes of work and another 4. Chromium and the
+  # phone run most tests and get two jobs each; the tablet skips most and shares a job with WebKit,
+  # the only job that installs WebKit and its system packages (the ones the apt mirror stalls on, #1069).
   e2e:
-    name: Playwright (shard ${{ matrix.shard }}/3)
+    name: Playwright (${{ matrix.name }})
     # ubuntu-latest became 26.04, whose libicu the Playwright WebKit build does not match (libicudata.so.74).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -319,7 +323,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        include:
+          - name: chromium 1/2
+            id: chromium-1
+            args: --project=chromium --shard=1/2
+            browsers: chromium
+          - name: chromium 2/2
+            id: chromium-2
+            args: --project=chromium --shard=2/2
+            browsers: chromium
+          - name: phone 1/2
+            id: phone-1
+            args: --project=phone --shard=1/2
+            browsers: chromium
+          - name: phone 2/2
+            id: phone-2
+            args: --project=phone --shard=2/2
+            browsers: chromium
+          - name: tablet and webkit
+            id: tablet-webkit
+            args: --project=tablet --project=webkit-phone
+            browsers: chromium webkit
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -334,7 +358,7 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      # WebKit runs the subset named in playwright.config.ts (the webkit-phone project, #334).
+      # WebKit runs the subset named in playwright.config.ts (the webkit-phone project, #334), in one job.
       # The apt mirror sometimes stalls on the WebKit system packages: cap the first try and retry once.
       - run: |
           echo 'Acquire::http::Timeout "15";' | sudo tee /etc/apt/apt.conf.d/99ci-network
@@ -342,7 +366,7 @@ jobs:
           echo 'Acquire::Retries "5";' | sudo tee -a /etc/apt/apt.conf.d/99ci-network
           echo 'http://azure.archive.ubuntu.com/ubuntu/	priority:1' | sudo tee /etc/apt/apt-mirrors.txt
       - id: pw_install
-        run: pnpm --filter web exec playwright install --with-deps chromium webkit
+        run: pnpm --filter web exec playwright install --with-deps ${{ matrix.browsers }}
         timeout-minutes: 8
         continue-on-error: true
       - if: steps.pw_install.outcome != 'success'
@@ -351,13 +375,44 @@ jobs:
           sudo pkill -x dpkg || true
           sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock
           sudo dpkg --configure -a
-          pnpm --filter web exec playwright install --with-deps chromium webkit
+          pnpm --filter web exec playwright install --with-deps ${{ matrix.browsers }}
         timeout-minutes: 10
-      - run: pnpm --filter web exec playwright test --shard=${{ matrix.shard }}/3
+      - run: pnpm --filter web exec playwright test ${{ matrix.args }}
+        env:
+          # A distinct name per job, so the blobs do not overwrite each other when merged.
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: report-${{ matrix.id }}.zip
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: failure()
+        if: ${{ !cancelled() }}
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-blob-${{ matrix.id }}
+          path: apps/web/blob-report
+          retention-days: 1
+
+  # One HTML report for all the e2e jobs (#536), uploaded as `playwright-report` when any of them failed.
+  e2e-report:
+    name: Playwright report
+    needs: [plan, e2e]
+    if: ${{ !cancelled() && needs.plan.outputs.mode == 'full' && needs.plan.outputs.web == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: playwright-blob-*
+          path: apps/web/all-blob-reports
+          merge-multiple: true
+      - run: pnpm --filter web exec playwright merge-reports --reporter html ./all-blob-reports
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: needs.e2e.result == 'failure'
+        with:
+          name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
 

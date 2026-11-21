@@ -49,3 +49,7 @@ Moved out of the root `CLAUDE.md` (#370), which keeps the rule; Claude Code load
 ## Web server timeout (#993)
 
 `playwright.config.ts` builds the app and then serves it on port 4173 inside the `webServer` timeout: 180 s in CI, 600 s locally, because the build can take several minutes on the 2-core dev machine. To skip the build, run `pnpm --filter web exec cross-env VITE_API_MOCKING=enabled vite build` once, start `pnpm --filter web preview --port 4173 --strictPort` yourself, and run Playwright: locally it reuses the running server.
+
+## CI jobs and the merged report (#536)
+
+CI runs the suite in five jobs split by project (`e2e` in `.github/workflows/ci.yml`): chromium in two shards, phone in two, and tablet with `webkit-phone` in one. Not three even `--shard`s: sharding counts tests, and a test the tablet or phone skips at run time (most of `a11y.spec.ts` and `hindi.spec.ts`) counts as much as one that runs, so one shard got 10 minutes of work and another 4. Only the tablet and WebKit job installs WebKit. A new spec that skips whole projects changes the balance: check the job times. Each job writes a blob report (`PLAYWRIGHT_BLOB_OUTPUT_NAME` keeps the names apart) and the `Playwright report` job merges them; when any e2e job failed it uploads one HTML report, `playwright-report`.
