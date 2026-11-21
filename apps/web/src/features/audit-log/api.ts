@@ -12,6 +12,8 @@ export interface AuditFilters {
   entity?: string;
   entityId?: string;
   action?: string;
+  /** Free text over the action and the kind of record. The search takes it, the export does not. */
+  q?: string;
 }
 
 export async function searchAudit(
@@ -31,9 +33,10 @@ export async function searchAudit(
  * record and action filters are the ones the search takes, so the file holds what is on screen.
  */
 export async function requestExport(
-  body: AuditFilters,
+  filters: AuditFilters,
   idempotencyKey: string,
 ): Promise<ReportRun> {
+  const body = { ...filters, q: undefined };
   const result = await api.POST('/reports/{kind}/runs', {
     params: { path: { kind: 'audit_log' }, header: { 'idempotency-key': idempotencyKey } },
     body,

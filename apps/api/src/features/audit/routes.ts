@@ -28,7 +28,7 @@ export const auditRoutes: FastifyPluginAsyncTypebox = async (app) => {
       schema: {
         operationId: 'searchAuditLog',
         tags: ['audit'],
-        description: `The hospital's audit log, newest first, paged by cursor. A range of days at the hospital's clock is required, at most ${MAX_AUDIT_DAYS} days (422 \`range_invalid\`, \`range_too_long\`). Filters: the account that acted, the kind of record, the record, the action, all exact. Entries hold record ids only, never a patient's name. The body is a POST so the filters stay out of logs. Requires auditLog:read with the scope \`all\` and the audit_log feature flag. The read is itself audited (a read of \`audit_log\`).`,
+        description: `The hospital's audit log, newest first, paged by cursor. A range of days at the hospital's clock is required, at most ${MAX_AUDIT_DAYS} days (422 \`range_invalid\`, \`range_too_long\`). Filters: the account that acted, the kind of record, the record, the action, all exact, and free text q (part of the action or of the kind of record, any case). Entries hold record ids only, never a patient's name. The body is a POST so the filters stay out of logs. Requires auditLog:read with the scope \`all\` and the audit_log feature flag. The read is itself audited (a read of \`audit_log\`).`,
         body: ref(AuditSearchRequest),
         response: { 200: ref(AuditPage), ...errors(400, 401, 403, 409, 422) },
       },
@@ -57,6 +57,7 @@ export const auditRoutes: FastifyPluginAsyncTypebox = async (app) => {
         ...(body.entity === undefined ? {} : { entity: body.entity }),
         ...(body.entityId === undefined ? {} : { entityId: body.entityId }),
         ...(body.action === undefined ? {} : { action: body.action }),
+        ...(body.q === undefined ? {} : { q: body.q }),
         ...(body.cursor === undefined ? {} : { cursor: body.cursor }),
         limit: body.limit ?? DEFAULT_PAGE_SIZE,
       });

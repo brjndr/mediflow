@@ -13,5 +13,6 @@ The hospital's own audit log screen (#1066). The API is `apps/api/src/features/a
 
 ## Known gaps
 
-- No link from an entry to its record (a record id is shown as text), and no free-text search.
+- Free text (#1101): a "Search the action and kind of record" box, sent as `q` in the POST body only. The export does not take it (it keeps the four exact filters), and the screen says so while a text is applied.
+- Record links (#1101): `lib/record-link.ts`. An id is a link only when the entity names a kind some feature makes linkable (`links` in its manifest; entity `patient` today) and the caller's policy allows the linked route (`requires` and flag); otherwise it stays text. The address is the manifest's own, never carrying a hospital. Other kinds (`invoice`, `encounter`...) become links by adding `links` to their feature, with no change here.
 - Not in `feature-locales.test.ts` (its own test compares the two files).

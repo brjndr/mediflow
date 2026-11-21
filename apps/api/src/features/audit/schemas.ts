@@ -15,6 +15,12 @@ export const AuditSearchRequest = Type.Object(
     entity: Type.Optional(Type.String({ maxLength: 63, description: 'Kind of record, exact.' })),
     entityId: Type.Optional(Type.String({ maxLength: 64, description: 'The record, exact.' })),
     action: Type.Optional(Type.String({ maxLength: 63, description: 'The action, exact.' })),
+    q: Type.Optional(
+      Type.String({
+        maxLength: 63,
+        description: 'Free text: part of the action or of the kind of record, any case.',
+      }),
+    ),
     cursor: Type.Optional(Type.String({ maxLength: 200 })),
     limit: Type.Optional(
       Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),

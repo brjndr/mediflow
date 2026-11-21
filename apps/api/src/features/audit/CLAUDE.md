@@ -14,7 +14,7 @@ The hospital's own audit trail (#1066, COMPLIANCE 3.4). The root and `apps/api` 
 ## Known gaps
 
 - A hospital's audit log older than `AUDIT_RETENTION_MONTHS` is archived to files and not searchable here (COMPLIANCE 3.3).
-- No free-text search and no filter by a range of entity ids; the filters are exact.
+- Free text (#1101): `q` in the body matches part of the action or the kind of record, any case, `%` and `_` literal (within the day range, no index needed). It is not on the export. No filter by a range of entity ids; the other filters are exact.
 - The routine review of the log (COMPLIANCE 3.6) is a process, not a feature.
 - Tests: `audit.test.ts`.
 

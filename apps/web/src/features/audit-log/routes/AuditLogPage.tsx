@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { Can, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -16,6 +17,7 @@ import {
   useRequestExport,
 } from '../hooks/use-audit-log';
 import { downloadFile, useStaffNames } from '../lib/bridge';
+import { useRecordLink } from '../lib/record-link';
 import { filterSchema, shiftDay, WORKING, type FilterValues } from '../schemas';
 import type { AuditEntry, ReportRun } from '../types';
 
@@ -29,6 +31,7 @@ const toFilters = (values: FilterValues): AuditFilters => ({
   ...(values.entity.trim() ? { entity: values.entity.trim() } : {}),
   ...(values.entityId.trim() ? { entityId: values.entityId.trim() } : {}),
   ...(values.action.trim() ? { action: values.action.trim() } : {}),
+  ...(values.q.trim() ? { q: values.q.trim() } : {}),
 });
 
 /**
@@ -42,6 +45,7 @@ export default function AuditLogPage() {
   const timezone = useTenant()?.timezone ?? 'UTC';
   const today = todayIn(timezone);
   const staff = useStaffNames();
+  const recordLink = useRecordLink();
 
   const initial: FilterValues = {
     from: shiftDay(today, -6),
@@ -50,6 +54,7 @@ export default function AuditLogPage() {
     entity: '',
     entityId: '',
     action: '',
+    q: '',
   };
   const form = useZodForm(filterSchema, initial);
   const [applied, setApplied] = useState<AuditFilters>(() => toFilters(initial));
@@ -145,10 +150,24 @@ export default function AuditLogPage() {
       },
       { id: 'action', header: t('columns.action'), value: (row) => row.action },
       { id: 'entity', header: t('columns.entity'), value: (row) => row.entity },
-      { id: 'entityId', header: t('columns.entityId'), value: (row) => row.entityId ?? '' },
+      {
+        id: 'entityId',
+        header: t('columns.entityId'),
+        value: (row) => row.entityId ?? '',
+        render: (row, text) => {
+          const to = recordLink(row.entity, row.entityId);
+          return to ? (
+            <Link to={to} className="underline underline-offset-2">
+              {text}
+            </Link>
+          ) : (
+            text
+          );
+        },
+      },
       { id: 'detail', header: t('columns.detail'), value: (row) => row.detail ?? '' },
     ],
-    [t, format],
+    [t, format, recordLink],
   );
   const rows = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
@@ -189,6 +208,12 @@ export default function AuditLogPage() {
             hint={t('form.actionHint')}
           />
         </div>
+        <TextField<FilterValues>
+          name="q"
+          label={t('form.q')}
+          hint={t('form.qHint')}
+          inputMode="search"
+        />
         <div className="flex flex-wrap gap-2">
           <SubmitButton pending={query.isFetching}>{t('form.search')}</SubmitButton>
         </div>
@@ -220,6 +245,9 @@ export default function AuditLogPage() {
         <p role="status" className="text-sm text-muted-foreground">
           {statusText}
         </p>
+        {applied.q !== undefined && (
+          <p className="text-sm text-muted-foreground">{t('export.ignoresText')}</p>
+        )}
       </div>
       <section aria-labelledby="audit-entries" className="flex flex-col gap-2">
         <h2 id="audit-entries" className="text-lg font-semibold">

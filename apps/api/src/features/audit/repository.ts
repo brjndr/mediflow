@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { searchTerm } from '../../core/http/text.js';
 
 export interface AuditFilter {
   from: string;
@@ -7,6 +8,7 @@ export interface AuditFilter {
   entity?: string;
   entityId?: string;
   action?: string;
+  q?: string;
   cursor?: string;
   limit: number;
 }
@@ -22,6 +24,8 @@ interface Row {
   entity_id: string | null;
   detail: string | null;
 }
+
+const likeEscape = (term: string) => term.replace(/[\\%_]/g, (char) => `\\${char}`);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -59,6 +63,7 @@ export async function searchAudit(
 ): Promise<{ items: AuditItem[]; nextCursor: string | null } | null> {
   const after = filter.cursor === undefined ? undefined : decode(filter.cursor);
   if (after === null) return null;
+  const q = searchTerm(filter.q);
   const { rows } = await client.query<Row>(
     `select a.id, a.at::text as at_text, a.at, a.actor_id, u.name as actor_name, a.action,
             a.entity, a.entity_id, a.detail
@@ -74,6 +79,7 @@ export async function searchAudit(
        and ($5::text is null or a.entity_id = $5)
        and ($6::text is null or a.action = $6)
        and ($7::timestamptz is null or (a.at, a.id) < ($7::timestamptz, $8::uuid))
+       and ($10::text is null or a.action ilike $10 escape '\\' or a.entity ilike $10 escape '\\')
      order by a.at desc, a.id desc
      limit $9`,
     [
@@ -86,6 +92,7 @@ export async function searchAudit(
       after?.at ?? null,
       after?.id ?? null,
       filter.limit + 1,
+      q ? `%${likeEscape(q)}%` : null,
     ],
   );
   const page = rows.slice(0, filter.limit);
