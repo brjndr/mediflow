@@ -31,15 +31,35 @@ const LOG: Record<string, Omit<Entry, 'at'>[]> = {
   ],
 };
 
-interface Body {
-  from?: string;
-  to?: string;
+export interface AuditFilters {
   actorId?: string;
   entity?: string;
   entityId?: string;
   action?: string;
+}
+
+interface Body extends AuditFilters {
+  from?: string;
+  to?: string;
   cursor?: string;
   limit?: number;
+}
+
+/** The session hospital's entries on the last day asked for, newest first, kept by the filters.
+ * Shared with the export of the log, so a stored run holds what the search shows. */
+export function auditRows(tenantId: string, to: string, filters: AuditFilters) {
+  return (LOG[tenantId] ?? [])
+    .map((row, index) => ({
+      ...row,
+      at: new Date(Date.parse(`${to}T06:30:00Z`) - index * 60_000).toISOString(),
+    }))
+    .filter(
+      (row) =>
+        (!filters.actorId || row.actor?.id === filters.actorId) &&
+        (!filters.entity || row.entity === filters.entity) &&
+        (!filters.entityId || row.entityId === filters.entityId) &&
+        (!filters.action || row.action === filters.action),
+    );
 }
 
 const dayNumber = (day: string) => Date.parse(`${day}T12:00:00Z`) / 86_400_000;
@@ -56,20 +76,8 @@ export const auditHandlers = [
     if (span < 1) return error(422, 'range_invalid', 'The days are the wrong way round');
     if (span > MAX_DAYS) return error(422, 'range_too_long', 'Too many days');
 
-    // Tenant isolation: only the session's hospital's entries are ever considered. The entries
-    // fall on the last day asked for, newest first.
-    const all = (LOG[access.tenantId] ?? [])
-      .map((row, index) => ({
-        ...row,
-        at: new Date(Date.parse(`${body.to}T06:30:00Z`) - index * 60_000).toISOString(),
-      }))
-      .filter(
-        (row) =>
-          (!body.actorId || row.actor?.id === body.actorId) &&
-          (!body.entity || row.entity === body.entity) &&
-          (!body.entityId || row.entityId === body.entityId) &&
-          (!body.action || row.action === body.action),
-      );
+    // Tenant isolation: only the session's hospital's entries are ever considered.
+    const all = auditRows(access.tenantId, body.to, body);
     const limit = Math.min(Math.max(body.limit ?? 50, 1), 100);
     const start = body.cursor ? Number(body.cursor) : 0;
     if (!Number.isInteger(start) || start < 0) {
