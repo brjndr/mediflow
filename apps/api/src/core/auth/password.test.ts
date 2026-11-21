@@ -67,6 +67,19 @@ describe('the rule for a new password', () => {
     expect(passwordProblem(password)).toBe('too_common');
   });
 
+  it.each(['Password1234!', 'q1w2e3r4t5y6', '1qaz2wsx3edc', 'iloveyou1234', 'SUNSHINE1234'])(
+    'refuses %s, a password known from a leak, in any case',
+    (password) => {
+      expect(passwordProblem(password)).toBe('too_common');
+    },
+  );
+
+  it('does not take the header of the leaked list for a password', () => {
+    expect(
+      passwordProblem('## SecLists: MIT License, Copyright (c) 2018 Daniel Miessler.'),
+    ).toBeNull();
+  });
+
   it("refuses a password built on the user's own email", () => {
     expect(passwordProblem('asha.rao-2026!!', { email: 'asha.rao@hospital.test' })).toBe(
       'too_common',
