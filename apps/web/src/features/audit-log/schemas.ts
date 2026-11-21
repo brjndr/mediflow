@@ -101,6 +101,7 @@ export const exportRunSchema: z.ZodType<ReportRun> = z.object({
       entity: z.string().optional(),
       entityId: z.string().optional(),
       action: z.string().optional(),
+      q: z.string().optional(),
     })
     .optional(),
 });

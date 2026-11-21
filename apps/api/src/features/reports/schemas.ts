@@ -56,6 +56,13 @@ export const ReportRequest = Type.Object(
     action: Type.Optional(
       Type.String({ maxLength: 63, description: '`audit_log` only: the action, exact.' }),
     ),
+    q: Type.Optional(
+      Type.String({
+        maxLength: 63,
+        description:
+          '`audit_log` only: free text, part of the action or of the kind of record, any case (as in `POST /audit/search`).',
+      }),
+    ),
   },
   { $id: 'ReportRequest', additionalProperties: false },
 );
@@ -121,6 +128,7 @@ export const ReportRun = Type.Object(
           entity: Type.Optional(Type.String()),
           entityId: Type.Optional(Type.String()),
           action: Type.Optional(Type.String()),
+          q: Type.Optional(Type.String({ description: 'The free text the run was searched by.' })),
         },
         {
           additionalProperties: false,

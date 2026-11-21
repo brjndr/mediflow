@@ -51,7 +51,8 @@
       "actor": "Person: {{value}}",
       "entity": "Record type: {{value}}",
       "entityId": "Record: {{value}}",
-      "action": "Action: {{value}}"
+      "action": "Action: {{value}}",
+      "q": "Search: {{value}}"
     },
     "status": {
       "queued": "Waiting",
@@ -61,7 +62,6 @@
     }
   },
   "export": {
-    "ignoresText": "The export does not use the search text.",
     "button": "Export these days (CSV)",
     "download": "Download CSV",
     "working": "Making the export. This can take a moment.",

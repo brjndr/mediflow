@@ -324,7 +324,7 @@ function result(
 
 /** The filters as the API returns them: only those set, with the person's name beside the id. */
 function namedFilters(tenantId: string, filters: AuditFilters) {
-  const { actorId, entity, entityId, action } = filters;
+  const { actorId, entity, entityId, action, q } = filters;
   const actorName = actorId
     ? auditRows(tenantId, '2026-11-01', { actorId })[0]?.actor?.name
     : undefined;
@@ -334,6 +334,7 @@ function namedFilters(tenantId: string, filters: AuditFilters) {
     ...(entity ? { entity } : {}),
     ...(entityId ? { entityId } : {}),
     ...(action ? { action } : {}),
+    ...(q ? { q } : {}),
   };
 }
 
@@ -498,6 +499,7 @@ export const reportsHandlers = [
               entity: sent.entity,
               entityId: sent.entityId,
               action: sent.action,
+              q: sent.q?.trim() || undefined,
             },
           }
         : {}),

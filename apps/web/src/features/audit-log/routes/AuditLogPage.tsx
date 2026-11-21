@@ -94,6 +94,7 @@ export default function AuditLogPage() {
             f?.entity ? t('exports.filters.entity', { value: f.entity }) : '',
             f?.entityId ? t('exports.filters.entityId', { value: f.entityId }) : '',
             f?.action ? t('exports.filters.action', { value: f.action }) : '',
+            f?.q ? t('exports.filters.q', { value: f.q }) : '',
           ].filter(Boolean);
           return parts.length > 0 ? parts.join('; ') : t('exports.unfiltered');
         },
@@ -245,9 +246,6 @@ export default function AuditLogPage() {
         <p role="status" className="text-sm text-muted-foreground">
           {statusText}
         </p>
-        {applied.q !== undefined && (
-          <p className="text-sm text-muted-foreground">{t('export.ignoresText')}</p>
-        )}
       </div>
       <section aria-labelledby="audit-entries" className="flex flex-col gap-2">
         <h2 id="audit-entries" className="text-lg font-semibold">
