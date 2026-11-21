@@ -9,6 +9,7 @@ const production = {
   APP_BASE_URL: 'https://app.example.com',
   MFA_ENCRYPTION_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
   REPORT_URL_SECRET: 'Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=',
+  AUDIT_SEAL_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
   FILE_STORE: 's3',
   S3_BUCKET: 'mediflow-files',
   S3_REGION: 'ap-south-1',
@@ -51,6 +52,7 @@ describe('loadConfig', () => {
       IDEMPOTENCY_TTL_HOURS: 24,
       LIVE_RECHECK_MS: 2000,
       REPORT_URL_SECRET: 'Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=',
+      AUDIT_SEAL_KEY: 'q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=',
       REPORT_URL_TTL_SECONDS: 300,
       FILE_STORE: 's3',
       S3_BUCKET: 'mediflow-files',
@@ -104,6 +106,7 @@ describe('loadConfig', () => {
       'APP_BASE_URL',
       'MFA_ENCRYPTION_KEY',
       'REPORT_URL_SECRET',
+      'AUDIT_SEAL_KEY',
     ]) {
       expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(new RegExp(name));
       const { [name]: _omitted, ...rest } = production as Record<string, string>;
@@ -148,6 +151,12 @@ describe('loadConfig', () => {
         /AUDIT_RETENTION_MONTHS/,
       );
     }
+  });
+
+  it('refuses the development audit seal key in production', () => {
+    expect(() =>
+      loadConfig({ ...production, AUDIT_SEAL_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }),
+    ).toThrow(/AUDIT_SEAL_KEY/);
   });
 
   it('refuses the development signing key in production', () => {

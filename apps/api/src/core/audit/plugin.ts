@@ -3,7 +3,8 @@ import fp from 'fastify-plugin';
 import type pg from 'pg';
 import { replayed } from '../idempotency/state.js';
 import { WORKER_ROLE } from '../outbox/dispatcher.js';
-import { retireAuditPartitions } from './retention.js';
+import { retentionCutoff, retireAuditPartitions } from './retention.js';
+import { sealAuditLog, verifyAuditSeals } from './seal.js';
 import { withTenantTransaction } from '../tenancy/transaction.js';
 
 /**
@@ -225,6 +226,36 @@ export const auditPlugin = fp(
       }
     });
     app.jobs.schedule('audit.partitions', '0 3 * * *');
+
+    // Seals each hospital's new rows every five minutes (#1081). The head of each chain goes to
+    // the log, which is kept off the database, so a seal removed and made again shows there.
+    const sealKey = Buffer.from(app.config.AUDIT_SEAL_KEY, 'base64');
+    app.jobs.work('audit.seal', async () => {
+      for (const head of await sealAuditLog(app.database.pool, sealKey)) {
+        app.log.info({ event: 'audit_sealed', ...head }, 'audit sealed');
+      }
+    });
+    app.jobs.schedule('audit.seal', '*/5 * * * *');
+
+    // Checks the seals every day: the chains, the seals of the last two days and a sample of
+    // older ones; every seal on Sundays. A mismatch is logged by hospital and seal id and fails the
+    // job, for the alerting to pick up.
+    app.jobs.work('audit.seal-verify', async () => {
+      const now = new Date();
+      const months = app.config.AUDIT_RETENTION_MONTHS;
+      const { checked, mismatches } = await verifyAuditSeals(app.database.pool, sealKey, {
+        scope: now.getUTCDay() === 0 ? 'all' : 'recent',
+        since: new Date(now.getTime() - 2 * 24 * 3600 * 1000),
+        sample: 200,
+        retainedFrom: months === undefined ? undefined : new Date(retentionCutoff(now, months)),
+      });
+      for (const mismatch of mismatches) {
+        app.log.error({ event: 'audit_seal_mismatch', ...mismatch }, 'audit seal mismatch');
+      }
+      app.log.info({ event: 'audit_seal_verified', count: checked }, 'audit seals verified');
+      if (mismatches.length > 0) throw new Error('audit_seal_mismatch');
+    });
+    app.jobs.schedule('audit.seal-verify', '30 4 * * *');
 
     // Archives and drops months past AUDIT_RETENTION_MONTHS. Does nothing while it is unset.
     app.jobs.work('audit.retention', async () => {

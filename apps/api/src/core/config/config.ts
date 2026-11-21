@@ -88,6 +88,12 @@ const ConfigSchema = Type.Object({
    * Unset keeps everything (the period is a legal decision, #1065); never below 36.
    */
   AUDIT_RETENTION_MONTHS: Type.Optional(Type.Integer({ minimum: 36, maximum: 240 })),
+  /**
+   * Keys the seals of the audit log (#1081, core/audit/seal.ts): 32 random bytes, base64. Generate
+   * with `openssl rand -base64 32` and keep it outside the database. Changing it makes every seal
+   * made before fail verification; keep the old key until those months are retired.
+   */
+  AUDIT_SEAL_KEY: Type.String({ pattern: '^[A-Za-z0-9+/]{43}=$' }),
   /** Days an account event (password change, session revoke) is kept; a hospital may ask for longer. */
   ACCOUNT_EVENTS_RETENTION_DAYS: Type.Integer({ minimum: 730, maximum: 3650, default: 730 }),
   /** Requests one hospital may make per minute, across all its users (noisy-neighbour limit). */
@@ -175,6 +181,8 @@ const LOCAL_SERVICES = {
   MFA_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
   // Also thirty-two zero bytes: links signed with it are forgeable, so production has no default.
   REPORT_URL_SECRET: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+  // Thirty-two zero bytes: seals made with it can be forged, so production has no default.
+  AUDIT_SEAL_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 } as const;
 
 export class ConfigError extends Error {
@@ -215,6 +223,10 @@ export function loadConfig(env: Env = process.env): Config {
   // The all-zero key is the development default: links signed with it can be forged by anyone.
   if (mode === 'production' && candidate.REPORT_URL_SECRET === LOCAL_SERVICES.REPORT_URL_SECRET) {
     throw new ConfigError(['REPORT_URL_SECRET: the development key cannot be used in production']);
+  }
+  // The all-zero key would let anyone with the database make seals that pass verification.
+  if (mode === 'production' && candidate.AUDIT_SEAL_KEY === LOCAL_SERVICES.AUDIT_SEAL_KEY) {
+    throw new ConfigError(['AUDIT_SEAL_KEY: the development key cannot be used in production']);
   }
   // Deleting a hospital's data is a legal duty: without its own login the job would fail later.
   if (mode === 'production' && !candidate.DELETION_DATABASE_URL) {
