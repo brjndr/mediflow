@@ -227,7 +227,7 @@ function FieldShell({
 }
 
 const control =
-  'w-full rounded-md border bg-background px-3 text-base outline-none md:text-sm focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive disabled:opacity-50';
+  'w-full rounded-lg border border-input bg-card px-3 text-base shadow-xs outline-none transition-[border-color,box-shadow] md:text-sm hover:border-primary/50 focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/30 aria-invalid:border-destructive disabled:opacity-50';
 
 /** Ids of the hint and error, so a screen reader reads them with the field. */
 const describedBy = (

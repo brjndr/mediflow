@@ -83,7 +83,7 @@ export function Dialog({
             className,
           )}
         >
-          <header className="flex shrink-0 items-start justify-between gap-2 border-b px-4 py-3 md:px-6">
+          <header className="flex shrink-0 items-start justify-between gap-2 border-b border-t-4 border-t-primary bg-primary-soft px-4 py-3 md:rounded-t-lg md:px-6">
             <DialogPrimitive.Title
               ref={heading}
               tabIndex={-1}

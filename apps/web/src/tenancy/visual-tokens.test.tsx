@@ -103,6 +103,12 @@ function fromHex(hex: string): Lab {
   ];
 }
 
+/** A Lab colour written as the `oklch()` literal `evaluate` reads, for a hex brand colour. */
+function oklchLiteral([l, a, b]: Lab): string {
+  const hue = ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
+  return `oklch(${l.toFixed(5)} ${Math.hypot(a, b).toFixed(5)} ${hue.toFixed(3)})`;
+}
+
 const hexOf = (name: string, vars: Record<string, string>) => toHex(evaluate(`var(${name})`, vars));
 const MIN = 4.5;
 
@@ -180,6 +186,47 @@ describe('visual language tokens', () => {
       MIN,
     );
   });
+
+  // The colourful pass (#1119): tinted buttons, striped rows and tinted neutrals keep their text.
+  it.each([
+    ['--primary-ink', '--primary-soft'],
+    ['--primary-ink', '--card'],
+    ['--secondary-foreground', '--secondary'],
+    ['--muted-foreground', '--muted'],
+    ['--muted-foreground', '--page'],
+    ['--foreground', '--muted'],
+    // Red warning text in a striped row or on a tint (axe found these on inventory and emergency).
+    ['--destructive', '--muted'],
+    ['--destructive', '--primary-soft'],
+    ['--destructive', '--page'],
+    // The delete button's first gradient stop; the second moves away from the text colour.
+    ['--destructive-foreground', '--destructive'],
+  ])('keeps %s readable on %s in light and dark', (text, surface) => {
+    for (const vars of [light, dark]) {
+      expect(
+        contrastRatio(hexOf(text, vars), hexOf(surface, vars)),
+        vars === light ? 'light' : 'dark',
+      ).toBeGreaterThanOrEqual(MIN);
+    }
+  });
+
+  it.each(['#0f766e', '#0b1020', '#5b6470', '#757575', '#9b1c1c', '#7c3aed', '#c2410c'])(
+    'keeps tinted button text readable under the brand colour %s',
+    (brand) => {
+      const theme = themeFromBrandColor(brand);
+      expect(theme).not.toBeNull();
+      for (const [mode, vars, primary] of [
+        ['light', light, brand],
+        ['dark', dark, theme?.['primary-dark'] ?? brand],
+      ] as const) {
+        const branded = { ...vars, '--primary': oklchLiteral(fromHex(primary)) };
+        expect(
+          contrastRatio(hexOf('--primary-ink', branded), hexOf('--primary-soft', branded)),
+          `${brand} ${mode}`,
+        ).toBeGreaterThanOrEqual(MIN);
+      }
+    },
+  );
 
   it('keeps the default gradient readable in light and dark', () => {
     for (const vars of [light, dark]) {

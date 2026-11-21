@@ -36,18 +36,18 @@
   --popover-foreground: oklch(0.21 0.03 265);
   --primary: oklch(0.51 0.09 186);
   --primary-foreground: oklch(0.98 0.01 186);
-  --secondary: oklch(0.97 0.01 250);
+  --secondary: color-mix(in oklab, var(--primary) 12%, var(--background));
   --secondary-foreground: oklch(0.21 0.03 265);
-  --muted: oklch(0.97 0.01 250);
-  --muted-foreground: oklch(0.55 0.03 257);
-  --accent: oklch(0.97 0.01 250);
+  --muted: color-mix(in oklab, var(--primary) 6%, var(--background));
+  --muted-foreground: oklch(0.5 0.03 257);
+  --accent: color-mix(in oklab, var(--primary) 10%, var(--background));
   --accent-foreground: oklch(0.21 0.03 265);
-  --destructive: oklch(0.58 0.22 27);
+  --destructive: oklch(0.53 0.21 27);
   --destructive-foreground: oklch(0.98 0 0);
   --success: oklch(0.6 0.13 155);
   --warning: oklch(0.77 0.16 70);
-  --border: oklch(0.93 0.01 255);
-  --input: oklch(0.93 0.01 255);
+  --border: color-mix(in oklab, var(--primary) 14%, oklch(0.92 0.01 255));
+  --input: color-mix(in oklab, var(--primary) 22%, oklch(0.86 0.01 255));
   --ring: oklch(0.51 0.09 186);
 
   /*
@@ -56,7 +56,51 @@
    * all. None of these names is in THEME_TOKENS.
    */
   --info: oklch(0.55 0.14 245);
-  --page: color-mix(in oklab, var(--background) 96%, var(--primary));
+  --page: color-mix(in oklab, var(--background) 94%, var(--primary));
+  /*
+   * Colourful pass (#1119). --primary-soft is a brand tint for a tinted button or a header row;
+   * --primary-ink is the brand pulled toward the text colour, so it reads at 4.5:1 or more on
+   * --primary-soft in light and dark (tenancy/visual-tokens.test.tsx).
+   */
+  --primary-soft: color-mix(in oklab, var(--primary) 12%, var(--background));
+  --primary-ink: color-mix(in oklab, var(--primary) 72%, var(--foreground));
+  /*
+   * Five accent hues for icon chips and decoration: the brand colour turned round the hue wheel
+   * at a fixed lightness and chroma, so every hospital gets its own set. Decorative only: the
+   * meaning is always in the word beside a chip, and no text is set in these colours.
+   */
+  --accent-1: oklch(from var(--primary) 0.58 0.14 h);
+  --accent-2: oklch(from var(--primary) 0.58 0.15 calc(h + 72));
+  --accent-3: oklch(from var(--primary) 0.6 0.15 calc(h + 144));
+  --accent-4: oklch(from var(--primary) 0.6 0.15 calc(h + 216));
+  --accent-5: oklch(from var(--primary) 0.58 0.15 calc(h + 288));
+  --accent-1-soft: color-mix(in oklab, var(--accent-1) 16%, var(--background));
+  --accent-2-soft: color-mix(in oklab, var(--accent-2) 16%, var(--background));
+  --accent-3-soft: color-mix(in oklab, var(--accent-3) 16%, var(--background));
+  --accent-4-soft: color-mix(in oklab, var(--accent-4) 16%, var(--background));
+  --accent-5-soft: color-mix(in oklab, var(--accent-5) 16%, var(--background));
+  /* Depth for buttons: a shadow in the brand's own colour and a highlight along the top edge. */
+  --elevation-button:
+    0 1px 2px color-mix(in oklab, var(--primary) 35%, transparent),
+    0 4px 12px -3px color-mix(in oklab, var(--primary) 45%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 28%, transparent);
+  --elevation-button-hover:
+    0 2px 4px color-mix(in oklab, var(--primary) 35%, transparent),
+    0 8px 20px -4px color-mix(in oklab, var(--primary) 55%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 28%, transparent);
+  --elevation-tinted:
+    0 1px 2px color-mix(in oklab, var(--primary) 18%, transparent),
+    0 3px 8px -3px color-mix(in oklab, var(--primary) 30%, transparent);
+  /* Moves away from the text colour, as the brand gradient does, so contrast only rises. */
+  --danger-gradient: linear-gradient(
+    135deg,
+    var(--destructive),
+    color-mix(
+      in oklab,
+      var(--destructive) 80%,
+      oklch(from var(--destructive-foreground) calc(1 - l) 0 0)
+    )
+  );
   --shadow-edge-dark: color-mix(in oklab, var(--background) 82%, black);
   --shadow-edge-light: color-mix(in oklab, var(--background) 40%, white);
   --elevation-soft: 0 1px 2px var(--shadow-edge-dark), 0 4px 12px -2px var(--shadow-edge-dark);
@@ -89,22 +133,45 @@
   --card-foreground: oklch(0.97 0.01 250);
   --popover: oklch(0.21 0.03 265);
   --popover-foreground: oklch(0.97 0.01 250);
-  --secondary: oklch(0.28 0.03 260);
+  --secondary: color-mix(in oklab, var(--primary) 18%, oklch(0.24 0.03 260));
   --secondary-foreground: oklch(0.97 0.01 250);
-  --muted: oklch(0.28 0.03 260);
-  --muted-foreground: oklch(0.71 0.03 257);
-  --accent: oklch(0.28 0.03 260);
+  --muted: color-mix(in oklab, var(--primary) 8%, oklch(0.26 0.03 260));
+  --muted-foreground: oklch(0.74 0.03 257);
+  --accent: color-mix(in oklab, var(--primary) 16%, oklch(0.24 0.03 260));
   --accent-foreground: oklch(0.97 0.01 250);
   --destructive: oklch(0.7 0.19 22);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
+  /* Dark text on the light dark-mode red (#1119): white on it was under 3:1. */
+  --destructive-foreground: oklch(0.2 0.03 22);
+  --border: color-mix(in oklab, var(--primary) 22%, oklch(0.32 0.02 260));
+  --input: color-mix(in oklab, var(--primary) 30%, oklch(0.42 0.02 260));
   /* A hospital's brand colour is written inline on the root (theme.ts), which beats the rules
      above, so its dark counterpart takes over under .dark with !important (#729). */
   --primary: var(--primary-dark, oklch(0.7 0.11 186)) !important;
   --ring: var(--primary-dark, oklch(0.7 0.11 186)) !important;
   --primary-foreground: var(--primary-dark-foreground, oklch(0.2 0.03 186)) !important;
   --info: oklch(0.72 0.12 245);
+  --primary-soft: color-mix(in oklab, var(--primary) 22%, var(--background));
+  --accent-1: oklch(from var(--primary) 0.74 0.13 h);
+  --accent-2: oklch(from var(--primary) 0.74 0.13 calc(h + 72));
+  --accent-3: oklch(from var(--primary) 0.76 0.13 calc(h + 144));
+  --accent-4: oklch(from var(--primary) 0.76 0.13 calc(h + 216));
+  --accent-5: oklch(from var(--primary) 0.74 0.13 calc(h + 288));
+  --accent-1-soft: color-mix(in oklab, var(--accent-1) 20%, var(--background));
+  --accent-2-soft: color-mix(in oklab, var(--accent-2) 20%, var(--background));
+  --accent-3-soft: color-mix(in oklab, var(--accent-3) 20%, var(--background));
+  --accent-4-soft: color-mix(in oklab, var(--accent-4) 20%, var(--background));
+  --accent-5-soft: color-mix(in oklab, var(--accent-5) 20%, var(--background));
+  --elevation-button:
+    0 1px 2px color-mix(in oklab, black 50%, transparent),
+    0 4px 14px -3px color-mix(in oklab, var(--primary) 40%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 30%, transparent);
+  --elevation-button-hover:
+    0 2px 4px color-mix(in oklab, black 50%, transparent),
+    0 8px 22px -4px color-mix(in oklab, var(--primary) 50%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 30%, transparent);
+  --elevation-tinted:
+    0 1px 2px color-mix(in oklab, black 45%, transparent),
+    0 3px 10px -3px color-mix(in oklab, var(--primary) 25%, transparent);
   --shadow-edge-dark: color-mix(in oklab, var(--background) 40%, black);
   --shadow-edge-light: color-mix(in oklab, var(--background) 92%, white);
   --success-soft: color-mix(in oklab, var(--success) 22%, var(--background));
@@ -153,6 +220,22 @@
   --color-destructive-soft-foreground: var(--destructive-soft-foreground);
   --color-info-soft: var(--info-soft);
   --color-info-soft-foreground: var(--info-soft-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-ink: var(--primary-ink);
+  --color-accent-1: var(--accent-1);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+  --color-accent-4: var(--accent-4);
+  --color-accent-5: var(--accent-5);
+  --color-accent-1-soft: var(--accent-1-soft);
+  --color-accent-2-soft: var(--accent-2-soft);
+  --color-accent-3-soft: var(--accent-3-soft);
+  --color-accent-4-soft: var(--accent-4-soft);
+  --color-accent-5-soft: var(--accent-5-soft);
+  --shadow-button: var(--elevation-button);
+  --shadow-button-hover: var(--elevation-button-hover);
+  --shadow-tinted: var(--elevation-tinted);
+  --background-image-danger-gradient: var(--danger-gradient);
   --shadow-soft: var(--elevation-soft);
   --shadow-raised: var(--elevation-raised);
   --shadow-inset: var(--elevation-inset);
@@ -165,6 +248,16 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+  }
+  /* Native checkboxes, radios and meters take the hospital's colour (#1119). */
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'],
+  progress {
+    accent-color: var(--primary);
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 28%, transparent);
   }
   /* Hindi only (#767): the Devanagari font goes first, and its unicode-range leaves Latin to the
      usual stack. Changing the stack for every language (a --font-sans override) widened phone
@@ -185,13 +278,18 @@
   background-color: var(--page);
   background-image:
     radial-gradient(
-      60rem 28rem at 100% 0%,
-      color-mix(in oklab, var(--primary) 9%, transparent),
+      60rem 30rem at 100% 0%,
+      color-mix(in oklab, var(--accent-1) 14%, transparent),
       transparent 70%
     ),
     radial-gradient(
-      40rem 24rem at 0% 100%,
-      color-mix(in oklab, var(--primary) 6%, transparent),
+      44rem 26rem at 0% 100%,
+      color-mix(in oklab, var(--accent-4) 10%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      36rem 22rem at 60% 40%,
+      color-mix(in oklab, var(--accent-5) 6%, transparent),
       transparent 70%
     );
   background-attachment: fixed;
