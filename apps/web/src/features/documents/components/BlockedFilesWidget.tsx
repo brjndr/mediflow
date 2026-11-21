@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { FileX, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey } from '@/shared/api';
 import { Button } from '@/shared/ui/button';
@@ -21,7 +21,7 @@ export default function BlockedFilesWidget() {
   const items = blocked.data ?? [];
 
   return (
-    <StatCard id="widget-blocked-files" title={t('widget.title')}>
+    <StatCard id="widget-blocked-files" icon={FileX} accent={5} title={t('widget.title')}>
       {blocked.isError ? (
         <p role="alert" className="text-sm text-muted-foreground">
           {tCommon(errorMessageKey(blocked.error))}

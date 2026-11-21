@@ -1,5 +1,9 @@
+import { Megaphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
+import { cn } from '@/shared/lib/utils';
+import { cardVariants } from '@/shared/ui/card';
+import { WidgetHeading } from '@/shared/ui/stat-card';
 import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { useLatestNotices } from '../hooks/use-notices';
@@ -14,10 +18,16 @@ export default function LatestNoticesWidget() {
   const latest = useLatestNotices(WIDGET_COUNT);
 
   return (
-    <section aria-labelledby="latest-notices-title" className="rounded-lg border p-4">
-      <h2 id="latest-notices-title" className="mb-2 text-sm font-medium">
-        {t('widget.title')}
-      </h2>
+    <section
+      aria-labelledby="latest-notices-title"
+      className={cn(cardVariants(), 'flex flex-col gap-2')}
+    >
+      <WidgetHeading
+        id="latest-notices-title"
+        title={t('widget.title')}
+        icon={Megaphone}
+        accent={2}
+      />
       {latest.isPending && <p className="text-sm text-muted-foreground">{t('loading')}</p>}
       {latest.isError && (
         <p role="alert" className="text-sm text-muted-foreground">

@@ -1,3 +1,4 @@
+import { FlaskConical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
@@ -15,7 +16,14 @@ export default function PendingWidget() {
   const error = toCollect.error ?? received.error;
 
   return (
-    <StatCard id="widget-lab" title={t('widget.title')} to="/lab" linkLabel={t('widget.open')}>
+    <StatCard
+      id="widget-lab"
+      icon={FlaskConical}
+      accent={4}
+      title={t('widget.title')}
+      to="/lab"
+      linkLabel={t('widget.open')}
+    >
       {error ? (
         <p role="alert" className="text-sm text-muted-foreground">
           {tCommon(errorMessageKey(error))}

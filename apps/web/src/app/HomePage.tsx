@@ -30,14 +30,26 @@ export function HomePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">{t('home.title')}</h1>
-        <p className="text-muted-foreground">{t('home.description')}</p>
+      {/* A banner in the hospital's gradient (#1119). Its circles are tinted away from the text colour, as the gradient is, so contrast only rises under them. */}
+      <div className="relative mt-4 space-y-2 overflow-hidden rounded-2xl bg-brand-gradient px-5 py-5 text-primary-foreground shadow-button md:px-6 md:py-6">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-[color-mix(in_oklab,oklch(from_var(--primary-foreground)_calc(1_-_l)_0_0)_14%,transparent)]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-24 right-24 size-48 rounded-full bg-[color-mix(in_oklab,oklch(from_var(--primary-foreground)_calc(1_-_l)_0_0)_14%,transparent)]"
+        />
+        <h1 className="relative text-2xl font-semibold tracking-tight md:text-3xl">
+          {t('home.title')}
+        </h1>
+        <p className="relative">{t('home.description')}</p>
       </div>
       {widgets.length === 0 ? (
         <p className="rounded-lg border p-4 text-sm text-muted-foreground">{t('home.empty')}</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12">
+        // Each tile gets a top edge in one of the five accent hues, in turn.
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12 [&>*>*]:border-t-4 [&>:nth-child(5n+1)>*]:border-t-accent-1 [&>:nth-child(5n+2)>*]:border-t-accent-2 [&>:nth-child(5n+3)>*]:border-t-accent-3 [&>:nth-child(5n+4)>*]:border-t-accent-4 [&>:nth-child(5n+5)>*]:border-t-accent-5">
           <Slot
             id="dashboard.widgets"
             frame={(contribution, node) => (

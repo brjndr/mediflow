@@ -1,10 +1,11 @@
+import { ReceiptText } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
 import { errorMessageKey } from '@/shared/api';
 import { Card } from '@/shared/ui/card';
+import { WidgetHeading, WidgetLink } from '@/shared/ui/stat-card';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useFormatters, useTenant } from '@/tenancy';
 import { fetchReport } from '../api';
@@ -34,9 +35,7 @@ export default function UnpaidInvoicesWidget() {
   return (
     <Card asChild>
       <section aria-labelledby="widget-unpaid" className="flex flex-col gap-2">
-        <h2 id="widget-unpaid" className="text-sm font-medium">
-          {t('unpaid.title')}
-        </h2>
+        <WidgetHeading id="widget-unpaid" title={t('unpaid.title')} icon={ReceiptText} accent={4} />
         {report.isError ? (
           <p role="alert" className="text-sm text-muted-foreground">
             {tCommon(errorMessageKey(report.error))}
@@ -53,12 +52,7 @@ export default function UnpaidInvoicesWidget() {
             <p className="text-sm text-muted-foreground">{t('unpaid.count', { count })}</p>
           </>
         )}
-        <Link
-          to="/billing/invoices?status=issued"
-          className="mt-auto inline-flex text-sm underline underline-offset-4 pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
-          {t('unpaid.open')}
-        </Link>
+        <WidgetLink to="/billing/invoices?status=issued">{t('unpaid.open')}</WidgetLink>
       </section>
     </Card>
   );
