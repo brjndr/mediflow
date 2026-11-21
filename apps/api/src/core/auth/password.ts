@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { hash, verify } from '@node-rs/argon2';
 
 /**
@@ -58,13 +59,29 @@ const SEQUENCES = [
   'qwertyuiopasdfghjklzxcvbnm',
 ];
 
+let breached: ReadonlySet<string> | undefined;
+
+/**
+ * Leaked passwords of 12 characters or more, lower case (`breached-passwords.txt`, about 30,000
+ * from SecLists' top million, MIT; rebuilt by `scripts/build-breached-passwords.mjs`, #1083).
+ * Read on first use and kept in memory (a few MB). Shipped with the code: no network call.
+ */
+function breachedPasswords(): ReadonlySet<string> {
+  breached ??= new Set(
+    readFileSync(new URL('./breached-passwords.txt', import.meta.url), 'utf8')
+      .split(/\r?\n/)
+      .filter((line) => line !== '' && !line.startsWith('## ')),
+  );
+  return breached;
+}
+
 function isSequence(text: string): boolean {
   return SEQUENCES.some((sequence) => (sequence + sequence).includes(text));
 }
 
 /**
  * The rule for a new password: at least 12 characters, with no required mix of character types
- * (which pushes people toward predictable patterns), and not one of the obvious choices. Returns
+ * (which pushes people toward predictable patterns), and not one of the obvious choices or a password known from a leak. Returns
  * what is wrong, or null when the password is acceptable.
  */
 export function passwordProblem(
@@ -83,6 +100,7 @@ export function passwordProblem(
     // One character repeated, or two or three alternating.
     new Set(lower).size <= 3 ||
     isSequence(lower) ||
+    breachedPasswords().has(lower) ||
     COMMON_FRAGMENTS.some((fragment) => lower.includes(fragment) || letters.includes(fragment)) ||
     (localPart.length >= 4 && lower.includes(localPart));
   return obvious ? 'too_common' : null;
