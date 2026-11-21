@@ -13,10 +13,11 @@ const VENDOR =
 // The home page's tiles: each widget is its own lazy import, which cost a request apiece plus the
 // small modules they share. They load together as one chunk, so the home page asks for one file
 // where it asked for a dozen (#727). The widgets' own query hooks go with them; the rest of a
-// feature stays in its route chunks. The widgets' heading icons and the arrow of their links
-// (#1119) go with them too: left out, five widgets and the arrow became files of their own.
+// feature stays in its route chunks. The icons only the widgets use (#1119) go with them too:
+// left out, five widgets and the arrow of their links became files of their own. An icon another
+// screen also uses must not be listed, or that screen downloads this whole chunk (charts and all).
 const HOME_WIDGETS =
-  /[\\/]src[\\/](features[\\/][^\\/]+[\\/]components[\\/][A-Za-z]+Widget\.tsx|features[\\/][^\\/]+[\\/]widget-strings\.json|shared[\\/]hooks[\\/]use-widget-strings\.ts|features[\\/][^\\/]+[\\/]hooks[\\/]use-(notices|census|board|queue|lab|inventory|billing|reports)\.ts|shared[\\/]ui[\\/](ring-gauge|stat-card)\.tsx|tenancy[\\/]use-formatters\.ts)$|[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/](activity|arrow-right|bed-double|file-x|flask-conical|folder-open|image-off|list-ordered|megaphone|package|receipt-text|stethoscope)\.mjs$/;
+  /[\\/]src[\\/](features[\\/][^\\/]+[\\/]components[\\/][A-Za-z]+Widget\.tsx|features[\\/][^\\/]+[\\/]widget-strings\.json|shared[\\/]hooks[\\/]use-widget-strings\.ts|features[\\/][^\\/]+[\\/]hooks[\\/]use-(notices|census|board|queue|lab|inventory|billing|reports)\.ts|shared[\\/]ui[\\/](ring-gauge|stat-card)\.tsx|tenancy[\\/]use-formatters\.ts)$|[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/](file-x|folder-open|image-off|move-right|package-search|receipt-text)\.mjs$/;
 // The shell's small modules (API client, session, access, class names), which each cost a file.
 const APP_CORE =
   /[\\/]src[\\/](shared[\\/](api|lib)|access|app[\\/]session|tenancy)[\\/]|[\\/]node_modules[\\/](clsx|tailwind-merge|class-variance-authority)[\\/]/;

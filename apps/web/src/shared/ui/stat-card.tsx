@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { ArrowRight } from 'lucide-react';
+import { MoveRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/shared/lib/utils';
@@ -83,7 +83,7 @@ export function WidgetLink({ to, children }: { to: string; children: ReactNode }
       className="mt-auto inline-flex min-h-8 w-fit items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft px-3 text-sm font-semibold text-primary-ink shadow-tinted outline-none transition-[background-color,transform] hover:-translate-y-px focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
     >
       {children}
-      <ArrowRight aria-hidden className="size-4" />
+      <MoveRight aria-hidden className="size-4" />
     </Link>
   );
 }

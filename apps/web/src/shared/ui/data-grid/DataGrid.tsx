@@ -147,6 +147,33 @@ function useIsNarrow(element: React.RefObject<HTMLElement | null>): boolean {
   return narrow;
 }
 
+/**
+ * Whether the table is wider than its box, so the box scrolls sideways. Such a box must be
+ * reachable by keyboard (WCAG 2.1.1, axe `scrollable-region-focusable`) even when no row holds a
+ * link or a button, so the grid then makes it a named region in the tab order. `watch` re-checks
+ * when the rows or the layout change.
+ */
+function useScrollsSideways(
+  element: React.RefObject<HTMLElement | null>,
+  watch: readonly unknown[],
+): boolean {
+  const [scrolls, setScrolls] = useState(false);
+  useLayoutEffect(() => {
+    const node = element.current;
+    // No box while the grid shows cards; the table's box is checked again when it comes back.
+    if (!node) return;
+    const check = () => setScrolls(node.scrollWidth > node.clientWidth + 1);
+    check();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(check);
+    observer.observe(node);
+    if (node.firstElementChild) observer.observe(node.firstElementChild);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [element, ...watch]);
+  return scrolls;
+}
+
 export function DataGrid<Row extends RowData>({
   label,
   columns,
@@ -175,6 +202,7 @@ export function DataGrid<Row extends RowData>({
   const scroller = useRef<HTMLDivElement>(null);
   const narrow = useIsNarrow(root);
   const stacked = layout === 'stacked' || (layout === 'auto' && narrow);
+  const scrollsSideways = useScrollsSideways(scroller, [stacked, rows.length, status]);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
 
   // Columns and actions the user may not see are left out entirely, not hidden with CSS.
@@ -519,10 +547,12 @@ export function DataGrid<Row extends RowData>({
 
       <div
         ref={scroller}
+        // A box that scrolls sideways is reached with Tab and scrolled with the arrow keys.
+        {...(scrollsSideways && { tabIndex: 0, role: 'region', 'aria-label': label })}
         className={cn(
           // Positioned, so text hidden for screen readers (absolute) is clipped with the table
           // and a table wider than the screen scrolls here, never the page.
-          'relative overflow-x-auto rounded-xl border bg-card shadow-soft',
+          'relative overflow-x-auto rounded-xl border bg-card shadow-soft outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
           // The header stays at the top while rows scroll: scroll padding keeps a focused row
           // from going under it (WCAG 2.4.11).
           virtual && 'max-h-[32rem] scroll-pt-10 overflow-y-auto pointer-coarse:scroll-pt-14',

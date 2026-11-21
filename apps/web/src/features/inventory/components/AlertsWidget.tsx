@@ -1,4 +1,4 @@
-import { Package } from 'lucide-react';
+import { PackageSearch } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
@@ -17,7 +17,7 @@ export default function AlertsWidget() {
   return (
     <StatCard
       id="widget-inventory"
-      icon={Package}
+      icon={PackageSearch}
       accent={2}
       title={t('widget.title')}
       to="/inventory"
