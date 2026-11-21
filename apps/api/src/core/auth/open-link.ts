@@ -93,7 +93,13 @@ export const openLinkRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const { kind, id } = request.body;
       const ownerFunction = app.links.ownerFunction(kind);
       // Kinds and the id format are public, so refusing these at once tells nothing.
-      if (!ownerFunction || !UUID.test(id)) throw UNAVAILABLE();
+      // A refusal is logged as a fixed event, with nothing about the link (no kind, id or
+      // hospital), so a session probing with links shows in the logs without saying what exists.
+      const refuse = () => {
+        request.log.warn({ event: 'open_link_refused' }, 'link not available');
+        return UNAVAILABLE();
+      };
+      if (!ownerFunction || !UUID.test(id)) throw refuse();
 
       const result = await withAuthTransaction(pool, async (transaction) => {
         await transaction.identify(session.userId);
@@ -118,7 +124,7 @@ export const openLinkRoutes: FastifyPluginAsyncTypebox = async (app) => {
           view: await loadSessionView(transaction.client, session.userId, owner, config),
         };
       });
-      if (!result) throw UNAVAILABLE();
+      if (!result) throw refuse();
 
       // The session has moved: the new cookie must reach the browser whatever happens next, since
       // the old token stops working 30 seconds after a rotation.
