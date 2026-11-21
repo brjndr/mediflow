@@ -21417,6 +21417,29 @@
             "description": "A code: `timeout`, `too_large`, `stalled` or `failed`.",
             "type": "string"
           },
+          "filters": {
+            "additionalProperties": false,
+            "description": "`audit_log` only: what the run was filtered by. Absent when it was not.",
+            "type": "object",
+            "properties": {
+              "actorId": {
+                "type": "string"
+              },
+              "actorName": {
+                "description": "The account named by `actorId`.",
+                "type": "string"
+              },
+              "entity": {
+                "type": "string"
+              },
+              "entityId": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              }
+            }
+          },
           "result": {
             "$ref": "#/components/schemas/ReportResult"
           }

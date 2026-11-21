@@ -113,6 +113,21 @@ export const ReportRun = Type.Object(
     failure: Type.Optional(
       Type.String({ description: 'A code: `timeout`, `too_large`, `stalled` or `failed`.' }),
     ),
+    filters: Type.Optional(
+      Type.Object(
+        {
+          actorId: Type.Optional(Type.String()),
+          actorName: Type.Optional(Type.String({ description: 'The account named by `actorId`.' })),
+          entity: Type.Optional(Type.String()),
+          entityId: Type.Optional(Type.String()),
+          action: Type.Optional(Type.String()),
+        },
+        {
+          additionalProperties: false,
+          description: '`audit_log` only: what the run was filtered by. Absent when it was not.',
+        },
+      ),
+    ),
     result: Type.Optional(ref(ReportResult)),
   },
   {

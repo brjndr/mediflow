@@ -4,6 +4,7 @@ import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
   fetchExport,
+  fetchExports,
   fetchExportLink,
   requestExport,
   searchAudit,
@@ -30,6 +31,20 @@ export function useAuditSearch(filters: AuditFilters | null) {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
     enabled: tenantId !== undefined && filters !== null,
+    gcTime: 0,
+  });
+}
+
+/** The earlier exports with what each was filtered by. Nothing is kept once the screen is left. */
+export function useExportList(enabled: boolean) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: auditKeys.list(tenantId ?? '', { exports: true }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchExports({ cursor: pageParam, limit: PAGE_SIZE }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: enabled && tenantId !== undefined,
     gcTime: 0,
   });
 }

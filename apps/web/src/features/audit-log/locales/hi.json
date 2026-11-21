@@ -33,6 +33,31 @@
     "heading": "प्रविष्टियाँ",
     "empty": "इन तारीख़ों और फ़िल्टर से कोई प्रविष्टि नहीं मिली।"
   },
+  "exports": {
+    "heading": "पहले के निर्यात",
+    "empty": "अभी कोई निर्यात नहीं है।",
+    "period": "{{from}} से {{to}} तक",
+    "unfiltered": "कोई नहीं: इन दिनों का पूरा लॉग",
+    "columns": {
+      "period": "दिन",
+      "filters": "छानने की शर्तें",
+      "requested": "माँगा गया",
+      "by": "किसने",
+      "status": "स्थिति"
+    },
+    "filters": {
+      "actor": "व्यक्ति: {{value}}",
+      "entity": "रिकॉर्ड का प्रकार: {{value}}",
+      "entityId": "रिकॉर्ड: {{value}}",
+      "action": "क्रिया: {{value}}"
+    },
+    "status": {
+      "queued": "इंतज़ार में",
+      "running": "बन रहा है",
+      "succeeded": "तैयार",
+      "failed": "विफल"
+    }
+  },
   "export": {
     "button": "इन दिनों का निर्यात (CSV)",
     "download": "CSV डाउनलोड करें",

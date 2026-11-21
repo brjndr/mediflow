@@ -17,3 +17,5 @@ The hospital's own audit trail (#1066, COMPLIANCE 3.4). The root and `apps/api` 
 - No free-text search and no filter by a range of entity ids; the filters are exact.
 - The routine review of the log (COMPLIANCE 3.6) is a process, not a feature.
 - Tests: `audit.test.ts`.
+
+- A run view and the run list carry `filters` (with the person's name), and the CSV opens with `from`, `to` and one line a filter (`filters,none` when there is none), a blank line, then the header (#1107).

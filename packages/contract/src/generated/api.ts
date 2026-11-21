@@ -14765,6 +14765,15 @@ export interface components {
             rowCount?: number;
             /** @description A code: `timeout`, `too_large`, `stalled` or `failed`. */
             failure?: string;
+            /** @description `audit_log` only: what the run was filtered by. Absent when it was not. */
+            filters?: {
+                actorId?: string;
+                /** @description The account named by `actorId`. */
+                actorName?: string;
+                entity?: string;
+                entityId?: string;
+                action?: string;
+            };
             result?: components["schemas"]["ReportResult"];
         };
         /** @description Cursor envelope used by every list endpoint. */

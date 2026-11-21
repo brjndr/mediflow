@@ -21,12 +21,15 @@ export interface RunRow {
   row_count: number | null;
   failure: string | null;
   file_key: string | null;
+  filters: Record<string, string> | null;
+  filter_actor_name: string | null;
 }
 
 // The name is the account's, read through the staff grant on `users`.
 const COLUMNS = `r.id, r.kind, r.range_from::text as range_from, r.range_to::text as range_to,
   r.status, r.requested_by, coalesce(u.name, '') as requested_by_name, r.requested_at,
-  r.finished_at, r.expires_at, r.row_count, r.failure, r.file_key`;
+  r.finished_at, r.expires_at, r.row_count, r.failure, r.file_key, r.filters,
+  (select fu.name from users fu where fu.id::text = r.filters->>'actorId') as filter_actor_name`;
 const FROM = 'report_runs r left join users u on u.id = r.requested_by';
 
 export interface Limits {

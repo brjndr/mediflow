@@ -93,6 +93,20 @@ export const exportRunSchema: z.ZodType<ReportRun> = z.object({
   expiresAt: z.string(),
   rowCount: z.number().optional(),
   failure: z.string().optional(),
+  filters: z
+    .object({
+      actorId: z.string().optional(),
+      actorName: z.string().optional(),
+      entity: z.string().optional(),
+      entityId: z.string().optional(),
+      action: z.string().optional(),
+    })
+    .optional(),
+});
+
+export const exportPageSchema = z.object({
+  items: z.array(exportRunSchema),
+  nextCursor: z.string().nullable(),
 });
 
 export const downloadSchema = z.object({ url: z.string(), expiresAt: z.string() });

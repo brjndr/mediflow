@@ -148,6 +148,14 @@ const view = (row: RunRow, result?: Static<typeof ReportResult> | null): ReportR
   expiresAt: row.expires_at.toISOString(),
   ...(row.row_count === null ? {} : { rowCount: row.row_count }),
   ...(row.failure === null ? {} : { failure: row.failure }),
+  ...(row.filters && Object.keys(row.filters).length > 0
+    ? {
+        filters: {
+          ...row.filters,
+          ...(row.filter_actor_name ? { actorName: row.filter_actor_name } : {}),
+        },
+      }
+    : {}),
   ...(result ? { result } : {}),
 });
 

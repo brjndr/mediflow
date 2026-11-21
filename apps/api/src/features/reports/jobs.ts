@@ -11,7 +11,7 @@ import {
   TooLarge,
 } from './compute.js';
 import { toCsv } from './csv.js';
-import type { ReportKind } from './schemas.js';
+import type { Cell, ReportKind } from './schemas.js';
 
 export const RUN_JOB = 'reports.run';
 export const SWEEP_JOB = 'reports.sweep';
@@ -63,6 +63,31 @@ function claim(pool: pg.Pool, job: RunJob, staleMinutes: number): Promise<Claime
   });
 }
 
+const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function nameOf(client: pg.PoolClient, id: string): Promise<string | undefined> {
+  if (!UUID_TEXT.test(id)) return undefined;
+  const { rows } = await client.query<{ name: string }>('select name from users where id = $1', [
+    id,
+  ]);
+  return rows[0]?.name;
+}
+
+/** The lines above an audit export's header: the days and each filter, so a partial extract says so. */
+function auditPreamble(run: Claimed, actorName: string | undefined): Cell[][] {
+  const { filters } = run;
+  const lines: Cell[][] = [
+    ['from', run.from],
+    ['to', run.to],
+  ];
+  if (filters.actorId) lines.push(['person', actorName ?? filters.actorId]);
+  if (filters.entity) lines.push(['record type', filters.entity]);
+  if (filters.entityId) lines.push(['record id', filters.entityId]);
+  if (filters.action) lines.push(['action', filters.action]);
+  if (lines.length === 2) lines.push(['filters', 'none']);
+  return lines;
+}
+
 /** The code a failure is kept as: never the database's own text, which can quote data. */
 function failureCode(error: unknown): string {
   if (error instanceof TooLarge) return 'too_large';
@@ -90,16 +115,27 @@ export async function runReport(
 
   const key = fileKeyOf(job.tenantId, job.runId);
   try {
-    const result = await readAtHospital(pools.reportPool, job.tenantId, timeoutMs, (client) =>
-      computeReport(
-        client,
-        claimed.kind,
-        { from: claimed.from, to: claimed.to },
-        RUN_MAX_ROWS,
-        claimed.filters,
-      ),
+    const { result, actorName } = await readAtHospital(
+      pools.reportPool,
+      job.tenantId,
+      timeoutMs,
+      async (client) => ({
+        result: await computeReport(
+          client,
+          claimed.kind,
+          { from: claimed.from, to: claimed.to },
+          RUN_MAX_ROWS,
+          claimed.filters,
+        ),
+        actorName: claimed.filters.actorId
+          ? await nameOf(client, claimed.filters.actorId)
+          : undefined,
+      }),
     );
-    const csv = toCsv(result);
+    const csv = toCsv(
+      result,
+      claimed.kind === 'audit_log' ? auditPreamble(claimed, actorName) : [],
+    );
     await files.put(key, csv);
     const saved = await withTenantTransaction(pools.pool, job.tenantId, (client) =>
       client.query(
