@@ -70,6 +70,7 @@ jobs:
           APP_BASE_URL=http://localhost:8080
           MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           REPORT_URL_SECRET=Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=
+          AUDIT_SEAL_KEY=q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=
           FILE_STORE=s3
           S3_BUCKET=mediflow-ci
           S3_REGION=us-east-1

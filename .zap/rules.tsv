@@ -1,8 +1,12 @@
 # OWASP ZAP rules for .github/workflows/zap.yml (#1082): rule id, action, reason, tab-separated.
 # A rule not listed is WARN, and any WARN fails the run: a new finding is fixed or added here with
-# a reason in review. IGNORE only what is accepted, never to make a run green.
+# a reason in review. IGNORE only what is accepted, never to make a run green. OUTOFSCOPE takes a
+# URL pattern and drops that rule there only: /health/scanner answers 500 because CI has no ClamAV,
+# and any other server error (100000) still fails the run.
 10038	IGNORE	CSP is report-only until #1062 enforces it (apps/web/public/_headers); remove this line then
 10049	IGNORE	Hashed assets are cached on purpose (immutable); index.html holds no patient data; API answers are no-store
 10027	IGNORE	Matches words in minified third-party bundles (vendor-*.js), not comments we wrote
 10109	IGNORE	Informational: the SPA is a modern web app, so the spider cannot crawl it fully
 90004	IGNORE	Cross-origin isolation (COEP) is not used: no SharedArrayBuffer or high-resolution timers
+10106	IGNORE	The scan runs over plain HTTP in CI; production is TLS only, with HSTS
+100000	OUTOFSCOPE	http://localhost:3000/health/scanner.*
