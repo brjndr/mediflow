@@ -33,6 +33,25 @@ jobs:
       - id: mode
         run: node scripts/ci-mode.mjs
 
+  # Secrets added by this change (#1078): the commits of the pull request, or of the push to main.
+  # Runs for every change, Markdown included. Accepted test values are in .gitleaks.toml; the
+  # weekly full-history scan is in security-scan.yml.
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        env:
+          RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || format('{0}..{1}', github.event.before, github.sha) }}
+        run: >
+          docker run --rm -v "$PWD:/repo"
+          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git /repo --no-banner --redact --config /repo/.gitleaks.toml --log-opts="$RANGE"
+
   docs:
     name: Format check (docs only)
     needs: plan
