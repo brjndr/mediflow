@@ -1,0 +1,124 @@
+name: ZAP scan
+
+# OWASP ZAP against the app as production serves it (#1082): the API image on an empty migrated
+# database, and the built SPA with the static host's headers (scripts/zap-serve.mjs, which also
+# proxies /api). A baseline scan of the SPA and an API scan driven by the OpenAPI contract, both
+# unauthenticated, nightly and on demand, and on a pull request that changes the scan itself.
+# Accepted findings are in .zap/rules.tsv; anything else fails the run. Reports are artifacts.
+# No real data: the database holds only what the migrations create.
+
+on:
+  schedule:
+    - cron: '0 21 * * *' # 02:30 IST
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/zap.yml
+      - .zap/**
+      - scripts/zap-serve*.mjs
+      - apps/web/public/_headers
+
+concurrency:
+  group: zap-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Refresh with `docker pull ghcr.io/zaproxy/zaproxy:stable` and its RepoDigest.
+  ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af
+
+jobs:
+  zap:
+    name: ZAP (SPA baseline and API scan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mediflow
+          POSTGRES_PASSWORD: mediflow
+          POSTGRES_DB: mediflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mediflow -d mediflow"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: API image, migrated and started
+        run: |
+          cat > api.env <<'EOF'
+          DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow
+          DELETION_DATABASE_URL=postgres://mediflow:mediflow@localhost:5432/mediflow
+          SMTP_URL=smtp://localhost:1025
+          MAIL_FROM=Mediflow <no-reply@mediflow.test>
+          APP_BASE_URL=http://localhost:8080
+          MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          REPORT_URL_SECRET=Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=
+          FILE_STORE=s3
+          S3_BUCKET=mediflow-ci
+          S3_REGION=us-east-1
+          MALWARE_SCANNER=clamav
+          CLAMAV_HOST=localhost
+          EOF
+          docker build -f apps/api/Dockerfile -t mediflow-api:zap .
+          docker run --rm --network host --env-file api.env mediflow-api:zap node dist/core/db/migrate-cli.js
+          docker run -d --name api --network host --env-file api.env mediflow-api:zap
+      - name: SPA built against the real API and served as the host would
+        run: |
+          VITE_API_MOCKING=disabled pnpm --filter web build
+          node scripts/zap-serve.mjs 8080 http://localhost:3000 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/api/health/ready; then exit 0; fi
+            sleep 1
+          done
+          docker logs api
+          exit 1
+      - name: Prepare the scan folder
+        run: |
+          mkdir zap-out
+          cp .zap/rules.tsv packages/contract/api.openapi.json zap-out/
+          chmod -R a+rwX zap-out
+      # Exit codes: 0 clean, 1 a FAIL, 2 a WARN (any finding not accepted in rules.tsv), 3 an error.
+      - name: SPA baseline scan
+        id: spa
+        continue-on-error: true
+        run: >
+          docker run --rm --network host -v "$PWD/zap-out:/zap/wrk:rw" "$ZAP_IMAGE"
+          zap-baseline.py -t http://localhost:8080 -m 3 -c rules.tsv -r spa.html -J spa.json
+      - name: API scan (OpenAPI contract)
+        id: api
+        continue-on-error: true
+        run: >
+          docker run --rm --network host -v "$PWD/zap-out:/zap/wrk:rw" "$ZAP_IMAGE"
+          zap-api-scan.py -t /zap/wrk/api.openapi.json -f openapi -O http://localhost:3000
+          -c rules.tsv -r api.html -J api.json -z "-config scanner.maxScanDurationInMins=20"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: zap-reports
+          path: |
+            zap-out/*.html
+            zap-out/*.json
+            !zap-out/api.openapi.json
+          retention-days: 14
+      - name: Result
+        if: always()
+        run: |
+          echo "SPA baseline: ${{ steps.spa.outcome }}, API scan: ${{ steps.api.outcome }}"
+          test "${{ steps.spa.outcome }}" = success && test "${{ steps.api.outcome }}" = success
