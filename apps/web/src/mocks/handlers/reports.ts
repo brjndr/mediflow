@@ -322,11 +322,26 @@ function result(
   }
 }
 
+/** The filters as the API returns them: only those set, with the person's name beside the id. */
+function namedFilters(tenantId: string, filters: AuditFilters) {
+  const { actorId, entity, entityId, action } = filters;
+  const actorName = actorId
+    ? auditRows(tenantId, '2026-11-01', { actorId })[0]?.actor?.name
+    : undefined;
+  return {
+    ...(actorId ? { actorId } : {}),
+    ...(actorName ? { actorName } : {}),
+    ...(entity ? { entity } : {}),
+    ...(entityId ? { entityId } : {}),
+    ...(action ? { action } : {}),
+  };
+}
+
 /** A stored report as the list gives it: how far the job has got follows the reads by id. */
 function shown(run: Stored): Run {
-  const { tenantId: _tenantId, reads, willFail, filters: _filters, ...rest } = run;
+  const { tenantId: _tenantId, reads, willFail, filters, ...others } = run;
   void _tenantId;
-  void _filters;
+  const rest = { ...others, ...(filters ? { filters: namedFilters(run.tenantId, filters) } : {}) };
   if (run.status === 'succeeded' || run.status === 'failed') return rest;
   const status = reads < 1 ? 'queued' : reads < 2 ? 'running' : willFail ? 'failed' : 'succeeded';
   return {
