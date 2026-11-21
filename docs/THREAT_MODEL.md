@@ -132,6 +132,8 @@ None of the high findings reaches production code. They are tracked in F-3, whic
 
 Since #1078. CodeQL (`security-extended`, generated and test-only code left out by `.github/codeql/codeql-config.yml`) runs on every pull request that changes code, on `main` and weekly (`.github/workflows/security-scan.yml`); results are under Security > Code scanning. gitleaks scans the commits of every change in CI (job `secrets`, Markdown included) and the whole history weekly. The fixed test values the repository carries on purpose (the CI API container's keys, `config.test.ts`) are allowlisted by exact value in `.gitleaks.toml`, never by file; adding one is a reviewed change. GitHub secret scanning with push protection is on for the repository. The first full-history scan (770 commits, 2026-11-21) found only those test values.
 
+CI supply chain (#1079): every action a workflow uses is pinned to a full commit SHA with its version in a comment, and container images by digest; `scripts/actions-pinned.test.mjs` (in `pnpm test:scripts`) fails on a tag or a branch. Dependabot moves the SHA and the comment together. Workflows grant the token `contents: read` only, and a job that needs more asks for it itself (CodeQL: `security-events: write`).
+
 ## External penetration test plan
 
 Owner: a human with budget (cannot be done by Claude). Prerequisite: a staging environment with two seeded hospitals (#56, #146).
