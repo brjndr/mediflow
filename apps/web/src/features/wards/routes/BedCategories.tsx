@@ -14,11 +14,9 @@ import { useExpectedVersion } from '../components/use-expected';
 import { useBedCategories, useBedCategoryChange } from '../hooks/use-wards';
 import { bedCategoryFormSchema, NAME_MAX, type BedCategoryFormValues } from '../schemas';
 import type { BedCategory, BedCategoryCreate, BedCategoryUpdate } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const MANAGE = 'ward:manage';
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
-
 const categoryValues = (category?: BedCategory): BedCategoryFormValues => ({
   name: category?.name ?? '',
   serviceId: category?.serviceId ?? '',
@@ -266,7 +264,7 @@ function Categories() {
   return (
     <div ref={box} className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/wards" className={link}>
+        <Link to="/wards" className={secondaryLink}>
           {t('categories.backToWards')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{t('categories.heading')}</h1>

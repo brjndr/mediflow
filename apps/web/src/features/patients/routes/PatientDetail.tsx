@@ -14,6 +14,8 @@ import { usePatient } from '../hooks/use-patient';
 import { usePatientDraft } from '../hooks/use-update-patient';
 import { todayIn } from '../schemas';
 import type { PatientRecord } from '../types';
+import { cn } from '@/shared/lib/utils';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** A phone number that is already masked is left as the server sent it. */
 const withheldPhone = (phone: string) =>
@@ -90,10 +92,7 @@ export default function PatientDetail() {
           title={t('detail.notFoundTitle')}
           description={t('detail.notFoundBody')}
           actions={
-            <Link
-              to="/patients"
-              className="inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11 text-sm"
-            >
+            <Link to="/patients" className={secondaryLink}>
               {t('created.backToList')}
             </Link>
           }
@@ -123,10 +122,7 @@ export default function PatientDetail() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6">
-      <Link
-        to="/patients"
-        className="inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11 self-start text-sm"
-      >
+      <Link to="/patients" className={cn(secondaryLink, 'self-start')}>
         {t('created.backToList')}
       </Link>
 
@@ -167,7 +163,10 @@ export default function PatientDetail() {
       {record.mergedInto !== undefined && (
         <p role="status" className="rounded-md border px-3 py-2 text-sm">
           {t('merge.mergedNotice')}{' '}
-          <Link to={`/patients/${record.mergedInto}`} className="font-medium underline">
+          <Link
+            to={`/patients/${record.mergedInto}`}
+            className="font-medium underline text-primary-ink"
+          >
             {t('merge.toSurvivor')}
           </Link>
         </p>
@@ -185,10 +184,7 @@ export default function PatientDetail() {
               : t('edit.bannerNotSaved', { reason: tCommon(draft.failure.messageKey) })}
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              to={`/patients/${record.id}/edit`}
-              className="inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-            >
+            <Link to={`/patients/${record.id}/edit`} className={secondaryLink}>
               {t('edit.review')}
             </Link>
             <Button variant="ghost" size="sm" onClick={discard}>

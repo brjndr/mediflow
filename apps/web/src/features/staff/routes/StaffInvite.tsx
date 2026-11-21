@@ -5,9 +5,7 @@ import { Skeleton } from '@/shared/ui/skeleton';
 import { BulkInvite } from '../components/BulkInvite';
 import { InviteForm } from '../components/InviteForm';
 import { useStaffRoles } from '../hooks/use-staff';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function StaffInvite() {
@@ -18,7 +16,7 @@ export default function StaffInvite() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/staff" className={link}>
+        <Link to="/staff" className={secondaryLink}>
           {t('backToList')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">{t('inviteOne.pageHeading')}</h1>

@@ -11,11 +11,9 @@ import { CATEGORIES } from '../schemas';
 import type { Service, ServiceCategory } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
+import { actionLink, textLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
-const link =
-  'inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
-
 function Catalog() {
   const { t } = useTranslation('services');
   // Error messages come from the API client and live in core `common`.
@@ -42,7 +40,7 @@ function Catalog() {
         value: (row) => row.name,
         hideable: false,
         render: (row, text) => (
-          <Link to={`/services/${row.id}`} className={link}>
+          <Link to={`/services/${row.id}`} className={textLink}>
             {text}
           </Link>
         ),
@@ -75,7 +73,7 @@ function Catalog() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
         <Can permission="service:manage">
-          <Link to="/services/new" className={`${link} pt-2 text-sm underline`}>
+          <Link to="/services/new" className={actionLink}>
             {t('add')}
           </Link>
         </Can>

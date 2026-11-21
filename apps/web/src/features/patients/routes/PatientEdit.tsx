@@ -16,6 +16,8 @@ import {
 } from '../hooks/use-update-patient';
 import type { PatientFormValues } from '../schemas';
 import type { PatientRecord, PatientUpdate } from '../types';
+import { cn } from '@/shared/lib/utils';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** Contact details: shown, and sent, only to a role that may see them. */
 const CONTACT_FIELDS = ['phone', 'email', 'address'] as const;
@@ -210,10 +212,7 @@ function EditForm({ record: latest, draft: unsaved, saving, onDiscard }: EditFor
         hints={hints}
         submitLabel={t('edit.submit')}
       />
-      <Link
-        to={back}
-        className="inline-flex items-center self-start rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-      >
+      <Link to={back} className={cn(secondaryLink, 'self-start')}>
         {t('edit.cancel')}
       </Link>
     </div>
@@ -251,7 +250,7 @@ export default function PatientEdit() {
         title={t(notFound ? 'detail.notFoundTitle' : 'detail.errorTitle')}
         description={notFound ? t('detail.notFoundBody') : tCommon(errorMessageKey(patient.error))}
         actions={
-          <Link to="/patients" className="text-sm font-medium underline">
+          <Link to="/patients" className={secondaryLink}>
             {t('created.backToList')}
           </Link>
         }

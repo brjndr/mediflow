@@ -9,11 +9,9 @@ import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { useWards } from '../hooks/use-wards';
 import type { Ward } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
+import { actionLink, secondaryLink, textLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
-const link =
-  'inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
-
 function Wards() {
   const { t } = useTranslation('wards');
   // Error messages come from the API client and live in core `common`.
@@ -34,7 +32,7 @@ function Wards() {
         value: (row) => row.name,
         hideable: false,
         render: (row, text) => (
-          <Link to={`/wards/${row.id}`} className={link}>
+          <Link to={`/wards/${row.id}`} className={textLink}>
             {text}
           </Link>
         ),
@@ -64,11 +62,11 @@ function Wards() {
         <p className="text-muted-foreground">{t('description')}</p>
         <div className="flex flex-wrap gap-6 pt-2">
           <Can permission="ward:manage">
-            <Link to="/wards/new" className={`${link} text-sm underline`}>
+            <Link to="/wards/new" className={actionLink}>
               {t('add')}
             </Link>
           </Can>
-          <Link to="/wards/categories" className={`${link} text-sm underline`}>
+          <Link to="/wards/categories" className={secondaryLink}>
             {t('categoriesLink')}
           </Link>
         </div>

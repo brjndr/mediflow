@@ -9,11 +9,9 @@ import { useFormatters } from '@/tenancy';
 import { useTemplates } from '../hooks/use-templates';
 import { TEMPLATE_KINDS, type TemplateKind } from '../placeholders';
 import type { Template } from '../types';
+import { actionLink, textLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
-const link =
-  'inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
-
 function Templates() {
   const { t } = useTranslation('templates');
   // Error messages come from the API client and live in core `common`.
@@ -37,7 +35,7 @@ function Templates() {
         value: (row) => row.name,
         hideable: false,
         render: (row, text) => (
-          <Link to={`/templates/${row.id}`} className={link}>
+          <Link to={`/templates/${row.id}`} className={textLink}>
             {text}
           </Link>
         ),
@@ -63,7 +61,7 @@ function Templates() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
         <Can permission="template:manage">
-          <Link to="/templates/new" className={`${link} pt-2 text-sm underline`}>
+          <Link to="/templates/new" className={actionLink}>
             {t('add')}
           </Link>
         </Can>

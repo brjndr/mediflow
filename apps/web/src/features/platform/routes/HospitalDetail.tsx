@@ -11,9 +11,7 @@ import { HospitalLimits } from '../components/HospitalLimits';
 import { HospitalStatus } from '../components/HospitalStatus';
 import { HospitalModules } from '../components/HospitalModules';
 import { useHospital } from '../hooks/use-hospitals';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 // Default export: route modules are loaded with a dynamic import.
 export default function HospitalDetail() {
@@ -21,7 +19,7 @@ export default function HospitalDetail() {
   const { hospitalId = '' } = useParams();
   const hospital = useHospital(hospitalId);
   const back = (
-    <Link to="/platform/hospitals" className={link}>
+    <Link to="/platform/hospitals" className={secondaryLink}>
       {t('platform.detail.back')}
     </Link>
   );

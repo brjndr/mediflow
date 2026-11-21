@@ -22,6 +22,7 @@ import {
 import { useCarePlans, useChangeCarePlan, useCreateCarePlan } from '../hooks/use-care';
 import { useStay } from '../hooks/use-nursing';
 import type { CarePlan, CarePlanTask } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const REFUSED: Record<string, string> = {
   plan_closed: 'care.refused.planClosed',
@@ -264,7 +265,7 @@ export default function CarePlans() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6">
       <div className="space-y-1">
-        <Link to="/nursing" className="text-sm underline underline-offset-2">
+        <Link to="/nursing" className={secondaryLink}>
           {t('back')}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">

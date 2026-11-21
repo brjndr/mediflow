@@ -11,6 +11,7 @@ import { PATIENT_PAGE_SIZES, usePatients } from '../hooks/use-patients';
 import type { PatientSort, PatientSummary } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
+import { actionLink, textLink } from '@/shared/ui/link-styles';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function PatientList() {
@@ -50,10 +51,7 @@ export default function PatientList() {
         sortable: true,
         hideable: false,
         render: (row, text) => (
-          <Link
-            to={`/patients/${row.id}`}
-            className="inline-flex items-center rounded-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-          >
+          <Link to={`/patients/${row.id}`} className={textLink}>
             {text}
           </Link>
         ),
@@ -81,10 +79,7 @@ export default function PatientList() {
               value: () => t('merge.toSurvivor'),
               render: (row: PatientSummary, text: string) =>
                 row.mergedInto ? (
-                  <Link
-                    to={`/patients/${row.mergedInto}`}
-                    className="inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-                  >
+                  <Link to={`/patients/${row.mergedInto}`} className={textLink}>
                     {text}
                   </Link>
                 ) : null,
@@ -109,7 +104,7 @@ export default function PatientList() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
         <Can permission="patient:create">
-          <Link to="/patients/new" className="inline-block pt-2 text-sm font-medium underline">
+          <Link to="/patients/new" className={actionLink}>
             {t('register')}
           </Link>
         </Can>
@@ -187,10 +182,7 @@ export default function PatientList() {
               </Button>
             )}
             <Can permission="patient:create">
-              <Link
-                to="/patients/new"
-                className="inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-              >
+              <Link to="/patients/new" className={actionLink}>
                 {t('register')}
               </Link>
             </Can>

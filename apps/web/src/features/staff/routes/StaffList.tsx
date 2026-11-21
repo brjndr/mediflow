@@ -13,14 +13,12 @@ import { STAFF_STATUSES } from '../schemas';
 import type { InviteDelivery, StaffMember, StaffStatus } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
+import { actionLink } from '@/shared/ui/link-styles';
 
 const MANAGE = 'staff:manage';
 const INVITE = 'staff:invite';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
-const link =
-  'inline-flex items-center rounded-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
-
 /** What the server said, as a key of this feature's strings, when it has one. */
 function refusal(error: unknown) {
   if (!isApiError(error)) return null;
@@ -227,7 +225,7 @@ export default function StaffList() {
         <h1 className="text-2xl font-semibold tracking-tight">{t('heading')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
         <Can permission={INVITE}>
-          <Link to="/staff/invite" className={`${link} pt-2 text-sm`}>
+          <Link to="/staff/invite" className={actionLink}>
             {t('invite')}
           </Link>
         </Can>

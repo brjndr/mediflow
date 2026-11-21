@@ -190,7 +190,10 @@ export default function GoodsReceiptDetail() {
       <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm md:grid-cols-[auto_1fr]">
         <dt className="font-medium">{t('receipt.order')}</dt>
         <dd>
-          <Link to={`/purchasing/orders/${data.orderId}`} className="underline underline-offset-4">
+          <Link
+            to={`/purchasing/orders/${data.orderId}`}
+            className="underline underline-offset-4 text-primary-ink"
+          >
             {data.orderReference}
           </Link>
         </dd>

@@ -13,6 +13,8 @@ import { useMergePatients, useMergePreview } from '../hooks/use-merge';
 import { usePatient } from '../hooks/use-patient';
 import { mergeFormSchema, type MergeFormValues } from '../schemas';
 import type { PatientMerge, PatientRecord } from '../types';
+import { cn } from '@/shared/lib/utils';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const REFUSED: Record<string, string> = {
   conflict: 'merge.errors.conflict',
@@ -81,10 +83,7 @@ export default function PatientMerge() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
-      <Link
-        to={`/patients/${record.id}`}
-        className="inline-flex items-center self-start rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
-      >
+      <Link to={`/patients/${record.id}`} className={cn(secondaryLink, 'self-start')}>
         {t('merge.back')}
       </Link>
       <h1 className="text-2xl font-semibold tracking-tight">{t('merge.heading')}</h1>
@@ -113,7 +112,7 @@ function MergeDone({ merge, id }: { merge: PatientMerge; id: string }) {
           </li>
         ))}
       </ul>
-      <Link to={`/patients/${id}`} className="font-medium underline">
+      <Link to={`/patients/${id}`} className="font-medium underline text-primary-ink">
         {t('merge.toRecord')}
       </Link>
     </section>

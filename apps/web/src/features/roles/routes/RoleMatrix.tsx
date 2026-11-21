@@ -21,6 +21,7 @@ import {
 } from '../matrix';
 import { useLatestRole, usePermissionCatalog, useRole, useSaveGrants } from '../hooks/use-roles';
 import type { PermissionCatalog, RoleDetail } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const REFUSALS: Record<string, string> = {
   last_admin: 'matrix.errors.lastAdmin',
@@ -29,9 +30,6 @@ const REFUSALS: Record<string, string> = {
   role_not_found: 'errors.notFound',
   unknown_permission: 'matrix.errors.unknown',
 };
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
 
 function Editor({ role, catalog }: { role: RoleDetail; catalog: PermissionCatalog['items'] }) {
   const { t } = useTranslation('roles');
@@ -158,7 +156,7 @@ function Editor({ role, catalog }: { role: RoleDetail; catalog: PermissionCatalo
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
-      <Link to="/roles" className={link}>
+      <Link to="/roles" className={secondaryLink}>
         {t('matrix.back')}
       </Link>
       <div className="space-y-1">
@@ -236,7 +234,7 @@ function Matrix() {
         title={missing ? t('matrix.missingTitle') : t('matrix.errorTitle')}
         description={missing ? t('errors.notFound') : tCommon(errorMessageKey(error))}
         actions={
-          <Link to="/roles" className={link}>
+          <Link to="/roles" className={secondaryLink}>
             {t('matrix.back')}
           </Link>
         }

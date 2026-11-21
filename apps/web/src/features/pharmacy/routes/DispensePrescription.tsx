@@ -18,6 +18,7 @@ import { DispenseSlip } from '../components/DispenseSlip';
 import { useCompleteLine, usePrescription, usePrintSlip } from '../hooks/use-pharmacy';
 import { isOpen, remainingOf } from '../schemas';
 import type { PharmacyLine } from '../types';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 const field =
   'h-9 w-full rounded-md border bg-background px-3 text-base md:text-sm pointer-coarse:h-11 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
@@ -184,7 +185,7 @@ export default function DispensePrescription() {
             ? t('detail.notFound')
             : tCommon(errorMessageKey(prescription.error))}
         </p>
-        <Link to="/pharmacy" className="text-sm underline underline-offset-4">
+        <Link to="/pharmacy" className={secondaryLink}>
           {t('detail.back')}
         </Link>
       </div>

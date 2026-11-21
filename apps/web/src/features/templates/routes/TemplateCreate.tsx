@@ -16,9 +16,7 @@ import { TemplateEditor } from '../components/TemplateText';
 import { useCreateTemplate } from '../hooks/use-templates';
 import { TEMPLATE_KINDS, unknownPlaceholders } from '../placeholders';
 import { NAME_MAX, templateCreateFormSchema, type TemplateCreateFormValues } from '../schemas';
-
-const link =
-  'inline-flex items-center rounded-sm text-sm font-medium underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** The text of the new template, once its kind is known: the kind decides the placeholders. */
 function Text({
@@ -112,7 +110,7 @@ function NewTemplate() {
         />
         <div className="flex flex-wrap gap-3">
           <SubmitButton pending={create.isPending}>{t('create.submit')}</SubmitButton>
-          <Link to="/templates" className={link}>
+          <Link to="/templates" className={secondaryLink}>
             {t('form.cancel')}
           </Link>
         </div>

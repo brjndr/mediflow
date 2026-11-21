@@ -85,7 +85,10 @@ function MergeHistory({ patientId }: { patientId: string }) {
         hideable: false,
         // The merged record keeps its id: the link opens it, read-only.
         render: (row, text) => (
-          <Link className="font-medium underline" to={`/patients/${row.sourcePatientId}`}>
+          <Link
+            className="font-medium underline text-primary-ink"
+            to={`/patients/${row.sourcePatientId}`}
+          >
             {text}
           </Link>
         ),

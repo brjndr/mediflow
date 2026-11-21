@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { SlotProps } from '@/registry';
+import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** Tokens whose patient is still to be seen: triage comes before the consultation. */
 const OPEN = new Set(['waiting', 'called']);
@@ -20,7 +21,7 @@ export default function RecordVitalsLink({ context }: SlotProps) {
     <Link
       to={`/triage/${patientId}?token=${tokenId}`}
       aria-label={t('rowActionLabel', { number })}
-      className="inline-flex items-center text-sm text-primary underline underline-offset-4 pointer-coarse:min-h-11"
+      className={secondaryLink}
     >
       {t('rowAction')}
     </Link>
