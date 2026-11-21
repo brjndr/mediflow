@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
+import { likeEscape, searchTerm } from '../../core/http/text.js';
 import { withTenantTransaction } from '../../core/tenancy/transaction.js';
 import type { Cell, ReportColumn, ReportKind, ReportResult } from './schemas.js';
 
@@ -42,6 +43,7 @@ function num(value: string | number | null): number {
 /** The filters a stored report was asked for with (only the audit log has any, #1100). */
 export interface ReportFilters {
   actorId?: string;
+  q?: string;
   entity?: string;
   entityId?: string;
   action?: string;
@@ -384,6 +386,7 @@ const pharmacySales: Query = async (client, from, to, limit) => {
  * ids only: no patient is named. Only the stored report offers it, behind its own permission.
  */
 const auditLog: Query = async (client, from, to, limit, filters) => {
+  const q = searchTerm(filters.q);
   const { rows } = await client.query<{
     at: string;
     actor: string | null;
@@ -403,6 +406,7 @@ const auditLog: Query = async (client, from, to, limit, filters) => {
        and ($5::text is null or a.entity = $5)
        and ($6::text is null or a.entity_id = $6)
        and ($7::text is null or a.action = $7)
+       and ($8::text is null or a.action ilike $8 escape '\\' or a.entity ilike $8 escape '\\')
      order by a.at, a.id
      limit $3`,
     [
@@ -413,6 +417,7 @@ const auditLog: Query = async (client, from, to, limit, filters) => {
       filters.entity ?? null,
       filters.entityId ?? null,
       filters.action ?? null,
+      q ? `%${likeEscape(q)}%` : null,
     ],
   );
   return rows.map((r) => [r.at, r.actor, r.action, r.entity, r.entity_id, r.detail]);

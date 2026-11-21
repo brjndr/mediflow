@@ -95,3 +95,6 @@ export function tidyLinesOptional(text: string | undefined, max: number): string
   }
   return tidied || null;
 }
+
+/** A search term as a LIKE pattern body: the characters LIKE treats as wild are taken literally. */
+export const likeEscape = (term: string) => term.replace(/[\\%_]/g, (char) => `\\${char}`);

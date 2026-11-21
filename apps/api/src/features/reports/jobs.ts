@@ -84,6 +84,7 @@ function auditPreamble(run: Claimed, actorName: string | undefined): Cell[][] {
   if (filters.entity) lines.push(['record type', filters.entity]);
   if (filters.entityId) lines.push(['record id', filters.entityId]);
   if (filters.action) lines.push(['action', filters.action]);
+  if (filters.q) lines.push(['search', filters.q]);
   if (lines.length === 2) lines.push(['filters', 'none']);
   return lines;
 }

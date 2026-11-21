@@ -125,8 +125,8 @@ function filtersOf(
   kind: ReportKind,
   body: Static<typeof ReportRequest>,
 ): Record<string, string> | null {
-  const { actorId, entity, entityId, action } = body;
-  const given = Object.entries({ actorId, entity, entityId, action }).filter(
+  const { actorId, entity, entityId, action, q } = body;
+  const given = Object.entries({ actorId, entity, entityId, action, q: q?.trim() }).filter(
     (pair): pair is [string, string] => pair[1] !== undefined && pair[1] !== '',
   );
   if (given.length === 0) return null;

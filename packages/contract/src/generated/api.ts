@@ -14720,6 +14720,8 @@ export interface components {
             entityId?: string;
             /** @description `audit_log` only: the action, exact. */
             action?: string;
+            /** @description `audit_log` only: free text, part of the action or of the kind of record, any case (as in `POST /audit/search`). */
+            q?: string;
         };
         /** @description Money is in minor units of the report currency; minutes are whole minutes. */
         ReportColumn: {
@@ -14773,6 +14775,8 @@ export interface components {
                 entity?: string;
                 entityId?: string;
                 action?: string;
+                /** @description The free text the run was searched by. */
+                q?: string;
             };
             result?: components["schemas"]["ReportResult"];
         };

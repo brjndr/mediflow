@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import { searchTerm } from '../../core/http/text.js';
+import { likeEscape, searchTerm } from '../../core/http/text.js';
 
 export interface AuditFilter {
   from: string;
@@ -24,8 +24,6 @@ interface Row {
   entity_id: string | null;
   detail: string | null;
 }
-
-const likeEscape = (term: string) => term.replace(/[\\%_]/g, (char) => `\\${char}`);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

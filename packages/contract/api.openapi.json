@@ -21233,6 +21233,11 @@
             "maxLength": 63,
             "description": "`audit_log` only: the action, exact.",
             "type": "string"
+          },
+          "q": {
+            "maxLength": 63,
+            "description": "`audit_log` only: free text, part of the action or of the kind of record, any case (as in `POST /audit/search`).",
+            "type": "string"
           }
         }
       },
@@ -21436,6 +21441,10 @@
                 "type": "string"
               },
               "action": {
+                "type": "string"
+              },
+              "q": {
+                "description": "The free text the run was searched by.",
                 "type": "string"
               }
             }

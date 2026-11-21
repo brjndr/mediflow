@@ -110,7 +110,6 @@ describe('the audit log screen', () => {
     await waitFor(() => expect(bodyRows()).toHaveLength(12));
     expect(sent).toMatchObject({ q: 'INVOIC' });
     expect(urls.every((url) => !url.includes('INVOIC') && !url.includes('?'))).toBe(true);
-    expect(screen.getByText('The export does not use the search text.')).toBeInTheDocument();
   });
 
   it('makes a record id a link where its kind is linkable and the caller may open it', async () => {

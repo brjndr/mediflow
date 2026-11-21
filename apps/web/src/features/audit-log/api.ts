@@ -36,10 +36,9 @@ export async function requestExport(
   filters: AuditFilters,
   idempotencyKey: string,
 ): Promise<ReportRun> {
-  const body = { ...filters, q: undefined };
   const result = await api.POST('/reports/{kind}/runs', {
     params: { path: { kind: 'audit_log' }, header: { 'idempotency-key': idempotencyKey } },
-    body,
+    body: filters,
     fetch: apiFetchOnce,
   });
   return exportRunSchema.parse(requireData(result));
