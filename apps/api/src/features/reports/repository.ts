@@ -81,14 +81,28 @@ export async function lockQuota(client: pg.ClientBase): Promise<void> {
 
 export async function insertRun(
   client: pg.ClientBase,
-  run: { kind: ReportKind; from: string | null; to: string | null; userId: string },
+  run: {
+    kind: ReportKind;
+    from: string | null;
+    to: string | null;
+    userId: string;
+    filters?: object | null;
+  },
   retentionDays: number,
 ): Promise<string> {
   const { rows } = await client.query<{ id: string }>(
-    `insert into report_runs (tenant_id, kind, range_from, range_to, requested_by, expires_at)
-     values (app_tenant_id(), $1, $2::date, $3::date, $4, now() + make_interval(days => $5))
+    `insert into report_runs (tenant_id, kind, range_from, range_to, requested_by, expires_at, filters)
+     values (app_tenant_id(), $1, $2::date, $3::date, $4, now() + make_interval(days => $5),
+             $6::jsonb)
      returning id`,
-    [run.kind, run.from, run.to, run.userId, retentionDays],
+    [
+      run.kind,
+      run.from,
+      run.to,
+      run.userId,
+      retentionDays,
+      run.filters ? JSON.stringify(run.filters) : null,
+    ],
   );
   const row = rows[0];
   if (!row) throw new Error('run was not created');

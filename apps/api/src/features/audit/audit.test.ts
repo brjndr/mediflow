@@ -255,6 +255,48 @@ describe('the audit log as a stored report', () => {
     expect(file.body).toContain('Audit Admin,update,patient,p-1,rev:1');
   });
 
+  it('keeps the person, record and action filters of the request and applies them in the job', async () => {
+    const make = async (body: object, key: string, tenant = hospital, user = admin) => {
+      const created = await createRun({ from: day, to: day, ...body }, key, tenant, user);
+      expect(created.statusCode).toBe(202);
+      const run = created.json<{ id: string }>();
+      await queue.drain();
+      const done = (await get(`/reports/runs/${run.id}`, tenant, user)).json<{
+        status: string;
+        result: { rows: (string | null)[][] };
+      }>();
+      expect(done.status).toBe('succeeded');
+      return done.result.rows.map((r) => [r[1], r[2], r[3], r[4]]);
+    };
+    expect(await make({ actorId: desk.id }, 'audit-run-00010')).toEqual([
+      ['Audit Desk', 'read', 'patient', 'p-2'],
+    ]);
+    expect(await make({ entity: 'patient', action: 'read' }, 'audit-run-00011')).toEqual([
+      ['Audit Admin', 'read', 'patient', 'p-1'],
+      ['Audit Desk', 'read', 'patient', 'p-2'],
+    ]);
+    expect(await make({ entityId: 'i-1' }, 'audit-run-00012')).toEqual([
+      [null, 'create', 'invoice', 'i-1'],
+    ]);
+    // Another hospital's row (p-1 read by its own admin) never appears in this hospital's file.
+    expect(await make({ entityId: 'p-1', action: 'read' }, 'audit-run-00013')).toEqual([
+      ['Audit Admin', 'read', 'patient', 'p-1'],
+    ]);
+    expect(await make({ entityId: 'p-1' }, 'audit-run-00014', clinic, clinicAdmin)).toEqual([
+      ['Clinic Auditor', 'read', 'patient', 'p-1'],
+    ]);
+  });
+
+  it('refuses filters on a report that has none', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/reports/revenue/runs',
+      headers: { ...as(hospital.id, admin.id), 'idempotency-key': 'audit-run-00015' },
+      payload: { from: day, to: day, entity: 'patient' },
+    });
+    expect([response.statusCode, errorCode(response)]).toEqual([422, 'filters_not_supported']);
+  });
+
   it('is not answered on the spot, and needs the module', async () => {
     const sync = await app.inject({
       method: 'POST',

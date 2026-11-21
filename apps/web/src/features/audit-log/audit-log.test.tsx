@@ -111,6 +111,27 @@ describe('the audit log screen', () => {
     await expectNoAxeViolations();
   });
 
+  it('sends the filters on screen with the export', async () => {
+    let sent: unknown;
+    server.events.on('request:start', ({ request }) => {
+      if (request.url.endsWith('/reports/audit_log/runs')) {
+        void request
+          .clone()
+          .json()
+          .then((body: unknown) => {
+            sent = body;
+          });
+      }
+    });
+    await open();
+    await userEvent.type(screen.getByRole('textbox', { name: /^Kind of record/ }), 'invoice');
+    await userEvent.type(screen.getByRole('textbox', { name: /^Action/ }), 'update');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    await userEvent.click(screen.getByRole('button', { name: 'Export these days (CSV)' }));
+    await waitFor(() => expect(sent).toMatchObject({ entity: 'invoice', action: 'update' }));
+  });
+
   it('exports the days, follows the run and offers the download', async () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Export these days (CSV)' }));

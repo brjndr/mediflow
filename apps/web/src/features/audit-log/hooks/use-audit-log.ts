@@ -68,7 +68,7 @@ export function useRequestExport() {
   );
   return useMutation({
     gcTime: 0,
-    mutationFn: (body: { from: string; to: string }) => requestExport(body, keys.keyFor(body)),
+    mutationFn: (body: AuditFilters) => requestExport(body, keys.keyFor(body)),
   });
 }
 

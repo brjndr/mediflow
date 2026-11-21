@@ -120,6 +120,22 @@ function rangeOf(
   return { from: body.from, to: body.to };
 }
 
+/** The audit log's filters, none for another report (422 `filters_not_supported`). */
+function filtersOf(
+  kind: ReportKind,
+  body: Static<typeof ReportRequest>,
+): Record<string, string> | null {
+  const { actorId, entity, entityId, action } = body;
+  const given = Object.entries({ actorId, entity, entityId, action }).filter(
+    (pair): pair is [string, string] => pair[1] !== undefined && pair[1] !== '',
+  );
+  if (given.length === 0) return null;
+  if (kind !== 'audit_log') {
+    throw new HttpError(422, 'filters_not_supported', 'This report takes no filters');
+  }
+  return Object.fromEntries(given);
+}
+
 const view = (row: RunRow, result?: Static<typeof ReportResult> | null): ReportRun => ({
   id: row.id,
   kind: row.kind,
@@ -291,7 +307,9 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const { kind } = request.params as Static<typeof KindParams>;
       if (kind === 'audit_log') await requireAuditExport(request);
-      const range = rangeOf(kind, request.body as Static<typeof ReportRequest>, MAX_RANGE_DAYS);
+      const body = request.body as Static<typeof ReportRequest>;
+      const range = rangeOf(kind, body, MAX_RANGE_DAYS);
+      const filters = filtersOf(kind, body);
       const tenantId = request.tenant?.id;
       if (!tenantId) throw new HttpError(409, 'no_active_tenant', 'Pick a hospital first');
 
@@ -305,7 +323,7 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const id = await insertRun(
         request.txClient,
-        { kind, ...range, userId: userIdOf(request) },
+        { kind, ...range, userId: userIdOf(request), filters },
         limits.retentionDays,
       );
       request.idempotentId = id;

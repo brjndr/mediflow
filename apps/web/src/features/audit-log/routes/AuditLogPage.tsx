@@ -153,10 +153,7 @@ export default function AuditLogPage() {
             onClick={() => {
               link.reset();
               setRunId(null);
-              request.mutate(
-                { from: applied.from, to: applied.to },
-                { onSuccess: (made) => setRunId(made.id) },
-              );
+              request.mutate(applied, { onSuccess: (made) => setRunId(made.id) });
             }}
           >
             {t('export.button')}
