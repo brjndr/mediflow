@@ -43,6 +43,7 @@ export const clinicalFeature: FeatureManifest = {
       requires: ['prescriptionSet:read'],
     },
   ],
+  links: [{ kind: 'encounter', to: (id) => `encounters/${id}` }],
   nav: { icon: ClipboardPlus, order: 28, requires: ['encounter:read'] },
   permissions: [
     'encounter:read',

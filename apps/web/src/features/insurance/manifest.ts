@@ -86,6 +86,7 @@ export const insuranceFeature: FeatureManifest = {
       requires: ['payer:read'],
     },
   ],
+  links: [{ kind: 'claim', to: (id) => `claims/${id}` }],
   nav: { icon: ShieldPlus, order: 86, requires: ['payer:read'] },
   extensions: [
     {

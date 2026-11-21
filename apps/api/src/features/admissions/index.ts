@@ -15,6 +15,7 @@ import { admissionSettingsRoutes } from './settings.js';
  */
 export const admissionsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('admissions', ADMISSION_PERMISSIONS);
+  app.links.register('admission', 'admission_link_owner'); // migration 0158
   await app.register(admissionRoutes);
   await app.register(reservationRoutes);
   await app.register(dischargePlanRoutes);

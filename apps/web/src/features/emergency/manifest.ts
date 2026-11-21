@@ -40,6 +40,7 @@ export const emergencyFeature: FeatureManifest = {
       requires: ['emergency:read'],
     },
   ],
+  links: [{ kind: 'er_case', to: (id) => `emergency/${id}` }],
   nav: { icon: Siren, order: 26, requires: ['emergency:read'] },
   permissions: [
     'emergency:read',

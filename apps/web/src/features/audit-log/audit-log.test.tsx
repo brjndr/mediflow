@@ -114,13 +114,15 @@ describe('the audit log screen', () => {
 
   it('makes a record id a link where its kind is linkable and the caller may open it', async () => {
     await open();
-    // rec_2 is a patient (linkable); rec_1 is an invoice (no feature links that kind).
+    // rec_2 is a patient and rec_1 an invoice (#1114): both kinds are linkable.
     expect(within(entries()).getByRole('link', { name: 'rec_2' })).toHaveAttribute(
       'href',
       '/patients/rec_2',
     );
-    expect(within(entries()).queryByRole('link', { name: 'rec_1' })).toBeNull();
-    expect(within(entries()).getByText('rec_1')).toBeInTheDocument();
+    expect(within(entries()).getByRole('link', { name: 'rec_1' })).toHaveAttribute(
+      'href',
+      '/billing/invoices/rec_1',
+    );
   });
 
   it('leaves the id as text for someone who may not read patients', async () => {
