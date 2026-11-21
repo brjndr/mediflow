@@ -55,6 +55,7 @@ const COMPLETE = [
   'consents',
   'housekeeping',
   'hospital-settings',
+  'audit-log',
 ];
 
 const files = import.meta.glob<{ default: Tree }>('../../features/*/locales/{en,hi}.json', {
