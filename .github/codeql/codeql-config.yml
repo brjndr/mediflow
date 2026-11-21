@@ -1,0 +1,15 @@
+# CodeQL configuration (#1078). security-extended adds the lower-precision security queries to the
+# default set. Generated files and test-only code are left out: they never ship, and their fixtures
+# (fake keys, hand-built requests) would only add noise.
+name: mediflow
+queries:
+  - uses: security-extended
+paths-ignore:
+  - packages/contract/src/generated
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/*.test.mjs'
+  - apps/web/e2e
+  - apps/web/src/mocks
+  - apps/web/src/test
+  - '**/dist'

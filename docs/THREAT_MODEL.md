@@ -128,6 +128,10 @@ CI blocks on a high or critical advisory in production dependencies (`pnpm audit
 
 None of the high findings reaches production code. They are tracked in F-3, which also removes `continue-on-error` so the gate blocks.
 
+## Code and secret scanning
+
+Since #1078. CodeQL (`security-extended`, generated and test-only code left out by `.github/codeql/codeql-config.yml`) runs on every pull request that changes code, on `main` and weekly (`.github/workflows/security-scan.yml`); results are under Security > Code scanning. gitleaks scans the commits of every change in CI (job `secrets`, Markdown included) and the whole history weekly. The fixed test values the repository carries on purpose (the CI API container's keys, `config.test.ts`) are allowlisted by exact value in `.gitleaks.toml`, never by file; adding one is a reviewed change. GitHub secret scanning with push protection is on for the repository. The first full-history scan (770 commits, 2026-11-21) found only those test values.
+
 ## External penetration test plan
 
 Owner: a human with budget (cannot be done by Claude). Prerequisite: a staging environment with two seeded hospitals (#56, #146).

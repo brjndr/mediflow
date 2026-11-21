@@ -1,0 +1,24 @@
+# gitleaks configuration (#1078): the default rules, plus the fixed test values the repository
+# carries on purpose. Each entry names the exact value, never a whole file, so a real secret added
+# beside one is still found. Adding an entry is a reviewed change: say what the value is and why it
+# is not a secret.
+title = "mediflow"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Throwaway keys for the API in CI and in the config tests; production keys come from the environment"
+regexes = [
+  # Base64 of "for tests only not a real secret".
+  '''Zm9yIHRlc3RzIG9ubHkgbm90IGEgcmVhbCBzZWNyZXQ=''',
+  # A fixed 32-byte MFA key used only by apps/api/src/core/config/config.test.ts.
+  '''q83vEjRWeJCrze8SNFZ4kKvN7xI0VniQq83vEjRWeJA=''',
+  # 32 zero bytes, the CI API container's MFA key.
+  '''^A{43}=$''',
+]
+
+[[allowlists]]
+description = "Idempotency keys in tests are request ids, not credentials"
+regexTarget = "line"
+regexes = ['''idempotency-key['"]?\s*:\s*['"][a-z0-9-]+['"]''']
