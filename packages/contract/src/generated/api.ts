@@ -7456,7 +7456,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description The hospital's audit log, newest first, paged by cursor. A range of days at the hospital's clock is required, at most 92 days (422 `range_invalid`, `range_too_long`). Filters: the account that acted, the kind of record, the record, the action, all exact. Entries hold record ids only, never a patient's name. The body is a POST so the filters stay out of logs. Requires auditLog:read with the scope `all` and the audit_log feature flag. The read is itself audited (a read of `audit_log`). */
+        /** @description The hospital's audit log, newest first, paged by cursor. A range of days at the hospital's clock is required, at most 92 days (422 `range_invalid`, `range_too_long`). Filters: the account that acted, the kind of record, the record, the action, all exact, and free text q (part of the action or of the kind of record, any case). Entries hold record ids only, never a patient's name. The body is a POST so the filters stay out of logs. Requires auditLog:read with the scope `all` and the audit_log feature flag. The read is itself audited (a read of `audit_log`). */
         post: operations["searchAuditLog"];
         delete?: never;
         options?: never;
@@ -14817,6 +14817,8 @@ export interface components {
             entityId?: string;
             /** @description The action, exact. */
             action?: string;
+            /** @description Free text: part of the action or of the kind of record, any case. */
+            q?: string;
             cursor?: string;
             /** @default 25 */
             limit: number;

@@ -13,6 +13,8 @@
     "entityId": "Record id",
     "action": "Action",
     "actionHint": "For example read, create or update.",
+    "q": "Search the action and kind of record",
+    "qHint": "For example read or invoice, any part of the word.",
     "search": "Search",
     "errors": {
       "day": "Enter a valid day.",
@@ -59,6 +61,7 @@
     }
   },
   "export": {
+    "ignoresText": "The export does not use the search text.",
     "button": "Export these days (CSV)",
     "download": "Download CSV",
     "working": "Making the export. This can take a moment.",

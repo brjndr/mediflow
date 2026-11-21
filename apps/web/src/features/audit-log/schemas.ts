@@ -36,6 +36,7 @@ export const filterSchema = z
     entity: filterText(63),
     entityId: filterText(64),
     action: filterText(63),
+    q: filterText(63),
   })
   .superRefine((values, ctx) => {
     const fromOk = isCalendarDay(values.from);

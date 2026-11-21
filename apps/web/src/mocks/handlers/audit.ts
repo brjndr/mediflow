@@ -36,6 +36,7 @@ export interface AuditFilters {
   entity?: string;
   entityId?: string;
   action?: string;
+  q?: string;
 }
 
 interface Body extends AuditFilters {
@@ -58,7 +59,10 @@ export function auditRows(tenantId: string, to: string, filters: AuditFilters) {
         (!filters.actorId || row.actor?.id === filters.actorId) &&
         (!filters.entity || row.entity === filters.entity) &&
         (!filters.entityId || row.entityId === filters.entityId) &&
-        (!filters.action || row.action === filters.action),
+        (!filters.action || row.action === filters.action) &&
+        (!filters.q ||
+          row.action.includes(filters.q.toLowerCase()) ||
+          row.entity.includes(filters.q.toLowerCase())),
     );
 }
 

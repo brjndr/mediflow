@@ -56,7 +56,7 @@ describe('the filter days', () => {
   it('counts both ends and refuses a range past 92 days or backwards', () => {
     expect(daysIncluded('2026-11-01', '2026-11-01')).toBe(1);
     expect(shiftDay('2026-11-01', -1)).toBe('2026-10-31');
-    const blank = { actorId: '', entity: '', entityId: '', action: '' };
+    const blank = { actorId: '', entity: '', entityId: '', action: '', q: '' };
     const ask = (from: string, to: string) =>
       filterSchema.safeParse({ from, to, ...blank }).success;
     expect(ask('2026-01-01', '2026-04-02')).toBe(true);
@@ -88,6 +88,47 @@ describe('the audit log screen', () => {
     await waitFor(() => expect(bodyRows()).toHaveLength(4));
     expect(within(entries()).getByText('rec_1')).toBeInTheDocument();
     expect(within(entries()).queryByText('rec_2')).toBeNull();
+  });
+
+  it('searches the action and kind of record by free text, in the body and never the address', async () => {
+    const urls: string[] = [];
+    let sent: unknown;
+    server.events.on('request:start', ({ request }) => {
+      if (request.url.includes('/audit/search')) {
+        urls.push(request.url);
+        void request
+          .clone()
+          .json()
+          .then((body: unknown) => {
+            sent = body;
+          });
+      }
+    });
+    await open();
+    await userEvent.type(screen.getByRole('textbox', { name: /^Search the action/ }), 'INVOIC');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await waitFor(() => expect(bodyRows()).toHaveLength(12));
+    expect(sent).toMatchObject({ q: 'INVOIC' });
+    expect(urls.every((url) => !url.includes('INVOIC') && !url.includes('?'))).toBe(true);
+    expect(screen.getByText('The export does not use the search text.')).toBeInTheDocument();
+  });
+
+  it('makes a record id a link where its kind is linkable and the caller may open it', async () => {
+    await open();
+    // rec_2 is a patient (linkable); rec_1 is an invoice (no feature links that kind).
+    expect(within(entries()).getByRole('link', { name: 'rec_2' })).toHaveAttribute(
+      'href',
+      '/patients/rec_2',
+    );
+    expect(within(entries()).queryByRole('link', { name: 'rec_1' })).toBeNull();
+    expect(within(entries()).getByText('rec_1')).toBeInTheDocument();
+  });
+
+  it('leaves the id as text for someone who may not read patients', async () => {
+    revokePermission(HOSPITAL, 'admin', 'patient:read');
+    await open();
+    expect(within(entries()).queryByRole('link', { name: 'rec_2' })).toBeNull();
+    expect(within(entries()).getByText('rec_2')).toBeInTheDocument();
   });
 
   it('says so when nothing matches', async () => {

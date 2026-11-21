@@ -165,6 +165,18 @@ describe('the audit search', () => {
     expect(await by({ actorId: randomUUID() })).toBe(0);
   });
 
+  it('finds free text in the action or the kind of record, with % and _ taken literally', async () => {
+    const by = async (q: string) =>
+      (await search({ from: day, to: day, q })).json<Page>().items.length;
+    expect(await by('INVOIC')).toBe(1);
+    expect(await by('read')).toBe(2);
+    expect(await by('pat')).toBe(3);
+    expect(await by('%')).toBe(0);
+    expect(await by('_')).toBe(0);
+    expect(await by('nothing')).toBe(0);
+    expect((await search({ from: day, to: day, q: 'x'.repeat(64) })).statusCode).toBe(400);
+  });
+
   it('needs a range of valid days, at most 92', async () => {
     expect((await search({})).statusCode).toBe(400);
     expect(errorCode(await search({ from: day, to: '2000-01-01' }))).toBe('range_invalid');
