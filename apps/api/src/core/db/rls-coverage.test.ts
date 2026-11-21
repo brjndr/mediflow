@@ -16,6 +16,8 @@ const DEFINER_FUNCTIONS = new Set<string>([
   'audit_retire_partition',
   'audit_seal_digest',
   'audit_seal_due',
+  'audit_seal_end',
+  'audit_seal_lagging',
   'bump_policy_revision',
   'ensure_audit_partition',
   'invite_hospital_name',

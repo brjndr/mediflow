@@ -227,8 +227,9 @@ export const auditPlugin = fp(
     });
     app.jobs.schedule('audit.partitions', '0 3 * * *');
 
-    // Seals each hospital's new rows every five minutes (#1081). The head of each chain goes to
-    // the log, which is kept off the database, so a seal removed and made again shows there.
+    // Seals each hospital's new rows every five minutes (#1081). Each seal and the one it follows
+    // go to the log, which is kept off the database, so a tail of a chain removed and made again
+    // shows there as two seals following the same one.
     const sealKey = Buffer.from(app.config.AUDIT_SEAL_KEY, 'base64');
     app.jobs.work('audit.seal', async () => {
       for (const head of await sealAuditLog(app.database.pool, sealKey)) {
@@ -237,9 +238,11 @@ export const auditPlugin = fp(
     });
     app.jobs.schedule('audit.seal', '*/5 * * * *');
 
-    // Checks the seals every day: the chains, the seals of the last two days and a sample of
-    // older ones; every seal on Sundays. A mismatch is logged by hospital and seal id and fails the
-    // job, for the alerting to pick up.
+    // Checks the seals every day: the seals of the last two days and a sample of older ones, every
+    // seal on Sundays, and that no hospital has rows sealing left behind. A mismatch is logged by
+    // hospital and seal id and fails the job, for the alerting to pick up. A run may take long on
+    // Sundays, so it is not cut off at pg-boss's 15 minutes, and a failed run is not run again
+    // (the next day's run checks again).
     app.jobs.work('audit.seal-verify', async () => {
       const now = new Date();
       const months = app.config.AUDIT_RETENTION_MONTHS;
@@ -255,7 +258,10 @@ export const auditPlugin = fp(
       app.log.info({ event: 'audit_seal_verified', count: checked }, 'audit seals verified');
       if (mismatches.length > 0) throw new Error('audit_seal_mismatch');
     });
-    app.jobs.schedule('audit.seal-verify', '30 4 * * *');
+    app.jobs.schedule('audit.seal-verify', '30 4 * * *', {
+      expireInSeconds: 6 * 3600,
+      retryLimit: 0,
+    });
 
     // Archives and drops months past AUDIT_RETENTION_MONTHS. Does nothing while it is unset.
     app.jobs.work('audit.retention', async () => {

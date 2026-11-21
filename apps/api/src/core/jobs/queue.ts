@@ -11,6 +11,14 @@ export interface SendOptions {
   retryBackoff?: boolean;
 }
 
+/** Options of a scheduled job's runs. */
+export interface ScheduleOptions {
+  /** Failed runs retried before the run is given up (pg-boss's default when unset). */
+  retryLimit?: number;
+  /** A run still active after this long is failed (pg-boss: 15 minutes when unset). */
+  expireInSeconds?: number;
+}
+
 /**
  * The job queue, behind an interface so Redis (BullMQ) can replace pg-boss in phase 2 as a
  * configuration change. Handlers must be idempotent: a job can be delivered more than once.
@@ -30,7 +38,7 @@ export interface JobQueue {
     handler: (data: T, context: JobContext) => Promise<void>,
   ): void;
   /** Runs `name` on a cron schedule (UTC). */
-  schedule(name: string, cron: string): void;
+  schedule(name: string, cron: string, options?: ScheduleOptions): void;
   start(): Promise<void>;
   stop(): Promise<void>;
 }
@@ -105,10 +113,10 @@ export class PgBossQueue implements JobQueue {
     });
   }
 
-  schedule(name: string, cron: string): void {
+  schedule(name: string, cron: string, options?: ScheduleOptions): void {
     this.run(async () => {
       await this.ensureQueue(name);
-      await this.boss.schedule(name, cron);
+      await this.boss.schedule(name, cron, null, options);
     });
   }
 
@@ -133,7 +141,7 @@ export class PgBossQueue implements JobQueue {
  */
 export class MemoryQueue implements JobQueue {
   readonly sent: { name: string; data: object; options: SendOptions }[] = [];
-  readonly schedules: { name: string; cron: string }[] = [];
+  readonly schedules: { name: string; cron: string; options?: ScheduleOptions }[] = [];
   private readonly handlers = new Map<
     string,
     (data: object, context: JobContext) => Promise<void>
@@ -153,8 +161,8 @@ export class MemoryQueue implements JobQueue {
     this.handlers.set(name, handler as (data: object, context: JobContext) => Promise<void>);
   }
 
-  schedule(name: string, cron: string): void {
-    this.schedules.push({ name, cron });
+  schedule(name: string, cron: string, options?: ScheduleOptions): void {
+    this.schedules.push({ name, cron, options });
   }
 
   /**

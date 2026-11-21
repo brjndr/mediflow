@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import type pg from 'pg';
 import type { FileStore } from '../files/store.js';
-import { WORKER_ROLE } from '../outbox/dispatcher.js';
+import { withWorkerTransaction as asWorker } from '../tenancy/transaction.js';
 
 const PAGE = 20_000;
 
@@ -16,23 +16,6 @@ interface ArchivePart {
 export function retentionCutoff(now: Date, months: number): string {
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, 1));
   return d.toISOString().slice(0, 10);
-}
-
-/** The same begin and `SET LOCAL ROLE` sequence as the daily partition job. */
-async function asWorker<T>(pool: pg.Pool, run: (client: pg.PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool.connect();
-  try {
-    await client.query('begin');
-    await client.query(`set local role ${WORKER_ROLE}`);
-    const result = await run(client);
-    await client.query('commit');
-    return result;
-  } catch (error) {
-    await client.query('rollback').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
 }
 
 /**
