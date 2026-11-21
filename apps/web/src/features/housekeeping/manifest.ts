@@ -10,7 +10,7 @@ export const housekeepingFeature: FeatureManifest = {
   id: 'housekeeping',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Housekeeping' } },
+    titles: { en: { title: 'Housekeeping' }, hi: { title: 'हाउसकीपिंग' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital (finishing also needs `wards`).

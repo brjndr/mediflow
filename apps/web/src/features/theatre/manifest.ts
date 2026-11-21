@@ -10,7 +10,7 @@ export const theatreFeature: FeatureManifest = {
   id: 'theatre',
   titleKey: 'title',
   i18n: {
-    titles: { en: { title: 'Operation theatre' } },
+    titles: { en: { title: 'Operation theatre' }, hi: { title: 'ऑपरेशन थिएटर' } },
     load: (language) => import(`./locales/${language}.json`),
   },
   // Off by default. A platform admin enables it per hospital.

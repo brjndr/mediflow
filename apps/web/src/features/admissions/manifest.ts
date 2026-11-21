@@ -20,6 +20,13 @@ export const admissionsFeature: FeatureManifest = {
         census: 'Inpatient census',
         summary: 'Discharge summary',
       },
+      hi: {
+        title: 'बिस्तर बोर्ड',
+        admissions: 'भर्तियाँ',
+        admit: 'मरीज़ को भर्ती करें',
+        census: 'भर्ती मरीज़ों की गिनती',
+        summary: 'डिस्चार्ज सारांश',
+      },
     },
     load: (language) => import(`./locales/${language}.json`),
   },
