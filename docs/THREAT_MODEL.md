@@ -60,7 +60,7 @@ Out of scope until they exist: patient portal, device integrations, payer integr
 | Information leak    | PHI in logs, URLs, errors, exports                | Redaction, `POST` searches, scrubbed error reports, masked list columns                                       | Verify in the pen test; exports contain PHI by design and are permission-gated and audited           |
 | Supply chain        | Vulnerable or hostile dependency                  | pnpm install scripts blocked, lockfile frozen, Dependabot, audit job in CI                                    | 19 findings open, CI gate is report-only (F-3)                                                       |
 | Platform            | Platform admin reads patient data                 | No default access; separate `/platform` routes, authenticator required, audited                               | Break-glass access designed only; limits not enforced                                                |
-| Secrets             | Keys in the repo or logs                          | Environment only; production needs `MFA_ENCRYPTION_KEY` and `REPORT_URL_SECRET`                               | Rotation procedure not written; wait for the deploy pipeline (#146)                                  |
+| Secrets             | Keys in the repo or logs                          | Environment only; production needs `MFA_ENCRYPTION_KEY`, `REPORT_URL_SECRET` and `AUDIT_SEAL_KEY`             | Rotation procedure not written; wait for the deploy pipeline (#146)                                  |
 
 ## Threat model per module
 
@@ -136,6 +136,8 @@ Since #1078. CodeQL (`security-extended`, generated and test-only code left out 
 CI supply chain (#1079): every action a workflow uses is pinned to a full commit SHA with its version in a comment, and container images by digest; `scripts/actions-pinned.test.mjs` (in `pnpm test:scripts`) fails on a tag or a branch. Dependabot moves the SHA and the comment together. Workflows grant the token `contents: read` only, and a job that needs more asks for it itself (CodeQL: `security-events: write`).
 
 OWASP ZAP (#1082, `.github/workflows/zap.yml`) scans nightly, on demand and on a pull request that changes the scan: a baseline scan of the built SPA, served by `scripts/zap-serve.mjs` with the host's `_headers` and `/api` proxied, and an API scan driven by `packages/contract/api.openapi.json` against the API image on an empty migrated database. Both are unauthenticated and use no real data. Accepted findings are in `.zap/rules.tsv` with a reason; anything else fails the run, and the reports are the `zap-reports` artifact. The first scan found the SPA could be framed while the CSP is report-only, fixed with `X-Frame-Options: DENY`.
+
+Audit log tamper evidence (#1081): the database refuses changes to `audit_log` (grants, triggers), but its owner can drop a trigger. Every five minutes each hospital's new rows are sealed with an HMAC keyed by `AUDIT_SEAL_KEY`, which lives with the API, not the database, and chained per hospital; a daily job checks them and fails on a row changed, removed or backdated, or a seal removed from a chain (`apps/api/CLAUDE.md`, Audit). Limits: detection only; the newest minutes are unsealed; any tail of a chain could be removed and the changed rows sealed again by the job, which the logged seals (`audit_sealed`, each with the seal before it) expose off the database until seals are copied to write-once storage; a check that sealing has stopped fails the job too.
 
 ## External penetration test plan
 

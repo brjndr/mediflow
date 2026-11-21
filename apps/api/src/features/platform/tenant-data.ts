@@ -25,6 +25,7 @@ export const EXPORTED_PLAIN: readonly string[] = [
   'ambulances',
   'appointments',
   'audit_log',
+  'audit_seal',
   'bed_assignments',
   'bed_categories',
   'bed_reservations',
