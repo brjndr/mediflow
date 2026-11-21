@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { WORKER_ROLE } from '../outbox/dispatcher.js';
 import { APP_ROLE } from './plugin.js';
 
 export interface TenantTransactionOptions {
@@ -33,6 +34,35 @@ export async function withTenantTransaction<T>(
         String(options.statementTimeoutMs),
       ]);
     }
+    const result = await run(client);
+    await client.query('commit');
+    return result;
+  } catch (error) {
+    await client.query('rollback').catch((failure: unknown) => {
+      broken = failure instanceof Error ? failure : new Error('rollback failed');
+    });
+    throw error;
+  } finally {
+    client.release(broken);
+  }
+}
+
+/**
+ * Runs `run` in one transaction as the worker role (`mediflow_worker`), the role of background
+ * work that spans hospitals: the outbox, the audit partitions and seals. Commits when `run`
+ * resolves and rolls back when it throws; a connection whose rollback fails is destroyed, never
+ * returned to the pool.
+ */
+export async function withWorkerTransaction<T>(
+  pool: pg.Pool,
+  run: (client: pg.PoolClient) => Promise<T>,
+  options: { readOnly?: boolean } = {},
+): Promise<T> {
+  const client = await pool.connect();
+  let broken: Error | undefined;
+  try {
+    await client.query(options.readOnly ? 'begin read only' : 'begin');
+    await client.query(`set local role ${WORKER_ROLE}`);
     const result = await run(client);
     await client.query('commit');
     return result;
