@@ -4,7 +4,7 @@ import { errorMessageKey } from '@/shared/api';
 import { Card } from '@/shared/ui/card';
 import { LiveStatus } from '../components/LiveStatus';
 import { useQueueDisplay, useQueueEvents } from '../hooks/use-queue';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 /**
  * The waiting-room display (#78): for each department the token numbers being served, the doctor

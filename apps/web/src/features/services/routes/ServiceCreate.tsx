@@ -14,7 +14,7 @@ import {
   toMinor,
   type CreateServiceFormValues,
 } from '../schemas';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 const EMPTY = {
   code: '',

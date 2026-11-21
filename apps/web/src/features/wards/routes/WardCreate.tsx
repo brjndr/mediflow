@@ -13,7 +13,7 @@ import {
   wardCreateFormSchema,
   type WardCreateFormValues,
 } from '../schemas';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 function NewWard() {
   const { t } = useTranslation('wards');

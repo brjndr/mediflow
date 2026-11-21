@@ -16,7 +16,7 @@ import { useStay } from '../hooks/use-nursing';
 import { NOTE_KINDS, NOTE_MAX, noteFormSchema, type NoteValues } from '../notes-schemas';
 import { shiftOf } from '../shifts';
 import type { ProgressNote } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function Notes() {

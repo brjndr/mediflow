@@ -8,7 +8,7 @@ import { useFormatters } from '@/tenancy';
 import { useKitchenList } from '../hooks/use-diet';
 import { useWardOptions } from '../hooks/use-nursing';
 import type { KitchenListItem } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 

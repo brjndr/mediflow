@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { actionLink, Button, textLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn, type GridSort } from '@/shared/ui/data-grid';
 import { maskMrn, maskPhone } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
@@ -11,7 +11,6 @@ import { PATIENT_PAGE_SIZES, usePatients } from '../hooks/use-patients';
 import type { PatientSort, PatientSummary } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
-import { actionLink, textLink } from '@/shared/ui/link-styles';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function PatientList() {

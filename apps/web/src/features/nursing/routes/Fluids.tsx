@@ -21,7 +21,7 @@ import { useFluids, useSaveFluid, useShiftTotals } from '../hooks/use-care';
 import { useStay } from '../hooks/use-nursing';
 import { shiftWindows } from '../shifts';
 import type { WardFluid } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 

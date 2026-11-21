@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { SlotProps } from '@/registry';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** Tokens whose patient is still to be seen: triage comes before the consultation. */
 const OPEN = new Set(['waiting', 'called']);

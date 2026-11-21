@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
@@ -28,7 +28,6 @@ import {
   type TemplateDetail as Detail,
   type TemplateVersionInfo,
 } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const same = (a: RichTextDocument, b: RichTextDocument) => JSON.stringify(a) === JSON.stringify(b);
 

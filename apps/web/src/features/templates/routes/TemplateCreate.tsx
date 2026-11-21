@@ -16,7 +16,7 @@ import { TemplateEditor } from '../components/TemplateText';
 import { useCreateTemplate } from '../hooks/use-templates';
 import { TEMPLATE_KINDS, unknownPlaceholders } from '../placeholders';
 import { NAME_MAX, templateCreateFormSchema, type TemplateCreateFormValues } from '../schemas';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** The text of the new template, once its kind is known: the kind decides the placeholders. */
 function Text({

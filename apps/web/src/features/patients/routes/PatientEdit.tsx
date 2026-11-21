@@ -17,7 +17,7 @@ import {
 import type { PatientFormValues } from '../schemas';
 import type { PatientRecord, PatientUpdate } from '../types';
 import { cn } from '@/shared/lib/utils';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** Contact details: shown, and sent, only to a role that may see them. */
 const CONTACT_FIELDS = ['phone', 'email', 'address'] as const;

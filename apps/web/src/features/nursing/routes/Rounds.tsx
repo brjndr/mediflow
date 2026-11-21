@@ -9,7 +9,7 @@ import { maskMrn } from '@/shared/utils/mask';
 import { useFormatters } from '@/tenancy';
 import { useStays } from '../hooks/use-nursing';
 import type { StayRow } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 /** The address value that stands for every doctor. */

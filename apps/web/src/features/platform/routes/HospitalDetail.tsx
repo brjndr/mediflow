@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { HospitalAdminInvites } from '../components/HospitalAdminInvites';
@@ -11,7 +11,6 @@ import { HospitalLimits } from '../components/HospitalLimits';
 import { HospitalStatus } from '../components/HospitalStatus';
 import { HospitalModules } from '../components/HospitalModules';
 import { useHospital } from '../hooks/use-hospitals';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 // Default export: route modules are loaded with a dynamic import.
 export default function HospitalDetail() {

@@ -12,7 +12,7 @@ import { DIET_MAX, DIET_PRIORITIES, dietFormSchema, type DietValues } from '../d
 import { usePlaceDiet, useStayDiet } from '../hooks/use-diet';
 import { useStay } from '../hooks/use-nursing';
 import type { WardDietOrder } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** An order still being carried out: the kitchen works from the newest of these. */
 const live = (order: WardDietOrder) => order.status !== 'completed';

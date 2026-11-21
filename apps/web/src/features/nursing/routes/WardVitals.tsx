@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { TimeSeriesChart } from '@/shared/ui/charts';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
@@ -25,7 +25,6 @@ import {
   type VitalsValues,
 } from '../schemas';
 import type { WardVital } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 

@@ -7,7 +7,7 @@ import { useAllergies } from '@/features/triage';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { maskMrn } from '@/shared/utils/mask';
@@ -18,7 +18,6 @@ import { DispenseSlip } from '../components/DispenseSlip';
 import { useCompleteLine, usePrescription, usePrintSlip } from '../hooks/use-pharmacy';
 import { isOpen, remainingOf } from '../schemas';
 import type { PharmacyLine } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const field =
   'h-9 w-full rounded-md border bg-background px-3 text-base md:text-sm pointer-coarse:h-11 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';

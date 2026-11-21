@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { Slot } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { maskPhone } from '@/shared/utils/mask';
@@ -15,7 +15,6 @@ import { usePatientDraft } from '../hooks/use-update-patient';
 import { todayIn } from '../schemas';
 import type { PatientRecord } from '../types';
 import { cn } from '@/shared/lib/utils';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** A phone number that is already masked is left as the server sent it. */
 const withheldPhone = (phone: string) =>

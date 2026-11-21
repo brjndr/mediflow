@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { useAccessPolicy, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import type { PermissionScope } from '@/shared/types';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
@@ -21,7 +21,6 @@ import {
 } from '../matrix';
 import { useLatestRole, usePermissionCatalog, useRole, useSaveGrants } from '../hooks/use-roles';
 import type { PermissionCatalog, RoleDetail } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const REFUSALS: Record<string, string> = {
   last_admin: 'matrix.errors.lastAdmin',

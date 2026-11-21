@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router';
 import { usePermission } from '@/access';
-import { subNavLink } from '@/shared/ui/link-styles';
+import { subNavLink } from '@/shared/ui/button';
 
 /**
  * The screens of the pharmacy, one link each, the current one marked (`aria-current`): the

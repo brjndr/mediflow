@@ -1,11 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { BulkInvite } from '../components/BulkInvite';
 import { InviteForm } from '../components/InviteForm';
 import { useStaffRoles } from '../hooks/use-staff';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function StaffInvite() {

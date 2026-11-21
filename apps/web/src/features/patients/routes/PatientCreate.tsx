@@ -17,7 +17,7 @@ import type {
   PatientDuplicateQuery,
 } from '../types';
 import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** Empty optional fields are left out, and the server adds when and by whom consent was recorded. */
 function toRequest(values: PatientFormValues): PatientCreateBody {

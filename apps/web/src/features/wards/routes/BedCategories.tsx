@@ -5,7 +5,7 @@ import { usePermission } from '@/access';
 import { useServiceOptions } from '@/features/services';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SelectField, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
@@ -14,7 +14,6 @@ import { useExpectedVersion } from '../components/use-expected';
 import { useBedCategories, useBedCategoryChange } from '../hooks/use-wards';
 import { bedCategoryFormSchema, NAME_MAX, type BedCategoryFormValues } from '../schemas';
 import type { BedCategory, BedCategoryCreate, BedCategoryUpdate } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const MANAGE = 'ward:manage';
 const categoryValues = (category?: BedCategory): BedCategoryFormValues => ({

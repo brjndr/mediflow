@@ -2,7 +2,7 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { Form, SubmitButton, TextAreaField, useZodForm } from '@/shared/ui/form';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
@@ -14,7 +14,6 @@ import { usePatient } from '../hooks/use-patient';
 import { mergeFormSchema, type MergeFormValues } from '../schemas';
 import type { PatientMerge, PatientRecord } from '../types';
 import { cn } from '@/shared/lib/utils';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const REFUSED: Record<string, string> = {
   conflict: 'merge.errors.conflict',

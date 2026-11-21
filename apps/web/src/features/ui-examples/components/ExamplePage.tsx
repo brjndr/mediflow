@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** Shared frame of the example pages: a heading and a way back to the index. */
 export function ExamplePage({ heading, children }: { heading: string; children: ReactNode }) {

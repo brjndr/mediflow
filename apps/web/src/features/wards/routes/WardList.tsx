@@ -9,7 +9,7 @@ import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { useWards } from '../hooks/use-wards';
 import type { Ward } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
-import { actionLink, secondaryLink, textLink } from '@/shared/ui/link-styles';
+import { actionLink, secondaryLink, textLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 function Wards() {

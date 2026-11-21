@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router';
 import { Can, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { Form, SubmitButton, TextAreaField, TextField, useZodForm } from '@/shared/ui/form';
 import { StatusBadge } from '@/shared/ui/status-badge';
 import { maskMrn } from '@/shared/utils/mask';
@@ -22,7 +22,6 @@ import {
 import { useCarePlans, useChangeCarePlan, useCreateCarePlan } from '../hooks/use-care';
 import { useStay } from '../hooks/use-nursing';
 import type { CarePlan, CarePlanTask } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const REFUSED: Record<string, string> = {
   plan_closed: 'care.refused.planClosed',

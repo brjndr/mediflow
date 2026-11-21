@@ -6,14 +6,13 @@ import { Can } from '@/access';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { actionLink, Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useResendInvite, useStaff, useStaffAction, type StaffAction } from '../hooks/use-staff';
 import { STAFF_STATUSES } from '../schemas';
 import type { InviteDelivery, StaffMember, StaffStatus } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
-import { actionLink } from '@/shared/ui/link-styles';
 
 const MANAGE = 'staff:manage';
 const INVITE = 'staff:invite';

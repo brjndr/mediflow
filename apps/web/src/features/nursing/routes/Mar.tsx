@@ -7,7 +7,7 @@ import { allergyCovers } from '@/features/clinical';
 import { useAllergies } from '@/features/triage';
 import { errorMessageKey } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { todayIn } from '@/shared/utils';
 import { maskMrn } from '@/shared/utils/mask';
@@ -17,7 +17,6 @@ import { useMarEntries, useMarOrders } from '../hooks/use-mar';
 import { useStay } from '../hooks/use-nursing';
 import { slotsOn, slotState, slotTimes, standingEntry, type SlotState } from '../mar-schedule';
 import type { MarEntry, MarOrder } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 /** The API refuses a dose due more than a day ahead. */
