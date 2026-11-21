@@ -147,22 +147,26 @@ function useIsNarrow(element: React.RefObject<HTMLElement | null>): boolean {
   return narrow;
 }
 
+const FOCUSABLE = 'a[href],button,input,select,textarea,summary,[tabindex]:not([tabindex="-1"])';
+
 /**
- * Whether the table is wider than its box, so the box scrolls sideways. Such a box must be
- * reachable by keyboard (WCAG 2.1.1, axe `scrollable-region-focusable`) even when no row holds a
- * link or a button, so the grid then makes it a named region in the tab order. `watch` re-checks
- * when the rows or the layout change.
+ * Whether the table's box needs a tab stop of its own: it is wider than the box, so the box
+ * scrolls sideways, and nothing in it takes focus, so the keyboard could not scroll it (WCAG
+ * 2.1.1, axe `scrollable-region-focusable`). A table with a link or a button in a row is reached
+ * through them, and gets no extra stop, so Tab walks it as before. `watch` re-checks when the rows
+ * or the layout change.
  */
-function useScrollsSideways(
+function useNeedsTabStop(
   element: React.RefObject<HTMLElement | null>,
   watch: readonly unknown[],
 ): boolean {
-  const [scrolls, setScrolls] = useState(false);
+  const [needs, setNeeds] = useState(false);
   useLayoutEffect(() => {
     const node = element.current;
     // No box while the grid shows cards; the table's box is checked again when it comes back.
     if (!node) return;
-    const check = () => setScrolls(node.scrollWidth > node.clientWidth + 1);
+    const check = () =>
+      setNeeds(node.scrollWidth > node.clientWidth + 1 && !node.querySelector(FOCUSABLE));
     check();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(check);
@@ -171,7 +175,7 @@ function useScrollsSideways(
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [element, ...watch]);
-  return scrolls;
+  return needs;
 }
 
 export function DataGrid<Row extends RowData>({
@@ -202,7 +206,7 @@ export function DataGrid<Row extends RowData>({
   const scroller = useRef<HTMLDivElement>(null);
   const narrow = useIsNarrow(root);
   const stacked = layout === 'stacked' || (layout === 'auto' && narrow);
-  const scrollsSideways = useScrollsSideways(scroller, [stacked, rows.length, status]);
+  const needsTabStop = useNeedsTabStop(scroller, [stacked, rows.length, status]);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
 
   // Columns and actions the user may not see are left out entirely, not hidden with CSS.
@@ -547,8 +551,10 @@ export function DataGrid<Row extends RowData>({
 
       <div
         ref={scroller}
-        // A box that scrolls sideways is reached with Tab and scrolled with the arrow keys.
-        {...(scrollsSideways && { tabIndex: 0, role: 'region', 'aria-label': label })}
+        // A box that scrolls sideways with nothing focusable in it is reached with Tab and
+        // scrolled with the arrow keys. A group, not a region: a region would be a landmark with
+        // the same name as the section around the grid (axe `landmark-unique`).
+        {...(needsTabStop && { tabIndex: 0, role: 'group', 'aria-label': label })}
         className={cn(
           // Positioned, so text hidden for screen readers (absolute) is clipped with the table
           // and a table wider than the screen scrolls here, never the page.
