@@ -62,7 +62,9 @@ export async function fetchRuns(
   signal?: AbortSignal,
 ): Promise<ReportRunPage> {
   const result = await api.GET('/reports/runs', { params: { query: { cursor, limit } }, signal });
-  return reportRunPageSchema.parse(requireData(result));
+  const page = reportRunPageSchema.parse(requireData(result));
+  // The audit log's exports are listed on its own screen, where their columns are known.
+  return { ...page, items: page.items.filter((run) => run.kind !== 'audit_log') };
 }
 
 /** One run with its result, once it has succeeded. */

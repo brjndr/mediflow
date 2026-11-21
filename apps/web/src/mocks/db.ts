@@ -44,6 +44,7 @@ const initialTenants: Record<string, TenantDto> = {
       purchasing: true,
       billing: true,
       reports: true,
+      audit_log: true,
       notices: true,
       departments: true,
       doctors: true,
@@ -265,6 +266,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'discount:manage' },
   { permission: 'report:read' },
   { permission: 'report:export' },
+  // The hospital's own audit log (#1066).
+  { permission: 'auditLog:read' },
+  { permission: 'auditLog:export' },
   { permission: 'user:manage' },
   { permission: 'role:read' },
   { permission: 'role:manage' },

@@ -20,6 +20,7 @@ const KINDS: readonly Kind[] = [
   'collections_by_close',
   'outstanding',
   'opd_hourly',
+  'audit_log',
 ];
 const SPOT_MAX_DAYS = 31;
 
@@ -256,6 +257,20 @@ function result(kind: Kind, from: string | null, to: string | null): Result {
         ],
         totals: [null, null, null, 430000, 20000, 410000],
       };
+    case 'audit_log':
+      return {
+        ...base,
+        columns: [
+          { key: 'at', type: 'text' },
+          { key: 'actor', type: 'text' },
+          { key: 'action', type: 'text' },
+          { key: 'entity', type: 'text' },
+          { key: 'entityId', type: 'text' },
+          { key: 'detail', type: 'text' },
+        ],
+        rows: [['2026-11-01T09:00:00.000Z', 'Sample Admin', 'read', 'patient', 'p-1', null]],
+        totals: [null, null, null, null, null, null],
+      };
     case 'outstanding':
       return {
         ...base,
@@ -408,6 +423,10 @@ export const reportsHandlers = [
     const access = authorize(request, { permission: 'report:export', featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
     if (!isKind(params.kind)) return error(404, 'report_not_found', 'No such report');
+    if (params.kind === 'audit_log') {
+      const audit = authorize(request, { permission: 'auditLog:export', featureFlag: 'audit_log' });
+      if ('denied' in audit) return audit.denied;
+    }
     const key = request.headers.get('Idempotency-Key');
     if (!key) return error(400, 'validation_failed', 'Idempotency-Key is required');
     const scoped = `${access.tenantId}:${key}`;

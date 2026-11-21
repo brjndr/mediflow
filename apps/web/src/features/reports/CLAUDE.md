@@ -13,6 +13,8 @@ What was decided for the web screen of reports (#121). The API is `apps/api/src/
 
 - **Drill-down** (#753): on the `outstanding` table each age band has a "Show invoices" action that opens `OutstandingInvoices` under it, a `DataGrid` paged by the server (invoice number, issued, age, total, amount due; no patient, no link to the invoice). Not cached once closed (`gcTime: 0`).
 
+- **The audit log** (`audit_log` kind, #1066) is exported from its own screen (`features/audit-log`), not here: `FORM_KINDS` leaves it out of the form and `fetchRuns` drops its runs from the list. `index.ts` exports `startDownload` for that screen.
+
 ## Known gaps
 
 - English only; a new column key from the API shows as the key until `columns.<key>` is added.

@@ -21248,7 +21248,8 @@
               "collections",
               "collections_by_close",
               "outstanding",
-              "opd_hourly"
+              "opd_hourly",
+              "audit_log"
             ]
           },
           "from": {
@@ -21334,7 +21335,8 @@
               "collections",
               "collections_by_close",
               "outstanding",
-              "opd_hourly"
+              "opd_hourly",
+              "audit_log"
             ]
           },
           "from": {
@@ -21462,6 +21464,140 @@
           "expiresAt": {
             "format": "date-time",
             "type": "string"
+          }
+        }
+      },
+      "AuditSearchRequest": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["from", "to"],
+        "properties": {
+          "from": {
+            "format": "date",
+            "description": "First day, at the hospital (YYYY-MM-DD).",
+            "type": "string"
+          },
+          "to": {
+            "format": "date",
+            "description": "Last day, included. At most 92 days from `from`.",
+            "type": "string"
+          },
+          "actorId": {
+            "maxLength": 64,
+            "description": "The account that acted.",
+            "type": "string"
+          },
+          "entity": {
+            "maxLength": 63,
+            "description": "Kind of record, exact.",
+            "type": "string"
+          },
+          "entityId": {
+            "maxLength": 64,
+            "description": "The record, exact.",
+            "type": "string"
+          },
+          "action": {
+            "maxLength": 63,
+            "description": "The action, exact.",
+            "type": "string"
+          },
+          "cursor": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "default": 25,
+            "type": "integer"
+          }
+        }
+      },
+      "AuditEntry": {
+        "description": "One line of the audit log. Record ids only: no patient is named and no field value is kept.",
+        "type": "object",
+        "required": ["id", "at", "actor", "action", "entity", "entityId", "detail"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": ["id", "name"],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "description": "No account: work the system did by itself.",
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "type": "string"
+          },
+          "entity": {
+            "type": "string"
+          },
+          "entityId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AuditPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
           }
         }
       },
@@ -75819,7 +75955,8 @@
                 "collections",
                 "collections_by_close",
                 "outstanding",
-                "opd_hourly"
+                "opd_hourly",
+                "audit_log"
               ]
             },
             "in": "path",
@@ -75930,7 +76067,8 @@
                 "collections",
                 "collections_by_close",
                 "outstanding",
-                "opd_hourly"
+                "opd_hourly",
+                "audit_log"
               ]
             },
             "in": "path",
@@ -76351,6 +76489,85 @@
             }
           },
           "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit/search": {
+      "post": {
+        "operationId": "searchAuditLog",
+        "tags": ["audit"],
+        "description": "The hospital's audit log, newest first, paged by cursor. A range of days at the hospital's clock is required, at most 92 days (422 `range_invalid`, `range_too_long`). Filters: the account that acted, the kind of record, the record, the action, all exact. Entries hold record ids only, never a patient's name. The body is a POST so the filters stay out of logs. Requires auditLog:read with the scope `all` and the audit_log feature flag. The read is itself audited (a read of `audit_log`).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuditSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

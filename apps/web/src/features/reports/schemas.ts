@@ -22,7 +22,11 @@ export const REPORT_KINDS = [
   'collections_by_close',
   'outstanding',
   'opd_hourly',
+  'audit_log',
 ] as const satisfies readonly ReportKind[];
+
+/** What the reports screen offers. The audit log has its own screen (`audit-log`, #1066). */
+export const FORM_KINDS = REPORT_KINDS.filter((kind) => kind !== 'audit_log');
 
 /** A report that is a snapshot of now: it takes no days. */
 export const SNAPSHOT_KINDS: readonly ReportKind[] = ['stock', 'outstanding'];

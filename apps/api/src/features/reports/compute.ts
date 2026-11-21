@@ -364,6 +364,34 @@ const pharmacySales: Query = async (client, from, to, limit) => {
   });
 };
 
+/**
+ * The hospital's audit log for a range of its own days, oldest first (#1066): when (UTC), the
+ * account's name, the action, the kind of record, the record's id and the short detail. Record
+ * ids only: no patient is named. Only the stored report offers it, behind its own permission.
+ */
+const auditLog: Query = async (client, from, to, limit) => {
+  const { rows } = await client.query<{
+    at: string;
+    actor: string | null;
+    action: string;
+    entity: string;
+    entity_id: string | null;
+    detail: string | null;
+  }>(
+    `select to_char(a.at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as at,
+            coalesce(u.name, a.actor_id) as actor, a.action, a.entity, a.entity_id, a.detail
+     from tenants t
+     cross join lateral (select ${DAY_BOUNDS}) b
+     join audit_log a on a.tenant_id = t.id and a.at >= b.lo and a.at < b.hi
+     left join users u on u.id::text = a.actor_id
+     where t.id = app_tenant_id()
+     order by a.at, a.id
+     limit $3`,
+    [from, to, limit + 1],
+  );
+  return rows.map((r) => [r.at, r.actor, r.action, r.entity, r.entity_id, r.detail]);
+};
+
 const col = (key: string, type: ReportColumn['type']): ReportColumn => ({ key, type });
 
 const DEFINITIONS: Record<
@@ -471,6 +499,18 @@ const DEFINITIONS: Record<
     sums: ['invoices', 'dueMinor'],
     query: outstanding,
     snapshot: true,
+  },
+  audit_log: {
+    columns: [
+      col('at', 'text'),
+      col('actor', 'text'),
+      col('action', 'text'),
+      col('entity', 'text'),
+      col('entityId', 'text'),
+      col('detail', 'text'),
+    ],
+    sums: [],
+    query: auditLog,
   },
   stock: {
     columns: [

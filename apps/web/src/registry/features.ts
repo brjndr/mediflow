@@ -7,6 +7,7 @@ import { departmentsFeature } from '@/features/departments';
 import { doctorsFeature } from '@/features/doctors';
 import { drugsFeature } from '@/features/drugs';
 import { followUpsFeature } from '@/features/follow-ups';
+import { auditLogFeature } from '@/features/audit-log';
 import { importsFeature } from '@/features/imports';
 import { indentsFeature } from '@/features/indents';
 import { documentsFeature } from '@/features/documents';
@@ -89,5 +90,6 @@ export const features: FeatureManifest[] = [
   hospitalSettingsFeature,
   billingFeature,
   reportsFeature,
+  auditLogFeature,
   insuranceFeature,
 ];

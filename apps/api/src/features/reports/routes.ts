@@ -57,6 +57,28 @@ function requireAll(request: FastifyRequest, ...permissions: (typeof READ | type
   }
 }
 
+const AUDIT_EXPORT = 'auditLog:export';
+
+/** Whether the caller may see the audit log's stored reports: the switch is on and they hold it. */
+async function mayExportAudit(request: FastifyRequest): Promise<boolean> {
+  const policy = await request.access.policy();
+  return (
+    policy?.features['audit_log'] === true &&
+    policy.permissions.some((grant) => grant.permission === AUDIT_EXPORT && grant.scope === 'all')
+  );
+}
+
+/** The audit log is the hospital's own trail: its report has its own switch and permission. */
+async function requireAuditExport(request: FastifyRequest): Promise<void> {
+  const policy = await request.access.policy();
+  if (policy?.features['audit_log'] !== true) {
+    throw new HttpError(403, 'feature_disabled', 'Module audit_log is off for this hospital');
+  }
+  if (!(await mayExportAudit(request))) {
+    throw new HttpError(403, 'permission_denied', `Missing ${AUDIT_EXPORT}`);
+  }
+}
+
 const userIdOf = (request: FastifyRequest): string => {
   const userId = request.session?.userId;
   if (!userId) throw new HttpError(401, 'unauthenticated', 'No session');
@@ -189,6 +211,9 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       requireAll(request, READ);
       const { kind } = request.params as Static<typeof KindParams>;
+      if (kind === 'audit_log') {
+        throw new HttpError(422, 'stored_only', 'The audit log is asked for as a stored report');
+      }
       const range = rangeOf(
         kind,
         request.body as Static<typeof ReportRequest>,
@@ -265,6 +290,7 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
         return reply.status(202).send(view(made));
       }
       const { kind } = request.params as Static<typeof KindParams>;
+      if (kind === 'audit_log') await requireAuditExport(request);
       const range = rangeOf(kind, request.body as Static<typeof ReportRequest>, MAX_RANGE_DAYS);
       const tenantId = request.tenant?.id;
       if (!tenantId) throw new HttpError(409, 'no_active_tenant', 'Pick a hospital first');
@@ -310,7 +336,7 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       requireAll(request, READ);
       const { cursor, limit = DEFAULT_PAGE_SIZE } = request.query;
-      const page = await listRuns(request.txClient, cursor, limit);
+      const page = await listRuns(request.txClient, cursor, limit, await mayExportAudit(request));
       if (!page) throw new HttpError(400, 'invalid_cursor', 'The cursor is not valid');
       return { items: page.rows.map((row) => view(row)), nextCursor: page.nextCursor };
     },
@@ -334,6 +360,7 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
       requireAll(request, READ);
       const row = await findRun(request.txClient, request.params.runId);
       if (!row) throw runNotFound();
+      if (row.kind === 'audit_log' && !(await mayExportAudit(request))) throw runNotFound();
       const result = row.status === 'succeeded' ? await resultOf(request.txClient, row.id) : null;
       request.audit('read', 'report_run', row.id);
       return view(row, result);
@@ -359,6 +386,7 @@ export const reportRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const row = await findRun(request.txClient, request.params.runId);
       if (!row) throw runNotFound();
       if (row.expires_at.getTime() <= Date.now()) throw runNotFound();
+      if (row.kind === 'audit_log' && !(await mayExportAudit(request))) throw runNotFound();
       if (row.status !== 'succeeded' || row.file_key === null) {
         throw new HttpError(409, 'report_not_ready', 'The report has no file yet');
       }
