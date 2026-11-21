@@ -9,6 +9,7 @@ import { accessRoutes } from './core/access/routes.js';
 import { accountRoutes } from './core/auth/account-routes.js';
 import { accountSessionRoutes } from './core/auth/account-sessions.js';
 import { staffEmailsPlugin } from './core/auth/emails.js';
+import { linkKindsPlugin, openLinkRoutes } from './core/auth/open-link.js';
 import { authRoutes } from './core/auth/routes.js';
 import type { Config } from './core/config/config.js';
 import { dbPlugin } from './core/db/plugin.js';
@@ -187,7 +188,9 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await app.register(idempotencyPlugin);
   await app.register(livePlugin, { bus: options.liveBus });
   await app.register(tenantRoutes);
+  await app.register(linkKindsPlugin);
   await app.register(authRoutes);
+  await app.register(openLinkRoutes);
   await app.register(accountRoutes);
   await app.register(accountSessionRoutes);
   await app.register(accessRoutes);
