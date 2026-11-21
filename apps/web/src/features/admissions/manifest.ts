@@ -59,6 +59,7 @@ export const admissionsFeature: FeatureManifest = {
       requires: ['admission:create'],
     },
   ],
+  links: [{ kind: 'admission', to: (id) => `admissions/${id}/summary` }],
   nav: { icon: BedSingle, order: 81, requires: ['admission:read'] },
   dashboardWidgets: [
     {

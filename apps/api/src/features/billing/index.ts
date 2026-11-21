@@ -16,6 +16,7 @@ import { billDischargeGate } from './stay-routes.js';
  */
 export const billingFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('billing', BILLING_PERMISSIONS);
+  app.links.register('invoice', 'invoice_link_owner'); // migration 0158
   await app.register(billingRoutes);
   subscribeToPostings(app);
   app.dischargeGates.register('billing', billDischargeGate);

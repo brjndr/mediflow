@@ -9,6 +9,12 @@ const NO_FORCED_RLS: Record<string, string> = {}; // sessions is forced too
 // SECURITY DEFINER functions in the public schema. Adding one means reviewing it and listing it
 // here; each must pin its search_path so a caller cannot shadow objects it uses.
 const DEFINER_FUNCTIONS = new Set<string>([
+  'invoice_link_owner',
+  'encounter_link_owner',
+  'appointment_link_owner',
+  'admission_link_owner',
+  'claim_link_owner',
+  'er_case_link_owner',
   'audit_default_rows',
   'audit_partition_count',
   'audit_partition_page',

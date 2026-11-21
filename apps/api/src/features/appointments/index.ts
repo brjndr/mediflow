@@ -9,6 +9,7 @@ import { appointmentRoutes } from './routes.js';
  */
 export const appointmentsFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('appointments', APPOINTMENT_PERMISSIONS);
+  app.links.register('appointment', 'appointment_link_owner'); // migration 0158
   await app.register(appointmentRoutes);
 };
 

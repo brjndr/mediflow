@@ -21,6 +21,7 @@ import { SPLIT_INVOICE_SCHEMAS, splitInvoiceRoutes } from './split-invoices.js';
  */
 export const insuranceFeature: FastifyPluginAsync = async (app) => {
   app.permissions.register('insurance', INSURANCE_PERMISSIONS);
+  app.links.register('claim', 'claim_link_owner'); // migration 0158
   for (const schema of [
     ...INSURANCE_SCHEMAS,
     ...CLAIM_SCHEMAS,
