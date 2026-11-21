@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { DepositPanel } from '../components/DepositPanel';
@@ -11,7 +11,6 @@ import { EstimatePanel } from '../components/EstimatePanel';
 import { SettlementPanel } from '../components/SettlementPanel';
 import { useRunningBill } from '../hooks/use-stay-bill';
 import type { RunningBillLine } from '../stay-bill';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 type BillRow = RunningBillLine & { partLabel?: string; partKey?: string };
 

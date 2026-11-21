@@ -9,7 +9,7 @@ import { useFormatters } from '@/tenancy';
 import { link, useKindName } from '../components/common';
 import { useImportBatches } from '../hooks/use-imports';
 import type { ImportBatch } from '../types';
-import { actionLink } from '@/shared/ui/link-styles';
+import { actionLink } from '@/shared/ui/button';
 
 function Batches() {
   const { t } = useTranslation('imports');

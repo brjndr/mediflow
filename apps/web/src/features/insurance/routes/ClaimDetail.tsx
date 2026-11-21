@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { useFormatters } from '@/tenancy';
@@ -15,7 +15,6 @@ import { ClaimStatusBadge } from '../components/ClaimStatusBadge';
 import { actionPermission, type ClaimExportFormat } from '../claims';
 import { useClaim, useExportClaim } from '../hooks/use-claims';
 import type { ClaimActionKind } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 

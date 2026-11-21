@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { PrintSheet } from '@/shared/ui/print-sheet';
@@ -23,7 +23,6 @@ import {
 } from '../credit';
 import { useCreditAccount, useCreditBills, useReceipts, useStatement } from '../hooks/use-credit';
 import type { CreditAccount, CreditBill, CreditBillStatus, Receipt, StatementLine } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const ID = /^[A-Za-z0-9_-]{1,64}$/;

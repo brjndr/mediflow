@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { useDiscountSettings, useSetDiscountSettings } from '../hooks/use-billing';
 import { bpToPercent, percentToBp } from '../lib/tax';
@@ -12,7 +12,6 @@ import {
   type DiscountLimitInput,
   type DiscountLimitValues,
 } from '../schemas';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const schema = createDiscountLimitSchema(percentToBp);
 

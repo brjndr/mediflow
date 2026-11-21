@@ -7,7 +7,7 @@ import { usePatientName } from '@/features/patients';
 import { errorMessageKey } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink, textLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { IdentifyDialog, TriageDialog } from '../components/CaseDialogs';
@@ -16,7 +16,6 @@ import { RegisterDialog } from '../components/RegisterDialog';
 import { useCases, useNow } from '../hooks/use-emergency';
 import { isOverdue, minutesSince, TARGET_MINUTES, type Category } from '../schemas';
 import type { EmergencyCase, EmergencyCaseStatus } from '../types';
-import { secondaryLink, textLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const ACTIVE = 'active';

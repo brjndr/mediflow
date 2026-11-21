@@ -5,7 +5,7 @@ import { errorMessageKey } from '@/shared/api';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { useClaimAging } from '../hooks/use-claims';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 interface AgingLine {
   id: string;

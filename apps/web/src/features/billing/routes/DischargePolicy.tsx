@@ -4,11 +4,10 @@ import { Link } from 'react-router';
 import { z } from 'zod';
 import { errorMessageKey } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { Form, SelectField, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { useDischargePolicy, useSetDischargePolicy } from '../hooks/use-stay-bill';
 import { DISCHARGE_POLICY_MODES, type DischargePolicyMode } from '../stay-bill';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const schema = z.object({ mode: z.enum(DISCHARGE_POLICY_MODES) });
 type PolicyInput = z.input<typeof schema>;

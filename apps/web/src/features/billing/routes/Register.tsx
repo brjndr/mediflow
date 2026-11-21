@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { useFormatters } from '@/tenancy';
 import { CloseRegisterForm } from '../components/CloseRegisterForm';
@@ -14,7 +14,6 @@ import { useCloseRegister, useCurrentRegister, useOpenRegister } from '../hooks/
 import { useFocusWhenFormGoes } from '../lib/panel-helpers';
 import { differenceText } from '../lib/register';
 import type { RegisterSession } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 /**
  * The caller's own cash drawer (`billing/register`, #118), for `cashRegister:manage`: open it

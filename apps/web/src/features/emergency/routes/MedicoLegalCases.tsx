@@ -8,7 +8,7 @@ import { useFormatters } from '@/tenancy';
 import { MedicoLegalBadge } from '../components/MedicoLegalPanel';
 import { useMlcRegister } from '../hooks/use-emergency';
 import type { EmergencyCase } from '../types';
-import { secondaryLink, textLink } from '@/shared/ui/link-styles';
+import { secondaryLink, textLink } from '@/shared/ui/button';
 
 function Who({ row }: { row: EmergencyCase }) {
   const { t } = useTranslation('emergency');

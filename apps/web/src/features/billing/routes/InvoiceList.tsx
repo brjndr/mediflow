@@ -11,7 +11,7 @@ import { INVOICE_TONE } from '../lib/status-tone';
 import type { Invoice } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
-import { textLink } from '@/shared/ui/link-styles';
+import { textLink } from '@/shared/ui/button';
 
 const LINK =
   'inline-flex min-h-6 items-center rounded-sm text-sm font-medium underline underline-offset-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11';

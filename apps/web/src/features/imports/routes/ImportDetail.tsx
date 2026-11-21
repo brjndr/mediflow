@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { useFormatters } from '@/tenancy';
@@ -12,7 +12,6 @@ import { useFieldName, useKindName } from '../components/common';
 import { useBatchAction, useImportBatch, useImportProblems } from '../hooks/use-imports';
 import { WORKING } from '../schemas';
 import type { ImportBatch, ImportProblem } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** Refusals of an action on a batch that have words of their own. */
 const KNOWN_REFUSALS = ['import_running', 'import_not_ready', 'import_busy', 'import_not_staging'];

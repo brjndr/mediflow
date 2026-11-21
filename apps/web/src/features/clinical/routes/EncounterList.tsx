@@ -12,7 +12,7 @@ import { useEncounters } from '../hooks/use-clinical';
 import { ENCOUNTER_STATUSES } from '../schemas';
 import type { Encounter, EncounterStatus } from '../types';
 import { cn } from '@/shared/lib/utils';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 const select =
   'h-9 w-full rounded-md border bg-background px-3 text-base md:text-sm pointer-coarse:h-11 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';

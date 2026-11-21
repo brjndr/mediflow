@@ -10,7 +10,7 @@ import { usePayers } from '../hooks/use-payers';
 import { PAYER_KINDS } from '../schemas';
 import type { Payer, PayerKind } from '../types';
 import { SearchInput } from '@/shared/ui/search-input';
-import { actionLink, secondaryLink, textLink } from '@/shared/ui/link-styles';
+import { actionLink, secondaryLink, textLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 function Payers() {

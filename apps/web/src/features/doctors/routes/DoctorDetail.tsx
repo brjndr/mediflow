@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
 import { SystemPage } from '@/shared/ui/system-page';
 import { DoctorForm } from '../components/DoctorForm';
@@ -13,7 +13,6 @@ import { WorkingHours } from '../components/WorkingHours';
 import { useDoctor, useUpdateDoctor } from '../hooks/use-doctors';
 import type { DoctorField, DoctorFormValues } from '../schemas';
 import type { Doctor, DoctorUpdate } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** The fields the person changed, as the API takes them. */
 function changes(values: DoctorFormValues, changed: DoctorField[]): Partial<DoctorUpdate> {

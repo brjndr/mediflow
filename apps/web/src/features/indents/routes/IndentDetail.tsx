@@ -6,7 +6,7 @@ import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button, buttonVariants } from '@/shared/ui/button';
+import { Button, buttonVariants, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { PrintSheet } from '@/shared/ui/print-sheet';
 import { useFormatters } from '@/tenancy';
@@ -18,7 +18,6 @@ import { INDENT_REFUSED } from '../components/refusals';
 import { useIndent, useStepIndent } from '../hooks/use-indents';
 import { useItemName } from '../hooks/use-item-name';
 import type { StockIndent, StockIndentLine, StockIssue } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 type Panel = 'approve' | 'reject' | 'issue' | 'close';
 

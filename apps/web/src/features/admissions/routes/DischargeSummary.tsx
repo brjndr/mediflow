@@ -5,7 +5,7 @@ import { useAllowed, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { fillPlaceholders, useTemplateChoices } from '@/features/templates';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { Form, SubmitButton, TextAreaField, useZodForm } from '@/shared/ui/form';
 import { PrintSheet } from '@/shared/ui/print-sheet';
@@ -30,7 +30,6 @@ import {
   type SummaryDraftValues,
 } from '../schemas';
 import { SUMMARY_SECTIONS, type Admission, type DischargeSummary } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 

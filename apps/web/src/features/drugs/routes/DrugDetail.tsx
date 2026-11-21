@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
@@ -19,7 +19,6 @@ import {
   type DrugFormValues,
 } from '../schemas';
 import type { Drug } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const FIELDS: DrugField[] = [
   'type',

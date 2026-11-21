@@ -14,7 +14,7 @@ import {
   toPayerFormValues,
   type PayerCreateFormValues,
 } from '../schemas';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 function NewPayer() {
   const { t } = useTranslation('insurance');

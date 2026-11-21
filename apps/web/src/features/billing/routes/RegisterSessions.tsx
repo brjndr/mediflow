@@ -7,7 +7,7 @@ import { useFormatters } from '@/tenancy';
 import { REGISTER_PAGE_SIZES, useRegisterSessions } from '../hooks/use-billing';
 import { differenceText } from '../lib/register';
 import type { RegisterSession } from '../types';
-import { textLink } from '@/shared/ui/link-styles';
+import { textLink } from '@/shared/ui/button';
 
 /**
  * Every cash register session of the hospital (`billing/register/sessions`, #118), for

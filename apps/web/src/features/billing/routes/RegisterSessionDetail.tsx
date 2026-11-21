@@ -1,12 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { useFormatters } from '@/tenancy';
 import { RegisterFigures } from '../components/RegisterFigures';
 import { SettlementPrint } from '../components/SettlementPrint';
 import { useRegisterSession } from '../hooks/use-billing';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 /**
  * One register session (`billing/register/sessions/:sessionId`, #118), for `cashRegister:read`:

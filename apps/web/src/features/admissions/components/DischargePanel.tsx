@@ -3,11 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { usePermission } from '@/access';
 import { useDischargeClearance } from '@/features/billing';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { useDischargePlan } from '../hooks/use-discharge-plan';
 import { DISCHARGE_TYPES, openClearances, type Admission, type DischargeType } from '../types';
 import { DischargePlanSection } from './DischargePlanSection';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 

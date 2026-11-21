@@ -4,11 +4,10 @@ import { Link } from 'react-router';
 import { ServiceSearch, type ServiceOption } from '@/features/services';
 import { errorMessageKey } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { usePackageContents, useSetPackageContents } from '../hooks/use-billing';
 import { refusalText } from '../lib/panel-helpers';
 import type { PackageItem } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const REFUSALS = new Set(['invalid_package_item', 'not_a_package', 'service_not_found']);
 /** The most a package holds, as the API allows. */

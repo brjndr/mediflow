@@ -12,7 +12,7 @@ import {
   toFormValues,
   type LabTestCreateFormValues,
 } from '../schemas';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 function NewLabTest() {
   const { t } = useTranslation('lab_tests');

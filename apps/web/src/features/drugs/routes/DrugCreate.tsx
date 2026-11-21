@@ -2,14 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 import { errorMessageKey, isApiError } from '@/shared/api';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { DrugFields } from '../components/DrugFields';
 import { useCheckDrugDuplicates, useCreateDrug } from '../hooks/use-drugs';
 import { drugFormSchema, toCreate, toFormValues, type DrugFormValues } from '../schemas';
 import type { Drug } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 /** What tells two similar items apart, on one line. */
 function Identity({ drug }: { drug: Drug }) {

@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Can, usePermission } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
@@ -23,7 +23,6 @@ import {
   type PayerFormValues,
 } from '../schemas';
 import type { Payer, PayerPlan, RateAgreement } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const FIELDS: PayerField[] = ['name', 'contactName', 'phone', 'email', 'address'];
 

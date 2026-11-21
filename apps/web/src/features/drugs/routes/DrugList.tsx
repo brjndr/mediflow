@@ -10,7 +10,7 @@ import { FORMS, SCHEDULES, TYPES } from '../schemas';
 import type { Drug, DrugForm, DrugSchedule, DrugType } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
-import { actionLink, textLink } from '@/shared/ui/link-styles';
+import { actionLink, textLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 /** One of a fixed set of values, or the empty "all" choice. */

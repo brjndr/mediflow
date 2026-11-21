@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router';
 import { Can } from '@/access';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { useInPlaceFormFocus } from '@/shared/hooks/use-in-place-form-focus';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink, textLink } from '@/shared/ui/button';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { Form, SubmitButton, useZodForm } from '@/shared/ui/form';
 import { PageSkeleton } from '@/shared/ui/page-skeleton';
@@ -20,7 +20,6 @@ import {
   type LabTestFormValues,
 } from '../schemas';
 import type { LabTest } from '../types';
-import { secondaryLink, textLink } from '@/shared/ui/link-styles';
 
 /** The fields a test of this kind has. A panel has no result of its own; a test no components. */
 function fieldsOf(test: Pick<LabTest, 'kind' | 'resultType'>): LabTestField[] {

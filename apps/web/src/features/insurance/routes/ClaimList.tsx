@@ -9,7 +9,7 @@ import { ClaimStatusBadge } from '../components/ClaimStatusBadge';
 import { CLAIM_STATUSES } from '../claims';
 import { useClaims } from '../hooks/use-claims';
 import type { Claim, ClaimStatus } from '../types';
-import { secondaryLink, textLink } from '@/shared/ui/link-styles';
+import { secondaryLink, textLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 const DAY_MS = 86_400_000;

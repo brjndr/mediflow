@@ -6,7 +6,7 @@ import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { useFormatters } from '@/tenancy';
 import { useCreditAccounts } from '../hooks/use-credit';
 import type { CreditAccount } from '../types';
-import { secondaryLink, textLink } from '@/shared/ui/link-styles';
+import { secondaryLink, textLink } from '@/shared/ui/button';
 
 /** The corporates billed on credit, with what each owes. The figures are the server's. */
 export default function CreditAccountList() {

@@ -9,7 +9,7 @@ import { useImportKinds, useUploadBatch, type UploadProgress } from '../hooks/us
 import { readCsvFile, type FileProblem, type ReadFile } from '../read-file';
 import { guessMapping, isKnownKind, mappingSchema, type Mapping } from '../schemas';
 import type { ImportColumn, ImportKind } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 const control = 'h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11';
 

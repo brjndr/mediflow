@@ -7,7 +7,7 @@ import { StaffPicker } from '../components/StaffPicker';
 import { useCreateDoctor } from '../hooks/use-doctors';
 import type { DoctorFormValues } from '../schemas';
 import type { DoctorCandidate } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
+import { secondaryLink } from '@/shared/ui/button';
 
 /** What the server said, as a key of this feature's strings, when it has one. */
 function refusal(error: unknown): 'create.exists' | 'create.invalid' | null {

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { errorMessageKey } from '@/shared/api';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/button';
+import { Button, secondaryLink } from '@/shared/ui/button';
 import { Form, SubmitButton, TextField, useZodForm } from '@/shared/ui/form';
 import { useSetTaxRates, useTaxRates } from '../hooks/use-billing';
 import { bpToPercent, percentToBp } from '../lib/tax';
@@ -14,7 +14,6 @@ import {
   type TaxRatesValues,
 } from '../schemas';
 import type { TaxRates as Rates } from '../types';
-import { secondaryLink } from '@/shared/ui/link-styles';
 
 const schema = createTaxRatesSchema(percentToBp);
 
