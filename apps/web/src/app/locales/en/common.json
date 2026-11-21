@@ -488,6 +488,7 @@
       "consents": "Consents and certificates",
       "admissions": "Admissions and beds",
       "ambulance": "Ambulances",
+      "audit_log": "Audit log",
       "bloodbank": "Blood bank",
       "documents": "Patient documents",
       "emergency": "Emergency",

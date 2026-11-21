@@ -1,0 +1,48 @@
+{
+  "title": "Audit log",
+  "heading": "Audit log",
+  "intro": "Who did what to which record, newest first. Entries name records by their ids and never show a patient's name. Looking at this log is itself recorded.",
+  "system": "System",
+  "form": {
+    "from": "From",
+    "to": "To",
+    "actor": "Done by",
+    "anyone": "Anyone",
+    "entity": "Kind of record",
+    "entityHint": "For example patient or invoice, exactly as listed.",
+    "entityId": "Record id",
+    "action": "Action",
+    "actionHint": "For example read, create or update.",
+    "search": "Search",
+    "errors": {
+      "day": "Enter a valid day.",
+      "order": "The last day cannot be before the first.",
+      "tooLong": "A search covers at most 92 days.",
+      "long": "That is too long."
+    }
+  },
+  "columns": {
+    "at": "When",
+    "actor": "Done by",
+    "action": "Action",
+    "entity": "Kind of record",
+    "entityId": "Record id",
+    "detail": "Detail"
+  },
+  "entries": {
+    "heading": "Entries",
+    "empty": "No entries match these days and filters."
+  },
+  "export": {
+    "button": "Export these days (CSV)",
+    "download": "Download CSV",
+    "working": "Making the export. This can take a moment.",
+    "ready": "The export is ready.",
+    "failed": "The export could not be made. Try fewer days.",
+    "errors": {
+      "range_too_long": "An export covers at most 366 days.",
+      "report_quota": "The hospital has used its exports for now. Try again later.",
+      "report_busy": "Another report is being made. Try again in a moment."
+    }
+  }
+}

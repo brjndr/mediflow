@@ -7447,6 +7447,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/audit/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The hospital's audit log, newest first, paged by cursor. A range of days at the hospital's clock is required, at most 92 days (422 `range_invalid`, `range_too_long`). Filters: the account that acted, the kind of record, the record, the action, all exact. Entries hold record ids only, never a patient's name. The body is a POST so the filters stay out of logs. Requires auditLog:read with the scope `all` and the audit_log feature flag. The read is itself audited (a read of `audit_log`). */
+        post: operations["searchAuditLog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/hospitals": {
         parameters: {
             query?: never;
@@ -14706,7 +14723,7 @@ export interface components {
         /** @description A report as a table of counts and money by day, department, test or drug. It holds no patient record. */
         ReportResult: {
             /** @enum {string} */
-            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly";
+            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log";
             from: string | null;
             to: string | null;
             currency: string;
@@ -14722,7 +14739,7 @@ export interface components {
         ReportRun: {
             id: string;
             /** @enum {string} */
-            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly";
+            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log";
             from: string | null;
             to: string | null;
             /** @enum {string} */
@@ -14763,6 +14780,49 @@ export interface components {
             url: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        AuditSearchRequest: {
+            /**
+             * Format: date
+             * @description First day, at the hospital (YYYY-MM-DD).
+             */
+            from: string;
+            /**
+             * Format: date
+             * @description Last day, included. At most 92 days from `from`.
+             */
+            to: string;
+            /** @description The account that acted. */
+            actorId?: string;
+            /** @description Kind of record, exact. */
+            entity?: string;
+            /** @description The record, exact. */
+            entityId?: string;
+            /** @description The action, exact. */
+            action?: string;
+            cursor?: string;
+            /** @default 25 */
+            limit: number;
+        };
+        /** @description One line of the audit log. Record ids only: no patient is named and no field value is kept. */
+        AuditEntry: {
+            id: string;
+            /** Format: date-time */
+            at: string;
+            actor: {
+                id: string;
+                name: string;
+            } | null;
+            action: string;
+            entity: string;
+            entityId: string | null;
+            detail: string | null;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        AuditPage: {
+            items: components["schemas"]["AuditEntry"][];
+            nextCursor: string | null;
+            total?: number;
         };
         PlatformDeletion: {
             /** Format: uuid */
@@ -55434,7 +55494,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly";
+                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log";
             };
             cookie?: never;
         };
@@ -55517,7 +55577,7 @@ export interface operations {
                 "idempotency-key": string;
             };
             path: {
-                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly";
+                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log";
             };
             cookie?: never;
         };
@@ -55847,6 +55907,75 @@ export interface operations {
             };
             /** @description Standard error body. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    searchAuditLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

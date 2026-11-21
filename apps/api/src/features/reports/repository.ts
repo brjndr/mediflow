@@ -140,15 +140,17 @@ export async function listRuns(
   client: pg.ClientBase,
   cursor: string | undefined,
   limit: number,
+  withAudit: boolean,
 ): Promise<{ rows: RunRow[]; nextCursor: string | null } | null> {
   const after = cursor === undefined ? undefined : decodeCursor(cursor);
   if (after === null) return null;
   const { rows } = await client.query<RunRow>(
     `select ${COLUMNS} from ${FROM}
-     where $1::timestamptz is null or (r.requested_at, r.id) < ($1::timestamptz, $2::uuid)
+     where ($1::timestamptz is null or (r.requested_at, r.id) < ($1::timestamptz, $2::uuid))
+       and ($4::boolean or r.kind <> 'audit_log')
      order by r.requested_at desc, r.id desc
      limit $3`,
-    [after?.at ?? null, after?.id ?? null, limit + 1],
+    [after?.at ?? null, after?.id ?? null, limit + 1, withAudit],
   );
   const page = rows.slice(0, limit);
   const last = page.at(-1);

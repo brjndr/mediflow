@@ -22,6 +22,11 @@ test('the main screens fit the screen without scrolling sideways', async ({ page
   await expect(page.getByRole('heading', { name: 'Staff notices' })).toBeVisible();
   await expectNoSidewaysScroll(page);
 
+  // The audit log (#1066): filters, the list and the export button.
+  await goTo(page, 'Audit log');
+  await expect(page.getByRole('heading', { name: 'Audit log', level: 1 })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+
   // Departments: the list, and the form that opens above it.
   await goTo(page, 'Departments');
   await expect(page.getByRole('heading', { name: 'Departments', exact: true })).toBeVisible();

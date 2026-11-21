@@ -18,6 +18,7 @@ export const REPORT_KINDS = [
   'collections_by_close',
   'outstanding',
   'opd_hourly',
+  'audit_log',
 ] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 

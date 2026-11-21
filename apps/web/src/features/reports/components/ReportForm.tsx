@@ -9,7 +9,7 @@ import {
   useFieldValue,
   useZodForm,
 } from '@/shared/ui/form';
-import { REPORT_KINDS, requestSchema, SNAPSHOT_KINDS, type RequestValues } from '../schemas';
+import { FORM_KINDS, requestSchema, SNAPSHOT_KINDS, type RequestValues } from '../schemas';
 import type { ReportKind } from '../types';
 
 export type Intent = 'show' | 'export';
@@ -57,7 +57,7 @@ export function ReportForm({
         name="kind"
         label={t('form.kind')}
         required
-        options={REPORT_KINDS.map((value) => ({ value, label: t(`kinds.${value}`) }))}
+        options={FORM_KINDS.map((value) => ({ value, label: t(`kinds.${value}`) }))}
       />
       <Days />
       <div className="flex flex-wrap gap-2">
