@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations, goTo } from './support';
 
-test('app loads and reaches the (mock) API', async ({ page }) => {
+test('app loads with the banner for the day (#1123)', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Hospital management system' })).toBeVisible();
-  await expect(page.getByTestId('api-status')).toHaveText('ok');
+  await expect(page.getByText(/^Good (morning|afternoon|evening)$/)).toBeVisible();
+  await expect(page.locator('main time')).toBeVisible();
 });
 
 test('shell, a feature page and the system pages pass axe', async ({ page }) => {

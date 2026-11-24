@@ -5,4 +5,12 @@ export {
   type FormatConfig,
   type Formatters,
 } from './format';
-export { dayBoundsUtc, nextDay, todayIn, utcToZoned, zonedToUtc, type DayString } from './timezone';
+export {
+  dayBoundsUtc,
+  hourIn,
+  nextDay,
+  todayIn,
+  utcToZoned,
+  zonedToUtc,
+  type DayString,
+} from './timezone';

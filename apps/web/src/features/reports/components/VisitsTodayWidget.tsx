@@ -45,13 +45,13 @@ export default function VisitsTodayWidget() {
           <dl className="grid grid-cols-2 gap-2">
             <div>
               <dt className="text-sm text-muted-foreground">{t('visits.opened')}</dt>
-              <dd className="text-3xl font-semibold tabular-nums">
+              <dd className="font-display text-3xl font-semibold tabular-nums md:text-4xl">
                 {format.number(sumColumn(report.data, 'opened'))}
               </dd>
             </div>
             <div>
               <dt className="text-sm text-muted-foreground">{t('visits.closed')}</dt>
-              <dd className="text-3xl font-semibold tabular-nums">
+              <dd className="font-display text-3xl font-semibold tabular-nums md:text-4xl">
                 {format.number(sumColumn(report.data, 'closed'))}
               </dd>
             </div>

@@ -102,7 +102,7 @@ export function Stat({
   return (
     <p className="flex items-baseline justify-between gap-2 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <strong className="text-2xl font-semibold tabular-nums">
+      <strong className="font-display text-2xl font-semibold tabular-nums md:text-3xl">
         {value ?? (
           <>
             <span aria-hidden>–</span>
