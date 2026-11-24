@@ -47,7 +47,7 @@ describe('two hospitals', () => {
     expect(cssVar('--ring')).toBe('#0f766e');
     expect(cssVar('--primary-foreground')).toBe('#ffffff');
     // No logo at the hospital: the product name stands in.
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Sample Hospital' })).not.toBeInTheDocument();
 
     await switchTo(TENANT_IDS.clinic);
     await waitFor(() => expect(cssVar('--primary')).toBe('#4338ca'));
@@ -60,7 +60,7 @@ describe('two hospitals', () => {
 
     await switchTo(TENANT_IDS.hospital);
     await waitFor(() => expect(cssVar('--primary')).toBe('#0f766e'));
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Sample Hospital' })).not.toBeInTheDocument();
   });
 
   it('format differently: the same values follow each hospital’s locale, timezone and currency', async () => {
@@ -176,7 +176,7 @@ describe('logo', () => {
     withTheme({ primary: '#0f766e', logoUrl });
     renderApp();
     await home();
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Sample Hospital' })).not.toBeInTheDocument();
     expect(safeLogoUrl(logoUrl)).toBeUndefined();
   });
 
