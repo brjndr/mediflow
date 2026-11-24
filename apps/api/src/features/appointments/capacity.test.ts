@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   addMembership,
   as,
@@ -113,13 +113,14 @@ async function appointment(
   patientId: string,
   startsAt: Date,
   status = 'scheduled',
+  minutes = LENGTH,
 ) {
   await pool.query(
     `insert into appointments (tenant_id, patient_id, doctor_id, starts_at, ends_at, status, created_by,
                                cancel_reason)
      values ($1, $2, $3, $4, $4::timestamptz + make_interval(mins => $5), $6, 'test',
              case when $6 = 'cancelled' then 'patient_request' end)`,
-    [tenant.id, patientId, doctorId, startsAt, LENGTH, status],
+    [tenant.id, patientId, doctorId, startsAt, minutes, status],
   );
 }
 
@@ -184,6 +185,24 @@ beforeAll(async () => {
   ids.c = await addDoctor(clinic, clinicDoc, ids.clinicDept);
   for (let n = 0; n < 6; n++) patients.push(await addPatient(hospital));
   clinicPatient = await addPatient(clinic);
+});
+
+/**
+ * The counts read the database's clock, which a test cannot pin. A run that crosses midnight at
+ * either hospital would compare two different days, so each test waits out the last seconds
+ * before midnight in both timezones.
+ */
+beforeEach(async () => {
+  for (;;) {
+    const { rows } = await pool.query<{ near: boolean }>(
+      `select bool_or(
+         (now() at time zone z)::date <> ((now() + interval '30 seconds') at time zone z)::date
+       ) as near
+       from unnest(array['Asia/Kolkata', 'Asia/Dubai']) as z`,
+    );
+    if (!rows[0]?.near) return;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
 });
 
 const tenants = () => [hospital.id, clinic.id, closed.id];
@@ -332,6 +351,51 @@ describe('OPD capacity of today', () => {
         );
       }
     }
+  });
+
+  it('adds no slots for an inactive doctor or one whose membership is inactive', async () => {
+    const slotsOf = async () => (await get(hospital, desk)).json<Capacity>().slots;
+    expect(await slotsOf()).toBe(PER_DAY * 2);
+    await pool.query('update doctors set active = false where id = $1', [ids.b]);
+    try {
+      expect(await slotsOf()).toBe(PER_DAY);
+    } finally {
+      await pool.query('update doctors set active = true where id = $1', [ids.b]);
+    }
+    await pool.query(
+      "update memberships set status = 'suspended' where tenant_id = $1 and user_id = $2",
+      [hospital.id, docB.id],
+    );
+    try {
+      expect(await slotsOf()).toBe(PER_DAY);
+    } finally {
+      await pool.query(
+        "update memberships set status = 'active' where tenant_id = $1 and user_id = $2",
+        [hospital.id, docB.id],
+      );
+    }
+    expect(await slotsOf()).toBe(PER_DAY * 2);
+  });
+
+  it('does not count a skipped token as waiting', async () => {
+    const { day } = await todayAt('Asia/Kolkata');
+    await token(hospital, day, ids.general, patients[0] ?? '');
+    await token(hospital, day, ids.general, patients[1] ?? '', { status: 'skipped' });
+    expect((await get(hospital, desk)).json<Capacity>()).toMatchObject({
+      waiting: 1,
+      inConsult: 0,
+    });
+  });
+
+  it('counts every slot an appointment longer than one slot overlaps as booked', async () => {
+    const { minuteOf } = await todayAt('Asia/Kolkata');
+    // 45 minutes from 00:00 hold the slots at 00:00, 00:15 and 00:30, and not the one at 00:45.
+    await appointment(hospital, ids.a, patients[0] ?? '', await minuteOf(0), 'scheduled', 45);
+    const body = (await get(hospital, desk)).json<Capacity>();
+    expect(body.booked).toBe(3);
+    expect(body.free).toBe(
+      (await freeOf('Asia/Kolkata', [0, 15, 30])) + (await freeOf('Asia/Kolkata', [])),
+    );
   });
 
   it('needs appointment:read and the module switched on', async () => {
