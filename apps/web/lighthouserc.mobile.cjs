@@ -33,8 +33,10 @@ module.exports = {
         {
           matchingUrlPattern: '.*',
           assertions: {
+            // A warning at the target and a failure at 2800 ms below, as in the desktop run (#819,
+            // #1118): the phone median sat at 2.5 s on pages no PR touched (2496 to 2545 ms).
             'largest-contentful-paint': [
-              'error',
+              'warn',
               { maxNumericValue: 2500, aggregationMethod: 'median' },
             ],
             'cumulative-layout-shift': [
@@ -51,6 +53,10 @@ module.exports = {
         {
           matchingUrlPattern: '.*',
           assertions: {
+            'largest-contentful-paint': [
+              'error',
+              { maxNumericValue: 2800, aggregationMethod: 'median' },
+            ],
             'total-blocking-time': [
               'error',
               { maxNumericValue: 15000, aggregationMethod: 'median' },
