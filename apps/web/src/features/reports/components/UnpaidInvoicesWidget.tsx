@@ -46,7 +46,7 @@ export default function UnpaidInvoicesWidget() {
           <p className="text-sm text-muted-foreground">{t('unpaid.empty')}</p>
         ) : (
           <>
-            <p className="text-3xl font-semibold tabular-nums">
+            <p className="font-display text-3xl font-semibold tabular-nums md:text-4xl">
               {format.money(sumColumn(report.data, 'dueMinor'))}
             </p>
             <p className="text-sm text-muted-foreground">{t('unpaid.count', { count })}</p>

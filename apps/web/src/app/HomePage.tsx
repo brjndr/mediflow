@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { Slot, useSlotContributions, type WidgetSize } from '@/registry';
 
-import { useHealth } from '@/shared/api/health';
-import { Button } from '@/shared/ui/button';
+import { useFormatters, useTenant } from '@/tenancy';
+import { hourIn, todayIn } from '@/shared/utils';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 // Phone: one column. md: two. lg: twelve, where a tile spans 3, 6 or 8. Written out in full so
@@ -20,13 +20,18 @@ const TILE_SPAN: Record<WidgetSize, string> = {
  */
 export function HomePage() {
   const { t } = useTranslation();
-  const health = useHealth();
+  const format = useFormatters();
+  const timezone = useTenant()?.timezone ?? 'UTC';
   const widgets = useSlotContributions('dashboard.widgets');
-  const status = health.isPending
-    ? t('home.status.checking')
-    : health.isError || health.data.status !== 'ok'
-      ? t('home.status.unreachable')
-      : t('home.status.ok');
+  // The day and the hour are the hospital's, whatever the browser's clock says (#1123).
+  const now = new Date();
+  const hour = hourIn(timezone, now);
+  const greeting =
+    hour < 12
+      ? t('home.greeting.morning')
+      : hour < 17
+        ? t('home.greeting.afternoon')
+        : t('home.greeting.evening');
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4">
@@ -40,9 +45,13 @@ export function HomePage() {
           aria-hidden
           className="pointer-events-none absolute -bottom-24 right-24 size-48 rounded-full bg-[color-mix(in_oklab,oklch(from_var(--primary-foreground)_calc(1_-_l)_0_0)_14%,transparent)]"
         />
-        <h1 className="relative text-2xl font-semibold tracking-tight md:text-3xl">
+        <p className="relative text-sm font-medium">{greeting}</p>
+        <h1 className="relative text-2xl font-semibold tracking-tight md:text-4xl">
           {t('home.title')}
         </h1>
+        <p className="relative font-display text-lg font-medium md:text-xl">
+          <time dateTime={todayIn(timezone, now)}>{format.fullDate(now)}</time>
+        </p>
         <p className="relative">{t('home.description')}</p>
       </div>
       {widgets.length === 0 ? (
@@ -68,14 +77,6 @@ export function HomePage() {
           />
         </div>
       )}
-      <p className="flex items-center gap-3 text-sm text-muted-foreground">
-        <span>
-          {t('home.apiStatus')} <strong data-testid="api-status">{status}</strong>
-        </span>
-        <Button size="sm" variant="outline" onClick={() => health.refetch()}>
-          {t('home.recheck')}
-        </Button>
-      </p>
     </div>
   );
 }

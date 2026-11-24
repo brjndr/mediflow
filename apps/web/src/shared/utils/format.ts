@@ -14,6 +14,8 @@ export type DateInput = string | Date | number;
 export interface Formatters {
   /** Calendar date in the hospital's timezone. */
   date(value: DateInput): string;
+  /** The same day written out in full, with the weekday ("Tuesday, 24 November 2026"). */
+  fullDate(value: DateInput): string;
   /**
    * A calendar date that is not an instant (a date of birth, the day a price starts), given as
    * YYYY-MM-DD. The same day whatever the hospital's timezone: it is never shifted.
@@ -53,6 +55,7 @@ function build(config: FormatConfig): Formatters {
     ) ?? FALLBACK_FORMAT.timezone;
 
   const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone });
+  const fullDate = new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeZone });
   // Read as midnight UTC and shown in UTC, so no timezone can move it to a neighbouring day.
   const calendar = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' });
   const time = new Intl.DateTimeFormat(locale, { timeStyle: 'short', timeZone });
@@ -70,6 +73,7 @@ function build(config: FormatConfig): Formatters {
 
   return {
     date: (value) => date.format(new Date(value)),
+    fullDate: (value) => fullDate.format(new Date(value)),
     calendarDate: (isoDate) => {
       const day = new Date(`${isoDate}T00:00:00Z`);
       return Number.isNaN(day.getTime()) ? isoDate : calendar.format(day);
