@@ -23,10 +23,17 @@ export const REPORT_KINDS = [
   'outstanding',
   'opd_hourly',
   'audit_log',
+  'opd_progress',
 ] as const satisfies readonly ReportKind[];
 
-/** What the reports screen offers. The audit log has its own screen (`audit-log`, #1066). */
-export const FORM_KINDS = REPORT_KINDS.filter((kind) => kind !== 'audit_log');
+/**
+ * What the reports screen offers. The audit log has its own screen (`audit-log`, #1066), and
+ * `opd_progress` feeds the home page's visits widget (#1124): its `openedByNow` is "by the time
+ * of day it is now", which reads oddly in a table of past days.
+ */
+export const FORM_KINDS = REPORT_KINDS.filter(
+  (kind) => kind !== 'audit_log' && kind !== 'opd_progress',
+);
 
 /** A report that is a snapshot of now: it takes no days. */
 export const SNAPSHOT_KINDS: readonly ReportKind[] = ['stock', 'outstanding'];

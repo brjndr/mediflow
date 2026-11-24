@@ -22,6 +22,7 @@ const KINDS: readonly Kind[] = [
   'outstanding',
   'opd_hourly',
   'audit_log',
+  'opd_progress',
 ];
 const SPOT_MAX_DAYS = 31;
 
@@ -178,6 +179,43 @@ function result(
         ],
         totals: [null, null, 46],
       };
+    case 'opd_progress': {
+      // Each day of the range; the last is today, so all its visits were opened by now. The
+      // hospital has 12 more than yesterday at this time, the clinic 3 fewer.
+      const hospital = tenantId === TENANT_IDS.hospital;
+      const first = from ?? '2026-11-01';
+      const last = to ?? first;
+      const rows: (string | number)[][] = [];
+      for (
+        let at = Date.parse(`${first}T12:00:00Z`);
+        at <= Date.parse(`${last}T12:00:00Z`);
+        at += DAY_MS
+      ) {
+        const day = new Date(at).toISOString().slice(0, 10);
+        rows.push(
+          day === last
+            ? hospital
+              ? [day, 42, 42, 18, 24]
+              : [day, 5, 5, 2, 6]
+            : hospital
+              ? [day, 50, 30, 45, 48]
+              : [day, 12, 8, 11, 10],
+        );
+      }
+      const sum = (index: number) => rows.reduce((total, row) => total + Number(row[index]), 0);
+      return {
+        ...base,
+        columns: [
+          { key: 'day', type: 'date' },
+          { key: 'opened', type: 'integer' },
+          { key: 'openedByNow', type: 'integer' },
+          { key: 'consultationsDone', type: 'integer' },
+          { key: 'booked', type: 'integer' },
+        ],
+        rows,
+        totals: [null, sum(1), sum(2), sum(3), sum(4)],
+      };
+    }
     case 'revenue':
       return {
         ...base,
@@ -523,6 +561,6 @@ export const reportsHandlers = [
         { status: 429, headers: { 'Retry-After': '5' } },
       );
     }
-    return HttpResponse.json<Result>(result(params.kind, range.from, range.to));
+    return HttpResponse.json<Result>(result(params.kind, range.from, range.to, access.tenantId));
   }),
 ];

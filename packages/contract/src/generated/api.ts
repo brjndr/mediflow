@@ -7371,7 +7371,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Works out an operational report now and answers it: `opd_census` (OPD visits by day and department), `opd_hourly` (OPD visits opened by day and hour of the day at the hospital), `revenue` (invoiced, credited, collected and refunded by day), `doctor_activity` (OPD encounters and appointments by doctor), `pharmacy_sales` (counter sales, returns and dispenses by day), `lab_turnaround` (minutes from collecting a sample to its verified result, by test) `collections` (payments and refunds by day, payment method and the person who took them), `outstanding` (issued invoices not fully paid by age, a snapshot of now) or `stock` (what is on hand, a snapshot of now). It reads from the replica under a time limit, covers at most 31 days and 5,000 rows (422 `range_too_long`, `report_too_large`, `report_timeout`: ask for a stored report instead), and a hospital may run one at a time (429 `report_busy` with Retry-After). The body is a POST so filters stay out of logs. Requires report:read with the scope `all` and the reports feature flag. Audited as a read of `report`. */
+        /** @description Works out an operational report now and answers it: `opd_census` (OPD visits by day and department), `opd_hourly` (OPD visits opened by day and hour of the day at the hospital), `opd_progress` (OPD visits by day: opened, opened by the time of day it is now, consultations closed and appointments booked, every day of the range), `revenue` (invoiced, credited, collected and refunded by day), `doctor_activity` (OPD encounters and appointments by doctor), `pharmacy_sales` (counter sales, returns and dispenses by day), `lab_turnaround` (minutes from collecting a sample to its verified result, by test) `collections` (payments and refunds by day, payment method and the person who took them), `outstanding` (issued invoices not fully paid by age, a snapshot of now) or `stock` (what is on hand, a snapshot of now). It reads from the replica under a time limit, covers at most 31 days and 5,000 rows (422 `range_too_long`, `report_too_large`, `report_timeout`: ask for a stored report instead), and a hospital may run one at a time (429 `report_busy` with Retry-After). The body is a POST so filters stay out of logs. Requires report:read with the scope `all` and the reports feature flag. Audited as a read of `report`. */
         post: operations["runReport"];
         delete?: never;
         options?: never;
@@ -14768,7 +14768,7 @@ export interface components {
         /** @description A report as a table of counts and money by day, department, test or drug. It holds no patient record. */
         ReportResult: {
             /** @enum {string} */
-            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log";
+            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log" | "opd_progress";
             from: string | null;
             to: string | null;
             currency: string;
@@ -14784,7 +14784,7 @@ export interface components {
         ReportRun: {
             id: string;
             /** @enum {string} */
-            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log";
+            kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log" | "opd_progress";
             from: string | null;
             to: string | null;
             /** @enum {string} */
@@ -55608,7 +55608,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log";
+                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log" | "opd_progress";
             };
             cookie?: never;
         };
@@ -55691,7 +55691,7 @@ export interface operations {
                 "idempotency-key": string;
             };
             path: {
-                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log";
+                kind: "opd_census" | "revenue" | "doctor_activity" | "lab_turnaround" | "pharmacy_sales" | "stock" | "collections" | "collections_by_close" | "outstanding" | "opd_hourly" | "audit_log" | "opd_progress";
             };
             cookie?: never;
         };

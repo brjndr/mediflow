@@ -10,7 +10,12 @@
   "visits": {
     "title": "OPD visits today",
     "opened": "Opened",
-    "closed": "Closed"
+    "more": "{{n}} more than this time yesterday",
+    "fewer": "{{n}} fewer than this time yesterday",
+    "same": "Same as this time yesterday",
+    "done": "Consultations done",
+    "ofBooked": "{{done}} of {{booked}} booked",
+    "noneBooked": "No appointments booked today."
   },
   "unpaid": {
     "title": "Unpaid invoices",
