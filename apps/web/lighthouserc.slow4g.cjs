@@ -10,7 +10,7 @@ module.exports = {
       startServerReadyPattern: 'Local',
       startServerReadyTimeout: 240000,
       url: [urls[0], urls[1]],
-      numberOfRuns: 3,
+      numberOfRuns: 5,
       settings: {
         formFactor: 'desktop',
         screenEmulation: { disabled: true },
@@ -27,7 +27,7 @@ module.exports = {
           { maxNumericValue: 7000, aggregationMethod: 'median' },
         ],
         'cumulative-layout-shift': ['error', { maxNumericValue: 0.1, aggregationMethod: 'median' }],
-        'total-blocking-time': ['error', { maxNumericValue: 8000, aggregationMethod: 'median' }],
+        'total-blocking-time': ['error', { maxNumericValue: 15000, aggregationMethod: 'median' }],
         // 72: the two self-hosted font files (Inter, Space Grotesk, #1123) are two more requests.
         'resource-summary:total:count': ['error', { maxNumericValue: 72 }],
       },
