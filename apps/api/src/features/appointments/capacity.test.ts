@@ -284,7 +284,8 @@ describe('OPD capacity of today', () => {
     const setScope = (scope: string) =>
       pool.query(
         `update role_permissions set scope = $2
-         where tenant_id = $1 and role_id = 'doctor' and permission = 'appointment:read'`,
+         where tenant_id = $1 and role_id = 'doctor'
+           and permission in ('appointment:read', 'queue:read')`,
         [hospital.id, scope],
       );
     try {
@@ -309,6 +310,28 @@ describe('OPD capacity of today', () => {
       slots: PER_DAY * 2,
       waiting: 3,
     });
+  });
+
+  it('leaves out the queue figures for someone without queue:read', async () => {
+    const revoke = () =>
+      pool.query(
+        "delete from role_permissions where tenant_id = $1 and role_id = 'receptionist' and permission = 'queue:read' returning scope",
+        [hospital.id],
+      );
+    const { rows } = await revoke();
+    try {
+      const body = (await get(hospital, desk)).json<Capacity>();
+      expect(body.slots).toBe(PER_DAY * 2);
+      expect(body).not.toHaveProperty('waiting');
+      expect(body).not.toHaveProperty('inConsult');
+    } finally {
+      for (const row of rows as { scope: string }[]) {
+        await pool.query(
+          "insert into role_permissions (tenant_id, role_id, permission, scope) values ($1, 'receptionist', 'queue:read', $2)",
+          [hospital.id, row.scope],
+        );
+      }
+    }
   });
 
   it('needs appointment:read and the module switched on', async () => {

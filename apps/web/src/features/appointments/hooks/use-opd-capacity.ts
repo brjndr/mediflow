@@ -14,7 +14,7 @@ const STALE_TIME_MS = 30_000;
 export function useOpdCapacity() {
   const tenantId = useTenant()?.id;
   return useQuery({
-    queryKey: [...appointmentKeys.all(tenantId ?? ''), 'capacity'] as const,
+    queryKey: appointmentKeys.capacity(tenantId ?? ''),
     queryFn: ({ signal }) => fetchOpdCapacity(signal),
     enabled: tenantId !== undefined,
     staleTime: STALE_TIME_MS,

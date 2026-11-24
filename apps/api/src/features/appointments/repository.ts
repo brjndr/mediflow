@@ -382,7 +382,7 @@ export interface SlotCounts {
  * weekday's hours cut into each doctor's consultation length, a day the clocks change included),
  * but the whole day, started or not: `slots` all of them, `booked` those a scheduled or completed
  * appointment holds (cancelled and no-show free theirs), `free` those nobody holds that have not
- * started, which is what `GET /appointments/free-slots` would offer. Counts only (#1126).
+ * started (a scheduled one, as `slotsOn` counts, or a completed one). Counts only (#1126).
  */
 export async function slotCountsToday(
   client: pg.ClientBase,

@@ -480,22 +480,19 @@ export interface QueueCountsToday {
 /**
  * Counts of today's tokens at the hospital, for the OPD capacity of the appointments module
  * (#1126): `waiting` (a skipped token is not, until it is put back) and `called` (in consultation).
- * Counts only, no patient. With `doctors`, only the tokens given to one of them, and those of their
- * departments that any doctor of it may call; null counts every token of today.
+ * Counts only, no patient, within the scope the caller holds `queue:read` with, by the same rule
+ * as the board.
  */
 export async function queueCountsToday(
   client: pg.ClientBase,
-  doctors: { ids: string[]; departmentIds: string[] } | null,
+  visibility: Visibility,
 ): Promise<QueueCountsToday> {
   const { rows } = await client.query<QueueCountsToday>(
     `select count(*) filter (where t.status = 'waiting')::int as waiting,
             count(*) filter (where t.status = 'called')::int as called
      from queue_tokens t
-     where t.day = ${TODAY}
-       and ($1::boolean
-            or t.doctor_id = any($2::uuid[])
-            or (t.doctor_id is null and t.department_id = any($3::uuid[])))`,
-    [doctors === null, doctors?.ids ?? [], doctors?.departmentIds ?? []],
+     where t.day = ${TODAY} and ${visible('$1', '$2')}`,
+    [visibility.scope, visibility.userId],
   );
   return rows[0] ?? { waiting: 0, called: 0 };
 }

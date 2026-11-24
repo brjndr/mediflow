@@ -412,7 +412,10 @@ export const bookingHandlers = [
         }
       }
     }
-    const queueOn = currentPolicy()?.features.queue === true;
+    const policy = currentPolicy();
+    const queueOn =
+      policy?.features.queue === true &&
+      policy.permissions.some((grant) => grant.permission === 'queue:read');
     const queue = queueOn ? mockQueueCountsToday(tenantId, day) : undefined;
     return HttpResponse.json<OpdCapacity>({
       day,
