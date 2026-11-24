@@ -1,6 +1,11 @@
 import { api, requireData } from '@/shared/api';
 import type { DayString } from '@/shared/utils/timezone';
-import { appointmentPageSchema, appointmentSchema, freeSlotsSchema } from './schemas';
+import {
+  appointmentPageSchema,
+  appointmentSchema,
+  freeSlotsSchema,
+  opdCapacitySchema,
+} from './schemas';
 import type {
   Appointment,
   AppointmentCancel,
@@ -9,6 +14,7 @@ import type {
   AppointmentReschedule,
   AppointmentStatus,
   FreeSlots,
+  OpdCapacity,
 } from './types';
 
 export interface AppointmentFilters {
@@ -138,4 +144,10 @@ export async function changeAppointment(
       break;
   }
   return appointmentSchema.parse(requireData(result));
+}
+
+/** How full today's OPD is at the hospital: slots, booked, free, and the queue's counts. */
+export async function fetchOpdCapacity(signal?: AbortSignal): Promise<OpdCapacity> {
+  const result = await api.GET('/appointments/capacity', { signal });
+  return opdCapacitySchema.parse(requireData(result));
 }

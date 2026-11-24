@@ -1,0 +1,12 @@
+{
+  "widget": {
+    "title": "OPD capacity today",
+    "open": "Open appointments",
+    "gauge": "Slots booked",
+    "detail": "{{booked}} of {{slots}} slots booked.",
+    "waiting": "Waiting",
+    "inConsult": "In consult",
+    "free": "Free slots",
+    "empty": "No doctor has working hours today."
+  }
+}

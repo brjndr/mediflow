@@ -127,6 +127,43 @@ export const FreeSlots = Type.Object(
   },
 );
 
+export const OpdCapacity = Type.Object(
+  {
+    day: Day('Today at the hospital.'),
+    slots: Type.Integer({
+      minimum: 0,
+      description:
+        'Every slot of today in the working hours of the doctors counted, started or not. 0 when nobody works today.',
+    }),
+    booked: Type.Integer({
+      minimum: 0,
+      description: 'Slots a scheduled or completed appointment holds.',
+    }),
+    free: Type.Integer({
+      minimum: 0,
+      description: 'Slots nobody holds that have not started: what could still be booked today.',
+    }),
+    waiting: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        description: 'Tokens of today waiting to be called. Absent when the queue module is off.',
+      }),
+    ),
+    inConsult: Type.Optional(
+      Type.Integer({
+        minimum: 0,
+        description:
+          'Tokens of today a doctor has called and is seeing. Absent when the queue module is off.',
+      }),
+    ),
+  },
+  {
+    $id: 'OpdCapacity',
+    additionalProperties: false,
+    description: 'How full today’s OPD is, in counts only: no patient and no doctor is named.',
+  },
+);
+
 export const AppointmentCreate = Type.Object(
   {
     patientId: Id,
@@ -219,6 +256,7 @@ export const APPOINTMENT_SCHEMAS = [
   Appointment,
   TimeSlot,
   FreeSlots,
+  OpdCapacity,
   AppointmentCreate,
   AppointmentReschedule,
   AppointmentCancel,

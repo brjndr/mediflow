@@ -45,6 +45,27 @@ export async function practisingDoctor(
   return rows[0] ?? null;
 }
 
+/**
+ * Every doctor who practises here now, within the scope, as `practisingDoctor` decides for one:
+ * for counts across the hospital's doctors (the OPD capacity of today, #1126).
+ */
+export async function practisingDoctors(
+  client: pg.ClientBase,
+  visibility: DoctorScope,
+): Promise<PractisingDoctor[]> {
+  const { rows } = await client.query<PractisingDoctor>(
+    `select d.id, d.department_id, d.consultation_minutes
+     from doctors d join memberships m on m.user_id = d.user_id
+     where d.active and m.status = 'active'
+       and ($1::text = 'all'
+            or ($1::text = 'own' and d.user_id::text = $2::text)
+            or ($1::text = 'department' and d.department_id in (${activeDepartmentsOf('$2')})))
+     order by d.id`,
+    [visibility.scope, visibility.userId],
+  );
+  return rows;
+}
+
 /** The caller's own active doctor profile here, or null. */
 export async function ownDoctorId(client: pg.ClientBase, userId: string): Promise<string | null> {
   if (!UUID.test(userId)) return null;

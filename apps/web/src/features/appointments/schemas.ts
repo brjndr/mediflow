@@ -8,6 +8,7 @@ import type {
   AppointmentStatus,
   AppointmentSummary,
   FreeSlots,
+  OpdCapacity,
   TimeSlot,
 } from './types';
 
@@ -92,6 +93,15 @@ export const freeSlotsSchema: z.ZodType<FreeSlots> = z.object({
   day: z.string(),
   slotMinutes: z.number().int(),
   slots: z.array(timeSlotSchema),
+});
+
+export const opdCapacitySchema: z.ZodType<OpdCapacity> = z.object({
+  day: z.string(),
+  slots: z.number().int().nonnegative(),
+  booked: z.number().int().nonnegative(),
+  free: z.number().int().nonnegative(),
+  waiting: z.number().int().nonnegative().optional(),
+  inConsult: z.number().int().nonnegative().optional(),
 });
 
 /** As long as the API keeps a reason. */

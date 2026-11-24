@@ -5,6 +5,8 @@ import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyLinesOptional } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { practisingDoctors } from '../doctors/index.js';
+import { queueCountsToday } from '../queue/index.js';
 import { bookAppointment, bookingRefusal } from './booking.js';
 import {
   findAppointment,
@@ -14,6 +16,7 @@ import {
   practisingDoctor,
   setStatus,
   slotAt,
+  slotCountsToday,
   slotsOn,
   type AppointmentRow,
   type Visibility,
@@ -30,6 +33,7 @@ import {
   AppointmentStatusChange,
   FreeSlots,
   FreeSlotsQuery,
+  OpdCapacity,
   type AppointmentStatusValue,
 } from './schemas.js';
 
@@ -37,6 +41,7 @@ const FEATURE = 'appointments';
 const READ = 'appointment:read';
 const CREATE = 'appointment:create';
 const UPDATE = 'appointment:update';
+const QUEUE_READ = 'queue:read';
 
 /** The most days one list may cover, `from` and `to` included. */
 const MAX_RANGE_DAYS = 31;
@@ -184,6 +189,40 @@ export const appointmentRoutes: FastifyPluginAsyncTypebox = async (app) => {
           endsAt: slot.ends_at.toISOString(),
         })),
       };
+    },
+  );
+
+  app.get(
+    '/appointments/capacity',
+    {
+      config: { permissions: [READ], feature: FEATURE },
+      schema: {
+        operationId: 'getOpdCapacity',
+        tags: ['appointments'],
+        description:
+          'How full today’s OPD is at the hospital, in counts only (no patient, no doctor named). `slots` is every slot of today in the working hours of the doctors who practise here, cut into each doctor’s consultation length by the same rules as `/appointments/free-slots`, started or not; `booked` those a scheduled or completed appointment holds; `free` those nobody holds that have not started. `waiting` and `inConsult` count today’s queue tokens waiting and called, within the scope of the caller’s `queue:read` as the queue board applies it, and are left out when the queue module is off or the caller does not hold `queue:read`. The slots follow the scope of the caller’s `appointment:read`: with `own`, the caller’s own doctor profile; with `department`, the doctors of the caller’s departments. Nothing is read about a patient, so nothing is audited.',
+        response: { 200: ref(OpdCapacity), ...errors(401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      const visibility = visibilityFor(request, READ);
+      const doctors = await practisingDoctors(request.txClient, visibility);
+      const counts = await slotCountsToday(request.txClient, doctors);
+      // The queue's figures are the queue's: only with its switch on and `queue:read`, within
+      // the scope that is held with.
+      const policy = await request.access.policy();
+      // The guard only reads the scopes of the permissions a route declares, and this one is
+      // optional here: its grant is taken from the policy itself.
+      const grant =
+        policy?.features.queue === true
+          ? policy.permissions.find((each) => each.permission === QUEUE_READ)
+          : undefined;
+      if (!grant) return counts;
+      const queue = await queueCountsToday(request.txClient, {
+        scope: grant.scope ?? 'all',
+        userId: visibility.userId,
+      });
+      return { ...counts, waiting: queue.waiting, inConsult: queue.called };
     },
   );
 
