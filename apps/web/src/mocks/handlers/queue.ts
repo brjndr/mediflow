@@ -5,7 +5,7 @@ import { currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../
 import { authorize, error } from '../respond';
 import { mockAppointment } from './appointments';
 import { mockDepartment } from './departments';
-import { mockDoctor } from './doctors';
+import { mockDoctor, mockDoctorOfUser } from './doctors';
 import { mockPatient } from './patients';
 
 type QueueToken = components['schemas']['QueueToken'];
@@ -211,8 +211,25 @@ export function addMockQueueToken(
 }
 
 /** Today's waiting and called tokens of a hospital, as the OPD capacity counts them (#1126). */
-export function mockQueueCountsToday(tenantId: string, day: string) {
-  const today = tokens.filter((token) => token.tenantId === tenantId && token.day === day);
+export function mockQueueCountsToday(
+  tenantId: string,
+  day: string,
+  caller: { scope: string; userId: string } = { scope: 'all', userId: '' },
+) {
+  // The scope of `queue:read` as the API's `visible` applies it: a department is the one of the
+  // caller's doctor profile, `own` adds the tokens for that doctor and those for no doctor yet.
+  const own = mockDoctorOfUser(tenantId, caller.userId);
+  const reached = (token: StoredToken) =>
+    caller.scope === 'all' ||
+    (own !== undefined &&
+      token.departmentId === own.departmentId &&
+      (caller.scope === 'department' ||
+        token.doctorId === undefined ||
+        token.doctorId === own.id)) ||
+    (caller.scope === 'own' && own !== undefined && token.doctorId === own.id);
+  const today = tokens.filter(
+    (token) => token.tenantId === tenantId && token.day === day && reached(token),
+  );
   return {
     waiting: today.filter((token) => token.status === 'waiting').length,
     called: today.filter((token) => token.status === 'called').length,
