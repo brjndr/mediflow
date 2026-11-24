@@ -47,3 +47,7 @@ Tokens in `index.css`, exposed to Tailwind in `@theme inline`; all derived with 
 - `e2e/hindi.spec.ts` opens main screens in Hindi (`?mockUser=<id>&mockLanguage=hi`) at 320 and 360 px with axe and the no-sideways-scroll check.
 - `e2e/hindi.spec.ts` also walks every registered route in Hindi at 320 and 360 px (#770), reusing the route list and record finders in `e2e/routes.ts` (shared with `a11y.spec.ts`). Found and fixed: the billing list's links wrapped below 24 px of target size. Routes of features without Hindi strings yet fall back to English per key (a long `i18n.missing_key` list in the dev console) and still pass.
 - `app/i18n.ts` redraws on `added` resources: a feature with no Hindi file is ready before its English fallback arrives, and without the redraw a label showed its key.
+
+## Native selects and file inputs (#1135)
+
+`index.css` (base layer) gives every `select` and `input[type='file']` `min-width: 0; max-width: 100%`, so a long option or file name cannot widen a phone page. A label around one that is a flex or grid item still needs `min-w-0` itself.
