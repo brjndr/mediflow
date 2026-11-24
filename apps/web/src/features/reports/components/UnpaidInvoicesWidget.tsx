@@ -11,6 +11,7 @@ import { useFormatters, useTenant } from '@/tenancy';
 import { fetchReport } from '../api';
 import { reportKeys } from '../hooks/use-reports';
 import { sumColumn } from '../lib/sum-column';
+
 const loadHindi = () => import('../widget-strings.hi.json');
 
 /**

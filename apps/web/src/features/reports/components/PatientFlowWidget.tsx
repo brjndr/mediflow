@@ -13,6 +13,7 @@ import { Skeleton } from '@/shared/ui/skeleton';
 import { useFormatters, useTenant } from '@/tenancy';
 import { fetchReport } from '../api';
 import { reportKeys } from '../hooks/use-reports';
+
 const loadHindi = () => import('../widget-strings.hi.json');
 
 /**

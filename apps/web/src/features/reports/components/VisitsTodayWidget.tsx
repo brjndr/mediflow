@@ -49,7 +49,8 @@ export default function VisitsTodayWidget() {
   const change = data ? opened - cellOf(data, yesterday, 'openedByNow') : 0;
   const done = data ? cellOf(data, today, 'consultationsDone') : 0;
   const booked = data ? cellOf(data, today, 'booked') : 0;
-  // Walk-ins can take the consultations past the bookings: the bar is then full.
+  // Walk-ins can take the consultations past the bookings: the bar is then full. With nothing
+  // booked there is no bar, only words.
   const most = Math.max(booked, done);
   const Trend = change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus;
   const trend =
@@ -86,17 +87,19 @@ export default function VisitsTodayWidget() {
               </dd>
             </div>
             <div className="flex flex-col gap-1">
-              <dt className="text-sm text-muted-foreground">{t('visits.done')}</dt>
+              <dt id="widget-visits-done" className="text-sm text-muted-foreground">
+                {t('visits.done')}
+              </dt>
               <dd className="font-display text-3xl font-semibold tabular-nums md:text-4xl">
                 {format.number(done)}
               </dd>
-              {most === 0 ? (
+              {booked === 0 ? (
                 <dd className="text-sm">{t('visits.noneBooked')}</dd>
               ) : (
                 <dd className="flex flex-col gap-1.5">
                   <div
                     role="progressbar"
-                    aria-label={t('visits.done')}
+                    aria-labelledby="widget-visits-done"
                     aria-valuemin={0}
                     aria-valuemax={most}
                     aria-valuenow={done}

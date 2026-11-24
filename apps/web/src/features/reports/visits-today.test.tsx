@@ -29,6 +29,35 @@ async function widget() {
   return region;
 }
 
+/** Answers the report with nothing yesterday and these figures today. */
+function progress(today: { opened: number; done: number; booked: number }) {
+  server.use(
+    http.post('*/api/reports/opd_progress', async ({ request }) => {
+      const body = (await request.json()) as { from: string; to: string };
+      const { opened, done, booked } = today;
+      return HttpResponse.json({
+        kind: 'opd_progress',
+        from: body.from,
+        to: body.to,
+        currency: 'INR',
+        generatedAt: new Date().toISOString(),
+        columns: [
+          { key: 'day', type: 'date' },
+          { key: 'opened', type: 'integer' },
+          { key: 'openedByNow', type: 'integer' },
+          { key: 'consultationsDone', type: 'integer' },
+          { key: 'booked', type: 'integer' },
+        ],
+        rows: [
+          [body.from, 0, 0, 0, 0],
+          [body.to, opened, opened, done, booked],
+        ],
+        totals: [null, opened, opened, done, booked],
+      });
+    }),
+  );
+}
+
 describe('the visits widget', () => {
   it('compares today with this time yesterday and shows consultations against bookings', async () => {
     signIn(USER_IDS.admin);
@@ -61,31 +90,32 @@ describe('the visits widget', () => {
     );
   });
 
+  it('fills the bar when walk-ins take consultations past the bookings', async () => {
+    progress({ opened: 30, done: 30, booked: 20 });
+    signIn(USER_IDS.admin);
+    renderApp();
+    await home();
+    const region = await widget();
+
+    const bar = within(region).getByRole('progressbar', { name: 'Consultations done' });
+    expect(bar).toHaveAttribute('aria-valuenow', '30');
+    expect(bar).toHaveAttribute('aria-valuemax', '30');
+    expect(within(region).getByText('30 of 20 booked')).toBeInTheDocument();
+  });
+
+  it('says there were no bookings, with no bar, when only walk-ins were seen', async () => {
+    progress({ opened: 5, done: 5, booked: 0 });
+    signIn(USER_IDS.admin);
+    renderApp();
+    await home();
+    const region = await widget();
+
+    expect(within(region).getByText('No appointments booked today.')).toBeInTheDocument();
+    expect(within(region).queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
   it('says an empty day in words, with no bar', async () => {
-    server.use(
-      http.post('*/api/reports/opd_progress', async ({ request }) => {
-        const body = (await request.json()) as { from: string; to: string };
-        return HttpResponse.json({
-          kind: 'opd_progress',
-          from: body.from,
-          to: body.to,
-          currency: 'INR',
-          generatedAt: new Date().toISOString(),
-          columns: [
-            { key: 'day', type: 'date' },
-            { key: 'opened', type: 'integer' },
-            { key: 'openedByNow', type: 'integer' },
-            { key: 'consultationsDone', type: 'integer' },
-            { key: 'booked', type: 'integer' },
-          ],
-          rows: [
-            [body.from, 0, 0, 0, 0],
-            [body.to, 0, 0, 0, 0],
-          ],
-          totals: [null, 0, 0, 0, 0],
-        });
-      }),
-    );
+    progress({ opened: 0, done: 0, booked: 0 });
     signIn(USER_IDS.admin);
     const { container } = renderApp();
     await home();
@@ -127,7 +157,7 @@ describe('the visits widget', () => {
             : { ...all, ...flat(value as object, `${prefix}${key}.`) },
         {},
       );
-    const marks = (text = '') => [...text.matchAll(/{{w+}}/g)].map((m) => m[0]).sort();
+    const marks = (text = '') => [...text.matchAll(/\{\{\w+\}\}/g)].map((m) => m[0]).sort();
     const english = flat(widgetStrings);
     const hindi = flat(hindiStrings);
     expect(Object.keys(hindi).sort()).toEqual(Object.keys(english).sort());

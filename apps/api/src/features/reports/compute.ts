@@ -117,7 +117,7 @@ const opdProgress: Query = async (client, from, to, limit) => {
   }>(
     `select b.day::text as day, v.opened, v.opened_by_now, v.done, a.booked
      from tenants t
-     cross join lateral generate_series($1::date, $2::date, interval '1 day') g(d)
+     cross join lateral generate_series($1::date::timestamp, $2::date::timestamp, interval '1 day') g(d)
      cross join lateral (
        select g.d::date as day,
               (g.d::date::timestamp at time zone t.timezone) as lo,
@@ -125,8 +125,8 @@ const opdProgress: Query = async (client, from, to, limit) => {
               ((g.d::date + (now() at time zone t.timezone)::time) at time zone t.timezone) as cut
      ) b
      cross join lateral (
-       select count(*)::int as opened,
-              (count(*) filter (where e.opened_at < b.cut))::int as opened_by_now,
+       select (count(*) filter (where e.status <> 'cancelled'))::int as opened,
+              (count(*) filter (where e.status <> 'cancelled' and e.opened_at < b.cut))::int as opened_by_now,
               (count(*) filter (where e.status = 'closed'))::int as done
        from encounters e
        where e.tenant_id = t.id and e.type = 'opd' and e.opened_at >= b.lo and e.opened_at < b.hi
