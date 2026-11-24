@@ -39,7 +39,7 @@ describe('owner dashboard panels', () => {
     await home();
     const visits = await screen.findByRole('region', { name: VISITS });
     expect(await within(visits).findByText('Opened')).toBeInTheDocument();
-    expect(within(visits).getByText('Closed')).toBeInTheDocument();
+    expect(within(visits).getByText('Consultations done')).toBeInTheDocument();
     const unpaid = await screen.findByRole('region', { name: UNPAID });
     expect(await within(unpaid).findByText(/2,000\.00/)).toBeInTheDocument();
     expect(within(unpaid).getByText('3 invoices due')).toBeInTheDocument();

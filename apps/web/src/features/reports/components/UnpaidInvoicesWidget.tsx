@@ -11,6 +11,7 @@ import { useFormatters, useTenant } from '@/tenancy';
 import { fetchReport } from '../api';
 import { reportKeys } from '../hooks/use-reports';
 import { sumColumn } from '../lib/sum-column';
+const loadHindi = () => import('../widget-strings.hi.json');
 
 /**
  * Issued invoices not fully paid: how many and how much is due, from the `outstanding` report (a
@@ -18,7 +19,7 @@ import { sumColumn } from '../lib/sum-column';
  * Default export: a `dashboard.widgets` contribution.
  */
 export default function UnpaidInvoicesWidget() {
-  const { t } = useWidgetStrings('reports-widget', widgetStrings);
+  const { t } = useWidgetStrings('reports-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const tenant = useTenant();

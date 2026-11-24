@@ -449,6 +449,41 @@ describe('the reports answered on the spot', () => {
     expect(report.totals).toEqual([null, null, 3]);
   });
 
+  it('counts each day’s visits, those opened by this time of day, consultations and bookings', async () => {
+    const report = (
+      await runSync('opd_progress', { from: '2026-03-09', to: '2026-03-11' })
+    ).json<ReportResult>();
+
+    expect(report.columns.map((column) => column.key)).toEqual([
+      'day',
+      'opened',
+      'openedByNow',
+      'consultationsDone',
+      'booked',
+    ]);
+    // The visits on the 10th are at 01:30, 10:00 and 11:00 at the hospital; how many were opened
+    // by the time of day it is now depends on the clock. A cancelled appointment is not booked.
+    const now = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date());
+    const byNow = ['01:30', '10:00', '11:00'].filter((time) => time <= now).length;
+    // Every day of the range has a line, a day with nothing included.
+    expect(report.rows).toEqual([
+      ['2026-03-09', 0, 0, 0, 0],
+      ['2026-03-10', 3, byNow, 1, 3],
+      ['2026-03-11', 0, 0, 0, 0],
+    ]);
+    expect(report.totals).toEqual([null, 3, byNow, 1, 3]);
+
+    const hers = (
+      await runSync('opd_progress', MARCH_10, clinic, clinicAdmin)
+    ).json<ReportResult>();
+    expect(hers.rows).toEqual([['2026-03-10', 6, byNow * 2, 2, 3]]);
+  });
+
   it('counts each doctor’s OPD visits and appointments in the range', async () => {
     const report = (await runSync('doctor_activity', MARCH_10)).json<ReportResult>();
 

@@ -10,7 +10,8 @@
     "collections": "Collections by payment method",
     "collections_by_close": "Collections by register close day",
     "outstanding": "Outstanding invoices",
-    "opd_hourly": "OPD visits by hour"
+    "opd_hourly": "OPD visits by hour",
+    "opd_progress": "OPD visits and bookings by day"
   },
   "form": {
     "kind": "Report",
@@ -60,6 +61,9 @@
     "opened": "Opened",
     "closed": "Closed",
     "cancelled": "Cancelled",
+    "openedByNow": "Opened by this time of day",
+    "consultationsDone": "Consultations done",
+    "booked": "Appointments booked",
     "invoicedMinor": "Invoiced",
     "creditedMinor": "Credited",
     "collectedMinor": "Collected",

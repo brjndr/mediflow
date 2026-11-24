@@ -107,6 +107,44 @@ const opdHourly: Query = async (client, from, to, limit) => {
   return rows.map((r) => [r.day, r.hour, r.opened]);
 };
 
+const opdProgress: Query = async (client, from, to, limit) => {
+  const { rows } = await client.query<{
+    day: string;
+    opened: number;
+    opened_by_now: number;
+    done: number;
+    booked: number;
+  }>(
+    `select b.day::text as day, v.opened, v.opened_by_now, v.done, a.booked
+     from tenants t
+     cross join lateral generate_series($1::date, $2::date, interval '1 day') g(d)
+     cross join lateral (
+       select g.d::date as day,
+              (g.d::date::timestamp at time zone t.timezone) as lo,
+              ((g.d::date + 1)::timestamp at time zone t.timezone) as hi,
+              ((g.d::date + (now() at time zone t.timezone)::time) at time zone t.timezone) as cut
+     ) b
+     cross join lateral (
+       select count(*)::int as opened,
+              (count(*) filter (where e.opened_at < b.cut))::int as opened_by_now,
+              (count(*) filter (where e.status = 'closed'))::int as done
+       from encounters e
+       where e.tenant_id = t.id and e.type = 'opd' and e.opened_at >= b.lo and e.opened_at < b.hi
+     ) v
+     cross join lateral (
+       select count(*)::int as booked
+       from appointments ap
+       where ap.tenant_id = t.id and ap.status <> 'cancelled'
+         and ap.starts_at >= b.lo and ap.starts_at < b.hi
+     ) a
+     where t.id = app_tenant_id()
+     order by b.day
+     limit $3`,
+    [from, to, limit + 1],
+  );
+  return rows.map((r) => [r.day, r.opened, r.opened_by_now, r.done, r.booked]);
+};
+
 const revenue: Query = async (client, from, to, limit) => {
   const { rows } = await client.query<{
     day: string;
@@ -444,6 +482,17 @@ const DEFINITIONS: Record<
     columns: [col('day', 'date'), col('hour', 'integer'), col('opened', 'integer')],
     sums: ['opened'],
     query: opdHourly,
+  },
+  opd_progress: {
+    columns: [
+      col('day', 'date'),
+      col('opened', 'integer'),
+      col('openedByNow', 'integer'),
+      col('consultationsDone', 'integer'),
+      col('booked', 'integer'),
+    ],
+    sums: ['opened', 'openedByNow', 'consultationsDone', 'booked'],
+    query: opdProgress,
   },
   revenue: {
     columns: [

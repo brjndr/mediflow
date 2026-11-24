@@ -23,6 +23,7 @@ export const REPORT_KINDS = [
   'outstanding',
   'opd_hourly',
   'audit_log',
+  'opd_progress',
 ] as const satisfies readonly ReportKind[];
 
 /** What the reports screen offers. The audit log has its own screen (`audit-log`, #1066). */

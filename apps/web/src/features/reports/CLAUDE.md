@@ -17,7 +17,8 @@ What was decided for the web screen of reports (#121). The API is `apps/api/src/
 
 ## Known gaps
 
-- English only; a new column key from the API shows as the key until `columns.<key>` is added.
+- The widgets' strings have Hindi (`widget-strings.hi.json`, #1124, parity checked in `visits-today.test.tsx`); the screen's own strings are in `locales/`.
+- A new column key from the API shows as the key until `columns.<key>` is added.
 - No sorting, and no chart: the reports are tables. All nine reports (#124, #691) share this one screen; text cells that are fixed words (`method`, `ageBucket`) are translated under `values.<column>.<word>`; a new kind is a locale entry, the schema list and a mock case.
 - A run the person did not wait for is found in the list; nothing tells them it finished while they are elsewhere.
 - The mock's download is the browser's own request to `/api/report-files/…`, which the service worker does not see, so in `pnpm dev` against the mock the file route is unanswered (the unit and Playwright tests stub or ignore it).
@@ -28,4 +29,4 @@ What was decided for the web screen of reports (#121). The API is `apps/api/src/
 
 ## Owner panels (#690)
 
-`VisitsTodayWidget` (`report:read`; OPD opened and closed today, `opd_census` for the hospital's day) and `UnpaidInvoicesWidget` (`report:read` and `invoice:read`; count and amount due from the `outstanding` snapshot, linking to `/billing/invoices?status=issued`) sit beside `PatientFlowWidget`. No new endpoint: the reports API already gives these. `invoice:read` is listed in this manifest's permissions only so the widget can require it. "Collected today" is the billing `CollectedTodayWidget` (`cashRegister:read`, payments net of refunds from `GET /cash-registers/collected`, #817). `InvoiceList` starts its status filter from `?status=` (the status is not patient data).
+`VisitsTodayWidget` (`report:read`; since #1124 one `opd_progress` report over yesterday and today: today's opened visits with the change from yesterday's `openedByNow` as an icon and words, and consultations done with a `progressbar` against today's booked appointments, its maximum the larger of the two so walk-ins fill it; "No appointments booked today." and no bar when both are 0) and `UnpaidInvoicesWidget` (`report:read` and `invoice:read`; count and amount due from the `outstanding` snapshot, linking to `/billing/invoices?status=issued`) sit beside `PatientFlowWidget`. No new endpoint: the reports API already gives these. `invoice:read` is listed in this manifest's permissions only so the widget can require it. "Collected today" is the billing `CollectedTodayWidget` (`cashRegister:read`, payments net of refunds from `GET /cash-registers/collected`, #817). `InvoiceList` starts its status filter from `?status=` (the status is not patient data).
