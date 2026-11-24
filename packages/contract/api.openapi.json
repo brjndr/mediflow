@@ -6004,6 +6004,45 @@
           }
         }
       },
+      "OpdCapacity": {
+        "additionalProperties": false,
+        "description": "How full today’s OPD is, in counts only: no patient and no doctor is named.",
+        "type": "object",
+        "required": ["day", "slots", "booked", "free"],
+        "properties": {
+          "day": {
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Today at the hospital.",
+            "type": "string"
+          },
+          "slots": {
+            "minimum": 0,
+            "description": "Every slot of today in the working hours of the doctors counted, started or not. 0 when nobody works today.",
+            "type": "integer"
+          },
+          "booked": {
+            "minimum": 0,
+            "description": "Slots a scheduled or completed appointment holds.",
+            "type": "integer"
+          },
+          "free": {
+            "minimum": 0,
+            "description": "Slots nobody holds that have not started: what could still be booked today.",
+            "type": "integer"
+          },
+          "waiting": {
+            "minimum": 0,
+            "description": "Tokens of today waiting to be called. Absent when the queue module is off.",
+            "type": "integer"
+          },
+          "inConsult": {
+            "minimum": 0,
+            "description": "Tokens of today a doctor has called and is seeing. Absent when the queue module is off.",
+            "type": "integer"
+          }
+        }
+      },
       "AppointmentCreate": {
         "additionalProperties": false,
         "type": "object",
@@ -38857,6 +38896,65 @@
             }
           },
           "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/appointments/capacity": {
+      "get": {
+        "operationId": "getOpdCapacity",
+        "tags": ["appointments"],
+        "description": "How full today’s OPD is at the hospital, in counts only (no patient, no doctor named). `slots` is every slot of today in the working hours of the doctors who practise here, cut into each doctor’s consultation length by the same rules as `/appointments/free-slots`, started or not; `booked` those a scheduled or completed appointment holds; `free` those nobody holds that have not started. `waiting` and `inConsult` count today’s queue tokens waiting and called, and are left out when the queue module is off. The scope of the caller’s `appointment:read` is applied: with `own`, the caller’s own doctor profile and the tokens given to it or left to its department; with `department`, the doctors of the caller’s departments. Nothing is read about a patient, so nothing is audited.",
+        "responses": {
+          "200": {
+            "description": "How full today’s OPD is, in counts only: no patient and no doctor is named.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpdCapacity"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

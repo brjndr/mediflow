@@ -5,6 +5,8 @@ import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { tidyLinesOptional } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { practisingDoctors } from '../doctors/index.js';
+import { queueCountsToday } from '../queue/index.js';
 import { bookAppointment, bookingRefusal } from './booking.js';
 import {
   findAppointment,
@@ -14,6 +16,7 @@ import {
   practisingDoctor,
   setStatus,
   slotAt,
+  slotCountsToday,
   slotsOn,
   type AppointmentRow,
   type Visibility,
@@ -30,6 +33,7 @@ import {
   AppointmentStatusChange,
   FreeSlots,
   FreeSlotsQuery,
+  OpdCapacity,
   type AppointmentStatusValue,
 } from './schemas.js';
 
@@ -184,6 +188,37 @@ export const appointmentRoutes: FastifyPluginAsyncTypebox = async (app) => {
           endsAt: slot.ends_at.toISOString(),
         })),
       };
+    },
+  );
+
+  app.get(
+    '/appointments/capacity',
+    {
+      config: { permissions: [READ], feature: FEATURE },
+      schema: {
+        operationId: 'getOpdCapacity',
+        tags: ['appointments'],
+        description:
+          'How full today’s OPD is at the hospital, in counts only (no patient, no doctor named). `slots` is every slot of today in the working hours of the doctors who practise here, cut into each doctor’s consultation length by the same rules as `/appointments/free-slots`, started or not; `booked` those a scheduled or completed appointment holds; `free` those nobody holds that have not started. `waiting` and `inConsult` count today’s queue tokens waiting and called, and are left out when the queue module is off. The scope of the caller’s `appointment:read` is applied: with `own`, the caller’s own doctor profile and the tokens given to it or left to its department; with `department`, the doctors of the caller’s departments. Nothing is read about a patient, so nothing is audited.',
+        response: { 200: ref(OpdCapacity), ...errors(401, 403, 409, 429) },
+      },
+    },
+    async (request) => {
+      const visibility = visibilityFor(request, READ);
+      const doctors = await practisingDoctors(request.txClient, visibility);
+      const counts = await slotCountsToday(request.txClient, doctors);
+      const policy = await request.access.policy();
+      if (policy?.features.queue !== true) return counts;
+      const queue = await queueCountsToday(
+        request.txClient,
+        visibility.scope === 'all'
+          ? null
+          : {
+              ids: doctors.map((doctor) => doctor.id),
+              departmentIds: [...new Set(doctors.map((doctor) => doctor.department_id))],
+            },
+      );
+      return { ...counts, waiting: queue.waiting, inConsult: queue.called };
     },
   );
 

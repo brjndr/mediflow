@@ -368,3 +368,61 @@ export async function appointmentForCheckIn(
     startsToday: row.starts_today,
   };
 }
+
+/** Today's OPD slots at the hospital, counted across doctors. */
+export interface SlotCounts {
+  day: string;
+  slots: number;
+  booked: number;
+  free: number;
+}
+
+/**
+ * The slots of today at the hospital for the doctors given, by the rules of `slotsOn` (the
+ * weekday's hours cut into each doctor's consultation length, a day the clocks change included),
+ * but the whole day, started or not: `slots` all of them, `booked` those a scheduled or completed
+ * appointment holds (cancelled and no-show free theirs), `free` those nobody holds that have not
+ * started, which is what `GET /appointments/free-slots` would offer. Counts only (#1126).
+ */
+export async function slotCountsToday(
+  client: pg.ClientBase,
+  doctors: { id: string; consultation_minutes: number }[],
+): Promise<SlotCounts> {
+  const { rows } = await client.query<SlotCounts>(
+    `with t as (
+       select timezone, (now() at time zone timezone)::date as today
+       from tenants where id = app_tenant_id()
+     ),
+     d as (select * from unnest($1::uuid[], $2::int[]) as d(id, minutes)),
+     s as (
+       select d.id as doctor_id, x.starts_at, x.starts_at + make_interval(mins => d.minutes) as ends_at
+       from t
+       cross join d
+       join doctor_hours h on h.doctor_id = d.id and h.day = extract(isodow from t.today)
+       cross join lateral generate_series(h.start_minute::int, h.end_minute - d.minutes, d.minutes) as m(minute)
+       cross join lateral (
+         select (t.today + make_interval(mins => m.minute))::timestamp at time zone t.timezone
+           as starts_at
+       ) x
+       where x.starts_at at time zone t.timezone = t.today + make_interval(mins => m.minute)
+         and x.starts_at + make_interval(mins => d.minutes)
+           = (t.today + make_interval(mins => m.minute + d.minutes))::timestamp at time zone t.timezone
+     ),
+     b as (
+       select s.starts_at, exists (
+         select 1 from appointments a
+         where a.doctor_id = s.doctor_id and a.status in ('scheduled', 'completed')
+           and tstzrange(a.starts_at, a.ends_at) && tstzrange(s.starts_at, s.ends_at)
+       ) as held
+       from s
+     )
+     select t.today::text as day,
+            count(b.held)::int as slots,
+            count(*) filter (where b.held)::int as booked,
+            count(*) filter (where not b.held and b.starts_at > now())::int as free
+     from t left join b on true
+     group by t.today`,
+    [doctors.map((doctor) => doctor.id), doctors.map((doctor) => doctor.consultation_minutes)],
+  );
+  return rows[0] ?? { day: '', slots: 0, booked: 0, free: 0 };
+}

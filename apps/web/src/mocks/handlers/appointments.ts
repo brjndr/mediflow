@@ -1,16 +1,18 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { dayBoundsUtc, todayIn, zonedToUtc } from '@/shared/utils/timezone';
-import { currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
+import { currentPolicy, currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
-import { mockDoctor, mockDoctorHours } from './doctors';
+import { mockDoctor, mockDoctorHours, mockDoctorsOf } from './doctors';
 import { mockPatient } from './patients';
+import { mockQueueCountsToday } from './queue';
 
 type AppointmentSummary = components['schemas']['AppointmentSummary'];
 type AppointmentPage = components['schemas']['AppointmentPage'];
 type AppointmentStatus = components['schemas']['AppointmentStatus'];
 type Appointment = components['schemas']['Appointment'];
 type FreeSlots = components['schemas']['FreeSlots'];
+type OpdCapacity = components['schemas']['OpdCapacity'];
 type CancelReason = components['schemas']['AppointmentCancelReason'];
 
 const FEATURE_FLAG = 'appointments';
@@ -372,6 +374,52 @@ export const bookingHandlers = [
       slots: workingSlots(access.tenantId, doctor.id, day).filter(
         (slot) => !doctorBusy(access.tenantId, doctor.id, slot),
       ),
+    });
+  }),
+
+  http.get('*/api/appointments/capacity', ({ request }) => {
+    const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const timezone = mockTenantTimezone(tenantId);
+    const now = new Date();
+    const day = todayIn(timezone, now);
+    const weekday = WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()];
+    let slots = 0;
+    let booked = 0;
+    let free = 0;
+    // Every slot of today, started or not, as the API counts them.
+    for (const doctor of mockDoctorsOf(tenantId)) {
+      const length = doctor.consultationMinutes;
+      for (const session of mockDoctorHours(tenantId, doctor.id).filter((s) => s.day === weekday)) {
+        const end = minutesOf(session.end);
+        for (let start = minutesOf(session.start); start + length <= end; start += length) {
+          const slot = {
+            startsAt: zonedToUtc(day, timeOf(start), timezone),
+            endsAt: zonedToUtc(day, timeOf(start + length), timezone),
+          };
+          slots += 1;
+          const held = appointments.some(
+            (item) =>
+              item.tenantId === tenantId &&
+              item.doctorId === doctor.id &&
+              (item.status === 'scheduled' || item.status === 'completed') &&
+              item.startsAt < slot.endsAt &&
+              slot.startsAt < item.endsAt,
+          );
+          if (held) booked += 1;
+          else if (Date.parse(slot.startsAt) > now.getTime()) free += 1;
+        }
+      }
+    }
+    const queueOn = currentPolicy()?.features.queue === true;
+    const queue = queueOn ? mockQueueCountsToday(tenantId, day) : undefined;
+    return HttpResponse.json<OpdCapacity>({
+      day,
+      slots,
+      booked,
+      free,
+      ...(queue ? { waiting: queue.waiting, inConsult: queue.called } : {}),
     });
   }),
 

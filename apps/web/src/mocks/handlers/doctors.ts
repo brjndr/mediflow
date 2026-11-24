@@ -124,6 +124,10 @@ export const mockDoctorOfUser = (tenantId: string, userId: string): Doctor | und
     (doctor) => doctor.tenantId === tenantId && doctor.userId === userId && doctor.active,
   );
 
+/** The practising doctors of a hospital, as another feature's mock counts them (OPD capacity). */
+export const mockDoctorsOf = (tenantId: string): Doctor[] =>
+  state.doctors.filter((doctor) => doctor.tenantId === tenantId && doctor.active);
+
 /** A doctor's weekly working hours, as another feature's mock reads them (free slots). */
 export const mockDoctorHours = (tenantId: string, id: string): DoctorSession[] =>
   mockDoctor(tenantId, id) ? (state.hours.get(id)?.sessions ?? []) : [];
