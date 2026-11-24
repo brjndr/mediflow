@@ -77,7 +77,7 @@ describe('dashboard', () => {
     signIn(USER_IDS.doctor, TENANT_IDS.clinic);
     renderWithProviders(<HomePage />);
     // The clinic has the laboratory and inventory flags off.
-    expect(await screen.findByText('API status:')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Laboratory' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Stock alerts' })).not.toBeInTheDocument();
   });
@@ -96,7 +96,7 @@ describe('dashboard', () => {
   it('gives two hospitals the grids of their own panels', async () => {
     signIn(USER_IDS.doctor, TENANT_IDS.clinic);
     const clinic = renderWithProviders(<HomePage />);
-    await clinic.findByText('API status:');
+    await clinic.findByRole('heading', { level: 1 });
     const clinicTiles = clinic.container.querySelectorAll(TILES).length;
     clinic.unmount();
 

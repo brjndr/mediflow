@@ -3,8 +3,10 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type { ComponentProps, MouseEvent } from 'react';
 import { cn } from '@/shared/lib/utils';
 
+// A hovered button lifts by 1 px; a 1 px strip under it while hovered keeps the pointer inside, so a
+// pointer on its bottom edge does not unhover, drop it back and hover again in a loop (#1123).
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform,filter] duration-150 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform,filter] duration-150 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 relative hover:after:absolute hover:after:inset-x-0 hover:after:top-full hover:after:h-px",
   {
     /**
      * Every variant has a visible background and depth (#1119): the main action is the brand

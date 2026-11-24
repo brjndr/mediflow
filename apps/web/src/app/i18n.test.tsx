@@ -70,7 +70,7 @@ describe('language from the hospital', () => {
     expect(await screen.findByRole('heading', { name: HOME_HI })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('hi-IN');
     // A string the Hindi file does not have falls back to English, key by key.
-    expect(screen.getByRole('button', { name: 'Recheck' })).toBeInTheDocument();
+    expect(screen.getByText(/^Good (morning|afternoon|evening)$/)).toBeInTheDocument();
 
     await switchTo(TENANT_IDS.hospital);
     expect(await screen.findByRole('heading', { name: HOME_EN })).toBeInTheDocument();

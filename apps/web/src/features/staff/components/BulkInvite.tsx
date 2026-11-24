@@ -188,7 +188,10 @@ export function BulkInvite({ roles }: { roles: StaffRole[] }) {
       </figure>
 
       <div className="flex flex-wrap items-end gap-3">
-        <label htmlFor={inputId} className="flex flex-col gap-1 text-sm font-medium">
+        <label
+          htmlFor={inputId}
+          className="flex min-w-0 max-w-full flex-col gap-1 text-sm font-medium"
+        >
           {t('bulk.choose')}
           <input
             id={inputId}
@@ -197,7 +200,7 @@ export function BulkInvite({ roles }: { roles: StaffRole[] }) {
             accept=".csv,text/csv"
             disabled={sending}
             onChange={(event) => void choose(event.target.files?.[0])}
-            className="max-w-full text-sm file:mr-3 file:h-9 file:rounded-md file:border file:bg-background file:px-3 pointer-coarse:file:h-11"
+            className="w-full min-w-0 text-sm file:mr-3 file:h-9 file:rounded-md file:border file:bg-background file:px-3 pointer-coarse:file:h-11"
           />
         </label>
         {rows && (

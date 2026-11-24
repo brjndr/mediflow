@@ -76,7 +76,9 @@ export default function CollectedTodayWidget() {
           <Skeleton className="h-16 w-full" />
         ) : (
           <>
-            <p className="text-3xl font-semibold tabular-nums">{format.money(figures.total)}</p>
+            <p className="font-display text-3xl font-semibold tabular-nums md:text-4xl">
+              {format.money(figures.total)}
+            </p>
             {figures.split.length === 0 ? (
               <p className="text-sm">{t('collected.empty')}</p>
             ) : (
