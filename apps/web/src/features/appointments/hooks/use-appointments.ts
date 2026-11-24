@@ -4,7 +4,12 @@ import { useTenant } from '@/tenancy';
 import { fetchAppointments, type AppointmentFilters } from '../api';
 
 /** Every key is prefixed with the tenant, so one hospital's appointments never show in another. */
-export const appointmentKeys = createTenantKeys('appointments');
+const keys = createTenantKeys('appointments');
+export const appointmentKeys = {
+  ...keys,
+  /** Today's OPD capacity (#1126), under `all` so a booking reads it again. */
+  capacity: (tenantId: string) => [...keys.all(tenantId), 'capacity'] as const,
+};
 
 export const APPOINTMENTS_PAGE_SIZE = 25;
 

@@ -29,6 +29,7 @@ export {
   departmentsOfCaller,
   ownDoctorId,
   practisingDoctor,
+  practisingDoctors,
   profilesOf,
   type DoctorScope,
   type PractisingDoctor,

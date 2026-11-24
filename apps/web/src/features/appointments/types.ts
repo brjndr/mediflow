@@ -10,6 +10,8 @@ export type AppointmentCreate = components['schemas']['AppointmentCreate'];
 /** A doctor's free slots on one day at the hospital, worked out by the server. */
 export type FreeSlots = components['schemas']['FreeSlots'];
 export type TimeSlot = components['schemas']['TimeSlot'];
+/** How full today's OPD is, in counts only (#1126). */
+export type OpdCapacity = components['schemas']['OpdCapacity'];
 export type AppointmentCancelReason = components['schemas']['AppointmentCancelReason'];
 export type AppointmentRescheduleReason = components['schemas']['AppointmentRescheduleReason'];
 export type AppointmentReschedule = components['schemas']['AppointmentReschedule'];
