@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { dayBoundsUtc, todayIn, zonedToUtc } from '@/shared/utils/timezone';
 import { currentPolicy, currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
-import { mockDoctor, mockDoctorHours, mockDoctorsOf } from './doctors';
+import { mockDoctor, mockDoctorHours, mockDoctorOfUser, mockDoctorsOf } from './doctors';
 import { mockPatient } from './patients';
 import { mockQueueCountsToday } from './queue';
 
@@ -381,6 +381,19 @@ export const bookingHandlers = [
     const access = authorize(request, { permission: READ, featureFlag: FEATURE_FLAG });
     if ('denied' in access) return access.denied;
     const { tenantId } = access;
+    const policy = currentPolicy();
+    const userId = currentSession()?.user.id ?? '';
+    const scope = policy?.permissions.find((grant) => grant.permission === READ)?.scope ?? 'all';
+    const ownProfile = mockDoctorOfUser(tenantId, userId);
+    // The doctors the scope of `appointment:read` reaches, as the API's `practisingDoctors`.
+    const reached = mockDoctorsOf(tenantId).filter(
+      (doctor) =>
+        scope === 'all' ||
+        (scope === 'own' && doctor.id === ownProfile?.id) ||
+        (scope === 'department' &&
+          ownProfile !== undefined &&
+          doctor.departmentId === ownProfile.departmentId),
+    );
     const timezone = mockTenantTimezone(tenantId);
     const now = new Date();
     const day = todayIn(timezone, now);
@@ -389,7 +402,7 @@ export const bookingHandlers = [
     let booked = 0;
     let free = 0;
     // Every slot of today, started or not, as the API counts them.
-    for (const doctor of mockDoctorsOf(tenantId)) {
+    for (const doctor of reached) {
       const length = doctor.consultationMinutes;
       for (const session of mockDoctorHours(tenantId, doctor.id).filter((s) => s.day === weekday)) {
         const end = minutesOf(session.end);
@@ -412,11 +425,13 @@ export const bookingHandlers = [
         }
       }
     }
-    const policy = currentPolicy();
-    const queueOn =
-      policy?.features.queue === true &&
-      policy.permissions.some((grant) => grant.permission === 'queue:read');
-    const queue = queueOn ? mockQueueCountsToday(tenantId, day) : undefined;
+    const queueGrant =
+      policy?.features.queue === true
+        ? policy.permissions.find((grant) => grant.permission === 'queue:read')
+        : undefined;
+    const queue = queueGrant
+      ? mockQueueCountsToday(tenantId, day, { scope: queueGrant.scope ?? 'all', userId })
+      : undefined;
     return HttpResponse.json<OpdCapacity>({
       day,
       slots,
