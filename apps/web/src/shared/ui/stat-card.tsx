@@ -80,7 +80,7 @@ export function WidgetLink({ to, children }: { to: string; children: ReactNode }
   return (
     <Link
       to={to}
-      className="mt-auto inline-flex min-h-8 w-fit items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft px-3 text-sm font-semibold text-primary-ink shadow-tinted outline-none transition-[background-color,transform] hover:-translate-y-px focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
+      className="relative mt-auto inline-flex min-h-8 w-fit items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft px-3 text-sm font-semibold text-primary-ink shadow-tinted outline-none transition-[background-color,transform] hover:-translate-y-px hover:after:absolute hover:after:inset-x-0 hover:after:top-full hover:after:h-px focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:min-h-11"
     >
       {children}
       <MoveRight aria-hidden className="size-4" />
