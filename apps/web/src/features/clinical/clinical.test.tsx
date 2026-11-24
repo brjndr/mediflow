@@ -83,6 +83,13 @@ const noteText = (encounterId: string, status: 'draft' | 'signed') =>
     .filter((note) => note.status === status)
     .map((note) => richTextToPlainText(sanitizeRichText(note.body)));
 
+/**
+ * What the editor shows, as the saved note's plain text has it: one line per paragraph.
+ * jsdom may put the cursor before the first paragraph, so typed words can start one of their own.
+ */
+const editorText = (editor: HTMLElement) =>
+  Array.from(editor.children, (block) => block.textContent ?? '').join('\n');
+
 /** Starts a draft and types into it. */
 async function writeDraft(text: string) {
   await userEvent.click(await screen.findByRole('button', { name: 'Write a note' }));
@@ -213,7 +220,7 @@ describe('the consultation', () => {
       await userEvent.click(editor);
       await userEvent.keyboard(' Review tomorrow.');
       // What the editor holds, wherever jsdom put the cursor.
-      const typed = editor.textContent ?? '';
+      const typed = editorText(editor);
       expect(typed).toContain('Review tomorrow.');
       await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual([typed]), {
         timeout: 4000,
@@ -226,7 +233,7 @@ describe('the consultation', () => {
       await waitFor(() => expect(status).toHaveFocus());
       expect(noteText('enc_h_1', 'draft')).toEqual([]);
       expect(noteText('enc_h_1', 'signed')).toContain(typed);
-      expect(await screen.findByText(typed.trim())).toBeInTheDocument();
+      expect(await screen.findByText(/Review tomorrow\./)).toBeInTheDocument();
       expect(window.localStorage).toHaveLength(0);
       expect(window.sessionStorage).toHaveLength(0);
     },
@@ -248,7 +255,7 @@ describe('the consultation', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Keep the text here' }));
     // What the editor holds, wherever the cursor put the new words.
-    const typed = editor.textContent ?? '';
+    const typed = editorText(editor);
     expect(typed).toContain('More here.');
     await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual([typed]));
   });
@@ -481,7 +488,7 @@ describe('drafts in harder cases', () => {
 
     await userEvent.click(editor);
     await userEvent.keyboard(' More.');
-    const typed = editor.textContent ?? '';
+    const typed = editorText(editor);
     await userEvent.tab();
     await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual([typed]));
     // The same body and key as the lost one first, then what is shown now as a save.
@@ -494,7 +501,7 @@ describe('drafts in harder cases', () => {
   it('saves what was typed when the screen is left', async () => {
     const app = await openConsultation();
     const editor = await writeDraft('Left in a hurry.');
-    const typed = editor.textContent ?? '';
+    const typed = editorText(editor);
     await app.router.navigate('/encounters');
     await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual([typed]));
   });
