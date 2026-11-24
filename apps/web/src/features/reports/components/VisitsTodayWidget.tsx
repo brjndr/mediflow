@@ -1,4 +1,4 @@
-import { Minus, Stethoscope, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Equal, Stethoscope } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
@@ -52,7 +52,7 @@ export default function VisitsTodayWidget() {
   // Walk-ins can take the consultations past the bookings: the bar is then full. With nothing
   // booked there is no bar, only words.
   const most = Math.max(booked, done);
-  const Trend = change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus;
+  const Trend = change > 0 ? ArrowUpRight : change < 0 ? ArrowDownRight : Equal;
   const trend =
     change > 0
       ? t('visits.more', { count: change, n: format.number(change) })
