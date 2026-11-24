@@ -1,6 +1,6 @@
 import { createFormatters } from './format';
 import { plainSpaces } from '@/test/text';
-import { dayBoundsUtc, nextDay, todayIn, utcToZoned, zonedToUtc } from './timezone';
+import { dayBoundsUtc, hourIn, nextDay, todayIn, utcToZoned, zonedToUtc } from './timezone';
 
 const plain = plainSpaces;
 
@@ -18,6 +18,11 @@ describe('formatters', () => {
     expect(plain(clinic.date(instant))).toBe('15 Oct 2026');
     expect(plain(clinic.time(instant))).toBe('00:15');
     expect(plain(clinic.dateTime(instant))).toBe('15 Oct 2026, 00:15');
+  });
+
+  it('writes the hospital’s day out in full, with the weekday (#1123)', () => {
+    expect(plain(hospital.fullDate(instant))).toMatch(/^Thursday, 15 October,? 2026$/);
+    expect(plain(clinic.fullDate(instant))).toBe('Thursday, 15 October 2026');
   });
 
   it('accepts ISO strings, Date objects and epoch milliseconds', () => {
@@ -94,6 +99,13 @@ describe('formatters', () => {
 });
 
 describe('timezone helpers', () => {
+  it('knows the hour at the hospital (#1123)', () => {
+    const now = new Date('2026-10-14T20:15:00Z');
+    expect(hourIn('Asia/Kolkata', now)).toBe(1);
+    expect(hourIn('Asia/Dubai', now)).toBe(0);
+    expect(hourIn('UTC', now)).toBe(20);
+  });
+
   it('knows which day it is at the hospital, not in the browser or in UTC', () => {
     const now = new Date('2026-10-14T20:15:00Z');
     expect(todayIn('UTC', now)).toBe('2026-10-14');

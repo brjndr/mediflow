@@ -11,7 +11,9 @@ describe('AppShell', () => {
       await screen.findByRole('heading', { name: 'Hospital management system' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('banner')).toHaveTextContent('Mediflow');
-    expect(screen.getByRole('main')).toContainElement(screen.getByTestId('api-status'));
+    expect(screen.getByRole('main')).toContainElement(
+      screen.getByRole('heading', { level: 1, name: 'Hospital management system' }),
+    );
   });
 
   it('shows the error fallback when a route fails to render', async () => {

@@ -470,3 +470,29 @@ export async function setPriority(
 ): Promise<void> {
   await client.query('update queue_tokens set priority = $2 where id = $1', [id, priority]);
 }
+
+/** How many of today's tokens wait to be called, and how many a doctor is seeing now. */
+export interface QueueCountsToday {
+  waiting: number;
+  called: number;
+}
+
+/**
+ * Counts of today's tokens at the hospital, for the OPD capacity of the appointments module
+ * (#1126): `waiting` (a skipped token is not, until it is put back) and `called` (in consultation).
+ * Counts only, no patient, within the scope the caller holds `queue:read` with, by the same rule
+ * as the board.
+ */
+export async function queueCountsToday(
+  client: pg.ClientBase,
+  visibility: Visibility,
+): Promise<QueueCountsToday> {
+  const { rows } = await client.query<QueueCountsToday>(
+    `select count(*) filter (where t.status = 'waiting')::int as waiting,
+            count(*) filter (where t.status = 'called')::int as called
+     from queue_tokens t
+     where t.day = ${TODAY} and ${visible('$1', '$2')}`,
+    [visibility.scope, visibility.userId],
+  );
+  return rows[0] ?? { waiting: 0, called: 0 };
+}

@@ -11,14 +11,12 @@
   },
   "home": {
     "title": "Hospital management system",
-    "description": "What needs attention at this hospital today.",
-    "apiStatus": "API status:",
-    "recheck": "Recheck",
-    "status": {
-      "checking": "checking",
-      "ok": "ok",
-      "unreachable": "unreachable"
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
     },
+    "description": "What needs attention at this hospital today.",
     "empty": "There is nothing to show here for your role yet.",
     "widgetFailed": "This panel could not be shown. The rest of the page still works."
   },

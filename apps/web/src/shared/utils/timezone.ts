@@ -47,3 +47,8 @@ export function utcToZoned(iso: string, timezone: string): { day: DayString; tim
     time: formatInTimeZone(instant, timezone, TIME),
   };
 }
+
+/** The hour of the day at the hospital, 0 to 23, which can differ from the browser's. */
+export function hourIn(timezone: string, now: Date = new Date()): number {
+  return Number(formatInTimeZone(now, timezone, 'H'));
+}

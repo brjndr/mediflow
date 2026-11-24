@@ -62,6 +62,15 @@ export const appointmentsFeature: FeatureManifest = {
   links: [{ kind: 'appointment', to: (id) => `appointments/${id}` }],
   nav: { icon: CalendarClock, order: 25, requires: ['appointment:read'] },
   permissions: ['appointment:read', 'appointment:create', 'appointment:update'],
+  dashboardWidgets: [
+    // How full today's OPD is (#1126): booked slots as a ring, waiting, in consult and free.
+    {
+      id: 'opd-capacity',
+      component: () => import('./components/OpdCapacityWidget'),
+      requires: ['appointment:read'],
+      size: 'sm',
+    },
+  ],
   extensions: [
     // "Book appointment" on the patient's screen (#329), given the patient's id only.
     {

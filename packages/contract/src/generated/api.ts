@@ -2534,6 +2534,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/appointments/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How full today’s OPD is at the hospital, in counts only (no patient, no doctor named). `slots` is every slot of today in the working hours of the doctors who practise here, cut into each doctor’s consultation length by the same rules as `/appointments/free-slots`, started or not; `booked` those a scheduled or completed appointment holds; `free` those nobody holds that have not started. `waiting` and `inConsult` count today’s queue tokens waiting and called, within the scope of the caller’s `queue:read` as the queue board applies it, and are left out when the queue module is off or the caller does not hold `queue:read`. The slots follow the scope of the caller’s `appointment:read`: with `own`, the caller’s own doctor profile; with `department`, the doctors of the caller’s departments. Nothing is read about a patient, so nothing is audited. */
+        get: operations["getOpdCapacity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/appointments/{appointmentId}": {
         parameters: {
             query?: never;
@@ -9851,6 +9868,24 @@ export interface components {
             day: string;
             slotMinutes: number;
             slots: components["schemas"]["TimeSlot"][];
+        };
+        /** @description How full today’s OPD is, in counts only: no patient and no doctor is named. */
+        OpdCapacity: {
+            /**
+             * Format: date
+             * @description Today at the hospital.
+             */
+            day: string;
+            /** @description Every slot of today in the working hours of the doctors counted, started or not. 0 when nobody works today. */
+            slots: number;
+            /** @description Slots a scheduled or completed appointment holds. */
+            booked: number;
+            /** @description Slots nobody holds that have not started: what could still be booked today. */
+            free: number;
+            /** @description Tokens of today waiting to be called. Absent when the queue module is off. */
+            waiting?: number;
+            /** @description Tokens of today a doctor has called and is seeing. Absent when the queue module is off. */
+            inConsult?: number;
         };
         AppointmentCreate: {
             patientId: string;
@@ -27954,6 +27989,62 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpdCapacity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How full today’s OPD is, in counts only: no patient and no doctor is named. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpdCapacity"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

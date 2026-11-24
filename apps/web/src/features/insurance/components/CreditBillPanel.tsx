@@ -49,12 +49,12 @@ export default function CreditBillPanel({ context }: SlotProps) {
       </h2>
       <p className="text-sm text-muted-foreground">{t('credit.panel.description')}</p>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm font-medium">
+        <label className="flex min-w-0 max-w-full flex-col gap-1 text-sm font-medium">
           {t('credit.panel.corporate')}
           <select
             value={payerId}
             onChange={(event) => setPayerId(event.target.value)}
-            className="h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11"
+            className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11"
           >
             <option value="">{t('credit.panel.choose')}</option>
             {items.map((account) => (

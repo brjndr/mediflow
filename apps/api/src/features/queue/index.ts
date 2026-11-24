@@ -17,3 +17,6 @@ export { tokenOfPatientToday } from './repository.js';
 
 /** For the clinical module: the patient's token of today, and its doctor, to open an encounter. */
 export { tokenForEncounter } from './repository.js';
+
+/** For the appointments module's OPD capacity: today's waiting and called tokens, counts only. */
+export { queueCountsToday, type QueueCountsToday } from './repository.js';

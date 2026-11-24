@@ -210,6 +210,15 @@ export function addMockQueueToken(
   publish(token.tenantId, token.departmentId);
 }
 
+/** Today's waiting and called tokens of a hospital, as the OPD capacity counts them (#1126). */
+export function mockQueueCountsToday(tenantId: string, day: string) {
+  const today = tokens.filter((token) => token.tenantId === tenantId && token.day === day);
+  return {
+    waiting: today.filter((token) => token.status === 'waiting').length,
+    called: today.filter((token) => token.status === 'called').length,
+  };
+}
+
 /** For tests: a token as the mock holds it. */
 export const mockQueueToken = (id: string) => tokens.find((token) => token.id === id);
 

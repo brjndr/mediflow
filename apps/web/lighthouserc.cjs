@@ -69,7 +69,8 @@ module.exports = {
               'error',
               { maxNumericValue: 8000, aggregationMethod: 'median' },
             ],
-            'resource-summary:total:count': ['error', { maxNumericValue: 70 }],
+            // 72: the two self-hosted font files (Inter, Space Grotesk, #1123) are two more requests.
+            'resource-summary:total:count': ['error', { maxNumericValue: 72 }],
           },
         },
       ],

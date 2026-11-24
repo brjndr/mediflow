@@ -28,7 +28,8 @@ module.exports = {
         ],
         'cumulative-layout-shift': ['error', { maxNumericValue: 0.1, aggregationMethod: 'median' }],
         'total-blocking-time': ['error', { maxNumericValue: 8000, aggregationMethod: 'median' }],
-        'resource-summary:total:count': ['error', { maxNumericValue: 70 }],
+        // 72: the two self-hosted font files (Inter, Space Grotesk, #1123) are two more requests.
+        'resource-summary:total:count': ['error', { maxNumericValue: 72 }],
       },
     },
     upload: { target: 'filesystem', outputDir: '.lighthouseci-slow4g' },
