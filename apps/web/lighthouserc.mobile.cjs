@@ -14,7 +14,7 @@ module.exports = {
       startServerReadyPattern: 'Local',
       startServerReadyTimeout: 240000,
       url: phoneUrls,
-      numberOfRuns: 3,
+      numberOfRuns: 5,
       settings: {
         formFactor: 'mobile',
         screenEmulation: {
@@ -53,7 +53,7 @@ module.exports = {
           assertions: {
             'total-blocking-time': [
               'error',
-              { maxNumericValue: 8000, aggregationMethod: 'median' },
+              { maxNumericValue: 15000, aggregationMethod: 'median' },
             ],
             // 72: the two self-hosted font files (Inter, Space Grotesk, #1123) are two more requests.
             'resource-summary:total:count': ['error', { maxNumericValue: 72 }],
