@@ -10,7 +10,19 @@ import { Skeleton } from '@/shared/ui/skeleton';
 import { useFormatters, useTenant } from '@/tenancy';
 import { fetchReport } from '../api';
 import { reportKeys } from '../hooks/use-reports';
-import { sumColumn } from '../lib/sum-column';
+import type { ReportResult } from '../types';
+
+const loadHindi = () => import('../widget-strings.hi.json');
+
+/**
+ * The sum of one numeric column of a report's rows; 0 when the report has no such column. Kept
+ * in the widget so it travels in the home page's widget chunk, not as a file of its own.
+ */
+function sumColumn(report: ReportResult, key: string): number {
+  const at = report.columns.findIndex((column) => column.key === key);
+  if (at < 0) return 0;
+  return report.rows.reduce((sum, row) => sum + Number(row[at] ?? 0), 0);
+}
 
 /**
  * Issued invoices not fully paid: how many and how much is due, from the `outstanding` report (a
@@ -18,7 +30,7 @@ import { sumColumn } from '../lib/sum-column';
  * Default export: a `dashboard.widgets` contribution.
  */
 export default function UnpaidInvoicesWidget() {
-  const { t } = useWidgetStrings('reports-widget', widgetStrings);
+  const { t } = useWidgetStrings('reports-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const tenant = useTenant();

@@ -449,6 +449,50 @@ describe('the reports answered on the spot', () => {
     expect(report.totals).toEqual([null, null, 3]);
   });
 
+  it('counts each day’s visits, those opened by this time of day, consultations and bookings', async () => {
+    // The visits on the 10th that count are at 10:00 and 11:00 at the hospital (the one at 01:30
+    // was cancelled); how many were opened by the time of day it is now depends on the clock, so
+    // it is read before and after the request and the answer must lie between.
+    const clock = () =>
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+      }).format(new Date());
+    const openedBy = (time: string) => ['10:00:00', '11:00:00'].filter((at) => at < time).length;
+    const before = openedBy(clock());
+    const report = (
+      await runSync('opd_progress', { from: '2026-03-09', to: '2026-03-11' })
+    ).json<ReportResult>();
+    const after = openedBy(clock());
+
+    expect(report.columns.map((column) => column.key)).toEqual([
+      'day',
+      'opened',
+      'openedByNow',
+      'consultationsDone',
+      'booked',
+    ]);
+    const byNow = Number(report.rows[1]?.[2]);
+    expect(byNow).toBeGreaterThanOrEqual(before);
+    expect(byNow).toBeLessThanOrEqual(after);
+    // Every day of the range has a line, a day with nothing included. A cancelled visit is not
+    // opened, and a cancelled appointment is not booked.
+    expect(report.rows).toEqual([
+      ['2026-03-09', 0, 0, 0, 0],
+      ['2026-03-10', 2, byNow, 1, 3],
+      ['2026-03-11', 0, 0, 0, 0],
+    ]);
+    expect(report.totals).toEqual([null, 2, byNow, 1, 3]);
+
+    const hers = (
+      await runSync('opd_progress', MARCH_10, clinic, clinicAdmin)
+    ).json<ReportResult>();
+    expect(hers.rows[0]?.slice(0, 2)).toEqual(['2026-03-10', 4]);
+    expect(hers.rows[0]?.slice(3)).toEqual([2, 3]);
+  });
   it('counts each doctor’s OPD visits and appointments in the range', async () => {
     const report = (await runSync('doctor_activity', MARCH_10)).json<ReportResult>();
 

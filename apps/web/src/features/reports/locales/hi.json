@@ -10,7 +10,8 @@
     "collections": "भुगतान के तरीके से वसूली",
     "collections_by_close": "रजिस्टर बंद होने के दिन से वसूली",
     "outstanding": "बकाया बिल",
-    "opd_hourly": "घंटे के अनुसार ओपीडी मरीज़"
+    "opd_hourly": "घंटे के अनुसार ओपीडी मरीज़",
+    "opd_progress": "दिन के अनुसार ओपीडी मरीज़ और बुकिंग"
   },
   "form": {
     "kind": "रिपोर्ट",
@@ -60,6 +61,9 @@
     "opened": "खोले गए",
     "closed": "बंद किए गए",
     "cancelled": "रद्द किए गए",
+    "openedByNow": "दिन के इसी समय तक खोले गए",
+    "consultationsDone": "पूरे हुए परामर्श",
+    "booked": "बुक अपॉइंटमेंट",
     "invoicedMinor": "बिल बना",
     "creditedMinor": "क्रेडिट",
     "collectedMinor": "वसूला गया",

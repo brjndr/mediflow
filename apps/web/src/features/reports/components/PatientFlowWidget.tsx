@@ -14,13 +14,15 @@ import { useFormatters, useTenant } from '@/tenancy';
 import { fetchReport } from '../api';
 import { reportKeys } from '../hooks/use-reports';
 
+const loadHindi = () => import('../widget-strings.hi.json');
+
 /**
  * OPD visits opened in each hour of today, from the `opd_hourly` report (counts only, no patient),
  * between the first and the last busy hour. Default export: contributed to the `dashboard.widgets`
  * slot through the manifest.
  */
 export default function PatientFlowWidget() {
-  const { t } = useWidgetStrings('reports-widget', widgetStrings);
+  const { t } = useWidgetStrings('reports-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const tenant = useTenant();
