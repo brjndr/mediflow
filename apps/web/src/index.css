@@ -294,6 +294,13 @@
   progress {
     accent-color: var(--primary);
   }
+  /* A select or file input sizes itself by its longest option or file name and can push a phone
+     page sideways; it may always shrink to its container (#1135). */
+  select,
+  input[type='file'] {
+    min-width: 0;
+    max-width: 100%;
+  }
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 28%, transparent);
   }
