@@ -24,7 +24,7 @@ import {
 import { toCsv } from './csv.js';
 import { ReportGate } from './gate.js';
 import { fileKeyOf, runReport, sweepReports } from './jobs.js';
-import type { ReportResult } from './schemas.js';
+import { REPORT_KINDS, type ReportResult } from './schemas.js';
 
 /**
  * Reports through the real app and database: the four reports with their numbers, the hospital's
@@ -902,6 +902,37 @@ describe('stored reports', () => {
       await broken.close();
     }
   }, 30_000);
+});
+
+describe('a stored run of every kind', () => {
+  // Read from the registry, so a kind added without its migration (the kind check) fails here.
+  it.each(REPORT_KINDS)('is made and written as a file for %s, in two hospitals', async (kind) => {
+    for (const [tenant, user] of [
+      [hospital, admin],
+      [clinic, clinicAdmin],
+    ] as const) {
+      if (kind === 'audit_log') {
+        await pool.query(
+          `insert into tenant_features (tenant_id, feature, enabled) values ($1, 'audit_log', true)
+           on conflict (tenant_id, feature) do update set enabled = true`,
+          [tenant.id],
+        );
+      }
+      const created = await createRun(
+        kind,
+        kind === 'stock' ? {} : MARCH_10,
+        `every-${kind}-${tenant.id.slice(0, 8)}`,
+        tenant,
+        user,
+      );
+      expect([kind, created.statusCode]).toEqual([kind, 202]);
+      await queue.drain();
+      const id = created.json<{ id: string }>().id;
+      const done = (await get(`/reports/runs/${id}`, tenant, user)).json<{ status: string }>();
+      expect([kind, done.status]).toEqual([kind, 'succeeded']);
+      expect(await store.get(fileKeyOf(tenant.id, id))).not.toBeNull();
+    }
+  });
 });
 
 describe('the quota', () => {
