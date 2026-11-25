@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { maskMrn, maskPhone } from '@/shared/utils/mask';
 import { currentPolicy, currentSession, onMockReset, registerMockLink, TENANT_IDS } from '../db';
+import { lazySeed } from '../lazy';
 import { authorize, error } from '../respond';
 
 type PatientSummary = components['schemas']['PatientSummary'];
@@ -46,7 +47,7 @@ function seed(): PatientSummary[] {
   return [...build(TENANT_IDS.hospital, 'pth', 12_000), ...build(TENANT_IDS.clinic, 'ptc', 40)];
 }
 
-let patients = seed();
+let patients = lazySeed(seed);
 /** Registrations already made, by tenant and idempotency key: a retry returns the first result. */
 let registrations = new Map<string, PatientRecord>();
 /** The last number given out per tenant, so ids and MRNs are never reused. */
@@ -215,7 +216,7 @@ registerMockLink(
 );
 
 onMockReset(() => {
-  patients = seed();
+  patients = lazySeed(seed);
   registrations = new Map();
   counters = new Map();
   records = new Map();

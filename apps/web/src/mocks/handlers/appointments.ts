@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { dayBoundsUtc, todayIn, zonedToUtc } from '@/shared/utils/timezone';
 import { currentPolicy, currentSession, mockTenantTimezone, onMockReset, TENANT_IDS } from '../db';
+import { lazySeed } from '../lazy';
 import { authorize, error } from '../respond';
 import { mockDoctor, mockDoctorHours, mockDoctorOfUser, mockDoctorsOf } from './doctors';
 import { mockPatient } from './patients';
@@ -108,9 +109,9 @@ function seed(now = new Date()): StoredAppointment[] {
   return all;
 }
 
-let appointments = seed();
+let appointments = lazySeed(seed);
 onMockReset(() => {
-  appointments = seed();
+  appointments = lazySeed(seed);
 });
 
 /** Adds an appointment, for tests: one of another hospital, or one at a moment a test needs. */
