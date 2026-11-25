@@ -77,3 +77,27 @@ describe.each(COMPLETE)('Hindi strings of %s', (feature) => {
     }
   });
 });
+
+// Dashboard widgets carry their strings beside the widget (#735, #969): the Hindi file of each
+// must match its English one, so a widget never shows a gap in Hindi (#1103).
+const widgetFiles = import.meta.glob<{ default: Tree }>(
+  '../../features/*/widget-strings{,.hi}.json',
+  { eager: true },
+);
+
+describe.each(
+  Object.keys(widgetFiles)
+    .filter((path) => path.endsWith('widget-strings.json'))
+    .map((path) => path.replace('widget-strings.json', '')),
+)('Hindi widget strings in %s', (dir) => {
+  it('match the English keys and placeholders', () => {
+    const hindiFile = widgetFiles[`${dir}widget-strings.hi.json`];
+    expect(hindiFile, 'widget-strings.hi.json is missing').toBeDefined();
+    const english = flatten(widgetFiles[`${dir}widget-strings.json`]!.default);
+    const hindi = flatten(hindiFile!.default);
+    expect(Object.keys(hindi).sort()).toEqual(Object.keys(english).sort());
+    for (const [key, text] of Object.entries(english)) {
+      expect(placeholders(hindi[key] ?? ''), key).toEqual(placeholders(text));
+    }
+  });
+});

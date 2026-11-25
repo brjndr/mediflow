@@ -7,6 +7,7 @@ import { Button } from '@/shared/ui/button';
 import { StatCard } from '@/shared/ui/stat-card';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
+const loadHindi = () => import('../widget-strings.hi.json');
 import { useBlockedImages, useDismissBlockedImage } from '../hooks/use-radiology';
 
 /**
@@ -15,7 +16,7 @@ import { useBlockedImages, useDismissBlockedImage } from '../hooks/use-radiology
  * patient. Default export: a `dashboard.widgets` contribution.
  */
 export default function BlockedImagesWidget() {
-  const { t } = useWidgetStrings('radiology-widget', widgetStrings);
+  const { t } = useWidgetStrings('radiology-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   const blocked = useBlockedImages();
   const dismiss = useDismissBlockedImage();
