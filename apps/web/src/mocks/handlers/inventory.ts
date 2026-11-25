@@ -2,6 +2,7 @@ import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
 import { todayIn } from '@/shared/utils/timezone';
 import { currentSession, mockTenantTimezone, onMockReset, TENANT_IDS, USER_IDS } from '../db';
+import { lazySeed } from '../lazy';
 import { authorize, error } from '../respond';
 import { mockDrug, mockDrugsOf } from './drugs';
 
@@ -318,9 +319,9 @@ function post(
   return true;
 }
 
-let state = seed();
+let state = lazySeed(seed);
 onMockReset(() => {
-  state = seed();
+  state = lazySeed(seed);
 });
 
 /** A batch that may be given from a place (#100): in date, with stock there. */

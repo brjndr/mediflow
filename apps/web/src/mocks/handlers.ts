@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, passthrough } from 'msw';
 import type { Health } from '@/shared/api/health';
 import {
   attemptSignIn,
@@ -68,7 +68,17 @@ import { reportsHandlers } from './handlers/reports';
 import { triageHandlers } from './handlers/triage';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
+/**
+ * Everything that is not the API (scripts, styles, fonts, images) goes straight to the network.
+ * MSW offers each request to the handlers in turn, and for every one it reads the cookies and
+ * parses the URL even when the path does not match, so the several hundred handlers cost
+ * seconds of main-thread time on a phone for the chunks of a page alone (#1174). One handler
+ * ahead of them all answers those requests at once.
+ */
+const notTheApi = http.all(/^(?!.*\/api\/)/, () => passthrough());
+
 export const handlers = [
+  notTheApi,
   // Ahead of the plain sign-in: asks for a code when the account has an authenticator.
   ...mfaLoginHandlers,
   http.get('*/api/health', () => HttpResponse.json<Health>({ status: 'ok' })),
