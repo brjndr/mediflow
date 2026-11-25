@@ -5,6 +5,7 @@ import { replayed } from '../idempotency/state.js';
 import { WORKER_ROLE } from '../outbox/dispatcher.js';
 import { retentionCutoff, retireAuditPartitions } from './retention.js';
 import { sealAuditLog, verifyAuditSeals } from './seal.js';
+import { copySeals, S3SealMirror, type SealMirror } from './seal-mirror.js';
 import { withTenantTransaction } from '../tenancy/transaction.js';
 
 /**
@@ -231,10 +232,34 @@ export const auditPlugin = fp(
     // go to the log, which is kept off the database, so a tail of a chain removed and made again
     // shows there as two seals following the same one.
     const sealKey = Buffer.from(app.config.AUDIT_SEAL_KEY, 'base64');
+    // With AUDIT_SEAL_BUCKET set, each seal is also copied to the write-once bucket (#1092).
+    const config = app.config;
+    const mirror: SealMirror | undefined = config.AUDIT_SEAL_BUCKET
+      ? new S3SealMirror({
+          bucket: config.AUDIT_SEAL_BUCKET,
+          region: config.S3_REGION!,
+          endpoint: config.S3_ENDPOINT,
+          accessKeyId: config.S3_ACCESS_KEY_ID,
+          secretAccessKey: config.S3_SECRET_ACCESS_KEY,
+          serverSideEncryption: config.S3_SERVER_SIDE_ENCRYPTION,
+          retentionMonths:
+            config.AUDIT_SEAL_RETENTION_MONTHS ?? config.AUDIT_RETENTION_MONTHS ?? 120,
+        })
+      : undefined;
     app.jobs.work('audit.seal', async () => {
-      for (const head of await sealAuditLog(app.database.pool, sealKey)) {
+      const written = await sealAuditLog(app.database.pool, sealKey);
+      for (const head of written) {
         app.log.info({ event: 'audit_sealed', ...head }, 'audit sealed');
       }
+      if (!mirror) return;
+      const failed = await copySeals(mirror, written);
+      for (const head of failed) {
+        app.log.error(
+          { event: 'audit_seal_copy_failed', tenantId: head.tenantId, seal: head.seal },
+          'audit seal not copied',
+        );
+      }
+      if (failed.length > 0) throw new Error('audit_seal_copy_failed');
     });
     app.jobs.schedule('audit.seal', '*/5 * * * *');
 
@@ -251,6 +276,7 @@ export const auditPlugin = fp(
         since: new Date(now.getTime() - 2 * 24 * 3600 * 1000),
         sample: 200,
         retainedFrom: months === undefined ? undefined : new Date(retentionCutoff(now, months)),
+        mirror,
       });
       for (const mismatch of mismatches) {
         app.log.error({ event: 'audit_seal_mismatch', ...mismatch }, 'audit seal mismatch');

@@ -94,6 +94,18 @@ const ConfigSchema = Type.Object({
    * made before fail verification; keep the old key until those months are retired.
    */
   AUDIT_SEAL_KEY: Type.String({ pattern: '^[A-Za-z0-9+/]{43}=$' }),
+  /**
+   * A write-once bucket (S3 with Object Lock enabled) that each new audit seal is copied to, so
+   * `audit.seal-verify` can tell a chain made again from the real one (#1092). It uses the
+   * S3_REGION, S3_ENDPOINT and credentials above. Unset: seals are not copied.
+   */
+  AUDIT_SEAL_BUCKET: Type.Optional(Type.String({ minLength: 3 })),
+  /**
+   * Months each copy is locked for in compliance mode: nobody can shorten it. Never below
+   * AUDIT_RETENTION_MONTHS (the seals must outlive the rows they vouch for); defaults to that, or
+   * 120 when the log is kept for ever.
+   */
+  AUDIT_SEAL_RETENTION_MONTHS: Type.Optional(Type.Integer({ minimum: 36, maximum: 240 })),
   /** Days an account event (password change, session revoke) is kept; a hospital may ask for longer. */
   ACCOUNT_EVENTS_RETENTION_DAYS: Type.Integer({ minimum: 730, maximum: 3650, default: 730 }),
   /** Requests one hospital may make per minute, across all its users (noisy-neighbour limit). */
@@ -227,6 +239,18 @@ export function loadConfig(env: Env = process.env): Config {
   // The all-zero key would let anyone with the database make seals that pass verification.
   if (mode === 'production' && candidate.AUDIT_SEAL_KEY === LOCAL_SERVICES.AUDIT_SEAL_KEY) {
     throw new ConfigError(['AUDIT_SEAL_KEY: the development key cannot be used in production']);
+  }
+  if (candidate.AUDIT_SEAL_BUCKET && !candidate.S3_REGION) {
+    throw new ConfigError(['S3_REGION: required when AUDIT_SEAL_BUCKET is set']);
+  }
+  if (
+    candidate.AUDIT_SEAL_RETENTION_MONTHS !== undefined &&
+    candidate.AUDIT_RETENTION_MONTHS !== undefined &&
+    candidate.AUDIT_SEAL_RETENTION_MONTHS < candidate.AUDIT_RETENTION_MONTHS
+  ) {
+    throw new ConfigError([
+      'AUDIT_SEAL_RETENTION_MONTHS: the copies must be kept at least as long as the audit log',
+    ]);
   }
   // Deleting a hospital's data is a legal duty: without its own login the job would fail later.
   if (mode === 'production' && !candidate.DELETION_DATABASE_URL) {

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type pg from 'pg';
 import { withWorkerTransaction } from '../tenancy/transaction.js';
+import type { SealMirror } from './seal-mirror.js';
 
 /**
  * Tamper evidence for the audit log (#1081, migrations 0153 and 0154).
@@ -56,16 +57,28 @@ interface Digest {
   digest: Buffer | null;
 }
 
+/**
+ * The platform audit log is one chain, kept in `audit_seal` under this id (migration 0160); it
+ * has no hospital, so it has functions of its own.
+ */
+export const PLATFORM_CHAIN = '00000000-0000-0000-0000-000000000000';
+
 async function digestOf(
   client: pg.ClientBase,
   tenantId: string,
   xidFrom: string,
   xidTo: string,
 ): Promise<Digest> {
-  const { rows } = await client.query<Digest>(
-    'select row_count, min_at, digest from audit_seal_digest($1, $2::xid8, $3::xid8)',
-    [tenantId, xidFrom, xidTo],
-  );
+  const { rows } =
+    tenantId === PLATFORM_CHAIN
+      ? await client.query<Digest>(
+          'select row_count, min_at, digest from platform_seal_digest($1::xid8, $2::xid8)',
+          [xidFrom, xidTo],
+        )
+      : await client.query<Digest>(
+          'select row_count, min_at, digest from audit_seal_digest($1, $2::xid8, $3::xid8)',
+          [tenantId, xidFrom, xidTo],
+        );
   return rows[0]!;
 }
 
@@ -100,16 +113,22 @@ export async function sealAuditLog(
     );
     return rows[0]!.upto;
   });
-  const due = await withWorkerTransaction(
-    pool,
-    async (client) =>
-      (
-        await client.query<{ tenant_id: string; xid_from: string; prev_seal: Buffer | null }>(
-          'select tenant_id, xid_from::text as xid_from, prev_seal from audit_seal_due($1::xid8)',
-          [upto],
-        )
-      ).rows,
-  );
+  const due = await withWorkerTransaction(pool, async (client) => {
+    const found = (
+      await client.query<{ tenant_id: string; xid_from: string; prev_seal: Buffer | null }>(
+        'select tenant_id, xid_from::text as xid_from, prev_seal from audit_seal_due($1::xid8)',
+        [upto],
+      )
+    ).rows;
+    const platform = (
+      await client.query<{ xid_from: string; prev_seal: Buffer | null }>(
+        'select xid_from::text as xid_from, prev_seal from platform_seal_due($1::xid8)',
+        [upto],
+      )
+    ).rows;
+    for (const row of platform) found.push({ tenant_id: PLATFORM_CHAIN, ...row });
+    return found;
+  });
 
   const written: SealedHead[] = [];
   for (const hospital of due) {
@@ -118,10 +137,16 @@ export async function sealAuditLog(
     // Each part in a transaction of its own, until the hospital reaches `upto`.
     for (;;) {
       const sealed = await withWorkerTransaction(pool, async (client) => {
-        const { rows } = await client.query<{ xid_to: string }>(
-          'select audit_seal_end($1, $2::xid8, $3::xid8, $4)::text as xid_to',
-          [hospital.tenant_id, from, upto, maxRows],
-        );
+        const { rows } =
+          hospital.tenant_id === PLATFORM_CHAIN
+            ? await client.query<{ xid_to: string }>(
+                'select platform_seal_end($1::xid8, $2::xid8, $3)::text as xid_to',
+                [from, upto, maxRows],
+              )
+            : await client.query<{ xid_to: string }>(
+                'select audit_seal_end($1, $2::xid8, $3::xid8, $4)::text as xid_to',
+                [hospital.tenant_id, from, upto, maxRows],
+              );
         const to = rows[0]!.xid_to;
         const found = await digestOf(client, hospital.tenant_id, from, to);
         const rowCount = Number(found.row_count);
@@ -168,7 +193,11 @@ export type SealProblem =
   | 'chain_gap'
   | 'chain_link_mismatch'
   | 'chain_start'
-  | 'unsealed';
+  | 'unsealed'
+  /** The chain in the database differs from the write-once copies: a tail was made again. */
+  | 'chain_rewritten'
+  /** A seal old enough to have been copied has no write-once copy. */
+  | 'mirror_missing';
 
 export interface SealMismatch {
   tenantId: string;
@@ -202,6 +231,10 @@ export interface VerifyOptions {
   retainedFrom?: Date;
   /** Rows older than this and under no seal mean sealing has stopped. Default one hour. */
   unsealedAfterMinutes?: number;
+  /** The write-once copies to compare the chains with (#1092). */
+  mirror?: SealMirror;
+  /** A seal older than this with no copy is reported. Default one hour. */
+  mirrorOverdueMinutes?: number;
 }
 
 // Each seal with what is wrong with its place in the chain, worked out in the database against
@@ -243,7 +276,12 @@ export async function verifyAuditSeals(
       mismatches.push({ tenantId: row.tenant_id, sealId: row.id, problem });
     const inScope = rows.filter((row) => {
       if (row.chain_problem) report(row, row.chain_problem);
-      return !(options.retainedFrom && row.min_at < options.retainedFrom);
+      // The platform log is never retired, so its seals are always checked against their rows.
+      return !(
+        options.retainedFrom &&
+        row.tenant_id !== PLATFORM_CHAIN &&
+        row.min_at < options.retainedFrom
+      );
     });
     if (inScope.length === 0) return;
     await withWorkerTransaction(
@@ -341,5 +379,84 @@ export async function verifyAuditSeals(
   for (const { tenant_id } of lagging) {
     mismatches.push({ tenantId: tenant_id, sealId: null, problem: 'unsealed' });
   }
+  const platformLagging = await withWorkerTransaction(
+    pool,
+    async (client) =>
+      (
+        await client.query<{ lagging: boolean }>(
+          'select platform_seal_lagging(make_interval(mins => $1)) as lagging',
+          [options.unsealedAfterMinutes ?? 60],
+        )
+      ).rows[0]!.lagging,
+    { readOnly: true },
+  );
+  if (platformLagging) {
+    mismatches.push({ tenantId: PLATFORM_CHAIN, sealId: null, problem: 'unsealed' });
+  }
+  if (options.mirror) {
+    mismatches.push(
+      ...(await compareWithMirror(pool, options.mirror, options.mirrorOverdueMinutes ?? 60)),
+    );
+  }
   return { checked, mismatches };
+}
+
+/**
+ * Compares every chain in the database with its write-once copies (#1092). A copy the database
+ * has no seal for, or has another seal for at the same start, means the chain was rewritten; a
+ * seal that should have been copied by now and was not is `mirror_missing`. A deleted hospital's
+ * seals go with its data, so its copies are left alone.
+ */
+async function compareWithMirror(
+  pool: pg.Pool,
+  mirror: SealMirror,
+  overdueMinutes: number,
+): Promise<SealMismatch[]> {
+  const live = await withWorkerTransaction(
+    pool,
+    async (client) =>
+      (await client.query<{ tenant_id: string }>('select tenant_id from audit_seal_live_tenants()'))
+        .rows,
+    { readOnly: true },
+  );
+  const chains = new Set<string>([PLATFORM_CHAIN, ...live.map((row) => row.tenant_id)]);
+  const copied = new Set(await mirror.tenants());
+  const found: SealMismatch[] = [];
+  const overdue = Date.now() - overdueMinutes * 60_000;
+  for (const tenantId of chains) {
+    const copies = copied.has(tenantId) ? await mirror.list(tenantId) : [];
+    const stored = await withWorkerTransaction(
+      pool,
+      async (client) =>
+        (
+          await client.query<{
+            id: string;
+            xid_from: string;
+            xid_to: string;
+            seal: Buffer;
+            sealed_at: Date;
+          }>(
+            `select id, xid_from::text, xid_to::text, seal, sealed_at from audit_seal
+             where tenant_id = $1`,
+            [tenantId],
+          )
+        ).rows,
+      { readOnly: true },
+    );
+    const byStart = new Map(stored.map((row) => [row.xid_from, row]));
+    const copyKeys = new Set<string>();
+    for (const copy of copies) {
+      copyKeys.add(copy.xidFrom);
+      const row = byStart.get(copy.xidFrom);
+      if (!row || row.xid_to !== copy.xidTo || row.seal.toString('hex') !== copy.seal) {
+        found.push({ tenantId, sealId: row?.id ?? null, problem: 'chain_rewritten' });
+      }
+    }
+    for (const row of stored) {
+      if (!copyKeys.has(row.xid_from) && row.sealed_at.getTime() < overdue) {
+        found.push({ tenantId, sealId: row.id, problem: 'mirror_missing' });
+      }
+    }
+  }
+  return found;
 }
