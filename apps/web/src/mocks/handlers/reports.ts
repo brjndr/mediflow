@@ -23,6 +23,7 @@ const KINDS: readonly Kind[] = [
   'opd_hourly',
   'audit_log',
   'opd_progress',
+  'opd_wait',
 ];
 const SPOT_MAX_DAYS = 31;
 
@@ -214,6 +215,31 @@ function result(
         ],
         rows,
         totals: [null, sum(1), sum(2), sum(3), sum(4)],
+      };
+    }
+    case 'opd_wait': {
+      // The hospital waits 14 minutes on average, longest in Orthopaedics; the clinic has one
+      // department and a token not yet called.
+      const day = to ?? from ?? '2026-11-01';
+      const hospital = tenantId === TENANT_IDS.hospital;
+      return {
+        ...base,
+        columns: [
+          { key: 'day', type: 'date' },
+          { key: 'department', type: 'text' },
+          { key: 'started', type: 'integer' },
+          { key: 'avgWaitMinutes', type: 'minutes' },
+          { key: 'medianWaitMinutes', type: 'minutes' },
+          { key: 'notStarted', type: 'integer' },
+        ],
+        rows: hospital
+          ? [
+              [day, 'Cardiology', 12, 9, 8, 2],
+              [day, 'General Medicine', 20, 12, 10, 4],
+              [day, 'Orthopaedics', 8, 31, 28, 1],
+            ]
+          : [[day, 'General Medicine', 5, 6, 5, 1]],
+        totals: hospital ? [null, null, 40, null, null, 7] : [null, null, 5, null, null, 1],
       };
     }
     case 'revenue':

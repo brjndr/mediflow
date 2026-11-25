@@ -36,6 +36,12 @@ export const reportsFeature: FeatureManifest = {
       size: 'md',
     },
     {
+      id: 'wait',
+      component: () => import('./components/WaitTodayWidget'),
+      requires: ['report:read'],
+      size: 'md',
+    },
+    {
       id: 'unpaid',
       component: () => import('./components/UnpaidInvoicesWidget'),
       requires: ['report:read', 'invoice:read'],

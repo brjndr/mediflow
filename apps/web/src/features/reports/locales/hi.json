@@ -11,7 +11,8 @@
     "collections_by_close": "रजिस्टर बंद होने के दिन से वसूली",
     "outstanding": "बकाया बिल",
     "opd_hourly": "घंटे के अनुसार ओपीडी मरीज़",
-    "opd_progress": "दिन के अनुसार ओपीडी मरीज़ और बुकिंग"
+    "opd_progress": "दिन के अनुसार ओपीडी मरीज़ और बुकिंग",
+    "opd_wait": "विभाग के अनुसार ओपीडी इंतज़ार"
   },
   "form": {
     "kind": "रिपोर्ट",
@@ -94,7 +95,11 @@
     "takenBy": "किसने लिया",
     "ageBucket": "बिल को हुए दिन",
     "invoices": "बिल",
-    "dueMinor": "बकाया राशि"
+    "dueMinor": "बकाया राशि",
+    "started": "शुरू हुए परामर्श",
+    "avgWaitMinutes": "औसत इंतज़ार",
+    "medianWaitMinutes": "माध्य इंतज़ार",
+    "notStarted": "शुरू नहीं हुए"
   },
   "values": {
     "method": {

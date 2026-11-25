@@ -24,6 +24,7 @@ export const REPORT_KINDS = [
   'opd_hourly',
   'audit_log',
   'opd_progress',
+  'opd_wait',
 ] as const satisfies readonly ReportKind[];
 
 /**
