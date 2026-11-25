@@ -99,6 +99,7 @@
     "started": "शुरू हुए परामर्श",
     "avgWaitMinutes": "औसत इंतज़ार",
     "medianWaitMinutes": "माध्य इंतज़ार",
+    "dayMedianWaitMinutes": "सभी विभागों का माध्य इंतज़ार",
     "notStarted": "शुरू नहीं हुए"
   },
   "values": {

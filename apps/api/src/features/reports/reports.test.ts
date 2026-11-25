@@ -375,6 +375,7 @@ async function removeHospitalData(tenants: TestTenant[]): Promise<void> {
       'cash_register_sessions',
       'invoices',
       'encounters',
+      'queue_tokens',
       'departments',
     ]) {
       await client.query(`delete from ${table} where tenant_id = any($1::uuid[])`, [
@@ -434,6 +435,54 @@ describe('the reports answered on the spot', () => {
     expect(report.rows).toEqual([['2026-03-10', 'Cardiology', 3, 1, 1]]);
     expect(report.totals).toEqual([null, null, 3, 1, 1]);
     expect(report.currency).toBe('INR');
+  });
+
+  it('gives the median wait over every department beside each department’s own', async () => {
+    // Waits from token to consultation: Cardiology 10 and 30 minutes, Orthopaedics 20 and a token
+    // not yet seen. The median of 10, 20 and 30 is 20, which no department's own figures give.
+    await plant(async (client) => {
+      const token = async (department: string, number: number, waitMinutes: number | null) => {
+        const id = randomUUID();
+        await client.query(
+          `insert into queue_tokens (id, tenant_id, day, department_id, number, patient_id, issued_by, issued_at)
+           values ($1, $2, '2026-03-20', $3, $4, $5, $6, '2026-03-20T04:00:00Z')`,
+          [id, hospital.id, department, number, randomUUID(), admin.id],
+        );
+        if (waitMinutes === null) return;
+        await client.query(
+          `insert into encounters (tenant_id, patient_id, type, status, department_id, opened_at,
+                                   opened_by, queue_token_id)
+           values ($1, $2, 'opd', 'open', $3, '2026-03-20T04:00:00Z'::timestamptz + $4 * interval '1 minute', $5, $6)`,
+          [hospital.id, randomUUID(), department, waitMinutes, admin.id, id],
+        );
+      };
+      const cardiology = randomUUID();
+      const ortho = randomUUID();
+      for (const [id, name] of [
+        [cardiology, 'Wait Cardiology'],
+        [ortho, 'Wait Orthopaedics'],
+      ]) {
+        await client.query('insert into departments (id, tenant_id, name) values ($1, $2, $3)', [
+          id,
+          hospital.id,
+          name,
+        ]);
+      }
+      await token(cardiology, 1, 10);
+      await token(cardiology, 2, 30);
+      await token(ortho, 1, 20);
+      await token(ortho, 2, null);
+    });
+
+    const report = (
+      await runSync('opd_wait', { from: '2026-03-20', to: '2026-03-20' })
+    ).json<ReportResult>();
+
+    expect(report.columns.map((column) => column.key)).toContain('dayMedianWaitMinutes');
+    expect(report.rows).toEqual([
+      ['2026-03-20', 'Wait Cardiology', 2, 20, 20, 0, 20],
+      ['2026-03-20', 'Wait Orthopaedics', 1, 20, 20, 1, 20],
+    ]);
   });
 
   it('counts OPD visits opened by hour of the hospital’s day', async () => {

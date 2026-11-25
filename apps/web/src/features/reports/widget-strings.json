@@ -29,6 +29,7 @@
     "average": "Token to consultation",
     "minutes_one": "{{n}} minute",
     "minutes_other": "{{n}} minutes",
+    "median": "Median over all departments: {{minutes}}",
     "longest": "Longest wait: {{department}}, {{minutes}}",
     "notStarted": "{{n}} not yet seen",
     "empty": "No consultations started yet today."

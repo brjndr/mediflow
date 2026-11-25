@@ -231,15 +231,18 @@ function result(
           { key: 'avgWaitMinutes', type: 'minutes' },
           { key: 'medianWaitMinutes', type: 'minutes' },
           { key: 'notStarted', type: 'integer' },
+          { key: 'dayMedianWaitMinutes', type: 'minutes' },
         ],
         rows: hospital
           ? [
-              [day, 'Cardiology', 12, 9, 8, 2],
-              [day, 'General Medicine', 20, 12, 10, 4],
-              [day, 'Orthopaedics', 8, 31, 28, 1],
+              [day, 'Cardiology', 12, 9, 8, 2, 11],
+              [day, 'General Medicine', 20, 12, 10, 4, 11],
+              [day, 'Orthopaedics', 8, 31, 28, 1, 11],
             ]
-          : [[day, 'General Medicine', 5, 6, 5, 1]],
-        totals: hospital ? [null, null, 40, null, null, 7] : [null, null, 5, null, null, 1],
+          : [[day, 'General Medicine', 5, 6, 5, 1, 5]],
+        totals: hospital
+          ? [null, null, 40, null, null, 7, null]
+          : [null, null, 5, null, null, 1, null],
       };
     }
     case 'revenue':

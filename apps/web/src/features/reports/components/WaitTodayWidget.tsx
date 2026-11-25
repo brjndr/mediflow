@@ -19,6 +19,8 @@ type Wait = {
   average: number;
   started: number;
   notStarted: number;
+  /** The median over every department's tokens, worked out by the server. */
+  median?: number;
   longest?: { department: string; minutes: number };
 };
 
@@ -31,6 +33,8 @@ function summarize(report: ReportResult): Wait {
     at('avgWaitMinutes'),
     at('notStarted'),
   ];
+  const medianAt = at('dayMedianWaitMinutes');
+  const dayMedian = medianAt < 0 ? null : report.rows[0]?.[medianAt];
   let weighted = 0;
   let count = 0;
   let waiting = 0;
@@ -50,6 +54,7 @@ function summarize(report: ReportResult): Wait {
     average: count === 0 ? 0 : Math.round(weighted / count),
     started: count,
     notStarted: waiting,
+    median: dayMedian === null || dayMedian === undefined ? undefined : Number(dayMedian),
     longest,
   };
 }
@@ -95,6 +100,9 @@ export default function WaitTodayWidget() {
             <dd className="font-display text-3xl font-semibold tabular-nums md:text-4xl">
               {minutes(wait.average)}
             </dd>
+            {wait.median !== undefined ? (
+              <dd className="text-sm">{t('wait.median', { minutes: minutes(wait.median) })}</dd>
+            ) : null}
             {wait.longest ? (
               <dd className="text-sm">
                 {t('wait.longest', {

@@ -34,6 +34,7 @@ describe('the wait widget', () => {
     const region = await widget();
 
     expect(within(region).getByText('15 minutes')).toBeInTheDocument();
+    expect(within(region).getByText('Median over all departments: 11 minutes')).toBeInTheDocument();
     expect(within(region).getByText('Longest wait: Orthopaedics, 31 minutes')).toBeInTheDocument();
     expect(within(region).getByText('7 not yet seen')).toBeInTheDocument();
     await expectNoAxeViolations(container);
@@ -71,9 +72,10 @@ describe('the wait widget', () => {
             { key: 'avgWaitMinutes', type: 'minutes' },
             { key: 'medianWaitMinutes', type: 'minutes' },
             { key: 'notStarted', type: 'integer' },
+            { key: 'dayMedianWaitMinutes', type: 'minutes' },
           ],
-          rows: [[body.to, 'Cardiology', 0, null, null, 3]],
-          totals: [null, null, 0, null, null, 3],
+          rows: [[body.to, 'Cardiology', 0, null, null, 3, null]],
+          totals: [null, null, 0, null, null, 3, null],
         });
       }),
     );
