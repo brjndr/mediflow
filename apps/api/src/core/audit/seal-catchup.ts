@@ -61,3 +61,27 @@ export async function copyMissingSeals(
   }
   return copySeals(mirror, missing);
 }
+
+/**
+ * Runs `copyMissingSeals` at most once every `everyMinutes` (default 60) in this process, so a
+ * hospital count in the hundreds does not cost one bucket listing per hospital every 5 minutes
+ * (#1168). A run that left seals without a copy, or a seal whose copy just failed (`force`), makes
+ * the next call run again at once, so a gap is still reported by the job that finds it.
+ */
+export function throttledCatchup(
+  pool: pg.Pool,
+  mirror: SealMirror,
+  options: { everyMinutes?: number; graceMinutes?: number; now?: () => number } = {},
+): (force?: boolean) => Promise<MirroredSeal[]> {
+  const every = (options.everyMinutes ?? 60) * 60_000;
+  const now = options.now ?? Date.now;
+  let last = Number.NEGATIVE_INFINITY;
+  let retry = false;
+  return async (force = false) => {
+    if (!force && !retry && now() - last < every) return [];
+    last = now();
+    const left = await copyMissingSeals(pool, mirror, { graceMinutes: options.graceMinutes });
+    retry = left.length > 0;
+    return left;
+  };
+}

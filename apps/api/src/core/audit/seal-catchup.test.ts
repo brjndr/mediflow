@@ -5,7 +5,7 @@ import { buildTestApp, createTenant, deleteTenants } from '../../../test/helpers
 import { withTenantTransaction } from '../tenancy/transaction.js';
 import { insertAuditEntries } from './plugin.js';
 import { sealAuditLog } from './seal.js';
-import { copyMissingSeals } from './seal-catchup.js';
+import { copyMissingSeals, throttledCatchup } from './seal-catchup.js';
 import { copySeals, MemorySealMirror } from './seal-mirror.js';
 
 let app: FastifyInstance;
@@ -70,6 +70,45 @@ describe('copying seals that have no copy (#1158)', () => {
       expect(still.some((s) => s.tenantId === tenant.id)).toBe(true);
     } finally {
       await deleteTenants(pool, [tenant]);
+    }
+  });
+});
+
+describe('throttled catch-up (#1168)', () => {
+  it('lists the bucket once an hour, and at once after a failed copy', async () => {
+    const a = await createTenant(pool, 'Throttle A');
+    const b = await createTenant(pool, 'Throttle B');
+    try {
+      await write(a.id, 'p1');
+      await write(b.id, 'p2');
+      await sealAuditLog(pool, key);
+      const mirror = new MemorySealMirror();
+      let lists = 0;
+      const list = mirror.list.bind(mirror);
+      mirror.list = async (t) => {
+        lists++;
+        return list(t);
+      };
+      let clock = 0;
+      const run = throttledCatchup(pool, mirror, {
+        everyMinutes: 60,
+        graceMinutes: -1,
+        now: () => clock,
+      });
+      await run();
+      const first = lists;
+      expect(first).toBeGreaterThan(0);
+      clock += 10 * 60_000;
+      await run();
+      expect(lists).toBe(first);
+      await run(true);
+      expect(lists).toBeGreaterThan(first);
+      const second = lists;
+      clock += 61 * 60_000;
+      await run();
+      expect(lists).toBeGreaterThan(second);
+    } finally {
+      await deleteTenants(pool, [a, b]);
     }
   });
 });
