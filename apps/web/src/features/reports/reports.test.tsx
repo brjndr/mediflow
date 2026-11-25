@@ -115,6 +115,32 @@ describe('showing a report now', () => {
     expect(within(sales).getByText(/1,850.00/)).toBeInTheDocument();
   });
 
+  it('shows the OPD waiting time by department, with the median across the hospital', async () => {
+    await open();
+    await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'opd_wait');
+    await userEvent.click(screen.getByRole('button', { name: 'Show report' }));
+    const wait = await screen.findByRole('table', { name: 'OPD waiting time by department' });
+    for (const name of [
+      'Consultations started',
+      'Average wait',
+      'Median wait',
+      'Median wait, all departments',
+      'Not started',
+    ]) {
+      expect(within(wait).getAllByText(name).length).toBeGreaterThan(0);
+    }
+    expect(within(wait).getAllByText('Orthopaedics').length).toBeGreaterThan(0);
+    // Orthopaedics waits 31 minutes on average, 28 at the median; the hospital's median is 11.
+    expect(within(wait).getAllByText('31 minutes').length).toBeGreaterThan(0);
+    expect(within(wait).getAllByText('28 minutes').length).toBeGreaterThan(0);
+    expect(within(wait).getAllByText('11 minutes').length).toBeGreaterThan(0);
+    // The totals line: 40 consultations started and 7 tokens not yet seen.
+    expect(within(wait).getAllByText('Total').length).toBeGreaterThan(0);
+    expect(within(wait).getAllByText('40').length).toBeGreaterThan(0);
+    expect(within(wait).getAllByText('7').length).toBeGreaterThan(0);
+    await expectNoAxeViolations();
+  });
+
   it('shows collections with the payment method in words, and outstanding invoices by age', async () => {
     await open();
     await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'collections');
