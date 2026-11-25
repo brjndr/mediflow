@@ -5,6 +5,7 @@ import { replayed } from '../idempotency/state.js';
 import { WORKER_ROLE } from '../outbox/dispatcher.js';
 import { retentionCutoff, retireAuditPartitions } from './retention.js';
 import { sealAuditLog, verifyAuditSeals } from './seal.js';
+import { copyMissingSeals } from './seal-catchup.js';
 import { copySeals, S3SealMirror, type SealMirror } from './seal-mirror.js';
 import { withTenantTransaction } from '../tenancy/transaction.js';
 
@@ -252,7 +253,11 @@ export const auditPlugin = fp(
         app.log.info({ event: 'audit_sealed', ...head }, 'audit sealed');
       }
       if (!mirror) return;
-      const failed = await copySeals(mirror, written);
+      // Seals whose copy failed earlier are copied again here (#1158).
+      const failed = [
+        ...(await copySeals(mirror, written)),
+        ...(await copyMissingSeals(app.database.pool, mirror)),
+      ];
       for (const head of failed) {
         app.log.error(
           { event: 'audit_seal_copy_failed', tenantId: head.tenantId, seal: head.seal },
