@@ -145,6 +145,36 @@ const opdProgress: Query = async (client, from, to, limit) => {
   return rows.map((r) => [r.day, r.opened, r.opened_by_now, r.done, r.booked]);
 };
 
+const opdWait: Query = async (client, from, to, limit) => {
+  const { rows } = await client.query<{
+    day: string;
+    department: string;
+    started: number;
+    avg: number | null;
+    median: number | null;
+    not_started: number;
+  }>(
+    `select k.day::text as day, d.name as department,
+            count(e.id)::int as started,
+            round(avg(w.minutes))::int as avg,
+            round(percentile_cont(0.5) within group (order by w.minutes))::int as median,
+            (count(*) filter (where e.id is null))::int as not_started
+     from queue_tokens k
+     join departments d on d.tenant_id = k.tenant_id and d.id = k.department_id
+     left join encounters e on e.tenant_id = k.tenant_id and e.queue_token_id = k.id
+       and e.status <> 'cancelled'
+     cross join lateral (
+       select greatest(0, extract(epoch from (e.opened_at - k.issued_at)) / 60) as minutes
+     ) w
+     where k.tenant_id = app_tenant_id() and k.day >= $1::date and k.day <= $2::date
+     group by k.day, k.department_id, d.name
+     order by k.day, d.name, k.department_id
+     limit $3`,
+    [from, to, limit + 1],
+  );
+  return rows.map((r) => [r.day, r.department, r.started, r.avg, r.median, r.not_started]);
+};
+
 const revenue: Query = async (client, from, to, limit) => {
   const { rows } = await client.query<{
     day: string;
@@ -493,6 +523,18 @@ const DEFINITIONS: Record<
     ],
     sums: ['opened', 'openedByNow', 'consultationsDone', 'booked'],
     query: opdProgress,
+  },
+  opd_wait: {
+    columns: [
+      col('day', 'date'),
+      col('department', 'text'),
+      col('started', 'integer'),
+      col('avgWaitMinutes', 'minutes'),
+      col('medianWaitMinutes', 'minutes'),
+      col('notStarted', 'integer'),
+    ],
+    sums: ['started', 'notStarted'],
+    query: opdWait,
   },
   revenue: {
     columns: [

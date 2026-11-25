@@ -85,6 +85,7 @@ export const exportRunSchema: z.ZodType<ReportRun> = z.object({
     'opd_hourly',
     'audit_log',
     'opd_progress',
+    'opd_wait',
   ]),
   from: z.string().nullable(),
   to: z.string().nullable(),
