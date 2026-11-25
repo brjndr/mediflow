@@ -153,26 +153,44 @@ const opdWait: Query = async (client, from, to, limit) => {
     avg: number | null;
     median: number | null;
     not_started: number;
+    day_median: number | null;
   }>(
-    `select k.day::text as day, d.name as department,
-            count(e.id)::int as started,
+    `with w as (
+       select k.day, k.department_id, d.name, e.id as encounter_id,
+              -- greatest() skips a null, so a token with no consultation is told apart first
+              case when e.id is null then null
+                   else greatest(0, extract(epoch from (e.opened_at - k.issued_at)) / 60) end as minutes
+       from queue_tokens k
+       join departments d on d.tenant_id = k.tenant_id and d.id = k.department_id
+       left join encounters e on e.tenant_id = k.tenant_id and e.queue_token_id = k.id
+         and e.status <> 'cancelled'
+       where k.tenant_id = app_tenant_id() and k.day >= $1::date and k.day <= $2::date
+     ),
+     all_departments as (
+       select day, round(percentile_cont(0.5) within group (order by minutes))::int as median
+       from w group by day
+     )
+     select w.day::text as day, w.name as department,
+            count(w.encounter_id)::int as started,
             round(avg(w.minutes))::int as avg,
             round(percentile_cont(0.5) within group (order by w.minutes))::int as median,
-            (count(*) filter (where e.id is null))::int as not_started
-     from queue_tokens k
-     join departments d on d.tenant_id = k.tenant_id and d.id = k.department_id
-     left join encounters e on e.tenant_id = k.tenant_id and e.queue_token_id = k.id
-       and e.status <> 'cancelled'
-     cross join lateral (
-       select greatest(0, extract(epoch from (e.opened_at - k.issued_at)) / 60) as minutes
-     ) w
-     where k.tenant_id = app_tenant_id() and k.day >= $1::date and k.day <= $2::date
-     group by k.day, k.department_id, d.name
-     order by k.day, d.name, k.department_id
+            (count(*) filter (where w.encounter_id is null))::int as not_started,
+            a.median as day_median
+     from w join all_departments a on a.day = w.day
+     group by w.day, w.department_id, w.name, a.median
+     order by w.day, w.name, w.department_id
      limit $3`,
     [from, to, limit + 1],
   );
-  return rows.map((r) => [r.day, r.department, r.started, r.avg, r.median, r.not_started]);
+  return rows.map((r) => [
+    r.day,
+    r.department,
+    r.started,
+    r.avg,
+    r.median,
+    r.not_started,
+    r.day_median,
+  ]);
 };
 
 const revenue: Query = async (client, from, to, limit) => {
@@ -532,6 +550,7 @@ const DEFINITIONS: Record<
       col('avgWaitMinutes', 'minutes'),
       col('medianWaitMinutes', 'minutes'),
       col('notStarted', 'integer'),
+      col('dayMedianWaitMinutes', 'minutes'),
     ],
     sums: ['started', 'notStarted'],
     query: opdWait,

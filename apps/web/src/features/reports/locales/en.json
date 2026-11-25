@@ -99,6 +99,7 @@
     "started": "Consultations started",
     "avgWaitMinutes": "Average wait",
     "medianWaitMinutes": "Median wait",
+    "dayMedianWaitMinutes": "Median wait, all departments",
     "notStarted": "Not started"
   },
   "values": {
