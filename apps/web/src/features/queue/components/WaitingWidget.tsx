@@ -2,13 +2,14 @@ import { ListOrdered } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import widgetStrings from '../widget-strings.json';
+const loadHindi = () => import('../widget-strings.hi.json');
 import { errorMessageKey } from '@/shared/api';
 import { Stat, StatCard } from '@/shared/ui/stat-card';
 import { useQueueTokens } from '../hooks/use-queue';
 
 // Default export: contributed to the `dashboard.widgets` slot through the manifest.
 export default function WaitingWidget() {
-  const { t } = useWidgetStrings('queue-widget', widgetStrings);
+  const { t } = useWidgetStrings('queue-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   // One row is read for the total that comes with the first page; nothing about a patient is shown.
   const waiting = useQueueTokens(

@@ -4,12 +4,13 @@ import { errorMessageKey } from '@/shared/api';
 import { useWidgetStrings } from '@/shared/hooks/use-widget-strings';
 import { Stat, StatCard } from '@/shared/ui/stat-card';
 import widgetStrings from '../widget-strings.json';
+const loadHindi = () => import('../widget-strings.hi.json');
 import { useIncompleteRecords } from '../hooks/use-records';
 
 // Default export: contributed to the `dashboard.widgets` slot through the manifest. One row is
 // asked for; the count is the page's `total`.
 export default function RecordsWidget() {
-  const { t } = useWidgetStrings('records-widget', widgetStrings);
+  const { t } = useWidgetStrings('records-widget', widgetStrings, loadHindi);
   const { t: tCommon } = useTranslation();
   const incomplete = useIncompleteRecords({ gap: '', kind: '' }, 1);
 
