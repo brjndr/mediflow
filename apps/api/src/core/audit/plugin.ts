@@ -5,7 +5,7 @@ import { replayed } from '../idempotency/state.js';
 import { WORKER_ROLE } from '../outbox/dispatcher.js';
 import { retentionCutoff, retireAuditPartitions } from './retention.js';
 import { sealAuditLog, verifyAuditSeals } from './seal.js';
-import { copyMissingSeals } from './seal-catchup.js';
+import { throttledCatchup } from './seal-catchup.js';
 import { copySeals, S3SealMirror, type SealMirror } from './seal-mirror.js';
 import { withTenantTransaction } from '../tenancy/transaction.js';
 
@@ -247,17 +247,17 @@ export const auditPlugin = fp(
             config.AUDIT_SEAL_RETENTION_MONTHS ?? config.AUDIT_RETENTION_MONTHS ?? 120,
         })
       : undefined;
+    const catchUp = mirror ? throttledCatchup(app.database.pool, mirror) : undefined;
     app.jobs.work('audit.seal', async () => {
       const written = await sealAuditLog(app.database.pool, sealKey);
       for (const head of written) {
         app.log.info({ event: 'audit_sealed', ...head }, 'audit sealed');
       }
-      if (!mirror) return;
-      // Seals whose copy failed earlier are copied again here (#1158).
-      const failed = [
-        ...(await copySeals(mirror, written)),
-        ...(await copyMissingSeals(app.database.pool, mirror)),
-      ];
+      if (!mirror || !catchUp) return;
+      // Seals whose copy failed earlier are copied again here (#1158), listing the bucket at most
+      // once an hour, or at once after a failed copy (#1168).
+      const fresh = await copySeals(mirror, written);
+      const failed = [...fresh, ...(await catchUp(fresh.length > 0))];
       for (const head of failed) {
         app.log.error(
           { event: 'audit_seal_copy_failed', tenantId: head.tenantId, seal: head.seal },
