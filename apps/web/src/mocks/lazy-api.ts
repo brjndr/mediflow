@@ -46,3 +46,11 @@ export const lazyApi = http.all(/\/api\//, async ({ request }) => {
   if (!response || isPassthroughResponse(response)) return passthrough();
   return response;
 });
+
+/**
+ * Handler files register at load which hospital owns a record that a link can name
+ * (`registerMockLink`), so a link is opened only once they are loaded.
+ */
+export async function loadLinkOwners(): Promise<void> {
+  await Promise.all(handlerGroups.filter((g) => g.links).map((g) => loadGroup(g.name, g.load)));
+}

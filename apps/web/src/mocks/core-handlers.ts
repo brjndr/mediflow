@@ -9,6 +9,7 @@ import {
   switchTenant,
 } from './db';
 import { mfaLoginHandlers } from './handlers/mfa';
+import { loadLinkOwners } from './lazy-api';
 import { error, tenantMismatch, unauthenticated } from './respond';
 
 /**
@@ -86,6 +87,7 @@ export const coreHandlers = [
     if (typeof kind !== 'string' || typeof id !== 'string') {
       return error(400, 'validation_failed', 'kind and id are required');
     }
+    await loadLinkOwners();
     // One answer for a record that does not exist and one the user may not see.
     if (!openLink(kind, id)) return error(403, 'link_unavailable', 'This link is not available');
     return HttpResponse.json(currentSession());

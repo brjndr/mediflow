@@ -10,12 +10,15 @@ import type { RequestHandler } from 'msw';
 export interface HandlerGroup {
   name: string;
   segments: readonly string[];
+  /** The file registers which hospital owns the records a link can name (`registerMockLink`). */
+  links?: true;
   load: () => Promise<readonly RequestHandler[]>;
 }
 
 export const handlerGroups: readonly HandlerGroup[] = [
   {
     name: 'notices',
+    links: true,
     segments: ['notices'],
     load: async () => {
       const m = await import('./handlers/notices');
@@ -32,6 +35,7 @@ export const handlerGroups: readonly HandlerGroup[] = [
   },
   {
     name: 'patients',
+    links: true,
     segments: ['patient-settings', 'patients'],
     load: async () => {
       const m = await import('./handlers/patients');

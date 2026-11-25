@@ -30,6 +30,8 @@ const SHARED_UTILS = /[\\/]src[\\/]shared[\\/]utils[\\/]/;
 // page's tiles ask for. A page that asks for neither builds neither.
 const MOCK_PATIENTS =
   /[\\/]src[\\/]mocks[\\/]handlers[\\/](patients|triage|drugs|appointments|doctors|departments|staff|services|notices|hospital-profile|roles|queue|codes|templates|lab-tests|examples|prescription-sets|audit|records|documents|consents)\.ts$/;
+// The mock's own start-up code is one file too: it is read before the first render.
+const MOCK_CORE = /[\\/]src[\\/]mocks[\\/](lazy|respond)\.ts$/;
 const MOCK_HOME =
   /[\\/]src[\\/]mocks[\\/]handlers[\\/](admissions|admissions-flow|discharge-plan|discharge-summary|stay-bill|nursing[a-z-]*|clinical|wards|lab|billing|radiology|inventory|indents|reports)\.ts$/;
 
@@ -74,6 +76,7 @@ export default defineConfig({
             { name: 'app-core', test: APP_CORE, includeDependenciesRecursively: false },
             { name: 'shared-utils', test: SHARED_UTILS, includeDependenciesRecursively: false },
             { name: 'mock-patients', test: MOCK_PATIENTS, includeDependenciesRecursively: false },
+            { name: 'mock-core', test: MOCK_CORE, includeDependenciesRecursively: false },
             { name: 'mock-home', test: MOCK_HOME, includeDependenciesRecursively: false },
           ],
         },
