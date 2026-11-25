@@ -444,6 +444,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # lhci finds Chrome on the runner. See docs/PERFORMANCE.md for the targets.
       - run: pnpm --filter web exec lhci autorun --config=${{ matrix.config }}
+      # Reports the runner's BenchmarkIndex and the TBT median per URL, to pick a calibration target
+      # (#1150). It only prints: it never fails the job.
+      - if: always()
+        run: node scripts/lighthouse-summary.mjs "${{ matrix.name }}" apps/web/.lighthouseci apps/web/.lighthouseci-slow4g | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
