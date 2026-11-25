@@ -63,3 +63,7 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 - **Section** `HospitalExports` on the hospital's page, above `HospitalDeletion`, for `offboarding` (and read-only once `deleted`): a `DataGrid` of the exports (`GET .../exports`, followed every 5 seconds while one is queued or running) with status, contents and how often each was downloaded; "Start a new export" (`POST .../exports`, 409 `export_in_progress`); "Email a download link" on a ready export (`POST .../email-link`, 202): a job emails the link to the chosen admin, so the screen only says it was sent and never holds the link.
 - **The link needs an admin's user id**, which the platform cannot look up (no endpoint lists a hospital's admins; the platform role has no grant on `users`). The dialog takes the id as typed. The link is emailed by the API and never shown here.
 - **Mock:** `MOCK_ADMIN_ID` is the one id the mock accepts as an active admin.
+
+## Hindi (#1103)
+
+The platform screens' strings are in core `common.json` under `platform`, and `hi/common.json` already holds every one of them (`locales.test.ts` checks parity). Dashboard widgets each keep a `widget-strings.hi.json` loaded only in Hindi; `feature-locales.test.ts` fails a widget that has no Hindi file or a mismatched one.
