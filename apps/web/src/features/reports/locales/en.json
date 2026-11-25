@@ -11,7 +11,8 @@
     "collections_by_close": "Collections by register close day",
     "outstanding": "Outstanding invoices",
     "opd_hourly": "OPD visits by hour",
-    "opd_progress": "OPD visits and bookings by day"
+    "opd_progress": "OPD visits and bookings by day",
+    "opd_wait": "OPD waiting time by department"
   },
   "form": {
     "kind": "Report",
@@ -94,7 +95,11 @@
     "takenBy": "Taken by",
     "ageBucket": "Age since issue",
     "invoices": "Invoices",
-    "dueMinor": "Amount due"
+    "dueMinor": "Amount due",
+    "started": "Consultations started",
+    "avgWaitMinutes": "Average wait",
+    "medianWaitMinutes": "Median wait",
+    "notStarted": "Not started"
   },
   "values": {
     "method": {

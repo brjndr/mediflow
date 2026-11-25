@@ -23,5 +23,14 @@
     "count_one": "{{count}} बिल बकाया",
     "count_other": "{{count}} बिल बकाया",
     "open": "बकाया बिल खोलें"
+  },
+  "wait": {
+    "title": "आज का औसत इंतज़ार",
+    "average": "टोकन से परामर्श तक",
+    "minutes_one": "{{n}} मिनट",
+    "minutes_other": "{{n}} मिनट",
+    "longest": "सबसे लंबा इंतज़ार: {{department}}, {{minutes}}",
+    "notStarted": "{{n}} को अभी देखा नहीं गया",
+    "empty": "आज अभी तक कोई परामर्श शुरू नहीं हुआ।"
   }
 }

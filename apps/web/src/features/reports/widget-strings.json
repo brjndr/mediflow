@@ -23,5 +23,14 @@
     "count_one": "{{count}} invoice due",
     "count_other": "{{count}} invoices due",
     "open": "Open unpaid invoices"
+  },
+  "wait": {
+    "title": "Average wait today",
+    "average": "Token to consultation",
+    "minutes_one": "{{n}} minute",
+    "minutes_other": "{{n}} minutes",
+    "longest": "Longest wait: {{department}}, {{minutes}}",
+    "notStarted": "{{n}} not yet seen",
+    "empty": "No consultations started yet today."
   }
 }

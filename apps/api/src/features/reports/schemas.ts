@@ -18,6 +18,7 @@ export const REPORT_KINDS = [
   'collections_by_close',
   'outstanding',
   'opd_hourly',
+  'opd_wait',
   'audit_log',
   'opd_progress',
 ] as const;
