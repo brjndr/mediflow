@@ -1,6 +1,7 @@
 import { setupWorker } from 'msw/browser';
 import { isMockUser, setMockLanguage, setMockMfa, signIn, signOut } from './db';
-import { handlers } from './handlers';
+import { coreHandlers, notTheApi } from './core-handlers';
+import { lazyApi } from './lazy-api';
 
 /**
  * Dev only: the mock backend starts signed in as the sample hospital admin, so the app opens
@@ -23,4 +24,4 @@ function applyMockUser() {
 
 applyMockUser();
 
-export const worker = setupWorker(...handlers);
+export const worker = setupWorker(notTheApi, ...coreHandlers, lazyApi);

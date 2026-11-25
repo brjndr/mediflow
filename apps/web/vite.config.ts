@@ -24,6 +24,15 @@ const APP_CORE =
 // Small helpers the shell needs on every page load (dates, masks, text rules), as one file.
 const SHARED_UTILS = /[\\/]src[\\/]shared[\\/]utils[\\/]/;
 
+// The mock API's handler files (mocks/lazy-api.ts, #1176) are loaded for the files a request's path
+// names, one chunk each, which meant a dozen requests for a page that asks for a dozen areas. The
+// small files that the patient screens ask for go together, and so do the big ones that the home
+// page's tiles ask for. A page that asks for neither builds neither.
+const MOCK_PATIENTS =
+  /[\\/]src[\\/]mocks[\\/]handlers[\\/](patients|triage|drugs|appointments|doctors|departments|staff|services|notices|hospital-profile|roles|queue|codes|templates|lab-tests|examples|prescription-sets|audit|records|documents|consents)\.ts$/;
+const MOCK_HOME =
+  /[\\/]src[\\/]mocks[\\/]handlers[\\/](admissions|admissions-flow|discharge-plan|discharge-summary|stay-bill|nursing[a-z-]*|clinical|wards|lab|billing|radiology|inventory|indents|reports)\.ts$/;
+
 export default defineConfig({
   plugins: [
     react(),
@@ -64,6 +73,8 @@ export default defineConfig({
             { name: 'home-widgets', test: HOME_WIDGETS, includeDependenciesRecursively: false },
             { name: 'app-core', test: APP_CORE, includeDependenciesRecursively: false },
             { name: 'shared-utils', test: SHARED_UTILS, includeDependenciesRecursively: false },
+            { name: 'mock-patients', test: MOCK_PATIENTS, includeDependenciesRecursively: false },
+            { name: 'mock-home', test: MOCK_HOME, includeDependenciesRecursively: false },
           ],
         },
         // Strip console.* and debugger statements from production bundles.
