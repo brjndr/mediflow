@@ -23,6 +23,7 @@ The seed is for development only and refuses a remote database unless told other
 
 Read these in order; none is repeated here.
 
+0. [`docs/OVERVIEW.md`](../OVERVIEW.md): the system on one page.
 1. `CLAUDE.md`: the five non-negotiables, the stack, conventions.
 2. [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md): technology choices, tenancy, platform admin.
 3. [`docs/PRODUCT.md`](../PRODUCT.md): the patient journeys and the module map.

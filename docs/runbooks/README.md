@@ -4,6 +4,7 @@ Procedures that need no deployed environment. Deploy, rollback and restore steps
 
 | Runbook                                                      | For                                         |
 | ------------------------------------------------------------ | ------------------------------------------- |
+| [Architecture overview](../OVERVIEW.md)                      | Anyone new: how the system fits together    |
 | [Local onboarding](local-onboarding.md)                      | A new engineer: run the app, tour the code  |
 | [Hospital onboarding](hospital-onboarding.md)                | Platform admins: first admin, new hospitals |
 | [Incident response and support access](incident-response.md) | Whoever is on call: policy and steps        |
