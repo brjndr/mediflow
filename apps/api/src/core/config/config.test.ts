@@ -153,6 +153,17 @@ describe('loadConfig', () => {
     }
   });
 
+  it('keeps the audit seal copies at least as long as the log', () => {
+    const base = { NODE_ENV: 'test', S3_REGION: 'ap-south-1', AUDIT_SEAL_BUCKET: 'seals' };
+    expect(loadConfig({ ...base, AUDIT_SEAL_RETENTION_MONTHS: '84' }).AUDIT_SEAL_BUCKET).toBe(
+      'seals',
+    );
+    expect(() => loadConfig({ NODE_ENV: 'test', AUDIT_SEAL_BUCKET: 'seals' })).toThrow(/S3_REGION/);
+    expect(() =>
+      loadConfig({ ...base, AUDIT_RETENTION_MONTHS: '84', AUDIT_SEAL_RETENTION_MONTHS: '60' }),
+    ).toThrow(/AUDIT_SEAL_RETENTION_MONTHS/);
+  });
+
   it('refuses the development audit seal key in production', () => {
     expect(() =>
       loadConfig({ ...production, AUDIT_SEAL_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }),
