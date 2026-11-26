@@ -1731,3 +1731,114 @@ describe('a visit kept on paper (#1202)', () => {
     await ok(close(visit), 200);
   });
 });
+
+describe('what a visit kept on paper refuses (#1202)', () => {
+  let token = '';
+  const url = (id = token) => '/queue/tokens/' + id + '/paper-visit';
+  const asNurse = () => ({ user: nurse });
+  const start = async (id = token) =>
+    (await ok<{ encounter: { id: string } }>(post(url(id), {}, asNurse()), 200)).encounter.id;
+  const closeUrl = (id: string) => '/encounters/' + id + '/paper-visit/close';
+  const feature = (name: string, enabled: boolean) =>
+    pool.query(
+      'insert into tenant_features (tenant_id, feature, enabled) values ($1, $2, $3) ' +
+        'on conflict (tenant_id, feature) do update set enabled = $3',
+      [hospital.id, name, enabled],
+    );
+  /** The nurse's grant of a permission narrowed or taken away, for one test. */
+  const withGrant = async (permission: string, scope: string | null, run: () => Promise<void>) => {
+    const where = "where tenant_id = $1 and role_id = 'nurse' and permission = $2";
+    const { rows } = await pool.query<{ scope: string }>(
+      'delete from role_permissions ' + where + ' returning scope',
+      [hospital.id, permission],
+    );
+    const put = (value: string) =>
+      pool.query(
+        'insert into role_permissions (tenant_id, role_id, permission, scope) ' +
+          "values ($1, 'nurse', $2, $3)",
+        [hospital.id, permission, value],
+      );
+    if (scope) await put(scope);
+    try {
+      await run();
+    } finally {
+      await pool.query('delete from role_permissions ' + where, [hospital.id, permission]);
+      await put(rows[0]!.scope);
+    }
+  };
+
+  beforeEach(async () => {
+    await feature('documents', true);
+    token = await addToken(patients.asha, doctors.doctor);
+  });
+
+  it('closes no visit that was written up on screen', async () => {
+    const id = await start();
+    await ok(post('/encounters/' + id + '/diagnoses', { text: 'Fever', kind: 'final' }));
+    expect(errorOf(await post(closeUrl(id), { version: 1 }, asNurse()))).toEqual([
+      409,
+      'has_records',
+    ]);
+  });
+
+  it('keeps to the scope of each permission', async () => {
+    // The nurse has no doctor profile: nothing is their own or their department's.
+    for (const permission of ['encounter:recordPaper', 'queue:read']) {
+      await withGrant(permission, 'own', async () => {
+        expect(errorOf(await post(url(), {}, asNurse()))).toEqual([404, 'token_not_found']);
+      });
+    }
+    await withGrant('patient:read', null, async () => {
+      expect(errorOf(await post(url(), {}, asNurse()))).toEqual([404, 'token_not_found']);
+    });
+    await withGrant('document:upload', null, async () => {
+      expect(errorOf(await post(url(), {}, asNurse()))).toEqual([403, 'permission_denied']);
+    });
+    const { rows } = await pool.query('select 1 from encounters where queue_token_id = $1', [
+      token,
+    ]);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('needs the clinical switch, an OPD visit and a token not cancelled', async () => {
+    const id = await start();
+    await feature('clinical', false);
+    try {
+      expect(errorOf(await get(url(), asNurse()))).toEqual([403, 'feature_disabled']);
+    } finally {
+      await feature('clinical', true);
+    }
+    const { rows } = await pool.query<{ id: string }>(
+      "insert into encounters (tenant_id, patient_id, type, opened_by) values ($1, $2, 'daycare', $3) returning id",
+      [hospital.id, patients.bala, nurse.id],
+    );
+    expect(errorOf(await post(closeUrl(rows[0]!.id), { version: 1 }, asNurse()))).toEqual([
+      409,
+      'not_opd_visit',
+    ]);
+    const cancelled = await addToken(patients.bala, doctors.doctor);
+    await pool.query(
+      "update queue_tokens set status = 'cancelled', cancel_reason = 'wrong_patient', cancelled_at = now(), cancelled_by = issued_by where id = $1",
+      [cancelled],
+    );
+    expect(errorOf(await post(url(cancelled), {}, asNurse()))).toEqual([409, 'token_cancelled']);
+    expect(id).not.toBe('');
+  });
+
+  it('retires no sheet through the address of another visit', async () => {
+    const first = await start();
+    const second = await start(await addToken(patients.bala, doctors.doctor));
+    const sheet = await pool.query<{ id: string }>(
+      'insert into patient_documents (tenant_id, patient_id, encounter_id, category, title, ' +
+        'file_name, content_type, size_bytes, status, created_by) ' +
+        "values ($1, $2, $3, 'opd_sheet', 'OPD sheet', 'sheet.jpg', 'image/jpeg', 10, 'pending', $4) returning id",
+      [hospital.id, patients.asha, first, nurse.id],
+    );
+    const retired = await post(
+      '/encounters/' + second + '/paper-visit/sheets/' + sheet.rows[0]!.id + '/retire',
+      { reason: 'Wrong visit', expectedVersion: 1 },
+      asNurse(),
+    );
+    expect(errorOf(retired)).toEqual([404, 'document_not_found']);
+  });
+});

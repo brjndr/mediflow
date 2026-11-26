@@ -5,6 +5,7 @@ import { visibilityFor } from './http.js';
 import {
   encounterOpenedFor,
   findEncounter,
+  hasRecords,
   practisingDoctor,
   type EncounterRow,
 } from './repository.js';
@@ -107,7 +108,7 @@ export async function openPaperVisit(
 }
 
 /**
- * Closes an open OPD visit at the version read. `requireSheet` runs once the row is locked and
+ * Closes an open OPD visit with nothing written on it, at the version read. `requireSheet` runs once the row is locked and
  * throws when no sheet is on the visit.
  */
 export async function closePaperVisit(
@@ -132,6 +133,14 @@ export async function closePaperVisit(
   await refuseManagedElsewhere(request, row);
   if (row.type !== 'opd') {
     throw new HttpError(409, 'not_opd_visit', 'Only an OPD visit is kept on paper');
+  }
+  // A visit written up on screen is the doctor's to close, never closed from the paper.
+  if (await hasRecords(request.txClient, row.id)) {
+    throw new HttpError(
+      409,
+      'has_records',
+      'The visit has records: close it from the consultation',
+    );
   }
   await requireSheet();
   await closeOpenVisit(request, row);

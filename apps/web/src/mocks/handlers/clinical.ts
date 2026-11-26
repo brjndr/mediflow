@@ -1762,6 +1762,14 @@ function paperVisitHandlers() {
           return error(409, 'invalid_transition', 'The visit does not change');
         }
         if (body.version !== stored.version) return error(409, 'conflict', 'It has changed');
+        const ofIt = <T extends { encounterId: string }>(rows: T[]) =>
+          rows.filter((row) => row.encounterId === stored.id);
+        const written =
+          ofIt(state.notes).some((note) => note.status === 'signed') ||
+          ofIt(state.diagnoses).some((each) => !each.retractedAt) ||
+          ofIt(state.orders).some((order) => order.status !== 'cancelled') ||
+          ofIt(state.prescriptions).length > 0;
+        if (written) return error(409, 'has_records', 'The visit has records');
         if (!answer(stored).hasSheet) {
           return error(409, 'opd_sheet_required', 'Attach the OPD sheet first');
         }

@@ -75,6 +75,12 @@ async function tokenOf(request: FastifyRequest, tokenId: string) {
     });
   const token = (await reached(QUEUE_READ)) && (await reached(PAPER));
   if (!token || !(await readsPatient(request, token.patient_id))) throw tokenNotFound();
+  // The sheet could not be attached outside the scope of document:upload: refused before opening.
+  const mayAttach = await patientInScope(request.txClient, token.patient_id, {
+    scope: request.access.scope(UPLOAD),
+    userId: userIdOf(request),
+  });
+  if (!mayAttach) throw tokenNotFound();
   if (token.status === 'cancelled') {
     throw new HttpError(409, 'token_cancelled', 'The token is cancelled');
   }
@@ -174,7 +180,7 @@ async function tokenAnswer(
 }
 
 const TOKEN_REFUSALS =
-  ' A token of another day, another hospital, outside the scope of queue:read or encounter:recordPaper, or of a patient the caller may not read is 404 `token_not_found`; a cancelled one is 409 `token_cancelled`. 409 `already_open` when the token and its appointment each opened a visit, or the visit is outside the caller’s scope. Requires queue:read, encounter:recordPaper, document:upload and patient:read, and the documents, clinical and queue feature flags.';
+  ' A token of another day, another hospital, outside the scope of queue:read or encounter:recordPaper, or of a patient outside the scope of patient:read or document:upload is 404 `token_not_found`; a cancelled one is 409 `token_cancelled`. 409 `already_open` when the token and its appointment each opened a visit, or the visit is outside the caller’s scope. Requires queue:read, encounter:recordPaper, document:upload and patient:read, and the documents, clinical and queue feature flags.';
 const VISIT_REFUSALS =
   ' A visit of another hospital, outside the scope of encounter:recordPaper or of a patient the caller may not read is 404 `encounter_not_found`; one that is not OPD is 409 `not_opd_visit`.';
 
@@ -258,7 +264,7 @@ export const paperVisitRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['documents'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Closes a visit kept on paper (#1202). Refused unless an OPD sheet that is clean or being scanned, and not retired, is on the visit (409 `opd_sheet_required`), and as an ordinary close is: 409 `invalid_transition` for one not open, `conflict` for another version, `unsigned_notes`, `managed_by_admission`, `managed_by_emergency`. Emits `encounter.closed`. A sheet the scan blocks afterwards leaves the visit closed; its uploader is told. The Idempotency-Key header is required: a repeat changes nothing. Requires encounter:recordPaper and patient:read, and the documents and clinical feature flags.' +
+          'Closes a visit kept on paper (#1202). Refused unless an OPD sheet that is clean or being scanned, and not retired, is on the visit (409 `opd_sheet_required`), and as an ordinary close is: 409 `invalid_transition` for one not open, `conflict` for another version, `unsigned_notes`, `managed_by_admission`, `managed_by_emergency`; and 409 `has_records` for a visit with a signed note, diagnosis, order, prescription, referral or follow-up, which is closed from the consultation. Emits `encounter.closed`. A sheet the scan blocks afterwards leaves the visit closed; its uploader is told. The Idempotency-Key header is required: a repeat changes nothing. Requires encounter:recordPaper and patient:read, and the documents and clinical feature flags.' +
           VISIT_REFUSALS,
         params: PaperEncounterParams,
         body: ref(PaperVisitClose),

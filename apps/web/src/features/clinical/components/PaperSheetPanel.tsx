@@ -25,6 +25,7 @@ const REFUSED: Record<string, string> = {
   not_opd_visit: 'paper.errors.notOpd',
   opd_sheet_required: 'paper.errors.sheetRequired',
   unsigned_notes: 'paper.errors.unsignedNotes',
+  has_records: 'paper.errors.hasRecords',
   managed_by_admission: 'paper.errors.managed',
   managed_by_emergency: 'paper.errors.managed',
   conflict: 'paper.errors.conflict',

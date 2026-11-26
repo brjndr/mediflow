@@ -1,7 +1,14 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { revokePermission, setTenantFeature, TENANT_IDS } from '@/mocks/db';
+import {
+  grantPermission,
+  revokePermission,
+  setTenantFeature,
+  signIn,
+  TENANT_IDS,
+  USER_IDS,
+} from '@/mocks/db';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 
@@ -86,6 +93,33 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }, SLOW));
     const dialog = await screen.findByRole('dialog', {}, SLOW);
     expect(await within(dialog).findByRole('button', { name: /^Attach to / }, SLOW)).toBeVisible();
+  });
+
+  it('refuses to close a visit that is written up on screen', async () => {
+    renderApp({ entry: '/encounters/enc_h_1' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }, SLOW));
+    const dialog = await screen.findByRole('dialog', {}, SLOW);
+    await userEvent.upload(
+      await within(dialog).findByLabelText('Choose a file', {}, SLOW),
+      photo(),
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
+    expect(await within(dialog).findByRole('alert', {}, SLOW)).toHaveTextContent(
+      'closes it from the consultation',
+    );
+  });
+
+  it('works at another hospital, on its own patient and visit', async () => {
+    signIn(USER_IDS.doctor, TENANT_IDS.clinic);
+    setTenantFeature(TENANT_IDS.clinic, 'documents', true);
+    grantPermission(TENANT_IDS.clinic, 'doctor', 'document:upload');
+    renderApp({ entry: '/encounters/enc_c_1' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }, SLOW));
+    const dialog = await screen.findByRole('dialog', {}, SLOW);
+    await within(dialog).findByRole('button', { name: /^Attach to / }, SLOW);
+    // The clinic's patient, never one of the hospital.
+    expect(dialog).toHaveTextContent('MRN-PTC-00001');
   });
 
   it('shows the served tokens when asked for', async () => {
