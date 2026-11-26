@@ -18,8 +18,8 @@ import { patientInScope } from '../patients/index.js';
 /**
  * Requests to correct a patient's record (#556). A correction is a request with its author and
  * reason, never a silent edit: a second person approves or rejects it with a reason, once. The
- * request does not change the record; the owning module applies an approved one through its own
- * amendment flow, reacting to `correction.approved`.
+ * request does not change the record; an approved one is applied as an append-only amendment
+ * (`corrections-apply.ts`, #1179), reacting to `correction.approved`.
  */
 const FEATURE = 'records';
 const READ = 'correction:read';
@@ -46,6 +46,18 @@ export const CorrectionRequest = Type.Object(
     decidedAt: Type.Optional(Type.String({ format: 'date-time' })),
     decisionReason: Type.Optional(Type.String()),
     version: Type.Integer(),
+    appliedAt: Type.Optional(
+      Type.String({
+        format: 'date-time',
+        description: 'When an approved request was applied to the record as an amendment (#1179).',
+      }),
+    ),
+    applyOutcome: Type.Optional(
+      StringEnum(['applied', 'target_unavailable'], {
+        description:
+          'Absent until applied. target_unavailable: the encounter or document was gone or retired, so the amendment reached no live record.',
+      }),
+    ),
   },
   { $id: 'CorrectionRequest', description: 'A request to correct a patient’s record.' },
 );
@@ -105,7 +117,13 @@ interface Row {
 const COLUMNS = `id, patient_id, target_kind, target_id, proposed, reason, status, requested_by,
   requested_at, decided_by, decided_at, decision_reason, version`;
 
-const view = (row: Row) => ({
+interface Applied {
+  request_id: string;
+  outcome: 'applied' | 'target_unavailable';
+  applied_at: Date;
+}
+
+const view = (row: Row, applied?: Applied) => ({
   id: row.id,
   patientId: row.patient_id,
   targetKind: row.target_kind,
@@ -119,6 +137,9 @@ const view = (row: Row) => ({
   ...(row.decided_at ? { decidedAt: row.decided_at.toISOString() } : {}),
   ...(row.decision_reason ? { decisionReason: row.decision_reason } : {}),
   version: row.version,
+  ...(applied
+    ? { appliedAt: applied.applied_at.toISOString(), applyOutcome: applied.outcome }
+    : {}),
 });
 
 const notFound = () => new HttpError(404, 'not_found', 'No such correction request');
@@ -149,6 +170,16 @@ export const correctionRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (!inScope) throw new HttpError(404, 'not_found', 'No such patient');
   }
 
+  /** The amendments of these requests, by request id. */
+  async function appliedOf(request: FastifyRequest, ids: string[]) {
+    if (ids.length === 0) return new Map<string, Applied>();
+    const { rows } = await request.txClient.query<Applied>(
+      'select request_id, outcome, applied_at from record_correction_amendments where request_id = any($1::uuid[])',
+      [ids],
+    );
+    return new Map(rows.map((row) => [row.request_id, row]));
+  }
+
   async function listPage(request: FastifyRequest, query: ListQuery, patientId?: string) {
     const params: unknown[] = [];
     const where: string[] = [];
@@ -177,8 +208,12 @@ export const correctionRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const page = rows.slice(0, query.limit);
     for (const row of page) request.audit('read', 'record_correction_request', row.id);
     const last = page[page.length - 1];
+    const applied = await appliedOf(
+      request,
+      page.map((row) => row.id),
+    );
     return {
-      items: page.map(view),
+      items: page.map((row) => view(row, applied.get(row.id))),
       nextCursor: rows.length > query.limit && last ? encodeCursor(last) : null,
     };
   }
@@ -351,7 +386,7 @@ export const correctionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         schema: {
           operationId,
           tags: ['records'],
-          description: `${outcome === 'approved' ? 'Approves' : 'Rejects'} a pending request to correct a record, with a reason (#556). Decided once, by someone other than the person who asked (403 \`second_person_required\`); 409 \`already_decided\`; 409 \`conflict\` when the version is not the one read. Approving edits nothing: the module that owns the record applies the change, reacting to \`correction.approved\`. Requires correction:decide and correction:read.`,
+          description: `${outcome === 'approved' ? 'Approves' : 'Rejects'} a pending request to correct a record, with a reason (#556). Decided once, by someone other than the person who asked (403 \`second_person_required\`); 409 \`already_decided\`; 409 \`conflict\` when the version is not the one read. Approving does not edit the record: reacting to \`correction.approved\`, the records module adds an append-only amendment (#1179), shown as \`appliedAt\` and \`applyOutcome\` a moment later. Requires correction:decide and correction:read.`,
           params: RequestParams,
           body: ref(CorrectionRequestDecide),
           response: { 200: ref(CorrectionRequest), ...errors(400, 401, 403, 404, 409, 429) },

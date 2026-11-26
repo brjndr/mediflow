@@ -206,6 +206,8 @@ function seed(): State {
         decidedBy: 'usr_admin',
         decidedAt: iso(5),
         decisionReason: 'Seen the original',
+        appliedAt: iso(5),
+        applyOutcome: 'applied',
         version: 2,
       },
       {
@@ -574,6 +576,10 @@ export const recordsHandlers = [
       found.decisionReason = body.reason.trim();
       found.decidedBy = currentSession()?.user.id ?? '';
       found.decidedAt = new Date().toISOString();
+      if (decision === 'approve') {
+        found.appliedAt = found.decidedAt;
+        found.applyOutcome = 'applied';
+      }
       found.version += 1;
       return HttpResponse.json(strip(found));
     }),

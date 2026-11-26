@@ -14,6 +14,7 @@ import {
 import { DOCUMENT_PERMISSIONS } from './permissions.js';
 import { consentRoutes } from './consents.js';
 import { correctionRoutes } from './corrections.js';
+import { applyApprovedCorrections } from './corrections-apply.js';
 import {
   CONSENT_PERMISSIONS,
   CORRECTION_PERMISSIONS,
@@ -97,6 +98,7 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
   await app.register(documentRoutes);
   await app.register(documentFileRoutes);
   await app.register(correctionRoutes);
+  applyApprovedCorrections(app);
   await app.register(consentRoutes);
   await app.register(recordsDeskRoutes);
   app.jobs.work<ScanJob>(SCAN_JOB, (job) => scanDocument(app, job));
