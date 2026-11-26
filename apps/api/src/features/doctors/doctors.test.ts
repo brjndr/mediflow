@@ -380,8 +380,9 @@ describe('the list and a profile', () => {
     // Not an id of anything, and another hospital's department: nobody.
     expect(names(await get('/doctors?departmentId=nonsense'))).toEqual([]);
     expect(names(await get(`/doctors?departmentId=${departments.Family}`))).toEqual([]);
-    // A term is tidied, never refused (#322): a NUL is a space.
-    expect((await get('/doctors?q=%00')).statusCode).toBe(200);
+    // A term is tidied, never refused (#322), apart from a NUL, which no request may hold (#1183).
+    expect((await get('/doctors?q=%09')).statusCode).toBe(200);
+    expect((await get('/doctors?q=%00')).statusCode).toBe(400);
   });
 
   it('reads one profile', async () => {

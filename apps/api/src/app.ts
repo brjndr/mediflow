@@ -18,6 +18,7 @@ import { registerCors } from './core/http/cors.js';
 import { registerSecurityHeaders } from './core/http/security-headers.js';
 import { registerErrorHandling } from './core/http/errors.js';
 import { registerStrictBodies } from './core/http/strict-body.js';
+import { registerNoNul } from './core/http/no-nul.js';
 import { filesPlugin } from './core/files/plugin.js';
 import type { FileStore } from './core/files/store.js';
 import type { MalwareScanner } from './core/files/scanner.js';
@@ -166,6 +167,8 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   await registerCors(app);
   // Before any route: a JSON body is checked for the types it was sent with.
   registerStrictBodies(app);
+  // Before any route: no text of a request holds a NUL, which the database would refuse as a 500.
+  registerNoNul(app);
 
   // Core. OpenAPI comes first: it has to see every route as it is registered.
   await app.register(openApiPlugin);
