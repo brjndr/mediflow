@@ -19,11 +19,18 @@ export async function createRole(name: string, idempotencyKey: string): Promise<
   return roleDetailSchema.parse(requireData(result));
 }
 
-/** Renames a custom role. Its permissions are left as they are. */
-export async function renameRole(roleId: string, name: string): Promise<RoleDetail> {
+/**
+ * Renames a custom role. Its permissions are left as they are. `expectedVersion` is the version
+ * the change was made from: 409 `version_conflict` when the role has changed since.
+ */
+export async function renameRole(
+  roleId: string,
+  name: string,
+  expectedVersion: number,
+): Promise<RoleDetail> {
   const result = await api.PUT('/roles/{roleId}', {
     params: { path: { roleId } },
-    body: { name },
+    body: { name, expectedVersion },
   });
   return roleDetailSchema.parse(requireData(result));
 }
@@ -43,14 +50,15 @@ export async function fetchRole(roleId: string, signal?: AbortSignal): Promise<R
   return roleDetailSchema.parse(requireData(result));
 }
 
-/** Replaces the whole set of what a role may do. The name is left as it is. */
+/** Replaces the whole set of what a role may do, from `expectedVersion`. The name is left as it is. */
 export async function saveRoleGrants(
   roleId: string,
   permissions: RoleGrant[],
+  expectedVersion: number,
 ): Promise<RoleDetail> {
   const result = await api.PUT('/roles/{roleId}', {
     params: { path: { roleId } },
-    body: { permissions },
+    body: { permissions, expectedVersion },
   });
   return roleDetailSchema.parse(requireData(result));
 }

@@ -75,6 +75,12 @@ const call = async (
     headers: method === 'GET' ? {} : { origin: ORIGIN, 'idempotency-key': randomUUID() },
     ...(payload ? { payload } : {}),
   });
+/** The version a caller would have read; 1 for a role they cannot read. */
+const versionOf = async (user: TestUser, id: string) =>
+  (await call('GET', `/roles/${id}`, user)).json<{ version?: number }>().version ?? 1;
+/** Saves a role from the version it has now. */
+const save = async (id: string, user: TestUser, body: object) =>
+  call('PUT', `/roles/${id}`, user, { expectedVersion: await versionOf(user, id), ...body });
 const errorOf = (response: LightMyRequestResponse) =>
   [response.statusCode, response.json().error.code] as const;
 
@@ -200,9 +206,10 @@ describe('the hospital boundary', () => {
       404,
       'role_not_found',
     ]);
-    expect(
-      errorOf(await call('PUT', '/roles/hr_only', clinicAdmin, { name: 'Taken over' })),
-    ).toEqual([404, 'role_not_found']);
+    expect(errorOf(await save('hr_only', clinicAdmin, { name: 'Taken over' }))).toEqual([
+      404,
+      'role_not_found',
+    ]);
     expect(errorOf(await call('DELETE', '/roles/hr_only', clinicAdmin))).toEqual([
       404,
       'role_not_found',
@@ -305,7 +312,7 @@ describe('creating a role', () => {
       errorOf(await make('Odd', [{ permission: 'patient:read' }, { permission: 'patient:read' }])),
     ).toEqual([400, 'duplicate_permission']);
     expect(errorOf(await make('***', []))).toEqual([400, 'validation_failed']);
-    expect(errorOf(await call('PUT', '/roles/hr_only', admin, { name: '   ' }))).toEqual([
+    expect(errorOf(await save('hr_only', admin, { name: '   ' }))).toEqual([
       400,
       'validation_failed',
     ]);
@@ -381,11 +388,11 @@ describe('nobody hands on more than they hold', () => {
   });
 
   it('refuses to edit or delete a role that holds more than the caller', async () => {
-    expect(errorOf(await call('PUT', '/roles/admin', desk, { permissions: [] }))).toEqual([
+    expect(errorOf(await save('admin', desk, { permissions: [] }))).toEqual([
       403,
       'role_not_allowed',
     ]);
-    expect(errorOf(await call('PUT', '/roles/hr_only', desk, { name: 'Mine' }))).toEqual([
+    expect(errorOf(await save('hr_only', desk, { name: 'Mine' }))).toEqual([
       403,
       'role_not_allowed',
     ]);
@@ -393,13 +400,13 @@ describe('nobody hands on more than they hold', () => {
 
   it('lets a caller raise a role they can fully hold, and no further', async () => {
     await call('POST', '/roles', desk, { name: 'Desk helper', permissions: [] });
-    const within = await call('PUT', '/roles/desk_helper', desk, {
+    const within = await save('desk_helper', desk, {
       permissions: [{ permission: 'patient:read' }],
     });
     expect(within.statusCode).toBe(200);
     expect(
       errorOf(
-        await call('PUT', '/roles/desk_helper', desk, {
+        await save('desk_helper', desk, {
           permissions: [{ permission: 'patient:read' }, { permission: 'staff:manage' }],
         }),
       ),
@@ -409,16 +416,13 @@ describe('nobody hands on more than they hold', () => {
 
 describe('built-in roles', () => {
   it('keep their name and cannot be deleted, but their permissions can change', async () => {
-    expect(errorOf(await call('PUT', '/roles/nurse', admin, { name: 'Sister' }))).toEqual([
-      409,
-      'built_in_role',
-    ]);
+    expect(errorOf(await save('nurse', admin, { name: 'Sister' }))).toEqual([409, 'built_in_role']);
     expect(errorOf(await call('DELETE', '/roles/nurse', admin))).toEqual([409, 'built_in_role']);
 
     const before = await call('GET', '/roles/nurse', admin);
     const original = before.json<Detail>().permissions;
     try {
-      const changed = await call('PUT', '/roles/nurse', admin, {
+      const changed = await save('nurse', admin, {
         name: 'Nurse',
         permissions: [...original, { permission: 'role:read' }],
       });
@@ -427,7 +431,7 @@ describe('built-in roles', () => {
       expect(changed.json<Detail>().builtIn).toBe(true);
       expect(await auditOf(hospital, 'nurse')).toContain('update');
     } finally {
-      await call('PUT', '/roles/nurse', admin, { permissions: original });
+      await save('nurse', admin, { permissions: original });
     }
   });
 
@@ -435,11 +439,11 @@ describe('built-in roles', () => {
     const original = (await call('GET', '/roles/nurse', admin)).json<Detail>().permissions;
     const rest = original.filter((grant) => grant.permission !== 'patient:read');
     try {
-      await call('PUT', '/roles/nurse', admin, { permissions: rest });
+      await save('nurse', admin, { permissions: rest });
       await grantRoleDefaults(app, hospital);
       expect(held(await call('GET', '/roles/nurse', admin))).not.toContain('patient:read');
     } finally {
-      await call('PUT', '/roles/nurse', admin, { permissions: original });
+      await save('nurse', admin, { permissions: original });
     }
   });
 });
@@ -460,7 +464,7 @@ describe('editing and deleting a custom role', () => {
         .permissions.map((grant) => grant.permission),
     ).toEqual(['patient:read']);
 
-    const response = await call('PUT', '/roles/temp_role', admin, {
+    const response = await save('temp_role', admin, {
       name: 'Temporary',
       permissions: [{ permission: 'staff:read' }],
     });
@@ -476,10 +480,7 @@ describe('editing and deleting a custom role', () => {
   });
 
   it('refuses a name another role has', async () => {
-    expect(errorOf(await call('PUT', '/roles/hr_only', admin, { name: 'doctor' }))).toEqual([
-      409,
-      'role_exists',
-    ]);
+    expect(errorOf(await save('hr_only', admin, { name: 'doctor' }))).toEqual([409, 'role_exists']);
   });
 
   it('deletes an unused custom role and audits it, but not one in use', async () => {
@@ -515,7 +516,7 @@ describe('editing and deleting a custom role', () => {
 describe('the hospital is never left unable to manage itself', () => {
   it('stops an administrator taking away their own ability to manage roles', async () => {
     const original = (await call('GET', '/roles/admin', clinicAdmin)).json<Detail>().permissions;
-    const response = await call('PUT', '/roles/admin', clinicAdmin, {
+    const response = await save('admin', clinicAdmin, {
       permissions: original.filter((grant) => grant.permission !== 'role:manage'),
     });
 
@@ -525,7 +526,7 @@ describe('the hospital is never left unable to manage itself', () => {
 
   it('stops a change that would leave nobody able to manage staff', async () => {
     const original = (await call('GET', '/roles/admin', soloAdmin)).json<Detail>().permissions;
-    const response = await call('PUT', '/roles/admin', soloAdmin, {
+    const response = await save('admin', soloAdmin, {
       permissions: original.filter((grant) => grant.permission !== 'staff:manage'),
     });
 
@@ -539,7 +540,7 @@ describe('the hospital is never left unable to manage itself', () => {
     await addMembership(pool, deputy, solo, 'deputy');
     const original = (await call('GET', '/roles/admin', soloAdmin)).json<Detail>().permissions;
     try {
-      const response = await call('PUT', '/roles/admin', soloAdmin, {
+      const response = await save('admin', soloAdmin, {
         permissions: original.filter((grant) => grant.permission !== 'staff:manage'),
       });
       expect(response.statusCode).toBe(200);
@@ -553,7 +554,7 @@ describe('the hospital is never left unable to manage itself', () => {
 
   it('leaves nothing behind when a change is refused', async () => {
     const original = (await call('GET', '/roles/admin', clinicAdmin)).json<Detail>().permissions;
-    await call('PUT', '/roles/admin', clinicAdmin, {
+    await save('admin', clinicAdmin, {
       name: 'Admin',
       permissions: original.filter((grant) => grant.permission !== 'role:manage'),
     });
@@ -562,5 +563,74 @@ describe('the hospital is never left unable to manage itself', () => {
     expect(held(await call('GET', '/roles/admin', clinicAdmin))).toEqual(
       original.map((grant) => grant.permission).sort(),
     );
+  });
+});
+
+describe('two people saving one role', () => {
+  interface Versioned extends Detail {
+    version: number;
+  }
+  const read = async (id: string) => (await call('GET', `/roles/${id}`, admin)).json<Versioned>();
+  const put = (id: string, body: object) => call('PUT', `/roles/${id}`, admin, body);
+
+  it('gives the version in the list and the detail, and moves it with a save', async () => {
+    await call('POST', '/roles', admin, { name: 'Versioned', permissions: [] });
+    const first = await read('versioned');
+    const listed = (await call('GET', '/roles', admin))
+      .json<{ items: { id: string; version: number }[] }>()
+      .items.find((role) => role.id === 'versioned');
+    expect(listed?.version).toBe(first.version);
+
+    const renamed = await put('versioned', { expectedVersion: first.version, name: 'Versioned 2' });
+
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json<Versioned>().version).toBeGreaterThan(first.version);
+  });
+
+  it('lets one of two saves from the same version win and answers the other with the role', async () => {
+    await call('POST', '/roles', admin, { name: 'Contested', permissions: [] });
+    const { version } = await read('contested');
+
+    const answers = await Promise.all(
+      ['patient:read', 'staff:read'].map((permission) =>
+        put('contested', { expectedVersion: version, permissions: [{ permission }] }),
+      ),
+    );
+
+    expect(answers.map((answer) => answer.statusCode).sort()).toEqual([200, 409]);
+    const winner = answers.find((answer) => answer.statusCode === 200)!;
+    const loser = answers.find((answer) => answer.statusCode === 409)!;
+    expect(errorOf(loser)).toEqual([409, 'version_conflict']);
+    expect(loser.json<{ current: Versioned }>().current).toEqual(winner.json<Versioned>());
+    expect(await read('contested')).toEqual(winner.json<Versioned>());
+    expect(await auditOf(hospital, 'contested')).toEqual(['create', 'update']);
+  });
+
+  it('moves the version when a grant is written outside the API', async () => {
+    await call('POST', '/roles', admin, { name: 'Deployed to', permissions: [] });
+    const { version } = await read('deployed_to');
+    await pool.query(
+      "insert into role_permissions (tenant_id, role_id, permission) values ($1, 'deployed_to', 'patient:read')",
+      [hospital.id],
+    );
+
+    const response = await put('deployed_to', { expectedVersion: version, permissions: [] });
+
+    expect(errorOf(response)).toEqual([409, 'version_conflict']);
+    expect(held(await call('GET', '/roles/deployed_to', admin))).toEqual(['patient:read']);
+  });
+
+  it('does not hand a role above the caller over with a conflict', async () => {
+    const response = await call('PUT', '/roles/hr_only', desk, {
+      expectedVersion: 999,
+      permissions: [],
+    });
+
+    expect(errorOf(response)).toEqual([403, 'role_not_allowed']);
+    expect(response.json()).not.toHaveProperty('current');
+  });
+
+  it('requires the version', async () => {
+    expect(errorOf(await put('hr_only', { permissions: [] }))).toEqual([400, 'validation_failed']);
   });
 });

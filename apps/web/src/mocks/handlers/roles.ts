@@ -13,6 +13,7 @@ import { mockStaffOf } from './staff';
 
 type RoleSummary = components['schemas']['RoleSummary'];
 type RoleDetail = components['schemas']['RoleDetail'];
+type RoleConflict = components['schemas']['RoleConflict'];
 type RoleList = components['schemas']['RoleList'];
 type PermissionCatalog = components['schemas']['PermissionCatalog'];
 type Grants = Parameters<typeof setRolePermissions>[2];
@@ -37,13 +38,19 @@ let names = new Map<string, string>();
 /** When a role's permissions last changed: a counter, shown as the role's updatedAt. */
 let touched = new Map<string, number>();
 let touches = 0;
+/** How many times each role has been saved: its version is one more. */
+let saves = new Map<string, number>();
 onMockReset(() => {
+  saves = new Map();
   names = new Map();
   touched = new Map();
   touches = 0;
 });
 
 const nameKey = (tenantId: string, roleId: string) => `${tenantId}/${roleId}`;
+
+const versionOf = (tenantId: string, roleId: string) =>
+  1 + (saves.get(nameKey(tenantId, roleId)) ?? 0);
 
 /** A role's name as the hospital shows it. */
 export function mockRoleName(tenantId: string, roleId: string): string {
@@ -75,16 +82,18 @@ function summary(tenantId: string, roleId: string): RoleSummary {
     builtIn: BUILT_IN.has(roleId),
     permissionCount: mockRoleGrants(tenantId, roleId).length,
     memberCount: membersOf(tenantId, roleId),
+    version: versionOf(tenantId, roleId),
   };
 }
 
 function detail(tenantId: string, roleId: string): RoleDetail {
-  const { id, name, builtIn, memberCount } = summary(tenantId, roleId);
+  const { id, name, builtIn, memberCount, version } = summary(tenantId, roleId);
   return {
     id,
     name,
     builtIn,
     memberCount,
+    version,
     permissions: mockRoleGrants(tenantId, roleId),
     updatedAt: new Date(
       Date.parse('2026-11-01T09:00:00.000Z') + (touched.get(nameKey(tenantId, roleId)) ?? 0) * 1000,
@@ -150,7 +159,20 @@ export const rolesHandlers = [
     if ('denied' in access) return access.denied;
     const id = String(params.roleId);
     if (!mockRoleIds(access.tenantId).includes(id)) return notFound();
-    const body = (await request.json()) as { name?: string; permissions?: unknown[] };
+    const body = (await request.json()) as {
+      expectedVersion: number;
+      name?: string;
+      permissions?: unknown[];
+    };
+    if (body.expectedVersion !== versionOf(access.tenantId, id)) {
+      return HttpResponse.json<RoleConflict>(
+        {
+          error: { code: 'version_conflict', message: 'The role was changed by someone else' },
+          current: detail(access.tenantId, id),
+        },
+        { status: 409 },
+      );
+    }
     if (body.name !== undefined) {
       const name = body.name.trim().replace(/\s+/g, ' ');
       if (name !== mockRoleName(access.tenantId, id)) {
@@ -182,6 +204,7 @@ export const rolesHandlers = [
       setRolePermissions(access.tenantId, id, wanted);
       touched.set(nameKey(access.tenantId, id), ++touches);
     }
+    saves.set(nameKey(access.tenantId, id), versionOf(access.tenantId, id));
     return HttpResponse.json<RoleDetail>(detail(access.tenantId, id));
   }),
 

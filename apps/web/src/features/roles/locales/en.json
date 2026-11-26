@@ -45,7 +45,8 @@
     "builtIn": "Built-in roles cannot be renamed or deleted.",
     "inUse": "People or open invitations still use this role. Move them to another role first.",
     "notAllowed": "You cannot change a role that may do more than yours.",
-    "notFound": "That role no longer exists."
+    "notFound": "That role no longer exists.",
+    "renamed": "Someone else renamed this role to {{name}} while you were editing. What you typed is kept. Save again to use it."
   },
   "matrix": {
     "back": "Back to roles",
@@ -82,7 +83,8 @@
       "lastAdmin": "Nobody would be left to manage roles or staff. Keep these permissions in a role that people hold.",
       "ownAccess": "You cannot take away your own ability to manage roles.",
       "unknown": "A permission in the list is not known to the system. Reload the page."
-    }
+    },
+    "conflictNone": "Someone else changed this role while you were editing. Your changes are kept and none of the permissions you changed was among theirs. Review, then save again."
   },
   "preview": {
     "heading": "View as {{name}}",

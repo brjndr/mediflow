@@ -439,7 +439,7 @@ export interface paths {
         };
         /** @description One role of the active hospital with everything it may do. A role of another hospital answers 404 role_not_found, the same as one that does not exist. */
         get: operations["getRole"];
-        /** @description Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. Audited; moves the policy version. */
+        /** @description Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). `expectedVersion` is the version the caller read: when the role has changed since, the answer is 409 version_conflict with the role as it is now in `current`, and nothing is changed. A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. Audited; moves the policy version. */
         put: operations["updateRole"];
         post?: never;
         /** @description Deletes a custom role. 409 built_in_role for a built-in one, which can never be deleted; 409 role_in_use while any member (active or deactivated) or invitation names it. Nobody acts above themselves: 403 role_not_allowed for a role that holds more than the caller. Audited. */
@@ -8083,6 +8083,8 @@ export interface components {
             permissionCount: number;
             /** @description Active members in the role */
             memberCount: number;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
         };
         RoleList: {
             items: components["schemas"]["RoleSummary"][];
@@ -8094,6 +8096,8 @@ export interface components {
             memberCount: number;
             permissions: components["schemas"]["RoleGrant"][];
             updatedAt: string;
+            /** @description Counts the changes. Sent back as expectedVersion. */
+            version: number;
         };
         /** @description Every permission the API knows, for the role editor. */
         PermissionCatalog: {
@@ -8104,6 +8108,16 @@ export interface components {
                 /** @description The scopes the permission can be held at; always starts with all */
                 scopes: ("all" | "own" | "department")[];
             }[];
+        };
+        /** @description Error body; `current` comes with version_conflict. */
+        RoleConflict: {
+            error: {
+                /** @description Stable machine-readable code, e.g. tenant_mismatch */
+                code: string;
+                message: string;
+                requestId?: string;
+            };
+            current?: components["schemas"]["RoleDetail"];
         };
         /** @description What the hospital prints on its letterhead and invoices. A detail that is not set is absent. Holds no patient data. */
         HospitalProfile: {
@@ -16696,6 +16710,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description The version of the role the change was made from */
+                    expectedVersion: number;
                     name?: string;
                     permissions?: components["schemas"]["RoleGrant"][];
                 };
@@ -16747,13 +16763,13 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Standard error body. */
+            /** @description Error body; `current` comes with version_conflict. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["RoleConflict"];
                 };
             };
             /** @description Standard error body. */
