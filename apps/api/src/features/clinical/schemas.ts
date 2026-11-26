@@ -571,6 +571,7 @@ export const NoteParams = Type.Object({ noteId: Id });
 export const DiagnosisParams = Type.Object({ diagnosisId: Id });
 export const OrderParams = Type.Object({ orderId: Id });
 export const PrescriptionParams = Type.Object({ prescriptionId: Id });
+export const OpdSheetParams = Type.Object({ tokenId: Id });
 
 const Limit = Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE });
 const CursorParam = Type.Optional(
@@ -601,6 +602,20 @@ export const FollowUpListQuery = Type.Object({
   limit: Limit,
 });
 
+/** The head of the paper OPD sheet of a token (#1201). */
+export const OpdSheet = Type.Object(
+  {
+    tokenNumber: Type.Integer(),
+    day: Type.String({ format: 'date' }),
+    patientName: Type.String(),
+    patientMrn: Type.String(),
+    departmentName: Type.String(),
+    doctorName: Type.Optional(Type.String()),
+    doctorCredentials: Type.Optional(ref(DoctorCredentials)),
+  },
+  { $id: 'OpdSheet', additionalProperties: false },
+);
+
 export const CLINICAL_SCHEMAS = [
   EncounterType,
   EncounterStatus,
@@ -613,6 +628,7 @@ export const CLINICAL_SCHEMAS = [
   OrderPriority,
   MedicationRoute,
   DoctorCredentials,
+  OpdSheet,
   Encounter,
   EncounterPage,
   EncounterCreate,

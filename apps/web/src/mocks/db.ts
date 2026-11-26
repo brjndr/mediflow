@@ -152,6 +152,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'prescription:read' },
   { permission: 'prescription:create' },
   { permission: 'encounter:print' },
+  { permission: 'opdSheet:print' },
   { permission: 'order:read' },
   { permission: 'order:create' },
   { permission: 'order:update' },
@@ -408,6 +409,7 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'prescription:read' },
   { permission: 'prescription:create' },
   { permission: 'encounter:print' },
+  { permission: 'opdSheet:print' },
   { permission: 'order:read' },
   { permission: 'order:create' },
   { permission: 'order:update' },
@@ -498,6 +500,7 @@ const initialRoles: Record<string, Record<string, PermissionGrantDto[]>> = {
       { permission: 'queue:read' },
       { permission: 'queue:create' },
       { permission: 'queue:cancel' },
+      { permission: 'opdSheet:print' },
       // Books the follow-ups the doctors set, from the due list (#88).
       { permission: 'followUp:read' },
       { permission: 'billing:read' },

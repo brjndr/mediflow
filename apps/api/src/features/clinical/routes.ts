@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { encounterRoutes } from './encounter-routes.js';
 import { followUpRoutes } from './follow-up-routes.js';
 import { orderRoutes } from './order-routes.js';
+import { opdSheetRoutes } from './opd-sheet-routes.js';
 import { printRoutes } from './print-routes.js';
 import { recordRoutes } from './record-routes.js';
 import { referralRoutes } from './referral-routes.js';
@@ -15,6 +16,7 @@ export const clinicalRoutes: FastifyPluginAsyncTypebox = async (app) => {
   for (const schema of CLINICAL_SCHEMAS) app.addSchema(schema);
   await app.register(encounterRoutes);
   await app.register(recordRoutes);
+  await app.register(opdSheetRoutes);
   await app.register(orderRoutes);
   await app.register(printRoutes);
   await app.register(referralRoutes);

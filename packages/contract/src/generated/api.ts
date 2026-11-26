@@ -3087,6 +3087,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/queue/tokens/{tokenId}/opd-sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records that the blank OPD sheet of one of today’s queue tokens is printed (audit action `print`, entity `queue_token`) and answers what goes at its head. The Idempotency-Key header is required, one per press: a repeat records no further print. A token of another day, another hospital or outside the scope of opdSheet:print is 404 `token_not_found`; a cancelled one is 409 `not_printable`. Requires queue:read and opdSheet:print, within the scope of both, and the clinical and queue feature flags. */
+        post: operations["printOpdSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/encounters/{encounterId}/orders": {
         parameters: {
             query?: never;
@@ -10266,6 +10283,16 @@ export interface components {
             qualifications?: string;
             registrationNumber?: string;
             registrationCouncil?: string;
+        };
+        OpdSheet: {
+            tokenNumber: number;
+            /** Format: date */
+            day: string;
+            patientName: string;
+            patientMrn: string;
+            departmentName: string;
+            doctorName?: string;
+            doctorCredentials?: components["schemas"]["DoctorCredentials"];
         };
         /** @description A visit of one patient, which every clinical, ordering and billing record attaches to. */
         Encounter: {
@@ -31429,6 +31456,76 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    printOpdSheet: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpdSheet"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

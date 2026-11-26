@@ -419,3 +419,27 @@ test('a receptionist has no way into a consultation', async ({ page }) => {
   expect(requests.filter((path) => path.includes('/encounters'))).toEqual([]);
   await expectNoAxeViolations(page);
 });
+
+test('print an OPD sheet from a token with the keyboard, on one A4 page', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.print = () => undefined;
+  });
+  await page.goto('/');
+  await goTo(page, 'OPD queue');
+  const print = page.getByRole('button', { name: 'Print OPD sheet, token 1' }).first();
+  // Reached by the keyboard, so the ring shows: back a step and forward again.
+  await print.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(print).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await expectNoAxeViolations(page);
+  await page.keyboard.press('Enter');
+  const sheet = page.locator('[data-print-sheet]');
+  await expect(sheet).toContainText('Medicines and tests');
+  // PDF is made by Chromium alone: the page count of the paper itself.
+  if (test.info().project.name === 'chromium') {
+    const pdf = (await page.pdf({ format: 'A4' })).toString('latin1');
+    expect(pdf.match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
+  }
+});

@@ -47,6 +47,7 @@ const EVERY_CLINICAL = [
   'prescription:read',
   'prescription:create',
   'encounter:print',
+  'opdSheet:print',
   // What happens next (#88).
   'referral:read',
   'referral:create',

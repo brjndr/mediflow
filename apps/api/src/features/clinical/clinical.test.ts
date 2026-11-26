@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
   addMembership,
@@ -1472,5 +1472,79 @@ describe('what the reviews asked for', () => {
       await setScope('all');
     }
     expect((await get(`/orders/${order.id}`)).statusCode).toBe(200);
+  });
+});
+
+describe('the paper OPD sheet of a token (#1201)', () => {
+  const sheet = (id: string, options: Options = {}) =>
+    send('POST', `/queue/tokens/${id}/opd-sheet`, undefined, options);
+  let token = '';
+
+  // The file clears the queue after each test.
+  beforeEach(async () => {
+    await pool.query(
+      `insert into tenant_features (tenant_id, feature, enabled) values ($1, 'queue', true)
+       on conflict (tenant_id, feature) do update set enabled = true`,
+      [hospital.id],
+    );
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into queue_tokens (tenant_id, day, department_id, doctor_id, patient_id, number, issued_by)
+       select $1, (now() at time zone timezone)::date, $2, $3, $4, 901, $5 from tenants where id = $1
+       returning id`,
+      [hospital.id, departments.general, doctors.doctor, patients.asha, desk.id],
+    );
+    token = rows[0]!.id;
+  });
+
+  it('answers the head of the sheet to the desk and audits the print once per key', async () => {
+    const key = randomUUID();
+    const first = await sheet(token, { user: desk, key });
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toMatchObject({ tokenNumber: 901, departmentName: 'General' });
+    expect((await sheet(token, { user: desk, key })).statusCode).toBe(200);
+    expect(await audited('queue_token', token)).toEqual(['print', 'read']);
+  });
+
+  it('is not there for another hospital', async () => {
+    const other = await sheet(token, { tenant: clinic, user: clinicDoctor });
+    expect(errorOf(other)).toEqual([404, 'token_not_found']);
+    expect(other.body).not.toContain('Asha');
+  });
+
+  it('needs the permission and the queue switch', async () => {
+    const queue = (enabled: boolean) =>
+      pool.query(
+        "update tenant_features set enabled = $2 where tenant_id = $1 and feature = 'queue'",
+        [hospital.id, enabled],
+      );
+    await queue(false);
+    try {
+      expect(errorOf(await sheet(token, { user: desk }))).toEqual([403, 'feature_disabled']);
+    } finally {
+      await queue(true);
+    }
+    const { rows } = await pool.query<{ scope: string }>(
+      `delete from role_permissions where tenant_id = $1 and role_id = 'receptionist'
+         and permission = 'opdSheet:print' returning scope`,
+      [hospital.id],
+    );
+    try {
+      expect(errorOf(await sheet(token, { user: desk }))).toEqual([403, 'permission_denied']);
+    } finally {
+      await pool.query(
+        `insert into role_permissions (tenant_id, role_id, permission, scope)
+         values ($1, 'receptionist', 'opdSheet:print', $2)`,
+        [hospital.id, rows[0]!.scope],
+      );
+    }
+    expect(await audited('queue_token', token)).toEqual([]);
+  });
+
+  it('is not printed for a cancelled token', async () => {
+    await pool.query(
+      "update queue_tokens set status = 'cancelled', cancel_reason = 'wrong_patient', cancelled_at = now(), cancelled_by = issued_by where id = $1",
+      [token],
+    );
+    expect(errorOf(await sheet(token, { user: desk }))).toEqual([409, 'not_printable']);
   });
 });
