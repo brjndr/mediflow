@@ -527,7 +527,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Deactivates someone's membership of the hospital: every session they have there ends at once, the open invitations they sent are withdrawn, and they cannot work there until reactivated. Their account and their memberships of other hospitals are untouched, and the membership is kept, never deleted. 409 cannot_deactivate_self for the caller's own membership, 409 last_admin when no other active member could manage staff. Doing it twice changes nothing. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
+        /** @description Deactivates someone's membership of the hospital: every session they have there ends at once, the open invitations they sent are withdrawn, and they cannot work there until reactivated. Their account and their memberships of other hospitals are untouched, and the membership is kept, never deleted. 409 cannot_deactivate_self for the caller's own membership, 409 last_admin when no other active member could manage staff or roles. Doing it twice changes nothing. Nobody acts above themselves: a member whose role holds a permission the caller's role does not is refused with 403 role_not_allowed. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
         post: operations["deactivateStaff"];
         delete?: never;
         options?: never;
