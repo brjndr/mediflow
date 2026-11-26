@@ -201,6 +201,11 @@
       "encounter": "विज़िट",
       "document": "दस्तावेज़"
     },
+    "applied": {
+      "waiting": "जोड़ा जा रहा है",
+      "applied": "संशोधन जोड़ा गया",
+      "target_unavailable": "नहीं जोड़ा गया: रिकॉर्ड हटा या बंद है"
+    },
     "status": {
       "pending": "लंबित",
       "approved": "मंज़ूर",
@@ -213,6 +218,7 @@
       "reason": "कारण",
       "requested": "अनुरोध",
       "status": "स्थिति",
+      "applied": "रिकॉर्ड",
       "decision": "निर्णय का कारण"
     },
     "errors": {

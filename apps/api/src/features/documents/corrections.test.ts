@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
+import { MemoryQueue } from '../../core/jobs/queue.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   addMembership,
@@ -19,6 +20,7 @@ import {
 /** Requests to correct a record (#556): author and reason, a second person decides, once. */
 
 let app: FastifyInstance;
+let jobs: MemoryQueue;
 let pool: pg.Pool;
 let hospital: TestTenant;
 let clinic: TestTenant;
@@ -93,7 +95,8 @@ async function patient(tenant: TestTenant, mrn: string) {
 }
 
 beforeAll(async () => {
-  app = await buildTestApp({ resolveSession: resolveTestSession });
+  jobs = new MemoryQueue();
+  app = await buildTestApp({ resolveSession: resolveTestSession, jobQueue: jobs });
   pool = app.database.pool;
   const on = { patients: true, documents: true, records: true };
   hospital = await createTenant(pool, 'Correction Hospital', { features: on });
@@ -132,7 +135,13 @@ afterAll(async () => {
     await client.query('begin');
     await client.query('set local session_replication_role = replica');
     const tenants = [hospital.id, clinic.id, noRecords.id];
-    for (const table of ['record_correction_requests', 'patient_documents', 'outbox', 'patients']) {
+    for (const table of [
+      'record_correction_amendments',
+      'record_correction_requests',
+      'patient_documents',
+      'outbox',
+      'patients',
+    ]) {
       await client.query(`delete from ${table} where tenant_id = any($1)`, [tenants]);
     }
     await client.query('commit');
@@ -250,5 +259,86 @@ describe('deciding', () => {
       { tenant: clinic, user: clinicAdmin },
     );
     expect(foreign.statusCode).toBe(404);
+  });
+});
+
+describe('applying an approved correction (#1179)', () => {
+  const amendments = async (requestId: string) =>
+    (
+      await pool.query<{ outcome: string; approved_by: string; requested_by: string }>(
+        'select outcome, approved_by, requested_by from record_correction_amendments where request_id = $1',
+        [requestId],
+      )
+    ).rows;
+  const applied = async (id: string, options: Options = {}) =>
+    (await get('/correction-requests?limit=100', options))
+      .json<{ items: Array<Request & { appliedAt?: string; applyOutcome?: string }> }>()
+      .items.find((item) => item.id === id);
+
+  it('adds one amendment with author and approver, audits it, and shows it on the request', async () => {
+    const request = (await ask(ids.patient)).json<Request>();
+    expect((await applied(request.id))?.applyOutcome).toBeUndefined();
+    await decide(request.id, 'approve');
+    await app.events.dispatch();
+    await jobs.drain();
+    expect(await amendments(request.id)).toEqual([
+      { outcome: 'applied', approved_by: admin.id, requested_by: receptionist.id },
+    ]);
+    expect(await applied(request.id)).toMatchObject({ applyOutcome: 'applied' });
+    expect((await applied(request.id))?.appliedAt).toBeTruthy();
+    const audit = await pool.query(
+      "select 1 from audit_log where entity = 'record_correction_amendment' and detail = $1",
+      [`request:${request.id}`],
+    );
+    expect(audit.rowCount).toBe(1);
+    const dob = await pool.query('select dob::text from patients where id = $1', [ids.patient]);
+    expect(dob.rows[0].dob).toBe('1980-05-01');
+  });
+
+  it('applies once when the event is delivered again', async () => {
+    const request = (await ask(ids.patient)).json<Request>();
+    await decide(request.id, 'approve');
+    await app.events.dispatch();
+    await jobs.drain();
+    await pool.query(
+      `update outbox set dispatched_at = null where entity_id = $1 and event = 'correction.approved'`,
+      [request.id],
+    );
+    await app.events.dispatch();
+    await jobs.drain();
+    expect(await amendments(request.id)).toHaveLength(1);
+  });
+
+  it('keeps the approval but says the target was unavailable when the document is retired', async () => {
+    const doc = await pool.query<{ id: string }>(
+      `insert into patient_documents (tenant_id, patient_id, category, title, file_name, content_type,
+         size_bytes, status, created_by)
+       values ($1, $2, 'other', 'Old', 'old.pdf', 'application/pdf', 10, 'pending', $3) returning id`,
+      [hospital.id, ids.patient, admin.id],
+    );
+    const request = (
+      await ask(ids.patient, { targetKind: 'document', targetId: doc.rows[0]!.id })
+    ).json<Request>();
+    await pool.query(
+      `update patient_documents set retired_at = now(), retired_by = $2, retired_reason = 'x' where id = $1`,
+      [doc.rows[0]!.id, admin.id],
+    );
+    await decide(request.id, 'approve');
+    await app.events.dispatch();
+    await jobs.drain();
+    expect(await applied(request.id)).toMatchObject({ applyOutcome: 'target_unavailable' });
+  });
+
+  it('applies nothing for a rejection, and shows nothing of another hospital', async () => {
+    const request = (await ask(ids.patient)).json<Request>();
+    await decide(request.id, 'reject');
+    await app.events.dispatch();
+    await jobs.drain();
+    expect(await amendments(request.id)).toEqual([]);
+    const seen = await pool.query(
+      `select count(*)::int as n from record_correction_amendments where tenant_id = $1`,
+      [clinic.id],
+    );
+    expect(seen.rows[0].n).toBe(0);
   });
 });

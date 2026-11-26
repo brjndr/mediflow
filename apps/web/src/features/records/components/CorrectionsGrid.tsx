@@ -90,6 +90,14 @@ export function CorrectionsGrid({
         value: (row) => t(`corrections.status.${row.status}`),
       },
       {
+        id: 'applied',
+        header: t('corrections.columns.applied'),
+        value: (row) =>
+          row.status !== 'approved'
+            ? ''
+            : t(`corrections.applied.${row.applyOutcome ?? 'waiting'}`),
+      },
+      {
         id: 'decision',
         header: t('corrections.columns.decision'),
         value: (row) => row.decisionReason ?? '',

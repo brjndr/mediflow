@@ -171,7 +171,7 @@
     "tab": "Corrections",
     "tabIntro": "Requests to correct this record. Nothing is edited until a second person approves it.",
     "heading": "Record corrections",
-    "intro": "Requests to correct a patient's record, with who asked and why. A second person approves or rejects each one with a reason; approving does not edit the record itself, the part of the system that owns it applies the change.",
+    "intro": "Requests to correct a patient's record, with who asked and why. A second person approves or rejects each one with a reason; approving adds an amendment to the record, with who asked and who approved; nothing is overwritten.",
     "show": "Show",
     "all": "All requests",
     "patientRecord": "Patient record",
@@ -196,6 +196,11 @@
     "rejectSubmit": "Reject",
     "approved": "Approved: {{proposed}}",
     "rejected": "Rejected: {{proposed}}",
+    "applied": {
+      "waiting": "Being added",
+      "applied": "Amendment added",
+      "target_unavailable": "Not added: record gone or retired"
+    },
     "target": {
       "patient": "Patient record",
       "encounter": "Visit",
@@ -213,6 +218,7 @@
       "reason": "Reason",
       "requested": "Requested",
       "status": "Status",
+      "applied": "Record",
       "decision": "Decision reason"
     },
     "errors": {

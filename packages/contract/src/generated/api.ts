@@ -4073,7 +4073,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Approves a pending request to correct a record, with a reason (#556). Decided once, by someone other than the person who asked (403 `second_person_required`); 409 `already_decided`; 409 `conflict` when the version is not the one read. Approving edits nothing: the module that owns the record applies the change, reacting to `correction.approved`. Requires correction:decide and correction:read. */
+        /** @description Approves a pending request to correct a record, with a reason (#556). Decided once, by someone other than the person who asked (403 `second_person_required`); 409 `already_decided`; 409 `conflict` when the version is not the one read. Approving does not edit the record: reacting to `correction.approved`, the records module adds an append-only amendment (#1179), shown as `appliedAt` and `applyOutcome` a moment later. Requires correction:decide and correction:read. */
         post: operations["approveCorrectionRequest"];
         delete?: never;
         options?: never;
@@ -4090,7 +4090,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Rejects a pending request to correct a record, with a reason (#556). Decided once, by someone other than the person who asked (403 `second_person_required`); 409 `already_decided`; 409 `conflict` when the version is not the one read. Approving edits nothing: the module that owns the record applies the change, reacting to `correction.approved`. Requires correction:decide and correction:read. */
+        /** @description Rejects a pending request to correct a record, with a reason (#556). Decided once, by someone other than the person who asked (403 `second_person_required`); 409 `already_decided`; 409 `conflict` when the version is not the one read. Approving does not edit the record: reacting to `correction.approved`, the records module adds an append-only amendment (#1179), shown as `appliedAt` and `applyOutcome` a moment later. Requires correction:decide and correction:read. */
         post: operations["rejectCorrectionRequest"];
         delete?: never;
         options?: never;
@@ -11200,6 +11200,16 @@ export interface components {
             decidedAt?: string;
             decisionReason?: string;
             version: number;
+            /**
+             * Format: date-time
+             * @description When an approved request was applied to the record as an amendment (#1179).
+             */
+            appliedAt?: string;
+            /**
+             * @description Absent until applied. target_unavailable: the encounter or document was gone or retired, so the amendment reached no live record.
+             * @enum {string}
+             */
+            applyOutcome?: "applied" | "target_unavailable";
         };
         /** @description Cursor envelope used by every list endpoint. */
         CorrectionRequestPage: {
