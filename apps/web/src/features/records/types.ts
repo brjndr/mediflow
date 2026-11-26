@@ -29,3 +29,7 @@ export type CorrectionRequestCreate = Schemas['CorrectionRequestCreate'];
 export type CorrectionRequestDecide = Schemas['CorrectionRequestDecide'];
 export type CorrectionStatus = CorrectionRequest['status'];
 export type CorrectionTarget = CorrectionRequest['targetKind'];
+
+/** What an approved correction added to a record: text, reason, who asked, who approved (#1181, API #1179). */
+export type CorrectionAmendment = Schemas['CorrectionAmendment'];
+export type CorrectionAmendmentPage = Schemas['CorrectionAmendmentPage'];

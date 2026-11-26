@@ -83,12 +83,63 @@ export const CorrectionRequestDecide = Type.Object(
 );
 type CorrectionRequestDecide = Static<typeof CorrectionRequestDecide>;
 
+export const CorrectionAmendment = Type.Object(
+  {
+    id: Type.String(),
+    requestId: Type.String(),
+    patientId: Type.String(),
+    targetKind: Kind,
+    targetId: Type.Optional(Type.String({ description: 'Absent for the patient record itself.' })),
+    outcome: StringEnum(['applied', 'target_unavailable']),
+    proposed: Type.String({ description: 'What was asked to change, and to what.' }),
+    reason: Type.String(),
+    requestedBy: Type.String(),
+    requestedByName: Type.Optional(Type.String()),
+    approvedBy: Type.String(),
+    approvedByName: Type.Optional(Type.String()),
+    appliedAt: Type.String({ format: 'date-time' }),
+  },
+  {
+    $id: 'CorrectionAmendment',
+    description: 'An approved correction, attached to the record it concerns (#1181).',
+  },
+);
+export const CorrectionAmendmentPage = CursorPage(ref(CorrectionAmendment), {
+  $id: 'CorrectionAmendmentPage',
+});
+
 export const CORRECTION_SCHEMAS = [
   CorrectionRequest,
   CorrectionRequestPage,
   CorrectionRequestCreate,
   CorrectionRequestDecide,
+  CorrectionAmendment,
+  CorrectionAmendmentPage,
 ] as const;
+
+const AmendmentQuery = Type.Object({
+  cursor: Type.Optional(Type.String()),
+  limit: Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
+  targetKind: Type.Optional(Kind),
+  targetId: Type.Optional(Id),
+});
+type AmendmentQuery = Static<typeof AmendmentQuery>;
+
+interface AmendmentRow {
+  id: string;
+  request_id: string;
+  patient_id: string;
+  target_kind: 'patient' | 'encounter' | 'document';
+  target_id: string | null;
+  outcome: 'applied' | 'target_unavailable';
+  proposed: string;
+  reason: string;
+  requested_by: string;
+  requested_by_name: string | null;
+  approved_by: string;
+  approved_by_name: string | null;
+  applied_at: Date;
+}
 
 const ListQuery = Type.Object({
   cursor: Type.Optional(Type.String()),
@@ -305,6 +356,82 @@ export const correctionRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       await reachable(request, request.params.patientId, READ);
       return listPage(request, request.query as ListQuery, request.params.patientId);
+    },
+  );
+
+  app.get(
+    '/patients/:patientId/correction-amendments',
+    {
+      config: { permissions: [READ], feature: FEATURE },
+      schema: {
+        operationId: 'listCorrectionAmendments',
+        tags: ['records'],
+        description:
+          'The amendments approved corrections added to a patient’s record (#1181), newest first, one cursor page at a time: the proposed text, the reason, who asked and who approved, and when. `targetKind` (with `targetId` for an encounter or a document) narrows to one record. Each page read is audited. Requires correction:read, within the scope the role holds it with.',
+        params: PatientParams,
+        querystring: AmendmentQuery,
+        response: { 200: ref(CorrectionAmendmentPage), ...errors(400, 401, 403, 404, 429) },
+      },
+    },
+    async (request) => {
+      const query = request.query as AmendmentQuery;
+      const { patientId } = request.params;
+      await reachable(request, patientId, READ);
+      if ((query.targetKind === 'patient' || query.targetKind === undefined) && query.targetId) {
+        throw new HttpError(400, 'validation_failed', 'Name the kind of record with its id');
+      }
+      const params: unknown[] = [patientId];
+      const where = ['a.patient_id = $1'];
+      if (query.targetKind) {
+        params.push(query.targetKind);
+        where.push(`a.target_kind = $${params.length}`);
+      }
+      if (query.targetId) {
+        params.push(query.targetId);
+        where.push(`a.target_id = $${params.length}`);
+      }
+      const at = "date_trunc('milliseconds', a.applied_at)";
+      if (query.cursor) {
+        const cursor = decodeCursor(query.cursor);
+        params.push(cursor.at, cursor.id);
+        where.push(`(${at}, a.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+      }
+      params.push(query.limit + 1);
+      const { rows } = await request.txClient.query<AmendmentRow>(
+        `select a.id, a.request_id, a.patient_id, a.target_kind, a.target_id, a.outcome, a.proposed,
+                a.reason, a.requested_by, ru.name as requested_by_name, a.approved_by,
+                au.name as approved_by_name, a.applied_at
+           from record_correction_amendments a
+           left join users ru on ru.id = a.requested_by
+           left join users au on au.id = a.approved_by
+          where ${where.join(' and ')}
+          order by ${at} desc, a.id desc limit $${params.length}`,
+        params,
+      );
+      const page = rows.slice(0, query.limit);
+      for (const row of page) request.audit('read', 'record_correction_amendment', row.id);
+      const last = page[page.length - 1];
+      return {
+        items: page.map((row) => ({
+          id: row.id,
+          requestId: row.request_id,
+          patientId: row.patient_id,
+          targetKind: row.target_kind,
+          ...(row.target_id ? { targetId: row.target_id } : {}),
+          outcome: row.outcome,
+          proposed: row.proposed,
+          reason: row.reason,
+          requestedBy: row.requested_by,
+          ...(row.requested_by_name ? { requestedByName: row.requested_by_name } : {}),
+          approvedBy: row.approved_by,
+          ...(row.approved_by_name ? { approvedByName: row.approved_by_name } : {}),
+          appliedAt: row.applied_at.toISOString(),
+        })),
+        nextCursor:
+          rows.length > query.limit && last
+            ? Buffer.from(`${last.applied_at.toISOString()}|${last.id}`).toString('base64url')
+            : null,
+      };
     },
   );
 

@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   CodingItem,
+  CorrectionAmendment,
+  CorrectionAmendmentPage,
   CorrectionRequest,
   CorrectionRequestPage,
   CorrectionStatus,
@@ -162,6 +164,24 @@ export const correctionRequestSchema: z.ZodType<CorrectionRequest> = z.object({
 });
 export const correctionRequestPageSchema: z.ZodType<CorrectionRequestPage> =
   page(correctionRequestSchema);
+
+export const correctionAmendmentSchema: z.ZodType<CorrectionAmendment> = z.object({
+  id: z.string(),
+  requestId: z.string(),
+  patientId: z.string(),
+  targetKind: z.enum(CORRECTION_TARGETS),
+  targetId: z.string().optional(),
+  outcome: z.enum(['applied', 'target_unavailable']),
+  proposed: z.string(),
+  reason: z.string(),
+  requestedBy: z.string(),
+  requestedByName: z.string().optional(),
+  approvedBy: z.string(),
+  approvedByName: z.string().optional(),
+  appliedAt: z.string(),
+});
+export const correctionAmendmentPageSchema: z.ZodType<CorrectionAmendmentPage> =
+  page(correctionAmendmentSchema);
 
 const plain = (max: number) =>
   z

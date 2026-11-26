@@ -4047,6 +4047,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patientId}/correction-amendments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The amendments approved corrections added to a patient’s record (#1181), newest first, one cursor page at a time: the proposed text, the reason, who asked and who approved, and when. `targetKind` (with `targetId` for an encounter or a document) narrows to one record. Each page read is audited. Requires correction:read, within the scope the role holds it with. */
+        get: operations["listCorrectionAmendments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/correction-requests": {
         parameters: {
             query?: never;
@@ -11228,6 +11245,33 @@ export interface components {
         CorrectionRequestDecide: {
             reason: string;
             expectedVersion: number;
+        };
+        /** @description An approved correction, attached to the record it concerns (#1181). */
+        CorrectionAmendment: {
+            id: string;
+            requestId: string;
+            patientId: string;
+            /** @enum {string} */
+            targetKind: "patient" | "encounter" | "document";
+            /** @description Absent for the patient record itself. */
+            targetId?: string;
+            /** @enum {string} */
+            outcome: "applied" | "target_unavailable";
+            /** @description What was asked to change, and to what. */
+            proposed: string;
+            reason: string;
+            requestedBy: string;
+            requestedByName?: string;
+            approvedBy: string;
+            approvedByName?: string;
+            /** Format: date-time */
+            appliedAt: string;
+        };
+        /** @description Cursor envelope used by every list endpoint. */
+        CorrectionAmendmentPage: {
+            items: components["schemas"]["CorrectionAmendment"][];
+            nextCursor: string | null;
+            total?: number;
         };
         /** @enum {string} */
         ConsentSigner: "patient" | "guardian" | "representative";
@@ -36353,6 +36397,78 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCorrectionAmendments: {
+        parameters: {
+            query: {
+                cursor?: string;
+                limit: number;
+                targetKind?: "patient" | "encounter" | "document";
+                targetId?: string;
+            };
+            header?: never;
+            path: {
+                patientId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cursor envelope used by every list endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrectionAmendmentPage"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

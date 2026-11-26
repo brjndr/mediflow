@@ -342,3 +342,76 @@ describe('applying an approved correction (#1179)', () => {
     expect(seen.rows[0].n).toBe(0);
   });
 });
+
+describe('reading the amendments of a record (#1181)', () => {
+  interface Amendment {
+    id: string;
+    targetKind: string;
+    targetId?: string;
+    proposed: string;
+    requestedByName?: string;
+    approvedByName?: string;
+  }
+  interface AmendmentPage {
+    items: Amendment[];
+    nextCursor: string | null;
+  }
+  const amend = async (patientId: string, body: object = {}) => {
+    const request = (await ask(patientId, body)).json<Request>();
+    await decide(request.id, 'approve');
+    await app.events.dispatch();
+    await jobs.drain();
+    return request;
+  };
+  const read = (patientId: string, query = '', options: Options = {}) =>
+    get(`/patients/${patientId}/correction-amendments${query}`, options);
+
+  it('lists them newest first with who asked and who approved, narrowed by target, by cursor', async () => {
+    const own = await patient(hospital, 'CR-0000040');
+    const scan = await pool.query<{ id: string }>(
+      `insert into patient_documents (tenant_id, patient_id, category, title, file_name, content_type,
+         size_bytes, status, created_by)
+       values ($1, $2, 'other', 'Scan', 'scan.pdf', 'application/pdf', 10, 'pending', $3) returning id`,
+      [hospital.id, own, admin.id],
+    );
+    const docId = scan.rows[0]!.id;
+    await amend(own, { proposed: 'Fix the patient record' });
+    await amend(own, { targetKind: 'document', targetId: docId, proposed: 'Retitle the scan' });
+    await amend(own, { proposed: 'Fix the phone number' });
+    const all = (await read(own)).json<AmendmentPage>();
+    expect(all.items.map((item) => item.proposed)).toEqual([
+      'Fix the phone number',
+      'Retitle the scan',
+      'Fix the patient record',
+    ]);
+    expect(all.items[0]).toMatchObject({
+      requestedByName: 'Correction Receptionist',
+      approvedByName: 'Correction Admin',
+    });
+    const first = (await read(own, '?limit=2')).json<AmendmentPage>();
+    expect(first.items).toHaveLength(2);
+    const second = (await read(own, `?limit=2&cursor=${first.nextCursor}`)).json<AmendmentPage>();
+    expect(second.items.map((item) => item.proposed)).toEqual(['Fix the patient record']);
+    expect(second.nextCursor).toBeNull();
+    const docs = (await read(own, `?targetKind=document&targetId=${docId}`)).json<AmendmentPage>();
+    expect(docs.items.map((item) => item.proposed)).toEqual(['Retitle the scan']);
+    expect((await read(own, `?targetId=${docId}`)).statusCode).toBe(400);
+    const audit = await pool.query(
+      "select 1 from audit_log where entity = 'record_correction_amendment' and action = 'read'",
+    );
+    expect(audit.rowCount).toBeGreaterThan(0);
+  });
+
+  it('is refused without correction:read, with the module off, and across hospitals', async () => {
+    const own = await patient(hospital, 'CR-0000041');
+    await amend(own);
+    expect((await read(own, '', { user: pharmacist })).statusCode).toBe(403);
+    const bare = await read(ids.noRecordsPatient, '', { tenant: noRecords, user: noRecordsAdmin });
+    expect(bare.statusCode).toBe(403);
+    expect((await read(own, '', { tenant: clinic, user: clinicAdmin })).statusCode).toBe(404);
+    const theirs = (
+      await read(ids.clinicPatient, '', { tenant: clinic, user: clinicAdmin })
+    ).json<AmendmentPage>();
+    expect(theirs.items).toEqual([]);
+  });
+});
