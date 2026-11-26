@@ -55,6 +55,7 @@ export const clinicalFeature: FeatureManifest = {
     'diagnosis:write',
     'prescription:read',
     'prescription:create',
+    'opdSheet:print',
     'referral:read',
     'referral:create',
     'prescriptionSet:read',
@@ -72,6 +73,13 @@ export const clinicalFeature: FeatureManifest = {
       requires: ['encounter:create', 'encounter:read'],
       order: 20,
     })),
+    // The paper OPD sheet of a token (#1201): the doctor writes on it by hand.
+    {
+      slot: 'queue.row.actions',
+      component: () => import('./components/OpdSheetAction'),
+      requires: ['opdSheet:print'],
+      order: 30,
+    },
     // The patient's visits, newest first (#83).
     {
       slot: 'patient.detail.tabs',

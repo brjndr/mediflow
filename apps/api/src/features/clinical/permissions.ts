@@ -82,6 +82,12 @@ export const CLINICAL_PERMISSIONS = [
     defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
   },
   {
+    id: 'opdSheet:print',
+    description:
+      'Print the blank OPD sheet of a queue token, with the name and MRN of the patient (each print is recorded in the audit log)',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
+  },
+  {
     id: 'referral:read',
     description: 'See the referrals of an encounter, with why the patient was referred',
     defaults: { admin: 'all', doctor: 'all' },

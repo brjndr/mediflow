@@ -6989,6 +6989,35 @@
           }
         }
       },
+      "OpdSheet": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["tokenNumber", "day", "patientName", "patientMrn", "departmentName"],
+        "properties": {
+          "tokenNumber": {
+            "type": "integer"
+          },
+          "day": {
+            "format": "date",
+            "type": "string"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "patientMrn": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "doctorName": {
+            "type": "string"
+          },
+          "doctorCredentials": {
+            "$ref": "#/components/schemas/DoctorCredentials"
+          }
+        }
+      },
       "Encounter": {
         "additionalProperties": false,
         "description": "A visit of one patient, which every clinical, ordering and billing record attaches to.",
@@ -43426,6 +43455,97 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/tokens/{tokenId}/opd-sheet": {
+      "post": {
+        "operationId": "printOpdSheet",
+        "tags": ["clinical"],
+        "description": "Records that the blank OPD sheet of one of today’s queue tokens is printed (audit action `print`, entity `queue_token`) and answers what goes at its head. The Idempotency-Key header is required, one per press: a repeat records no further print. A token of another day, another hospital or outside the scope of opdSheet:print is 404 `token_not_found`; a cancelled one is 409 `not_printable`. Requires queue:read and opdSheet:print, within the scope of both, and the clinical and queue feature flags.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tokenId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpdSheet"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

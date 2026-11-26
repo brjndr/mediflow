@@ -103,7 +103,7 @@ export function PrintSummaryButton({ encounter }: { encounter: Encounter }) {
   );
 }
 
-function PrintControl<Job>({
+export function PrintControl<Job>({
   label,
   name,
   hindiName,
@@ -196,7 +196,7 @@ function VisitHead({ encounter, title }: { encounter: Encounter; title: string }
  * Where the doctor signs, and who they are as the NMC asks a prescription to say (#397): the name
  * with the qualifications after it, then the registration number and its council.
  */
-function Signature({ name, credentials }: { name: string; credentials?: Credentials }) {
+export function Signature({ name, credentials }: { name: string; credentials?: Credentials }) {
   const { t } = useTranslation('clinical');
   const registration = credentials?.registrationNumber;
   return (
@@ -243,7 +243,7 @@ function MissingDetails({ missing }: { missing: string[] }) {
   return <p className="mt-4 text-sm font-medium">{t('print.missing.notice', { list })}</p>;
 }
 
-function PrintedBy() {
+export function PrintedBy() {
   const { t } = useTranslation('clinical');
   const format = useFormatters();
   const name = useSession()?.user.name ?? '';

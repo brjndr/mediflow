@@ -310,7 +310,7 @@ function seed() {
 /** A print the API would record in the audit log (#89). */
 export interface MockPrint {
   tenantId: string;
-  entity: 'encounter' | 'prescription';
+  entity: 'encounter' | 'prescription' | 'queue_token';
   id: string;
   userId: string;
 }
@@ -1559,6 +1559,48 @@ export const clinicalHandlers = [
       remember(sent.keyOf, sent.body, 204, found.id);
     }
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  // The paper OPD sheet of a token (#1201): the head of the page, and the print.
+  http.post('*/api/queue/tokens/:tokenId/opd-sheet', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'opdSheet:print',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const queue = authorize(request, { permission: 'queue:read', featureFlag: 'queue' });
+    if ('denied' in queue) return queue.denied;
+    const sent = await idempotent(request, access.tenantId);
+    if ('refused' in sent) return sent.refused;
+    const token = mockQueueToken(String(params.tokenId));
+    const patient = token && mockPatient(access.tenantId, token.patientId);
+    const department = token && mockDepartment(access.tenantId, token.departmentId);
+    if (!token || token.tenantId !== access.tenantId || !patient || !department) {
+      return error(404, 'token_not_found', 'No such token today');
+    }
+    if (token.status === 'cancelled') return notPrintable();
+    if (!sent.replay) {
+      state.prints.push({
+        tenantId: access.tenantId,
+        entity: 'queue_token',
+        id: token.id,
+        userId: caller().id,
+      });
+      remember(sent.keyOf, sent.body, 200, token.id);
+    }
+    const doctor = token.doctorId ? mockDoctor(access.tenantId, token.doctorId) : undefined;
+    const credentials = token.doctorId
+      ? mockCredentials(access.tenantId, { doctorId: token.doctorId })
+      : undefined;
+    return HttpResponse.json({
+      tokenNumber: token.number,
+      day: token.day,
+      patientName: patient.name,
+      patientMrn: patient.mrn,
+      departmentName: department.name,
+      ...(doctor ? { doctorName: doctor.name } : {}),
+      ...(credentials ? { doctorCredentials: credentials } : {}),
+    });
   }),
 
   http.post('*/api/prescriptions/:prescriptionId/print', async ({ request, params }) => {

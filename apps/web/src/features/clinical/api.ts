@@ -6,6 +6,7 @@ import {
   encounterPageSchema,
   encounterSchema,
   notePageSchema,
+  opdSheetSchema,
   noteSchema,
   orderPageSchema,
   orderSchema,
@@ -284,6 +285,15 @@ export async function recordPrescriptionPrint(prescriptionId: string, idempotenc
   await api.POST('/prescriptions/{prescriptionId}/print', {
     params: { path: { prescriptionId }, header: { 'idempotency-key': idempotencyKey } },
   });
+}
+
+/** Records that a token's blank OPD sheet is printed (#1201) and reads what goes at its head. */
+export async function printOpdSheet(tokenId: string, idempotencyKey: string, signal?: AbortSignal) {
+  const result = await api.POST('/queue/tokens/{tokenId}/opd-sheet', {
+    params: { path: { tokenId }, header: { 'idempotency-key': idempotencyKey } },
+    signal,
+  });
+  return opdSheetSchema.parse(requireData(result));
 }
 
 /** At most this many pages of one list for a printed summary: far beyond any OPD visit. */

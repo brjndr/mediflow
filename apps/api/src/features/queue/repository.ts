@@ -496,3 +496,17 @@ export async function queueCountsToday(
   );
   return rows[0] ?? { waiting: 0, called: 0 };
 }
+
+/** One of today's tokens the caller may see, with the names on it, or null (the OPD sheet). */
+export async function todaysToken(
+  client: pg.ClientBase,
+  id: string,
+  visibility: Visibility,
+): Promise<TokenRow | null> {
+  if (!UUID.test(id)) return null;
+  const { rows } = await client.query<TokenRow>(
+    `${TOKENS} where t.id = $1 and t.day = ${TODAY} and ${visible('$2', '$3')}`,
+    [id, visibility.scope, visibility.userId],
+  );
+  return rows[0] ?? null;
+}

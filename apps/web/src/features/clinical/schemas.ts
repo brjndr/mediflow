@@ -4,6 +4,7 @@ import type {
   ClinicalNote,
   ClinicalNotePage,
   Credentials,
+  OpdSheet,
   Diagnosis,
   DiagnosisCreate,
   DiagnosisKind,
@@ -50,6 +51,16 @@ const credentialsSchema: z.ZodType<Credentials> = z.object({
   qualifications: z.string().optional(),
   registrationNumber: z.string().optional(),
   registrationCouncil: z.string().optional(),
+});
+
+export const opdSheetSchema: z.ZodType<OpdSheet> = z.object({
+  tokenNumber: z.number().int(),
+  day: z.string(),
+  patientName: z.string(),
+  patientMrn: z.string(),
+  departmentName: z.string(),
+  doctorName: z.string().optional(),
+  doctorCredentials: credentialsSchema.optional(),
 });
 
 export const encounterSchema: z.ZodType<Encounter> = z.object({

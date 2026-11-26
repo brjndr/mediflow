@@ -20,3 +20,6 @@ export { tokenForEncounter } from './repository.js';
 
 /** For the appointments module's OPD capacity: today's waiting and called tokens, counts only. */
 export { queueCountsToday, type QueueCountsToday } from './repository.js';
+
+/** For the clinical module: what a token of today says on the paper OPD sheet (#1201). */
+export { todaysToken } from './repository.js';

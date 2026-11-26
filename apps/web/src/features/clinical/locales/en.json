@@ -561,5 +561,28 @@
     "removeNamed": "Remove {{name}} from your favourites",
     "removed": "{{name}} is no longer one of your favourites.",
     "failed": "Your favourites could not be changed. Try again."
+  },
+  "opdSheet": {
+    "print": "Print OPD sheet",
+    "printLabel": "Print OPD sheet, token {{number}}",
+    "title": "OPD sheet",
+    "token": "Token",
+    "date": "Date",
+    "allergies": "Allergies",
+    "vitals": {
+      "pulse": "Pulse",
+      "bloodPressure": "Blood pressure",
+      "temperature": "Temperature",
+      "spo2": "SpO2",
+      "weight": "Weight"
+    },
+    "parts": {
+      "complaint": "Complaint",
+      "examination": "Examination",
+      "diagnosis": "Diagnosis",
+      "medicines": "Medicines and tests",
+      "advice": "Advice and follow-up"
+    },
+    "allergiesUnread": "Allergies could not be read. Ask the patient and check the record."
   }
 }
