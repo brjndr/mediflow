@@ -154,6 +154,7 @@ export const EXPORTED_PLAIN: readonly string[] = [
   'rate_agreement_rates',
   'rate_agreements',
   'record_assignments',
+  'record_correction_amendments',
   'record_correction_requests',
   'record_requests',
   'referrals',

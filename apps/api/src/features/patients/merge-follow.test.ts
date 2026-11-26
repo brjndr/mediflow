@@ -109,7 +109,9 @@ describe('merged patients in the clinical modules', () => {
        where c.table_schema = 'public' and c.column_name = 'patient_id'
          and exists (select 1 from information_schema.columns k where k.table_schema = 'public'
            and k.table_name = c.table_name and k.column_name = 'tenant_id')
-         and c.table_name not in ('patient_merges', 'patient_documents', 'document_legal_holds')
+         -- An amendment applies a request already approved, so a merge in between must not stop it.
+         and c.table_name not in ('patient_merges', 'patient_documents', 'document_legal_holds',
+           'record_correction_amendments')
          and not exists (select 1 from pg_trigger g where g.tgrelid = ('public.' || c.table_name)::regclass
            and g.tgname = 'refuse_merged_patient')`,
     );
