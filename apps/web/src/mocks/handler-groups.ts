@@ -112,6 +112,7 @@ export const handlerGroups: readonly HandlerGroup[] = [
       'diagnoses',
       'encounters',
       'follow-ups',
+      'queue',
       'notes',
       'orders',
       'prescriptions',
