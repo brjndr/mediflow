@@ -107,6 +107,10 @@
     "female": "Female",
     "other": "Other"
   },
+  "encounter": {
+    "heading": "Imaging reports",
+    "empty": "No imaging report has been signed for this visit yet."
+  },
   "report": {
     "heading": "Report of {{study}}",
     "headingSigned": "Signed report of {{study}}",

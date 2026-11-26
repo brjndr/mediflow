@@ -9064,6 +9064,33 @@
           }
         }
       },
+      "EncounterImagingReport": {
+        "description": "A signed report of one of an encounter’s imaging orders, with the study’s name.",
+        "type": "object",
+        "required": ["itemName", "report"],
+        "properties": {
+          "itemName": {
+            "description": "The study as ordered.",
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ImagingReport"
+          }
+        }
+      },
+      "EncounterImagingReports": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "description": "The newest signed first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EncounterImagingReport"
+            }
+          }
+        }
+      },
       "ImagingReportDraft": {
         "additionalProperties": false,
         "type": "object",
@@ -47611,6 +47638,76 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/radiology/encounters/{encounterId}/reports": {
+      "get": {
+        "operationId": "listEncounterImagingReports",
+        "tags": ["radiology"],
+        "description": "The signed reports of an encounter’s imaging orders, with their addenda, the newest signed first, for the consultation (#1187): a doctor reads them without any worklist permission. A draft never appears, whoever asks. Requires imagingReport:read with the scope `all` (a narrower one finds nothing) and the radiology feature flag. Every report given is audited as a read.",
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "encounterId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EncounterImagingReports"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

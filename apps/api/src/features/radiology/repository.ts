@@ -409,6 +409,55 @@ export async function addendaOf(client: pg.ClientBase, reportId: string): Promis
   return rows;
 }
 
+/** The most signed reports one encounter's panel gives. */
+export const ENCOUNTER_REPORTS_MAX = 100;
+
+export interface EncounterReportRow extends ReportRow {
+  item_name: string;
+}
+
+/**
+ * The signed reports of an encounter's imaging orders, the newest signed first. A draft is never
+ * selected: it does not leave radiology.
+ */
+export async function signedReportsOfEncounter(
+  client: pg.ClientBase,
+  encounterId: string,
+): Promise<EncounterReportRow[]> {
+  if (!UUID.test(encounterId)) return [];
+  const { rows } = await client.query<EncounterReportRow>(
+    `select r.id, r.tenant_id, r.study_id, r.order_id, r.encounter_id, r.patient_id, r.technique,
+       r.findings, r.impression, r.links, r.template_id, r.template_version, r.status,
+       cu.name as created_by_name, r.created_at, uu.name as updated_by_name, r.updated_at,
+       su.name as signed_by_name, r.signed_at, r.version, o.item_name
+     from imaging_reports r
+     join orders o on o.id = r.order_id and o.type = 'imaging'
+     left join users cu on cu.id = r.created_by
+     left join users uu on uu.id = r.updated_by
+     left join users su on su.id = r.signed_by
+     where r.encounter_id = $1 and r.status = 'signed'
+     order by r.signed_at desc, r.id desc
+     limit ${ENCOUNTER_REPORTS_MAX}`,
+    [encounterId],
+  );
+  return rows;
+}
+
+/** The addenda of several reports, the oldest first, each with the report it belongs to. */
+export async function addendaOfReports(
+  client: pg.ClientBase,
+  reportIds: readonly string[],
+): Promise<(AddendumRow & { report_id: string })[]> {
+  if (reportIds.length === 0) return [];
+  const { rows } = await client.query<AddendumRow & { report_id: string }>(
+    `select a.id, a.report_id, a.body, a.reason, u.name as signed_by_name, a.signed_at
+     from imaging_report_addenda a left join users u on u.id = a.signed_by
+     where a.report_id = any($1::uuid[]) order by a.signed_at, a.id`,
+    [reportIds],
+  );
+  return rows;
+}
+
 export interface ReportText {
   technique: unknown;
   findings: unknown;

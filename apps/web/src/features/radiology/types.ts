@@ -20,6 +20,8 @@ export type OrderPriority = Schemas['OrderPriority'];
  * changed; what is added later is a signed addendum.
  */
 export type ImagingReport = Schemas['ImagingReport'];
+/** A signed report of one of an encounter's imaging orders, with the study's name (#1187). */
+export type EncounterImagingReport = Schemas['EncounterImagingReport'];
 export type ImagingReportStatus = Schemas['ImagingReportStatus'];
 export type ImagingAddendum = Schemas['ImagingAddendum'];
 export type ImagingLink = Schemas['ImagingLink'];

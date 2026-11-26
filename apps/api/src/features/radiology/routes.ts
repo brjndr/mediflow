@@ -10,6 +10,8 @@ import { imagingOrder, moveImagingOrder, type ImagingOrder } from '../clinical/i
 import { isTemplateVersion, placeholdersIn } from '../templates/index.js';
 import {
   addendaOf,
+  addendaOfReports,
+  signedReportsOfEncounter,
   insertAddendum,
   insertReport,
   reportOf,
@@ -29,6 +31,8 @@ import {
   type WorkItemRow,
 } from './repository.js';
 import {
+  EncounterImagingReports,
+  EncounterParams,
   ImagingAddendumCreate,
   ImagingReport,
   ImagingReportDraft,
@@ -52,6 +56,7 @@ export const FEATURE = 'radiology';
 const STUDY_READ = 'imagingStudy:read';
 const STUDY_SCHEDULE = 'imagingStudy:schedule';
 const STUDY_PERFORM = 'imagingStudy:perform';
+const REPORT_READ = 'imagingReport:read';
 const REPORT_WRITE = 'imagingReport:write';
 const REPORT_SIGN = 'imagingReport:sign';
 
@@ -537,6 +542,39 @@ export const radiologyRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!study || !report) throw reportNotFound();
       if (report.status === 'draft' && !(await writesReports(request))) throw reportNotFound();
       return sendReport(request, study.id, 'read');
+    },
+  );
+
+  app.get(
+    '/radiology/encounters/:encounterId/reports',
+    {
+      config: { permissions: [REPORT_READ], feature: FEATURE },
+      schema: {
+        operationId: 'listEncounterImagingReports',
+        tags: ['radiology'],
+        description:
+          'The signed reports of an encounter’s imaging orders, with their addenda, the newest signed first, for the consultation (#1187): a doctor reads them without any worklist permission. A draft never appears, whoever asks. Requires imagingReport:read with the scope `all` (a narrower one finds nothing) and the radiology feature flag. Every report given is audited as a read.',
+        params: EncounterParams,
+        response: { 200: ref(EncounterImagingReports), ...errors(400, 401, 403, 429) },
+      },
+    },
+    async (request) => {
+      if (!reaches(request, REPORT_READ)) return { items: [] };
+      const rows = await signedReportsOfEncounter(request.txClient, request.params.encounterId);
+      const addenda = await addendaOfReports(
+        request.txClient,
+        rows.map((row) => row.id),
+      );
+      for (const row of rows) request.audit('read', 'imaging_report', row.id);
+      return {
+        items: rows.map((row) => ({
+          itemName: row.item_name,
+          report: reportView(
+            row,
+            addenda.filter((addendum) => addendum.report_id === row.id),
+          ),
+        })),
+      };
     },
   );
 

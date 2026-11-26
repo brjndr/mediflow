@@ -967,6 +967,56 @@ describe('reports', () => {
     expect(await ok<Report>(get(url, { user: reader }))).toMatchObject({ status: 'signed' });
   });
 
+  describe('in the consultation (#1187)', () => {
+    interface EncounterReports {
+      items: { itemName: string; report: Report }[];
+    }
+    const encounterOf = async (orderId: string) =>
+      (
+        await pool.query<{ encounter_id: string }>(
+          'select encounter_id from orders where id = $1',
+          [orderId],
+        )
+      ).rows[0]?.encounter_id ?? '';
+    const listed = (encounterId: string, options: Options = {}) =>
+      get(`/radiology/encounters/${encounterId}/reports`, { user: doctor, ...options });
+
+    it('gives a doctor the signed report and its addenda, never a draft, and audits the read', async () => {
+      const report = await drafted();
+      const encounterId = await encounterOf(report.orderId);
+      expect((await ok<EncounterReports>(listed(encounterId))).items).toEqual([]);
+      await ok<Report>(sign(report));
+      await ok<Report>(addendum(report, { body: text('Clarified.'), reason: 'clarification' }));
+      const { items } = await ok<EncounterReports>(listed(encounterId));
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({
+        itemName: expect.any(String) as string,
+        report: { id: report.id, status: 'signed', orderId: report.orderId },
+      });
+      expect(items[0]?.report.addenda).toHaveLength(1);
+      expect(await audited('imaging_report', report.id)).toContain('read');
+    });
+
+    it('refuses without the permission or the switch, and shows nothing of another hospital', async () => {
+      const report = await signed();
+      const encounterId = await encounterOf(report.orderId);
+      expect(errorOf(await listed(encounterId, { user: reader }))).toEqual([
+        403,
+        'permission_denied',
+      ]);
+      expect(errorOf(await listed(encounterId, { tenant: closed }))).toEqual([
+        403,
+        'feature_disabled',
+      ]);
+      expect(
+        await ok<EncounterReports>(
+          listed(encounterId, { tenant: clinic, user: clinicRadiologist }),
+        ),
+      ).toEqual({ items: [] });
+      expect((await ok<EncounterReports>(listed('not-an-id'))).items).toEqual([]);
+    });
+  });
+
   it('makes one report of two first saves at the same moment', async () => {
     const study = await performed();
     const replies = await Promise.all([

@@ -3653,6 +3653,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/radiology/encounters/{encounterId}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The signed reports of an encounter’s imaging orders, with their addenda, the newest signed first, for the consultation (#1187): a doctor reads them without any worklist permission. A draft never appears, whoever asks. Requires imagingReport:read with the scope `all` (a narrower one finds nothing) and the radiology feature flag. Every report given is audited as a read. */
+        get: operations["listEncounterImagingReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/radiology/orders/{orderId}/report/sign": {
         parameters: {
             query?: never;
@@ -10939,6 +10956,16 @@ export interface components {
             /** @description The oldest first. */
             addenda: components["schemas"]["ImagingAddendum"][];
             version: number;
+        };
+        /** @description A signed report of one of an encounter’s imaging orders, with the study’s name. */
+        EncounterImagingReport: {
+            /** @description The study as ordered. */
+            itemName: string;
+            report: components["schemas"]["ImagingReport"];
+        };
+        EncounterImagingReports: {
+            /** @description The newest signed first. */
+            items: components["schemas"]["EncounterImagingReport"][];
         };
         ImagingReportDraft: {
             /** @description How the study was done. May be empty. The rich text document of the app (paragraphs, headings, lists, quotes and marks), never HTML, reduced to that allowlist on the way in. */
@@ -34609,6 +34636,64 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listEncounterImagingReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterImagingReports"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
