@@ -6,6 +6,7 @@ import { useSession } from '@/app/session';
 import { useDepartmentOptions } from '@/features/departments';
 import { useDoctorOptions } from '@/features/doctors';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { Slot } from '@/registry';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
@@ -299,6 +300,9 @@ export default function QueueBoard() {
           />
         </section>
       ))}
+      {/* Dialogs of the row actions, kept here: a row moves between the lists. */}
+      <Slot id="queue.board.dialogs" />
+
       {/* Served tokens leave the board; asked for, for what is still done with one (#1202). */}
       <Button
         type="button"

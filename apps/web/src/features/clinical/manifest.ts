@@ -90,6 +90,11 @@ export const clinicalFeature: FeatureManifest = {
         order: 40,
       }),
     ),
+    {
+      slot: 'queue.board.dialogs',
+      component: () => import('./components/PaperSheetHost'),
+      requires: ['encounter:recordPaper'],
+    },
     // The patient's visits, newest first (#83).
     {
       slot: 'patient.detail.tabs',

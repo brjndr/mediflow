@@ -36,12 +36,21 @@ const REFUSED: Record<string, string> = {
   patient_merged: 'paper.errors.merged',
 };
 
+/** What the file's own address answers, by status. */
+const SENT_REFUSED: Record<number, string> = {
+  413: 'paper.errors.size',
+  415: 'paper.errors.type',
+  400: 'paper.errors.rejected',
+};
+
 function useFailureText() {
   const { t } = useTranslation('clinical');
   const { t: tCommon } = useTranslation();
   return (error: unknown) => {
     if (!error) return '';
-    if (error instanceof UploadRefused) return t('paper.errors.failed');
+    if (error instanceof UploadRefused) {
+      return t(SENT_REFUSED[error.status] ?? 'paper.errors.failed');
+    }
     const code = isApiError(error) ? error.serverCode : undefined;
     const key = code === undefined ? undefined : REFUSED[code];
     return key ? t(key) : tCommon(errorMessageKey(error));
@@ -102,10 +111,23 @@ function Visit({
     onBusy(busy);
     return () => onBusy(false);
   }, [busy, onBusy]);
-  // What had focus may be gone (a retired row, the close button): it goes to what was done.
+  // What had focus may be gone (a retired row, the close button): it goes to what was done. The
+  // dialog takes focus itself when that happens, which counts as lost.
   useLayoutEffect(() => {
-    if (done.count > 0) focusIfLost(status.current);
+    if (done.count === 0) return;
+    if (document.activeElement?.getAttribute('role') === 'dialog') status.current?.focus();
+    else focusIfLost(status.current);
   }, [done, visit]);
+  // "Keep it" goes back to the button that asked.
+  const [keptId, setKeptId] = useState('');
+  const sheetList = useRef<HTMLUListElement>(null);
+  useLayoutEffect(() => {
+    if (!keptId) return;
+    sheetList.current?.querySelector<HTMLElement>(`[data-sheet="${keptId}"]`)?.focus();
+    setKeptId('');
+  }, [keptId]);
+  // A token for no doctor opens no visit: said before a file is chosen.
+  const noDoctor = 'tokenId' in subject && !visit.encounter && !visit.doctorName;
 
   const encounter = visit.encounter;
   const failure = problem || failureText(paper.open.error ?? upload.error ?? paper.close.error);
@@ -175,7 +197,7 @@ function Visit({
         type="file"
         accept={accept}
         capture={capture}
-        disabled={upload.isPending}
+        disabled={busy}
         aria-describedby={`${fileId}-hint`}
         onChange={(event) => choose(event.target)}
         className="text-base md:text-sm pointer-coarse:min-h-11"
@@ -207,7 +229,7 @@ function Visit({
         ref={status}
         tabIndex={-1}
         role="status"
-        className="text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 empty:hidden"
+        className="text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 empty:sr-only"
       >
         {done.text}
       </p>
@@ -216,7 +238,8 @@ function Visit({
           {failure}
         </p>
       )}
-      {encounter?.status === 'cancelled' ? (
+      {noDoctor && <p>{t('paper.errors.noDoctor')}</p>}
+      {noDoctor ? null : encounter?.status === 'cancelled' ? (
         <p>{t('paper.isCancelled')}</p>
       ) : (
         <form
@@ -252,7 +275,7 @@ function Visit({
       {encounter && visit.sheets.length > 0 && (
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">{t('paper.sheets')}</h3>
-          <ul className="flex flex-col gap-2">
+          <ul ref={sheetList} className="flex flex-col gap-2">
             {visit.sheets.map((sheet) => (
               <li key={sheet.id} className="flex flex-col gap-2 rounded-md border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -266,6 +289,7 @@ function Visit({
                       type="button"
                       variant="outline"
                       size="sm"
+                      data-sheet={sheet.id}
                       aria-label={t('paper.retireNamed', { name: sheet.fileName })}
                       aria-disabled={busy || undefined}
                       onClick={() => {
@@ -283,7 +307,10 @@ function Visit({
                     name={sheet.fileName}
                     pending={paper.retire.isPending}
                     failure={failureText(paper.retire.error)}
-                    onKeep={() => setRetiring(undefined)}
+                    onKeep={() => {
+                      setRetiring(undefined);
+                      setKeptId(sheet.id);
+                    }}
                     onRetire={(reason) =>
                       paper.retire.mutate(
                         {
@@ -296,6 +323,15 @@ function Visit({
                           onSuccess: () => {
                             setRetiring(undefined);
                             say(t('paper.retired'));
+                          },
+                          // Retired or changed elsewhere: the row may be gone, so say it above.
+                          onError: (error) => {
+                            const code = isApiError(error) ? error.serverCode : undefined;
+                            if (code !== 'already_retired' && code !== 'document_not_found') {
+                              return;
+                            }
+                            setRetiring(undefined);
+                            say(t('paper.errors.conflict'));
                           },
                         },
                       )

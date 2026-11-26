@@ -72,7 +72,8 @@ export function usePatientDocuments(patientId: string, filters: DocumentFilters)
   });
 }
 
-function useRefresh() {
+/** Reads the documents lists again, for the session the change was made in. */
+export function useRefreshDocuments() {
   const queryClient = useQueryClient();
   const stillHere = useStillHere();
   return () => {
@@ -87,9 +88,11 @@ function useRefresh() {
  * way, since the row exists once asked for.
  */
 export function useUploadDocument(patientId: string) {
-  const refresh = useRefresh();
+  const refresh = useRefreshDocuments();
   const attempt = useRef<{ body: string; key: string }>(undefined);
   return useMutation({
+    // The file is not kept once the screen that chose it is gone.
+    gcTime: 0,
     mutationFn: async ({ file, ...body }: PatientDocumentCreate & { file: File }) => {
       const serialized = JSON.stringify(body);
       if (attempt.current?.body !== serialized) {
@@ -116,7 +119,7 @@ export function useBlockedDocuments() {
 }
 
 export function useDismissBlocked() {
-  const refresh = useRefresh();
+  const refresh = useRefreshDocuments();
   return useMutation({
     mutationFn: (documentId: string) => dismissBlocked(documentId),
     onSettled: () => refresh(),
@@ -124,7 +127,7 @@ export function useDismissBlocked() {
 }
 
 export function useRetireDocument() {
-  const refresh = useRefresh();
+  const refresh = useRefreshDocuments();
   return useMutation({
     mutationFn: ({ document, reason }: { document: PatientDocument; reason: string }) =>
       retireDocument(document.id, { reason, expectedVersion: document.version }),

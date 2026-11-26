@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRefreshDocuments } from '@/features/documents';
 import { useTenant } from '@/tenancy';
 import {
   closePaperVisit,
@@ -24,6 +25,7 @@ export function usePaperVisit(subject: PaperSubject) {
   const tenantId = useTenant()?.id;
   const queryClient = useQueryClient();
   const stillHere = useStillHere();
+  const refreshDocuments = useRefreshDocuments();
   const openKey = useIdempotencyKey();
   const closeKey = useIdempotencyKey();
   const keyOf = (tenant: string) =>
@@ -35,9 +37,7 @@ export function usePaperVisit(subject: PaperSubject) {
     enabled: tenantId !== undefined,
     gcTime: 0,
     refetchInterval: (current) =>
-      current.state.data?.sheets.some(
-        (sheet) => sheet.status === 'pending' || sheet.status === 'scanning',
-      )
+      current.state.data?.sheets.some((sheet) => sheet.status === 'scanning')
         ? SCAN_POLL_MS
         : false,
   });
@@ -50,10 +50,15 @@ export function usePaperVisit(subject: PaperSubject) {
   /** The visit's screen and lists show what changed. */
   const refresh = () => {
     const tenant = stillHere();
-    if (tenant) return queryClient.invalidateQueries({ queryKey: clinicalKeys.all(tenant) });
+    if (!tenant) return;
+    return Promise.all([
+      queryClient.invalidateQueries({ queryKey: clinicalKeys.all(tenant) }),
+      refreshDocuments(),
+    ]);
   };
 
   const open = useMutation({
+    gcTime: 0,
     mutationFn: (tokenId: string) => openPaperVisit(tokenId, openKey.keyFor(tokenId)),
     onSuccess: (visit) => {
       openKey.clear();
@@ -61,6 +66,7 @@ export function usePaperVisit(subject: PaperSubject) {
     },
   });
   const close = useMutation({
+    gcTime: 0,
     mutationFn: ({ id, version }: { id: string; version: number }) =>
       closePaperVisit(id, version, closeKey.keyFor({ id, version })),
     onSuccess: (visit) => {
@@ -70,6 +76,7 @@ export function usePaperVisit(subject: PaperSubject) {
     onSettled: () => refresh(),
   });
   const retire = useMutation({
+    gcTime: 0,
     mutationFn: (sheet: { encounterId: string; id: string; version: number; reason: string }) =>
       retireOwnSheet(sheet.encounterId, sheet.id, {
         reason: sheet.reason,

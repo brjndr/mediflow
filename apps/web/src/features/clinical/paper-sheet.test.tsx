@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
   grantPermission,
@@ -10,6 +11,8 @@ import {
   USER_IDS,
 } from '@/mocks/db';
 import { expectNoAxeViolations } from '@/test/axe';
+import { addMockQueueToken, mockQueueToken } from '@/mocks/handlers/queue';
+import { server } from '@/mocks/node';
 import { renderApp } from '@/test/render';
 
 // A scanned OPD sheet attached to a visit from the queue (#1202).
@@ -120,6 +123,88 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     await within(dialog).findByRole('button', { name: /^Attach to / }, SLOW);
     // The clinic's patient, never one of the hospital.
     expect(dialog).toHaveTextContent('MRN-PTC-00001');
+  });
+
+  it('stays open, with the chosen file, when the token moves to another list', async () => {
+    const dialog = await openDialog();
+    await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
+    // Another desk: the token is served, and the board hears of it.
+    const token = mockQueueToken('qt_tenant_1_dep_h_01_1')!;
+    token.status = 'served';
+    addMockQueueToken({
+      id: 'qt_moved',
+      tenantId: HOSPITAL,
+      departmentId: 'dep_h_02',
+      patientId: 'pth_00004',
+      status: 'waiting',
+      issuedAt: new Date().toISOString(),
+      callCount: 0,
+      version: 1,
+    });
+    await waitFor(() => expect(screen.queryByText('Nobody is being served.')).not.toBeNull(), SLOW);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Chosen: sheet.jpg');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.body).not.toHaveFocus());
+  });
+
+  it('is offered on a served token', async () => {
+    mockQueueToken('qt_tenant_1_dep_h_01_1')!.status = 'served';
+    renderApp({ entry: '/queue' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Show served today' }, SLOW));
+    const served = await screen.findByRole('region', { name: 'Served' }, SLOW);
+    expect(
+      await within(served).findAllByRole('button', { name: 'Attach OPD sheet, token 1' }, SLOW),
+    ).not.toHaveLength(0);
+  });
+
+  it.each([
+    ['conflict', 409, 'changed meanwhile'],
+    ['opd_sheet_required', 409, 'Attach the OPD sheet before closing'],
+    ['unsigned_notes', 409, 'not signed'],
+  ])('says why closing is refused (%s)', async (code, status, words) => {
+    server.use(
+      http.post('*/api/encounters/:encounterId/paper-visit/close', () =>
+        HttpResponse.json({ error: { code, message: 'no', requestId: 'r' } }, { status }),
+      ),
+    );
+    const dialog = await openDialog();
+    await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
+    expect(await within(dialog).findByRole('alert', {}, SLOW)).toHaveTextContent(words);
+  });
+
+  it('says a token without a doctor opens no visit', async () => {
+    mockQueueToken('qt_tenant_1_dep_h_01_1')!.doctorId = undefined;
+    renderApp({ entry: '/queue' });
+    const [button] = await screen.findAllByRole(
+      'button',
+      { name: 'Attach OPD sheet, token 1' },
+      SLOW,
+    );
+    await userEvent.click(button!);
+    const dialog = await screen.findByRole('dialog', {}, SLOW);
+    await within(dialog).findByText(/no visit can be opened/, {}, SLOW);
+    expect(within(dialog).queryByLabelText('Choose a file')).toBeNull();
+  });
+
+  it('sends the file again after a failed upload', async () => {
+    server.use(
+      http.put(
+        '*/api/document-uploads/:documentId',
+        () => new HttpResponse(null, { status: 500 }),
+        { once: true },
+      ),
+    );
+    const dialog = await openDialog();
+    await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
+    expect(await within(dialog).findByRole('alert', {}, SLOW)).toHaveTextContent(
+      'could not be sent',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
+    expect(await within(dialog).findByText(/The sheet was attached/, {}, SLOW)).toBeVisible();
   });
 
   it('shows the served tokens when asked for', async () => {
