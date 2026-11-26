@@ -443,3 +443,39 @@ test('print an OPD sheet from a token with the keyboard, on one A4 page', async 
     expect(pdf.match(/\/Type\s*\/Page\b/g)).toHaveLength(1);
   }
 });
+
+test('attach a scanned OPD sheet from a token and close the visit with the keyboard', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await goTo(page, 'OPD queue');
+  const attach = page.getByRole('button', { name: 'Attach OPD sheet, token 1' }).first();
+  await attach.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(attach).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Attach OPD sheet' });
+  await expect(dialog).toContainText('Check that the name and token match the paper.');
+  await expectNoAxeViolations(page);
+  // The system's file chooser is outside the page: the file is given to the field.
+  await dialog.getByLabel('Choose a file').setInputFiles({
+    name: 'sheet.jpg',
+    mimeType: 'image/jpeg',
+    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+  });
+  const submit = dialog.getByRole('button', { name: /^Attach to .+, token 1$/ });
+  await submit.focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toContainText('The sheet was attached');
+  const close = dialog.getByRole('button', { name: 'Close visit' });
+  await close.focus();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(dialog.getByText('The visit is closed.')).toBeFocused();
+  await expectNoAxeViolations(page);
+  await expectNoSidewaysScroll(page);
+  await page.keyboard.press('Escape');
+  await expect(attach).toBeFocused();
+});

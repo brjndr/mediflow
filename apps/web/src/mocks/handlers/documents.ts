@@ -104,6 +104,27 @@ export function mockMayRead(document: { category: string }): boolean {
   );
 }
 
+/** The OPD sheets on a visit that are not retired, newest first, for the paper visit (#1202). */
+export function mockVisitSheets(tenantId: string, encounterId: string) {
+  return state.documents
+    .filter(
+      (one) =>
+        one.tenantId === tenantId &&
+        one.encounterId === encounterId &&
+        one.category === 'opd_sheet' &&
+        !one.retiredAt,
+    )
+    .reverse();
+}
+
+/** Retires a document in place, as the uploader of an OPD sheet may (#1202). */
+export function retireMockDocument(id: string, reason: string): void {
+  const found = state.documents.find((one) => one.id === id) as Stored;
+  found.retiredAt = new Date().toISOString();
+  found.retiredReason = reason;
+  found.version += 1;
+}
+
 /** What the malware scan does meanwhile: the file may now be opened. */
 export function finishMockScan(id: string, status: PatientDocument['status'] = 'clean'): void {
   const found = state.documents.find((one) => one.id === id);

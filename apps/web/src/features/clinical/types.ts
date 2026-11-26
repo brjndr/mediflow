@@ -33,6 +33,7 @@ export type Prescription = Schemas['Prescription'];
 /** A doctor's qualifications and registration, printed with the name (#397). */
 export type Credentials = Schemas['DoctorCredentials'];
 export type OpdSheet = Schemas['OpdSheet'];
+export type PaperVisit = Schemas['PaperVisit'];
 export type PrescriptionPage = Schemas['PrescriptionPage'];
 export type PrescriptionCreate = Schemas['PrescriptionCreate'];
 export type PrescriptionLine = Schemas['PrescriptionLine'];

@@ -208,6 +208,7 @@ const clearClinical = async () => {
       'encounter_diagnoses',
       'clinical_notes',
       'vitals',
+      'patient_documents',
       'encounters',
       'queue_tokens',
       'appointments',
@@ -1546,5 +1547,187 @@ describe('the paper OPD sheet of a token (#1201)', () => {
       [token],
     );
     expect(errorOf(await sheet(token, { user: desk }))).toEqual([409, 'not_printable']);
+  });
+});
+
+describe('a visit kept on paper (#1202)', () => {
+  interface Paper {
+    patientName: string;
+    tokenNumber?: number;
+    encounter?: { id: string; status: string; version: number };
+    hasSheet: boolean;
+    sheets: { id: string }[];
+  }
+  let token = '';
+
+  const feature = (name: string, enabled: boolean, tenant = hospital) =>
+    pool.query(
+      'insert into tenant_features (tenant_id, feature, enabled) values ($1, $2, $3) ' +
+        'on conflict (tenant_id, feature) do update set enabled = $3',
+      [tenant.id, name, enabled],
+    );
+  beforeEach(async () => {
+    await feature('documents', true);
+    token = await addToken(patients.asha, doctors.doctor);
+  });
+
+  const url = (id = token) => '/queue/tokens/' + id + '/paper-visit';
+  const visitUrl = (visit: Paper) => '/encounters/' + visit.encounter!.id + '/paper-visit';
+  const start = (options: Options = { user: nurse }) => ok<Paper>(post(url(), {}, options), 200);
+  const close = (visit: Paper, options: Options = { user: nurse }) =>
+    post(visitUrl(visit) + '/close', { version: visit.encounter!.version }, options);
+  const retire = (visit: Paper, id: string, options: Options = { user: nurse }) =>
+    post(
+      visitUrl(visit) + '/sheets/' + id + '/retire',
+      { reason: 'Wrong visit', expectedVersion: 1 },
+      options,
+    );
+  /** A sheet on the visit, put there directly: the signed upload has its own tests. */
+  const attach = async (visit: Paper, status = 'clean', by: TestUser = nurse) => {
+    const { rows } = await pool.query<{ id: string }>(
+      'insert into patient_documents (tenant_id, patient_id, encounter_id, category, title, ' +
+        'file_name, content_type, size_bytes, status, file_key, uploaded_at, created_by) ' +
+        "values ($1, $2, $3, 'opd_sheet', 'OPD sheet', 'sheet.jpg', 'image/jpeg', 10, $4, " +
+        '$5, $6, $7) returning id',
+      [
+        hospital.id,
+        patients.asha,
+        visit.encounter!.id,
+        status,
+        ['scanning', 'clean'].includes(status)
+          ? 'documents/' + hospital.id + '/' + randomUUID()
+          : null,
+        status === 'pending' ? null : new Date(),
+        by.id,
+      ],
+    );
+    return rows[0]!.id;
+  };
+
+  it('shows who the token is for and changes nothing', async () => {
+    const seen = await ok<Paper>(get(url(), { user: nurse }), 200);
+    expect(seen).toMatchObject({ patientName: 'Asha Test', hasSheet: false, sheets: [] });
+    expect(seen.encounter).toBeUndefined();
+    expect(await audited('queue_token', token)).toEqual(['read']);
+  });
+
+  it('lets a nurse open the visit under the doctor of the token, once', async () => {
+    const key = randomUUID();
+    const first = await start({ user: nurse, key });
+    const id = first.encounter!.id;
+    expect((await start({ user: nurse, key })).encounter!.id).toBe(id);
+    expect((await start()).encounter!.id).toBe(id);
+    const opened = await ok<{ attendingDoctorId: string }>(get('/encounters/' + id), 200);
+    expect(opened.attendingDoctorId).toBe(doctors.doctor);
+    expect((await events(id)).map((each) => each.event)).toEqual(['encounter.opened']);
+  });
+
+  it('gives no right to notes, diagnoses, prescriptions or an ordinary close', async () => {
+    const id = (await start()).encounter!.id;
+    const asNurse = { user: nurse };
+    for (const [path, body] of [
+      ['notes', { body: doc('x') }],
+      ['diagnoses', { text: 'x', kind: 'final' }],
+      ['prescriptions', { lines: [] }],
+      ['close', { version: 1 }],
+    ] as const) {
+      const refused = await post('/encounters/' + id + '/' + path, body, asNurse);
+      expect([403, 400]).toContain(refused.statusCode);
+      if (path !== 'prescriptions') expect(refused.statusCode).toBe(403);
+    }
+  });
+
+  it('refuses a token issued for no doctor', async () => {
+    const anyDoctor = await addToken(patients.bala);
+    expect(errorOf(await post(url(anyDoctor), {}, { user: nurse }))).toEqual([
+      422,
+      'token_without_doctor',
+    ]);
+  });
+
+  it('closes only with a sheet that is clean or being scanned', async () => {
+    const visit = await start();
+    expect(errorOf(await close(visit))).toEqual([409, 'opd_sheet_required']);
+    for (const status of ['pending', 'infected', 'failed']) {
+      await attach(visit, status);
+      expect(errorOf(await close(visit))).toEqual([409, 'opd_sheet_required']);
+    }
+    await attach(visit, 'scanning');
+    const key = randomUUID();
+    const done = await ok<Paper>(close(visit, { user: nurse, key }), 200);
+    expect(done.encounter!.status).toBe('closed');
+    await ok(close(visit, { user: nurse, key }), 200);
+    expect((await events(visit.encounter!.id)).map((each) => each.event)).toEqual([
+      'encounter.opened',
+      'encounter.closed',
+    ]);
+    expect(errorOf(await close(done))).toEqual([409, 'invalid_transition']);
+  });
+
+  it('refuses closing while a note is a draft', async () => {
+    const visit = await start();
+    await attach(visit);
+    await draft(visit.encounter!.id);
+    expect(errorOf(await close(visit))).toEqual([409, 'unsigned_notes']);
+  });
+
+  it('retires the own sheet of the caller only, after which the visit does not close', async () => {
+    const visit = await start();
+    const theirs = await attach(visit, 'pending', doctor);
+    expect(errorOf(await retire(visit, theirs))).toEqual([404, 'document_not_found']);
+    const mine = await attach(visit);
+    const seen = await ok<Paper>(get(url(), { user: nurse }), 200);
+    expect(seen.sheets.map((each) => each.id)).toEqual([mine]);
+    const after = await ok<Paper>(retire(visit, mine), 200);
+    expect(after).toMatchObject({ hasSheet: false, sheets: [] });
+    expect(errorOf(await retire(visit, mine))).toEqual([409, 'already_retired']);
+    expect(errorOf(await close(visit))).toEqual([409, 'opd_sheet_required']);
+    expect(await audited('patient_document', mine)).toContain('update');
+  });
+
+  it('is not there for another hospital', async () => {
+    const visit = await start();
+    const mine = await attach(visit);
+    await feature('documents', true, clinic);
+    await feature('queue', true, clinic);
+    const there = { tenant: clinic, user: clinicDoctor };
+    expect(errorOf(await get(url(), there))).toEqual([404, 'token_not_found']);
+    expect(errorOf(await post(url(), {}, there))).toEqual([404, 'token_not_found']);
+    for (const refused of [
+      await get(visitUrl(visit), there),
+      await close(visit, there),
+      await retire(visit, mine, there),
+    ]) {
+      expect(errorOf(refused)).toEqual([404, 'encounter_not_found']);
+    }
+  });
+
+  it('needs the permission and each module', async () => {
+    expect(errorOf(await post(url(), {}, { user: desk }))).toEqual([403, 'permission_denied']);
+    const visit = await start();
+    await attach(visit);
+    for (const name of ['documents', 'queue']) {
+      await feature(name, false);
+      try {
+        expect(errorOf(await post(url(), {}, { user: nurse }))).toEqual([403, 'feature_disabled']);
+      } finally {
+        await feature(name, true);
+      }
+    }
+    const held = await pool.query<{ scope: string }>(
+      "delete from role_permissions where tenant_id = $1 and role_id = 'nurse' " +
+        "and permission = 'encounter:recordPaper' returning scope",
+      [hospital.id],
+    );
+    try {
+      expect(errorOf(await close(visit))).toEqual([403, 'permission_denied']);
+    } finally {
+      await pool.query(
+        'insert into role_permissions (tenant_id, role_id, permission, scope) ' +
+          "values ($1, 'nurse', 'encounter:recordPaper', $2)",
+        [hospital.id, held.rows[0]!.scope],
+      );
+    }
+    await ok(close(visit), 200);
   });
 });

@@ -88,6 +88,12 @@ export const CLINICAL_PERMISSIONS = [
     defaults: { admin: 'all', doctor: 'all', nurse: 'all', receptionist: 'all' },
   },
   {
+    id: 'encounter:recordPaper',
+    description:
+      'Record a visit kept on paper: open it from a queue token under the token’s doctor, close it once a scanned OPD sheet is attached, and retire a sheet attached by mistake (shows the name and MRN of the patient)',
+    defaults: { admin: 'all', doctor: 'all', nurse: 'all' },
+  },
+  {
     id: 'referral:read',
     description: 'See the referrals of an encounter, with why the patient was referred',
     defaults: { admin: 'all', doctor: 'all' },

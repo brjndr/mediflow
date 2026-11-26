@@ -163,5 +163,9 @@
     "waiting_other": "{{count}} waiting",
     "empty": "No tokens have been issued today.",
     "token": "Token {{number}}"
+  },
+  "served": {
+    "show": "Show served today",
+    "hide": "Hide served"
   }
 }

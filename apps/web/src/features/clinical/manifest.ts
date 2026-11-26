@@ -56,6 +56,7 @@ export const clinicalFeature: FeatureManifest = {
     'prescription:read',
     'prescription:create',
     'opdSheet:print',
+    'encounter:recordPaper',
     'referral:read',
     'referral:create',
     'prescriptionSet:read',
@@ -80,6 +81,15 @@ export const clinicalFeature: FeatureManifest = {
       requires: ['opdSheet:print'],
       order: 30,
     },
+    // A visit kept on paper (#1202): the scanned sheet is attached and the visit closed.
+    ...(['queue.row.actions', 'encounter.detail.actions'] as const).map(
+      (slot): SlotContribution => ({
+        slot,
+        component: () => import('./components/PaperSheetAction'),
+        requires: ['encounter:recordPaper'],
+        order: 40,
+      }),
+    ),
     // The patient's visits, newest first (#83).
     {
       slot: 'patient.detail.tabs',
