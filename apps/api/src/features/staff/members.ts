@@ -14,7 +14,7 @@ import {
   listPeople,
   lockMember,
   lockOpenInvite,
-  lockStaffManagers,
+  lockManagers,
   markInviteRequeued,
   revokeInvite,
   revokeInvitesSentBy,
@@ -38,6 +38,7 @@ import {
 const READ = 'staff:read';
 const INVITE = 'staff:invite';
 const MANAGE = 'staff:manage';
+const ROLE_MANAGE = 'role:manage';
 /** The least time between two sends of one invitation. */
 const RESEND_GAP_SECONDS = 60;
 
@@ -163,7 +164,7 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'deactivateStaff',
         tags: ['staff'],
         description:
-          "Deactivates someone's membership of the hospital: every session they have there ends at once, the open invitations they sent are withdrawn, and they cannot work there until reactivated. Their account and their memberships of other hospitals are untouched, and the membership is kept, never deleted. 409 cannot_deactivate_self for the caller's own membership, 409 last_admin when no other active member could manage staff. Doing it twice changes nothing." +
+          "Deactivates someone's membership of the hospital: every session they have there ends at once, the open invitations they sent are withdrawn, and they cannot work there until reactivated. Their account and their memberships of other hospitals are untouched, and the membership is kept, never deleted. 409 cannot_deactivate_self for the caller's own membership, 409 last_admin when no other active member could manage staff or roles. Doing it twice changes nothing." +
           CEILING +
           OTHER_HOSPITAL,
         params: UserParams,
@@ -175,14 +176,19 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (userId === request.session?.userId) {
         throw new HttpError(409, 'cannot_deactivate_self', 'You cannot deactivate yourself');
       }
-      // Before the member's own row, and in a fixed order: see lockStaffManagers.
-      const managers = await lockStaffManagers(request.txClient, MANAGE);
+      // Before the member's own row, and in a fixed order: see lockManagers. Holders of role:manage
+      // are kept too, so the hospital is never left with nobody to edit roles.
+      const managers = await lockManagers(request.txClient, [MANAGE, ROLE_MANAGE]);
+      const staffManagers = managers.filter((row) => row.held.includes(MANAGE));
       // Whoever got these locks first has decided. A caller who was deactivated meanwhile is no
       // longer among them, and deactivates nobody.
-      if (!managers.includes(request.session?.userId ?? '')) throw gone();
+      if (!staffManagers.some((row) => row.userId === request.session?.userId)) throw gone();
       const target = await memberWithin(request, userId);
-      if (managers.includes(target.user_id) && managers.length === 1) {
-        throw new HttpError(409, 'last_admin', 'Nobody else could manage the staff here');
+      for (const permission of [MANAGE, ROLE_MANAGE]) {
+        const holders = managers.filter((row) => row.held.includes(permission));
+        if (holders.length === 1 && holders[0]?.userId === target.user_id) {
+          throw new HttpError(409, 'last_admin', 'Nobody else could manage the hospital here');
+        }
       }
       if (await setMemberStatus(request.txClient, target.user_id, 'suspended')) {
         await revokeSessionsHere(request.txClient, target.user_id);

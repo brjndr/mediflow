@@ -151,25 +151,32 @@ export interface MemberRow {
 }
 
 /**
- * Locks, in one fixed order, the memberships whose role may manage staff, and returns their user
- * ids. Taken before a member is deactivated: whoever gets the locks first decides, and the other
- * request then counts what is really left. The fixed order keeps two such requests from waiting
- * on each other.
+ * Takes the hospital's role-change lock (the same key the roles feature uses), so a role edit and
+ * a deactivation are decided one after the other, then locks, in user-id order, the active
+ * memberships whose role holds any of these permissions. Returns each one's user id and which of
+ * the permissions they hold. Whoever gets the locks first decides, and the other request then
+ * counts what is really left; the fixed order keeps two such requests from waiting on each other.
  */
-export async function lockStaffManagers(
+export async function lockManagers(
   client: pg.ClientBase,
-  permission: string,
-): Promise<string[]> {
-  const { rows } = await client.query<{ user_id: string }>(
-    `select m.user_id from memberships m
+  permissions: readonly string[],
+): Promise<{ userId: string; held: string[] }[]> {
+  await client.query(
+    "select pg_advisory_xact_lock(hashtextextended('roles:' || app_tenant_id()::text, 0))",
+  );
+  const { rows } = await client.query<{ user_id: string; held: string[] }>(
+    `select m.user_id,
+            array(select p.permission from role_permissions p
+                  where p.role_id = m.role_id and p.permission = any($1::text[])) as held
+     from memberships m
      where m.status = 'active'
        and exists (select from role_permissions p
-                   where p.role_id = m.role_id and p.permission = $1)
+                   where p.role_id = m.role_id and p.permission = any($1::text[]))
      order by m.user_id
      for update of m`,
-    [permission],
+    [permissions],
   );
-  return rows.map((row) => row.user_id);
+  return rows.map((row) => ({ userId: row.user_id, held: row.held }));
 }
 
 /** A member of this hospital, locked until the transaction ends, or null when there is none. */

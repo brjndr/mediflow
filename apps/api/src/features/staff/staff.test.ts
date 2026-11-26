@@ -434,6 +434,42 @@ describe('deactivating and reactivating', () => {
   });
 });
 
+describe('keeping someone who can manage roles', () => {
+  it('lets one of two role managers go, and never both at once', async () => {
+    const lead = await createTenant(pool, 'Role Lead Hospital');
+    const [one, two] = [await newUser('Lead One'), await newUser('Lead Two')];
+    try {
+      await pool.query(
+        "insert into roles (tenant_id, id, name) values ($1, 'role_lead', 'Role lead')",
+        [lead.id],
+      );
+      await pool.query(
+        `insert into role_permissions (tenant_id, role_id, permission) values
+           ($1, 'role_lead', 'staff:read'), ($1, 'role_lead', 'staff:manage'), ($1, 'role_lead', 'role:manage')`,
+        [lead.id],
+      );
+      await addMembership(pool, one, lead, 'role_lead');
+      await addMembership(pool, two, lead, 'role_lead');
+      const [tokenOne, tokenTwo] = await Promise.all([signIn(one, lead), signIn(two, lead)]);
+
+      const results = await Promise.all([
+        act(two, 'deactivate', tokenOne),
+        act(one, 'deactivate', tokenTwo),
+      ]);
+
+      expect(results.map((response) => response.statusCode).sort()).toEqual([200, 403]);
+      const { rows } = await pool.query(
+        `select 1 from memberships m join role_permissions p on p.role_id = m.role_id
+         where m.tenant_id = $1 and m.status = 'active' and p.permission = 'role:manage'`,
+        [lead.id],
+      );
+      expect(rows).toHaveLength(1);
+    } finally {
+      await deleteTenants(pool, [lead]);
+    }
+  });
+});
+
 describe('ending sessions', () => {
   it('ends every session the person has here, and they stay a member', async () => {
     const [first, second] = [await signIn(nurse), await signIn(nurse)];
