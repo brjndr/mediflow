@@ -21,6 +21,7 @@
     "id_proof": "ID proof",
     "insurance": "Insurance",
     "certificate": "Certificate",
+    "opd_sheet": "OPD sheet",
     "other": "Other"
   },
   "status": {
@@ -66,6 +67,7 @@
     "submit": "Upload",
     "submitting": "Uploading",
     "done": "{{title}} was uploaded. It can be opened once it has been scanned.",
+    "doneHidden": "{{title}} was uploaded. An OPD sheet is shown only to those who can see diagnoses.",
     "errors": {
       "none": "Choose a file.",
       "type": "Only a JPEG, PNG or PDF can be added.",

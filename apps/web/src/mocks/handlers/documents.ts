@@ -1,6 +1,6 @@
 import type { components } from '@mediflow/contract';
 import { http, HttpResponse } from 'msw';
-import { currentSession, onMockReset, TENANT_IDS } from '../db';
+import { currentPolicy, currentSession, onMockReset, TENANT_IDS } from '../db';
 import { authorize, error } from '../respond';
 import { mockPatient, registerMockMergeCounter } from './patients';
 
@@ -96,6 +96,14 @@ export function findMockDocument(tenantId: string, id: string) {
   return state.documents.find((one) => one.tenantId === tenantId && one.id === id);
 }
 
+/** An OPD sheet is there only for a caller who may see diagnoses (#1200). */
+export function mockMayRead(document: { category: string }): boolean {
+  return (
+    document.category !== 'opd_sheet' ||
+    !!currentPolicy()?.permissions.some((grant) => grant.permission === 'diagnosis:read')
+  );
+}
+
 /** What the malware scan does meanwhile: the file may now be opened. */
 export function finishMockScan(id: string, status: PatientDocument['status'] = 'clean'): void {
   const found = state.documents.find((one) => one.id === id);
@@ -152,6 +160,7 @@ const CATEGORIES = [
   'id_proof',
   'insurance',
   'certificate',
+  'opd_sheet',
   'other',
 ];
 
@@ -283,6 +292,7 @@ export const documentsHandlers = [
     const visible = state.documents
       .filter((one) => one.tenantId === access.tenantId && one.patientId === patientId)
       .filter((one) => !category || one.category === category)
+      .filter(mockMayRead)
       .filter((one) => !encounterId || one.encounterId === encounterId)
       .filter((one) => includeRetired || !one.retiredAt)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
@@ -323,6 +333,9 @@ export const documentsHandlers = [
       return error(422, 'file_type_not_allowed', 'Accepted types: JPEG, PNG, PDF');
     }
     if (body.size > MAX_BYTES) return error(422, 'file_too_large', 'Too large');
+    if (body.category === 'opd_sheet' && typeof body.encounterId !== 'string') {
+      return error(422, 'encounter_required', 'An OPD sheet belongs to a visit');
+    }
     const replyKey = `${access.tenantId}:${key}`;
     let id = state.replies.get(replyKey);
     if (!id) {
@@ -375,7 +388,9 @@ export const documentsHandlers = [
     const found = state.documents.find(
       (one) => one.id === params.documentId && one.tenantId === access.tenantId,
     );
-    if (!found) return error(404, 'document_not_found', 'No such document');
+    if (!found || !mockMayRead(found)) {
+      return error(404, 'document_not_found', 'No such document');
+    }
     if (found.status === 'pending' || found.status === 'scanning') {
       return error(409, 'document_not_ready', 'The file has not been scanned yet');
     }
@@ -415,7 +430,9 @@ export const documentsHandlers = [
     const found = state.documents.find(
       (one) => one.id === params.documentId && one.tenantId === access.tenantId,
     );
-    if (!found) return error(404, 'document_not_found', 'No such document');
+    if (!found || !mockMayRead(found)) {
+      return error(404, 'document_not_found', 'No such document');
+    }
     return placeMockHold(request, access.tenantId, found.patientId, found.id);
   }),
 
@@ -453,7 +470,9 @@ export const documentsHandlers = [
     const found = state.documents.find(
       (one) => one.id === params.documentId && one.tenantId === access.tenantId,
     );
-    if (!found) return error(404, 'document_not_found', 'No such document');
+    if (!found || !mockMayRead(found)) {
+      return error(404, 'document_not_found', 'No such document');
+    }
     const body = (await request.json().catch(() => null)) as {
       reason?: unknown;
       expectedVersion?: unknown;

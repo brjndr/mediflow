@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+export { sheetReader, sheetVisibleSql } from './sheets.js';
 import {
   documentFileRoutes,
   scanDocument,

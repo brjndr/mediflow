@@ -23,6 +23,15 @@ import { patientFamily } from '../../core/patient-merge/family.js';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Whether the visit in `column` is one the caller may see, for a module that keeps rows against a
+ * visit. A scope that is none of the three (`none`) matches nothing.
+ */
+export const encounterVisibleSql = (column: string, scope: string, user: string) =>
+  `exists (select 1 from encounters e
+    left join doctors d on d.id = e.attending_doctor_id
+    where e.id = ${column} and ${visible(scope, user)})`;
+
 /** Who may be seen: the scope the caller holds the permission with, and who the caller is. */
 export interface Visibility {
   scope: PermissionScope;

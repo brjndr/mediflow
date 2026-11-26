@@ -20,6 +20,7 @@ export const DOCUMENT_CATEGORIES = [
   'id_proof',
   'insurance',
   'certificate',
+  'opd_sheet',
   'other',
 ] as const;
 export const DOCUMENT_STATUSES = [

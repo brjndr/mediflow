@@ -24,7 +24,7 @@ const rowOf = (table: HTMLElement, text: string) =>
 describe('the retention rules screen', () => {
   it('lists every category with its years, and has no axe violations', async () => {
     const table = await openPage();
-    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(8));
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(9));
     expect(within(rowOf(table, 'Consent')).getByText('10 years')).toBeInTheDocument();
     expect(within(rowOf(table, 'Other')).getByText('Kept for ever')).toBeInTheDocument();
     await expectNoAxeViolations();
