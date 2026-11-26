@@ -182,6 +182,7 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'imagingStudy:read' },
   { permission: 'imagingStudy:schedule' },
   { permission: 'imagingStudy:perform' },
+  { permission: 'imagingReport:read' },
   { permission: 'imagingReport:write' },
   { permission: 'imagingReport:sign' },
   // Patient documents (#189), as the API's defaults give them to the admin.
@@ -423,6 +424,8 @@ const DOCTOR: PermissionGrantDto[] = [
   { permission: 'labResult:read' },
   { permission: 'labResult:acknowledge' },
   { permission: 'labReport:print' },
+  // The signed imaging report in the consultation (#1187), as the API's defaults give the doctor.
+  { permission: 'imagingReport:read' },
   { permission: 'notice:read' },
   { permission: 'department:read' },
   { permission: 'doctor:read' },

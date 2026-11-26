@@ -14,6 +14,7 @@ import {
   addAddendum,
   dismissBlockedImage,
   fetchBlockedImages,
+  fetchEncounterReports,
   fetchReport,
   fetchWorklist,
   saveReport,
@@ -151,6 +152,20 @@ export function useReport(orderId: string) {
   return useQuery({
     queryKey: radiologyKeys.detail(tenantId ?? '', orderId),
     queryFn: ({ signal }) => fetchReport(orderId, signal),
+    enabled: tenantId !== undefined,
+    gcTime: 30_000,
+  });
+}
+
+/**
+ * The signed reports of an encounter, for the consultation (#1187). In memory only, dropped soon
+ * after the panel goes. A report signed or amended meanwhile is read on the next visit.
+ */
+export function useEncounterReports(encounterId: string) {
+  const tenantId = useTenant()?.id;
+  return useQuery({
+    queryKey: radiologyKeys.list(tenantId ?? '', { encounterReports: encounterId }),
+    queryFn: ({ signal }) => fetchEncounterReports(encounterId, signal),
     enabled: tenantId !== undefined,
     gcTime: 30_000,
   });

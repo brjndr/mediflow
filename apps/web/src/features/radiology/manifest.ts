@@ -36,6 +36,7 @@ export const radiologyFeature: FeatureManifest = {
     'imagingStudy:read',
     'imagingStudy:schedule',
     'imagingStudy:perform',
+    'imagingReport:read',
     'imagingReport:write',
     'imagingReport:sign',
   ],

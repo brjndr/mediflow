@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { usePermission } from '@/access';
 import { FollowUpPanel } from '@/features/follow-ups';
 import { LabResultsPanel } from '@/features/lab';
+import { ImagingReportsPanel } from '@/features/radiology';
 import { TriageSummary } from '@/features/triage';
 import { Slot } from '@/registry';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -151,6 +152,8 @@ function Consultation({ encounter }: { encounter: Encounter }) {
             ORDER_KINDS.map((kind) => <OrdersPanel key={kind} encounter={encounter} kind={kind} />)}
           {/* The visit's released lab results (#92): their own permission, checked by the panel. */}
           <LabResultsPanel encounterId={encounter.id} patientId={encounter.patientId} />
+          {/* The visit's signed imaging reports (#1187): their own permission, checked by the panel. */}
+          <ImagingReportsPanel encounterId={encounter.id} />
           {canReadReferrals && <ReferralsPanel encounter={encounter} />}
           {/* What happens next: its own permission, checked by the panel. */}
           <FollowUpPanel

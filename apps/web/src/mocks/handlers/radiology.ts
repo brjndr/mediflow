@@ -457,6 +457,22 @@ async function reportRequest(request: Request, orderId: string, permission: stri
 
 function reportHandlers() {
   return [
+    // The signed reports of an encounter for the consultation (#1187): signed only, as the API.
+    http.get('*/api/radiology/encounters/:encounterId/reports', ({ request, params }) => {
+      const access = authorize(request, {
+        permission: 'imagingReport:read',
+        featureFlag: FEATURE_FLAG,
+      });
+      if ('denied' in access) return access.denied;
+      const items = mockImagingOrders(access.tenantId)
+        .filter((order) => order.encounterId === String(params.encounterId))
+        .flatMap((order) => {
+          const report = reportOf(order.id);
+          return report?.status === 'signed' ? [{ itemName: order.itemName, report }] : [];
+        })
+        .sort((a, b) => (b.report.signedAt ?? '').localeCompare(a.report.signedAt ?? ''));
+      return HttpResponse.json({ items });
+    }),
     http.get('*/api/radiology/orders/:orderId/report', async ({ request, params }) => {
       const found = await reportRequest(request, String(params.orderId), 'imagingStudy:read');
       if ('refused' in found) return found.refused;

@@ -169,6 +169,25 @@ export const ImagingReport = Type.Object(
 );
 export type ImagingReport = Static<typeof ImagingReport>;
 
+export const EncounterImagingReport = Type.Object(
+  {
+    itemName: Type.String({ description: 'The study as ordered.' }),
+    report: ref(ImagingReport),
+  },
+  {
+    $id: 'EncounterImagingReport',
+    description: 'A signed report of one of an encounter’s imaging orders, with the study’s name.',
+  },
+);
+export type EncounterImagingReport = Static<typeof EncounterImagingReport>;
+
+export const EncounterImagingReports = Type.Object(
+  { items: Type.Array(ref(EncounterImagingReport), { description: 'The newest signed first.' }) },
+  { $id: 'EncounterImagingReports' },
+);
+
+export const EncounterParams = Type.Object({ encounterId: Id });
+
 export const ImagingReportDraft = Type.Object(
   {
     technique: RichText('How the study was done. May be empty.'),
@@ -301,6 +320,8 @@ export const RADIOLOGY_SCHEMAS = [
   ImagingLink,
   ImagingAddendum,
   ImagingReport,
+  EncounterImagingReport,
+  EncounterImagingReports,
   ImagingReportDraft,
   ImagingReportSign,
   ImagingAddendumCreate,

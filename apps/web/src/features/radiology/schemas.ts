@@ -123,6 +123,10 @@ export const imagingWorkItemSchema: z.ZodType<ImagingWorkItem> = z.object({
 
 const richText = z.record(z.string(), z.unknown());
 
+export const encounterImagingReportsSchema = z.object({
+  items: z.array(z.object({ itemName: z.string(), report: z.lazy(() => imagingReportSchema) })),
+});
+
 export const imagingReportSchema: z.ZodType<ImagingReport> = z.object({
   id: z.string(),
   tenantId: z.string(),

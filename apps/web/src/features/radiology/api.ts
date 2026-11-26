@@ -2,6 +2,7 @@ import { api, isApiError, requireData } from '@/shared/api';
 import type { RichTextDocument } from '@/shared/ui/rich-text';
 import {
   blockedImagesSchema,
+  encounterImagingReportsSchema,
   imagingReportSchema,
   imagingStudySchema,
   imagingWorkItemPageSchema,
@@ -9,6 +10,7 @@ import {
 import type {
   AddendumReason,
   BlockedImage,
+  EncounterImagingReport,
   ImagingReport,
   ImagingReportDraft,
   ImagingModality,
@@ -108,6 +110,18 @@ export async function fetchReport(
     if (isApiError(error) && error.serverCode === 'report_not_found') return null;
     throw error;
   }
+}
+
+/** The signed imaging reports of an encounter (#1187), for the consultation. */
+export async function fetchEncounterReports(
+  encounterId: string,
+  signal?: AbortSignal,
+): Promise<EncounterImagingReport[]> {
+  const result = await api.GET('/radiology/encounters/{encounterId}/reports', {
+    params: { path: { encounterId } },
+    signal,
+  });
+  return encounterImagingReportsSchema.parse(requireData(result)).items;
 }
 
 /** Saves the whole draft: from the report's version once it has one. */

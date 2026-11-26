@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
+import { ImagingReportsPanel } from '@/features/radiology';
 import { errorMessageKey } from '@/shared/api';
 import { useEncounter } from '../hooks/use-clinical';
 import { ORDER_KINDS } from '../schemas';
@@ -8,7 +9,7 @@ import { OrdersPanel } from './OrdersPanel';
 /**
  * The lab, imaging and procedure orders of an encounter, for another module that works on one
  * (the emergency department's rapid orders, ER-02): the same panels as the consultation, each
- * with its own permissions, for `order:read`.
+ * with its own permissions, for `order:read`, and the encounter's signed imaging reports.
  */
 export function EncounterOrders({ encounterId }: { encounterId: string }) {
   const { t: tCommon } = useTranslation();
@@ -29,6 +30,8 @@ export function EncounterOrders({ encounterId }: { encounterId: string }) {
       {ORDER_KINDS.map((kind) => (
         <OrdersPanel key={kind} encounter={data} kind={kind} />
       ))}
+      {/* The signed imaging reports (#1187): their own permission, checked by the panel. */}
+      <ImagingReportsPanel encounterId={data.id} />
     </div>
   );
 }
