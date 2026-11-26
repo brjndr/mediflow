@@ -12,8 +12,18 @@ export const recordsFeature: FeatureManifest = {
   titleKey: 'title',
   i18n: {
     titles: {
-      en: { title: 'Medical records', coding: 'Coding queue', requests: 'Record requests' },
-      hi: { title: 'चिकित्सा रिकॉर्ड', coding: 'कोडिंग कतार', requests: 'रिकॉर्ड के अनुरोध' },
+      en: {
+        title: 'Medical records',
+        coding: 'Coding queue',
+        requests: 'Record requests',
+        corrections: 'Record corrections',
+      },
+      hi: {
+        title: 'चिकित्सा रिकॉर्ड',
+        coding: 'कोडिंग कतार',
+        requests: 'रिकॉर्ड के अनुरोध',
+        corrections: 'रिकॉर्ड में सुधार',
+      },
     },
     load: (language) => import(`./locales/${language}.json`),
   },
@@ -37,6 +47,20 @@ export const recordsFeature: FeatureManifest = {
       lazy: () => import('./routes/RecordRequests'),
       requires: ['recordRequest:read'],
     },
+    {
+      path: 'records/corrections',
+      titleKey: 'corrections',
+      lazy: () => import('./routes/CorrectionRequests'),
+      requires: ['correction:read'],
+    },
+  ],
+  extensions: [
+    {
+      slot: 'patient.detail.tabs',
+      component: () => import('./components/CorrectionsTab'),
+      requires: ['correction:read'],
+      order: 95,
+    },
   ],
   dashboardWidgets: [
     {
@@ -52,5 +76,8 @@ export const recordsFeature: FeatureManifest = {
     'medicalRecord:assign',
     'recordRequest:read',
     'recordRequest:manage',
+    'correction:read',
+    'correction:request',
+    'correction:decide',
   ],
 };

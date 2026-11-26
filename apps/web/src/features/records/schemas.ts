@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { PLAIN_TEXT } from '@/shared/utils/text';
 import type {
   CodingItem,
+  CorrectionRequest,
+  CorrectionRequestPage,
+  CorrectionStatus,
+  CorrectionTarget,
   CodingItemPage,
   EncounterKind,
   IncompleteRecord,
@@ -129,3 +133,48 @@ export const closeFormSchema = z.object({
     .regex(PLAIN_TEXT, 'validation.plain_text'),
 });
 export type CloseFormValues = z.infer<typeof closeFormSchema>;
+
+export const CORRECTION_STATUSES = [
+  'pending',
+  'approved',
+  'rejected',
+] as const satisfies readonly CorrectionStatus[];
+export const CORRECTION_TARGETS = [
+  'patient',
+  'encounter',
+  'document',
+] as const satisfies readonly CorrectionTarget[];
+
+export const correctionRequestSchema: z.ZodType<CorrectionRequest> = z.object({
+  id: z.string(),
+  patientId: z.string(),
+  targetKind: z.enum(CORRECTION_TARGETS),
+  targetId: z.string().optional(),
+  proposed: z.string(),
+  reason: z.string(),
+  status: z.enum(CORRECTION_STATUSES),
+  requestedBy: z.string(),
+  requestedAt: z.string(),
+  decidedBy: z.string().optional(),
+  decidedAt: z.string().optional(),
+  decisionReason: z.string().optional(),
+  version: z.number().int(),
+});
+export const correctionRequestPageSchema: z.ZodType<CorrectionRequestPage> =
+  page(correctionRequestSchema);
+
+const plain = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1, 'validation.required')
+    .max(max, 'validation.too_big')
+    .regex(PLAIN_TEXT, 'validation.plain_text');
+
+/** Asking for a correction to the patient record: what should change, and why. */
+export const correctionFormSchema = z.object({ proposed: plain(1000), reason: plain(300) });
+export type CorrectionFormValues = z.infer<typeof correctionFormSchema>;
+
+/** Deciding a request: the reason, whichever way it goes. */
+export const decisionFormSchema = z.object({ reason: plain(300) });
+export type DecisionFormValues = z.infer<typeof decisionFormSchema>;

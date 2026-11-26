@@ -11,6 +11,7 @@ export function RecordsNav() {
   const { t } = useTranslation('records');
   const canReview = usePermission('medicalRecord:read');
   const canRequests = usePermission('recordRequest:read');
+  const canCorrections = usePermission('correction:read');
   const link = ({ isActive }: { isActive: boolean }) =>
     cn(
       item,
@@ -36,6 +37,11 @@ export function RecordsNav() {
       {canRequests && (
         <NavLink to="/records/requests" className={link}>
           {t('nav.requests')}
+        </NavLink>
+      )}
+      {canCorrections && (
+        <NavLink to="/records/corrections" className={link}>
+          {t('nav.corrections')}
         </NavLink>
       )}
     </nav>

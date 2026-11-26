@@ -207,6 +207,9 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'medicalRecord:assign' },
   { permission: 'recordRequest:read' },
   { permission: 'recordRequest:manage' },
+  { permission: 'correction:read' },
+  { permission: 'correction:request' },
+  { permission: 'correction:decide' },
   // Inventory (#102): stock, adjustments asked for and approved, and the places.
   { permission: 'stock:read' },
   { permission: 'stock:adjust' },

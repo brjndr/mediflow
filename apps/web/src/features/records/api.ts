@@ -1,6 +1,8 @@
 import { api, requireData } from '@/shared/api';
 import {
   codingItemPageSchema,
+  correctionRequestPageSchema,
+  correctionRequestSchema,
   codingItemSchema,
   incompleteRecordPageSchema,
   incompleteRecordSchema,
@@ -9,6 +11,11 @@ import {
 } from './schemas';
 import type {
   CodingItem,
+  CorrectionRequest,
+  CorrectionRequestCreate,
+  CorrectionRequestDecide,
+  CorrectionRequestPage,
+  CorrectionStatus,
   CodingItemPage,
   CodingState,
   EncounterKind,
@@ -114,4 +121,49 @@ export async function closeRecordRequest(
     body,
   });
   return recordRequestSchema.parse(requireData(result));
+}
+
+export async function fetchCorrectionRequests(
+  {
+    status,
+    patientId,
+    cursor,
+    limit,
+  }: { status: CorrectionStatus | ''; patientId?: string; cursor?: string; limit: number },
+  signal?: AbortSignal,
+): Promise<CorrectionRequestPage> {
+  // The hospital's whole queue, or one patient's (the id is in the path, never a name).
+  const query = { status: status || undefined, cursor, limit };
+  const result = patientId
+    ? await api.GET('/patients/{patientId}/correction-requests', {
+        params: { path: { patientId }, query },
+        signal,
+      })
+    : await api.GET('/correction-requests', { params: { query }, signal });
+  return correctionRequestPageSchema.parse(requireData(result));
+}
+
+export async function requestCorrection(
+  patientId: string,
+  body: CorrectionRequestCreate,
+  idempotencyKey: string,
+): Promise<CorrectionRequest> {
+  const result = await api.POST('/patients/{patientId}/correction-requests', {
+    params: { path: { patientId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return correctionRequestSchema.parse(requireData(result));
+}
+
+export async function decideCorrection(
+  requestId: string,
+  decision: 'approve' | 'reject',
+  body: CorrectionRequestDecide,
+): Promise<CorrectionRequest> {
+  const params = { path: { requestId } };
+  const result =
+    decision === 'approve'
+      ? await api.POST('/correction-requests/{requestId}/approve', { params, body })
+      : await api.POST('/correction-requests/{requestId}/reject', { params, body });
+  return correctionRequestSchema.parse(requireData(result));
 }

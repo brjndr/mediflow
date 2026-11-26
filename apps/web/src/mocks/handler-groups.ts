@@ -411,7 +411,7 @@ export const handlerGroups: readonly HandlerGroup[] = [
   },
   {
     name: 'records',
-    segments: ['record-requests', 'records'],
+    segments: ['correction-requests', 'patients', 'record-requests', 'records'],
     load: async () => {
       const m = await import('./handlers/records');
       return m.recordsHandlers;
