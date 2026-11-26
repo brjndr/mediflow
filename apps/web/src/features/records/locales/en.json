@@ -5,7 +5,8 @@
     "label": "Medical records views",
     "incomplete": "Incomplete records",
     "coding": "Coding queue",
-    "requests": "Record requests"
+    "requests": "Record requests",
+    "corrections": "Corrections"
   },
   "kind": {
     "opd": "Outpatient",
@@ -165,5 +166,61 @@
     "removed": "Took the assignment off {{name}}.",
     "failed": "That doctor cannot be assigned. Choose another.",
     "noDoctors": "Doctors cannot be listed here."
+  },
+  "corrections": {
+    "tab": "Corrections",
+    "tabIntro": "Requests to correct this record. Nothing is edited until a second person approves it.",
+    "heading": "Record corrections",
+    "intro": "Requests to correct a patient's record, with who asked and why. A second person approves or rejects each one with a reason; approving does not edit the record itself, the part of the system that owns it applies the change.",
+    "show": "Show",
+    "all": "All requests",
+    "patientRecord": "Patient record",
+    "count_one": "1 request.",
+    "count_other": "{{count}} requests.",
+    "empty": "No requests to correct a record.",
+    "request": "Request a correction",
+    "requestTitle": "Request a correction",
+    "requestDescription": "Say what should change in this patient's record and why. Nothing changes until a second person approves.",
+    "proposed": "What should change",
+    "proposedHint": "Say what is wrong and what it should be.",
+    "reason": "Why",
+    "send": "Send request",
+    "sending": "Sending request",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approveTitle": "Approve the correction",
+    "rejectTitle": "Reject the correction",
+    "decideDescription": "Requested: {{proposed}}",
+    "decisionReason": "Reason for the decision",
+    "approveSubmit": "Approve",
+    "rejectSubmit": "Reject",
+    "approved": "Approved: {{proposed}}",
+    "rejected": "Rejected: {{proposed}}",
+    "target": {
+      "patient": "Patient record",
+      "encounter": "Visit",
+      "document": "Document"
+    },
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "columns": {
+      "proposed": "Requested change",
+      "patient": "Patient",
+      "target": "Concerns",
+      "reason": "Reason",
+      "requested": "Requested",
+      "status": "Status",
+      "decision": "Decision reason"
+    },
+    "errors": {
+      "secondPerson": "Someone other than the person who asked must decide this request.",
+      "decided": "This request was already decided.",
+      "conflict": "This request was changed by someone else. The list has been read again; open it once more.",
+      "merged": "This patient record was merged into another. Use the other record.",
+      "target": "That visit or document does not belong to this patient."
+    }
   }
 }

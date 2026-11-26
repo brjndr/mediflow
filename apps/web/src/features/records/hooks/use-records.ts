@@ -13,13 +13,19 @@ import {
   closeRecordRequest,
   codeDiagnosis,
   createRecordRequest,
+  decideCorrection,
   fetchCodingQueue,
+  fetchCorrectionRequests,
   fetchIncompleteRecords,
   fetchRecordRequests,
+  requestCorrection,
 } from '../api';
 import { RECORDS_PAGE_SIZE } from '../schemas';
 import type {
   CodingState,
+  CorrectionRequestCreate,
+  CorrectionRequestDecide,
+  CorrectionStatus,
   EncounterKind,
   IncompleteRecordAssign,
   RecordGap,
@@ -179,6 +185,58 @@ export function useCloseRecordRequest(requestId: string) {
     onSettled: () => {
       const tenantId = stillHere();
       if (tenantId) return queryClient.invalidateQueries({ queryKey: requestKeys.all(tenantId) });
+    },
+  });
+}
+
+export const correctionKeys = createTenantKeys('record_corrections');
+
+/** The hospital's requests (`correction:read` with scope all), or one patient's when given. */
+export function useCorrectionRequests(
+  status: CorrectionStatus | '',
+  patientId?: string,
+  limit = RECORDS_PAGE_SIZE,
+) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: correctionKeys.list(tenantId ?? '', { status, patientId, limit }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchCorrectionRequests({ status, patientId, cursor: pageParam, limit }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
+    enabled: tenantId !== undefined,
+  });
+}
+
+export function useRequestCorrection(patientId: string) {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const attempt = useAttempt();
+  return useMutation({
+    mutationFn: async (body: CorrectionRequestCreate) => {
+      const created = await requestCorrection(patientId, body, attempt.keyFor(body));
+      attempt.done();
+      return created;
+    },
+    onSettled: () => {
+      const tenantId = stillHere();
+      if (tenantId)
+        return queryClient.invalidateQueries({ queryKey: correctionKeys.all(tenantId) });
+    },
+  });
+}
+
+/** Approve or reject at the version read; a decision is final, so there is no key to keep. */
+export function useDecideCorrection(requestId: string, decision: 'approve' | 'reject') {
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  return useMutation({
+    mutationFn: (body: CorrectionRequestDecide) => decideCorrection(requestId, decision, body),
+    onSettled: () => {
+      const tenantId = stillHere();
+      if (tenantId)
+        return queryClient.invalidateQueries({ queryKey: correctionKeys.all(tenantId) });
     },
   });
 }

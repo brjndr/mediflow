@@ -10,6 +10,7 @@ type Schemas = components['schemas'];
 type Incomplete = Schemas['IncompleteRecord'];
 type Coding = Schemas['CodingItem'];
 type Request = Schemas['RecordRequest'];
+type Correction = Schemas['CorrectionRequest'];
 
 const FEATURE_FLAG = 'records';
 
@@ -22,7 +23,11 @@ interface StoredCoding extends Coding {
 interface StoredRequest extends Request {
   tenantId: string;
 }
+interface StoredCorrection extends Correction {
+  tenantId: string;
+}
 interface State {
+  corrections: StoredCorrection[];
   incomplete: StoredIncomplete[];
   coding: StoredCoding[];
   requests: StoredRequest[];
@@ -171,6 +176,48 @@ function seed(): State {
         requestedOn: day(-2),
         state: 'open',
         createdByName: 'Clinic Admin',
+        version: 1,
+      },
+    ],
+    corrections: [
+      {
+        tenantId: H,
+        id: 'cor_h_1',
+        patientId: 'pth_00001',
+        targetKind: 'patient',
+        proposed: 'Date of birth is 1984-03-12, not 1984-12-03',
+        reason: 'Checked against the birth certificate',
+        status: 'pending',
+        requestedBy: 'usr_other',
+        requestedAt: iso(1),
+        version: 1,
+      },
+      {
+        tenantId: H,
+        id: 'cor_h_2',
+        patientId: 'pth_00001',
+        targetKind: 'document',
+        targetId: '00000000-0000-4000-8000-000000000001',
+        proposed: 'Retitle the scan as a discharge card',
+        reason: 'Uploaded under the wrong title',
+        status: 'approved',
+        requestedBy: 'usr_other',
+        requestedAt: iso(6),
+        decidedBy: 'usr_admin',
+        decidedAt: iso(5),
+        decisionReason: 'Seen the original',
+        version: 2,
+      },
+      {
+        tenantId: C,
+        id: 'cor_c_1',
+        patientId: 'ptc_00001',
+        targetKind: 'patient',
+        proposed: 'Spelling of the surname',
+        reason: 'Patient showed an identity card',
+        status: 'pending',
+        requestedBy: 'usr_other',
+        requestedAt: iso(2),
         version: 1,
       },
     ],
@@ -419,4 +466,116 @@ export const recordsHandlers = [
     found.version += 1;
     return HttpResponse.json(strip(found));
   }),
+
+  http.get('*/api/correction-requests', ({ request }) => {
+    const access = authorize(request, { permission: 'correction:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const wanted = new URL(request.url).searchParams.get('status');
+    const rows = state.corrections
+      .filter((one) => one.tenantId === access.tenantId && (!wanted || one.status === wanted))
+      .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+    const found = page(rows, new URL(request.url).searchParams);
+    if (!found) return error(400, 'invalid_cursor', 'Unknown cursor');
+    return HttpResponse.json({ ...found, items: found.items.map(strip) });
+  }),
+
+  http.get('*/api/patients/:patientId/correction-requests', ({ request, params }) => {
+    const access = authorize(request, { permission: 'correction:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const wanted = new URL(request.url).searchParams.get('status');
+    const rows = state.corrections
+      .filter(
+        (one) =>
+          one.tenantId === access.tenantId &&
+          one.patientId === params.patientId &&
+          (!wanted || one.status === wanted),
+      )
+      .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+    const found = page(rows, new URL(request.url).searchParams);
+    if (!found) return error(400, 'invalid_cursor', 'Unknown cursor');
+    return HttpResponse.json({ ...found, items: found.items.map(strip) });
+  }),
+
+  http.post('*/api/patients/:patientId/correction-requests', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'correction:request',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const key = request.headers.get('Idempotency-Key');
+    if (!key) return error(400, 'validation_failed', 'Idempotency-Key is required');
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    const text = (value: unknown) => typeof value === 'string' && value.trim() !== '';
+    if (
+      !body ||
+      !text(body.proposed) ||
+      !text(body.reason) ||
+      !['patient', 'encounter', 'document'].includes(String(body.targetKind))
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    const patient = mockPatient(access.tenantId, String(params.patientId));
+    if (!patient) return error(404, 'patient_not_found', 'No such patient');
+    const replyKey = `${access.tenantId}:correction:${key}`;
+    let id = state.replies.get(replyKey);
+    if (!id) {
+      state.created += 1;
+      id = `cor_mock_${state.created}`;
+      state.replies.set(replyKey, id);
+      state.corrections.push({
+        tenantId: access.tenantId,
+        id,
+        patientId: patient.id,
+        targetKind: body.targetKind as Correction['targetKind'],
+        ...(typeof body.targetId === 'string' ? { targetId: body.targetId } : {}),
+        proposed: String(body.proposed).trim(),
+        reason: String(body.reason).trim(),
+        status: 'pending',
+        requestedBy: currentSession()?.user.id ?? '',
+        requestedAt: new Date().toISOString(),
+        version: 1,
+      });
+    }
+    const stored = state.corrections.find((one) => one.id === id) as StoredCorrection;
+    return HttpResponse.json(strip(stored), { status: 201 });
+  }),
+
+  ...(['approve', 'reject'] as const).map((decision) =>
+    http.post(`*/api/correction-requests/:requestId/${decision}`, async ({ request, params }) => {
+      const access = authorize(request, {
+        permission: 'correction:decide',
+        featureFlag: FEATURE_FLAG,
+      });
+      if ('denied' in access) return access.denied;
+      const body = (await request.json().catch(() => null)) as {
+        reason?: unknown;
+        expectedVersion?: unknown;
+      } | null;
+      if (
+        !body ||
+        typeof body.reason !== 'string' ||
+        body.reason.trim() === '' ||
+        typeof body.expectedVersion !== 'number'
+      ) {
+        return error(400, 'validation_failed', 'The request is not valid');
+      }
+      const found = state.corrections.find(
+        (one) => one.id === params.requestId && one.tenantId === access.tenantId,
+      );
+      if (!found) return error(404, 'correction_not_found', 'No such request');
+      if (found.requestedBy === currentSession()?.user.id) {
+        return error(403, 'second_person_required', 'Someone else must decide');
+      }
+      if (found.status !== 'pending') return error(409, 'already_decided', 'Already decided');
+      if (found.version !== body.expectedVersion) {
+        return error(409, 'conflict', 'The request changed');
+      }
+      found.status = decision === 'approve' ? 'approved' : 'rejected';
+      found.decisionReason = body.reason.trim();
+      found.decidedBy = currentSession()?.user.id ?? '';
+      found.decidedAt = new Date().toISOString();
+      found.version += 1;
+      return HttpResponse.json(strip(found));
+    }),
+  ),
 ];

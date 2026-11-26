@@ -21,3 +21,11 @@ export type RecordRequestCreate = Schemas['RecordRequestCreate'];
 export type RecordRequestClose = Schemas['RecordRequestClose'];
 export type RecordRequestState = Schemas['RecordRequestState'];
 export type RecordRequester = Schemas['RecordRequester'];
+
+/** A request to correct a patient's record: author and reason, decided once by a second person (#191, API #556). */
+export type CorrectionRequest = Schemas['CorrectionRequest'];
+export type CorrectionRequestPage = Schemas['CorrectionRequestPage'];
+export type CorrectionRequestCreate = Schemas['CorrectionRequestCreate'];
+export type CorrectionRequestDecide = Schemas['CorrectionRequestDecide'];
+export type CorrectionStatus = CorrectionRequest['status'];
+export type CorrectionTarget = CorrectionRequest['targetKind'];
