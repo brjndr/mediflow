@@ -17,12 +17,23 @@ const VENDOR =
 // left out, five widgets and the arrow of their links became files of their own. An icon another
 // screen also uses must not be listed, or that screen downloads this whole chunk (charts and all).
 const HOME_WIDGETS =
-  /[\\/]src[\\/](features[\\/][^\\/]+[\\/]components[\\/][A-Za-z]+Widget\.tsx|features[\\/][^\\/]+[\\/]widget-strings\.json|shared[\\/]hooks[\\/]use-widget-strings\.ts|features[\\/][^\\/]+[\\/]hooks[\\/]use-(notices|census|board|queue|lab|inventory|billing|reports)\.ts|shared[\\/]ui[\\/](ring-gauge|stat-card)\.tsx|tenancy[\\/]use-formatters\.ts)$|[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/](arrow-down-right|arrow-up-right|equal|file-x|folder-open|image-off|move-right|package-search|receipt-text)\.mjs$/;
+  /[\\/]src[\\/](features[\\/][^\\/]+[\\/]components[\\/][A-Za-z]+Widget\.tsx|features[\\/][^\\/]+[\\/]widget-strings\.json|shared[\\/]hooks[\\/]use-widget-strings\.ts|features[\\/](admissions|appointments|billing|documents|inventory|lab|notices|queue|radiology|records|reports)[\\/](api|schemas)\.ts|features[\\/][^\\/]+[\\/]hooks[\\/]use-(notices|census|board|queue|lab|inventory|billing|reports|appointments|documents|radiology|records)\.ts|shared[\\/]ui[\\/](ring-gauge|stat-card)\.tsx|tenancy[\\/]use-formatters\.ts)$|[\\/]lucide-react[\\/]dist[\\/]esm[\\/]icons[\\/](arrow-down-right|arrow-up-right|equal|file-x|folder-open|image-off|move-right|package-search|receipt-text)\.mjs$/;
 // The shell's small modules (API client, session, access, class names), which each cost a file.
 const APP_CORE =
   /[\\/]src[\\/](shared[\\/](api|lib)|access|app[\\/]session|tenancy)[\\/]|[\\/]node_modules[\\/](clsx|tailwind-merge|class-variance-authority)[\\/]/;
 // Small helpers the shell needs on every page load (dates, masks, text rules), as one file.
 const SHARED_UTILS = /[\\/]src[\\/]shared[\\/]utils[\\/]/;
+
+// The mock API's handler files (mocks/lazy-api.ts, #1176) are loaded for the files a request's path
+// names, one chunk each, which meant a dozen requests for a page that asks for a dozen areas. The
+// small files that the patient screens ask for go together, and so do the big ones that the home
+// page's tiles ask for. A page that asks for neither builds neither.
+const MOCK_PATIENTS =
+  /[\\/]src[\\/]mocks[\\/]handlers[\\/](patients|triage|drugs|appointments|doctors|departments|staff|services|notices|hospital-profile|roles|queue|codes|templates|lab-tests|examples|prescription-sets|audit|records|documents|consents)\.ts$/;
+// The mock's own start-up code is one file too: it is read before the first render.
+const MOCK_CORE = /[\\/]src[\\/]mocks[\\/](lazy|respond)\.ts$/;
+const MOCK_HOME =
+  /[\\/]src[\\/]mocks[\\/]handlers[\\/](admissions|admissions-flow|discharge-plan|discharge-summary|stay-bill|nursing[a-z-]*|clinical|wards|lab|billing|radiology|inventory|indents|reports)\.ts$/;
 
 export default defineConfig({
   plugins: [
@@ -64,6 +75,9 @@ export default defineConfig({
             { name: 'home-widgets', test: HOME_WIDGETS, includeDependenciesRecursively: false },
             { name: 'app-core', test: APP_CORE, includeDependenciesRecursively: false },
             { name: 'shared-utils', test: SHARED_UTILS, includeDependenciesRecursively: false },
+            { name: 'mock-patients', test: MOCK_PATIENTS, includeDependenciesRecursively: false },
+            { name: 'mock-core', test: MOCK_CORE, includeDependenciesRecursively: false },
+            { name: 'mock-home', test: MOCK_HOME, includeDependenciesRecursively: false },
           ],
         },
         // Strip console.* and debugger statements from production bundles.
