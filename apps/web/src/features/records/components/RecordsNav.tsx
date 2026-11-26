@@ -22,7 +22,7 @@ export function RecordsNav() {
   return (
     <nav
       aria-label={t('nav.label')}
-      className="inline-flex self-start overflow-hidden rounded-lg border border-primary/30 bg-card shadow-tinted"
+      className="inline-flex max-w-full self-start overflow-x-auto rounded-lg border border-primary/30 bg-card shadow-tinted"
     >
       {canReview && (
         <NavLink to="/records" end className={link}>
