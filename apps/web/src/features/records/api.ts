@@ -1,6 +1,7 @@
 import { api, requireData } from '@/shared/api';
 import {
   codingItemPageSchema,
+  correctionAmendmentPageSchema,
   correctionRequestPageSchema,
   correctionRequestSchema,
   codingItemSchema,
@@ -11,6 +12,8 @@ import {
 } from './schemas';
 import type {
   CodingItem,
+  CorrectionAmendmentPage,
+  CorrectionTarget,
   CorrectionRequest,
   CorrectionRequestCreate,
   CorrectionRequestDecide,
@@ -166,4 +169,29 @@ export async function decideCorrection(
       ? await api.POST('/correction-requests/{requestId}/approve', { params, body })
       : await api.POST('/correction-requests/{requestId}/reject', { params, body });
   return correctionRequestSchema.parse(requireData(result));
+}
+
+/** The amendments of a patient's record, or of one visit or document of it (ids in the address only). */
+export async function fetchCorrectionAmendments(
+  {
+    patientId,
+    target,
+    cursor,
+    limit,
+  }: {
+    patientId: string;
+    target?: { kind: CorrectionTarget; id?: string };
+    cursor?: string;
+    limit: number;
+  },
+  signal?: AbortSignal,
+): Promise<CorrectionAmendmentPage> {
+  const result = await api.GET('/patients/{patientId}/correction-amendments', {
+    params: {
+      path: { patientId },
+      query: { targetKind: target?.kind, targetId: target?.id, cursor, limit },
+    },
+    signal,
+  });
+  return correctionAmendmentPageSchema.parse(requireData(result));
 }

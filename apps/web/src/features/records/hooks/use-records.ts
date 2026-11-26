@@ -15,6 +15,7 @@ import {
   createRecordRequest,
   decideCorrection,
   fetchCodingQueue,
+  fetchCorrectionAmendments,
   fetchCorrectionRequests,
   fetchIncompleteRecords,
   fetchRecordRequests,
@@ -26,6 +27,7 @@ import type {
   CorrectionRequestCreate,
   CorrectionRequestDecide,
   CorrectionStatus,
+  CorrectionTarget,
   EncounterKind,
   IncompleteRecordAssign,
   RecordGap,
@@ -206,6 +208,23 @@ export function useCorrectionRequests(
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     placeholderData: keepPreviousData,
     enabled: tenantId !== undefined,
+  });
+}
+
+/** The amendments of one patient's record, or of one visit or document of it. */
+export function useCorrectionAmendments(
+  patientId: string,
+  target?: { kind: CorrectionTarget; id?: string },
+  limit = RECORDS_PAGE_SIZE,
+) {
+  const tenantId = useTenant()?.id;
+  return useInfiniteQuery({
+    queryKey: correctionKeys.list(tenantId ?? '', { amendments: true, patientId, target, limit }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchCorrectionAmendments({ patientId, target, cursor: pageParam, limit }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: tenantId !== undefined && patientId !== '',
   });
 }
 

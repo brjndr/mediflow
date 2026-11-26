@@ -9940,6 +9940,95 @@
           }
         }
       },
+      "CorrectionAmendment": {
+        "description": "An approved correction, attached to the record it concerns (#1181).",
+        "type": "object",
+        "required": [
+          "id",
+          "requestId",
+          "patientId",
+          "targetKind",
+          "outcome",
+          "proposed",
+          "reason",
+          "requestedBy",
+          "approvedBy",
+          "appliedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "patientId": {
+            "type": "string"
+          },
+          "targetKind": {
+            "type": "string",
+            "enum": ["patient", "encounter", "document"]
+          },
+          "targetId": {
+            "description": "Absent for the patient record itself.",
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["applied", "target_unavailable"]
+          },
+          "proposed": {
+            "description": "What was asked to change, and to what.",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "requestedBy": {
+            "type": "string"
+          },
+          "requestedByName": {
+            "type": "string"
+          },
+          "approvedBy": {
+            "type": "string"
+          },
+          "approvedByName": {
+            "type": "string"
+          },
+          "appliedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "CorrectionAmendmentPage": {
+        "description": "Cursor envelope used by every list endpoint.",
+        "type": "object",
+        "required": ["items", "nextCursor"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CorrectionAmendment"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        }
+      },
       "ConsentSigner": {
         "type": "string",
         "enum": ["patient", "guardian", "representative"]
@@ -49819,6 +49908,123 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CorrectionRequestPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/patients/{patientId}/correction-amendments": {
+      "get": {
+        "operationId": "listCorrectionAmendments",
+        "tags": ["records"],
+        "description": "The amendments approved corrections added to a patient’s record (#1181), newest first, one cursor page at a time: the proposed text, the reason, who asked and who approved, and when. `targetKind` (with `targetId` for an encounter or a document) narrows to one record. Each page read is audited. Requires correction:read, within the scope the role holds it with.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["patient", "encounter", "document"]
+            },
+            "in": "query",
+            "name": "targetKind",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "query",
+            "name": "targetId",
+            "required": false
+          },
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "patientId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope used by every list endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionAmendmentPage"
                 }
               }
             }

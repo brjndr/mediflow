@@ -61,6 +61,18 @@ export const recordsFeature: FeatureManifest = {
       requires: ['correction:read'],
       order: 95,
     },
+    {
+      slot: 'patient.detail.tabs',
+      component: () => import('./components/AmendmentsTab'),
+      requires: ['correction:read'],
+      order: 96,
+    },
+    {
+      slot: 'encounter.detail.actions',
+      component: () => import('./components/EncounterAmendments'),
+      requires: ['correction:read'],
+      order: 95,
+    },
   ],
   dashboardWidgets: [
     {

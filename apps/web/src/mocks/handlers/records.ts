@@ -11,6 +11,7 @@ type Incomplete = Schemas['IncompleteRecord'];
 type Coding = Schemas['CodingItem'];
 type Request = Schemas['RecordRequest'];
 type Correction = Schemas['CorrectionRequest'];
+type Amendment = Schemas['CorrectionAmendment'];
 
 const FEATURE_FLAG = 'records';
 
@@ -26,8 +27,12 @@ interface StoredRequest extends Request {
 interface StoredCorrection extends Correction {
   tenantId: string;
 }
+interface StoredAmendment extends Amendment {
+  tenantId: string;
+}
 interface State {
   corrections: StoredCorrection[];
+  amendments: StoredAmendment[];
   incomplete: StoredIncomplete[];
   coding: StoredCoding[];
   requests: StoredRequest[];
@@ -177,6 +182,52 @@ function seed(): State {
         state: 'open',
         createdByName: 'Clinic Admin',
         version: 1,
+      },
+    ],
+    amendments: [
+      {
+        tenantId: H,
+        id: 'amd_h_1',
+        requestId: 'cor_h_2',
+        patientId: 'pth_00001',
+        targetKind: 'document',
+        targetId: '00000000-0000-4000-8000-000000000001',
+        outcome: 'applied',
+        proposed: 'Retitle the scan as a discharge card',
+        reason: 'Uploaded under the wrong title',
+        requestedBy: 'usr_other',
+        requestedByName: 'Sample Receptionist',
+        approvedBy: 'usr_admin',
+        approvedByName: 'Sample Admin',
+        appliedAt: iso(5),
+      },
+      {
+        tenantId: H,
+        id: 'amd_h_2',
+        requestId: 'cor_h_3',
+        patientId: 'pth_00001',
+        targetKind: 'encounter',
+        targetId: 'enc_h_1',
+        outcome: 'applied',
+        proposed: 'The visit was on the 3rd, not the 4th',
+        reason: 'Checked against the token slip',
+        requestedBy: 'usr_other',
+        approvedBy: 'usr_admin',
+        approvedByName: 'Sample Admin',
+        appliedAt: iso(3),
+      },
+      {
+        tenantId: C,
+        id: 'amd_c_1',
+        requestId: 'cor_c_9',
+        patientId: 'ptc_00001',
+        targetKind: 'patient',
+        outcome: 'applied',
+        proposed: 'Clinic-only amendment',
+        reason: 'Only the clinic sees this',
+        requestedBy: 'usr_other',
+        approvedBy: 'usr_admin',
+        appliedAt: iso(2),
       },
     ],
     corrections: [
@@ -477,6 +528,26 @@ export const recordsHandlers = [
       .filter((one) => one.tenantId === access.tenantId && (!wanted || one.status === wanted))
       .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
     const found = page(rows, new URL(request.url).searchParams);
+    if (!found) return error(400, 'invalid_cursor', 'Unknown cursor');
+    return HttpResponse.json({ ...found, items: found.items.map(strip) });
+  }),
+
+  http.get('*/api/patients/:patientId/correction-amendments', ({ request, params }) => {
+    const access = authorize(request, { permission: 'correction:read', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const query = new URL(request.url).searchParams;
+    const kind = query.get('targetKind');
+    const targetId = query.get('targetId');
+    const rows = state.amendments
+      .filter(
+        (one) =>
+          one.tenantId === access.tenantId &&
+          one.patientId === params.patientId &&
+          (!kind || one.targetKind === kind) &&
+          (!targetId || one.targetId === targetId),
+      )
+      .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt));
+    const found = page(rows, query);
     if (!found) return error(400, 'invalid_cursor', 'Unknown cursor');
     return HttpResponse.json({ ...found, items: found.items.map(strip) });
   }),

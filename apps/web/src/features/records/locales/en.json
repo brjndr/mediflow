@@ -228,5 +228,22 @@
       "merged": "This patient record was merged into another. Use the other record.",
       "target": "That visit or document does not belong to this patient."
     }
+  },
+  "amendments": {
+    "tab": "Amendments",
+    "intro": "What approved corrections added to this record, to its visits and to its documents. The record itself is never overwritten.",
+    "loading": "Loading amendments.",
+    "empty": "No corrections have been added to this record.",
+    "more": "Show more",
+    "someone": "someone",
+    "reason": "Why: {{reason}}",
+    "who": "Asked by {{requester}}, approved by {{approver}}, {{when}}.",
+    "unavailable": "The record was gone or retired when this was applied, so it is kept here only.",
+    "visit": "Amendments to this visit",
+    "target": {
+      "patient": "Patient record",
+      "encounter": "Visit",
+      "document": "Document"
+    }
   }
 }
