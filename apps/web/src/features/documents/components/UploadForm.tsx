@@ -126,7 +126,10 @@ export function UploadForm({
           name="category"
           label={t('upload.category')}
           required
-          options={DOCUMENT_CATEGORIES.map((value) => ({
+          // An OPD sheet belongs to a visit, so it is offered only from one.
+          options={DOCUMENT_CATEGORIES.filter(
+            (value) => encounterId !== undefined || value !== 'opd_sheet',
+          ).map((value) => ({
             value,
             label: t(`category.${value}`),
           }))}

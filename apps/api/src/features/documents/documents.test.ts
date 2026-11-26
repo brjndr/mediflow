@@ -483,7 +483,7 @@ describe('retention', () => {
       items: { category: string; years: number | null }[];
     }>();
     expect(after.items.find((rule) => rule.category === 'consent')?.years).toBe(7);
-    expect(after.items).toHaveLength(7);
+    expect(after.items).toHaveLength(8);
 
     const denied = await app.inject({
       method: 'PUT',
@@ -926,5 +926,118 @@ describe('uploads asked for and never sent (#560)', () => {
       409,
       'document_blocked',
     ]);
+  });
+});
+
+describe('a scanned OPD sheet (#1200)', () => {
+  interface Listed {
+    items: { id: string }[];
+  }
+  let patientId = '';
+  let visit = '';
+  let sheet = '';
+  const listed = async (options: Options = {}) =>
+    (await get(`/patients/${patientId}/documents?category=opd_sheet`, options))
+      .json<Listed>()
+      .items.map((one) => one.id);
+
+  beforeAll(async () => {
+    patientId = await patient(hospital, 'DC-0000090');
+    visit = (
+      await pool.query<{ id: string }>(
+        `insert into encounters (tenant_id, patient_id, type, opened_by)
+         values ($1, $2, 'opd', $3) returning id`,
+        [hospital.id, patientId, admin.id],
+      )
+    ).rows[0]!.id;
+    // The receptionist attaches it, without being able to read it afterwards. Marked as scanned
+    // here: the signed upload has its own tests, and its rate limit is spent by this point.
+    const asked = await ask(
+      patientId,
+      { category: 'opd_sheet', encounterId: visit },
+      { user: receptionist },
+    );
+    expect(asked.statusCode).toBe(201);
+    sheet = asked.json<Upload>().document.id;
+    await pool.query(
+      `update patient_documents set status = 'clean', file_key = $2, uploaded_at = now()
+       where id = $1`,
+      [sheet, `documents/${hospital.id}/${sheet}`],
+    );
+  });
+
+  it('always belongs to a visit', async () => {
+    expect(errorOf(await ask(patientId, { category: 'opd_sheet' }))).toEqual([
+      422,
+      'encounter_required',
+    ]);
+  });
+
+  it('is read with diagnosis:read only, and is otherwise not there', async () => {
+    expect(await listed()).toEqual([sheet]);
+    expect((await get(`/documents/${sheet}/download-url`)).statusCode).toBe(200);
+
+    expect(await listed({ user: receptionist })).toEqual([]);
+    const all = await get(`/patients/${patientId}/documents?encounterId=${visit}`, {
+      user: receptionist,
+    });
+    expect(all.json<Listed>().items).toEqual([]);
+    expect(errorOf(await get(`/documents/${sheet}/download-url`, { user: receptionist }))).toEqual([
+      404,
+      'document_not_found',
+    ]);
+  });
+
+  it('follows the scope of diagnosis:read', async () => {
+    const restrict = (scope: string) =>
+      pool.query(
+        `update role_permissions set scope = $2
+         where tenant_id = $1 and permission = 'diagnosis:read' and role_id = 'admin'`,
+        [hospital.id, scope],
+      );
+    // The visit has no attending doctor, so it is nobody's own.
+    await restrict('own');
+    try {
+      expect(await listed()).toEqual([]);
+      expect(errorOf(await get(`/documents/${sheet}/download-url`))).toEqual([
+        404,
+        'document_not_found',
+      ]);
+    } finally {
+      await restrict('all');
+    }
+  });
+
+  it('cannot be retired or held by someone who may not read it', async () => {
+    const restrict = (scope: string) =>
+      pool.query(
+        `update role_permissions set scope = $2
+         where tenant_id = $1 and permission = 'diagnosis:read' and role_id = 'admin'`,
+        [hospital.id, scope],
+      );
+    await restrict('department');
+    try {
+      const body = { reason: 'Wrong visit', expectedVersion: 1 };
+      expect(errorOf(await post(`/documents/${sheet}/retire`, body))).toEqual([
+        404,
+        'document_not_found',
+      ]);
+      expect(errorOf(await post(`/documents/${sheet}/legal-hold`, { reason: 'Case' }))).toEqual([
+        404,
+        'document_not_found',
+      ]);
+    } finally {
+      await restrict('all');
+    }
+  });
+
+  it('is not there for another hospital', async () => {
+    expect(
+      errorOf(await get(`/documents/${sheet}/download-url`, { tenant: clinic, user: clinicAdmin })),
+    ).toEqual([404, 'document_not_found']);
+  });
+
+  it('can be given a retention rule', async () => {
+    expect((await send('PUT', '/document-retention/opd_sheet', { years: 3 })).statusCode).toBe(200);
   });
 });

@@ -35,6 +35,7 @@ import {
   DOCUMENT_CATEGORIES,
   type DocumentType,
 } from './schemas.js';
+import { sheetReader, sheetVisibleSql } from './sheets.js';
 
 const FEATURE = 'documents';
 const READ = 'document:read';
@@ -120,9 +121,11 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
   /** A document found through its patient's scope, so a narrower role cannot guess an id. */
   async function documentOf(request: FastifyRequest, id: string, permission: Permission) {
     if (!UUID.test(id)) throw documentNotFound();
+    const sheet = await sheetReader(request);
     const { rows } = await request.txClient.query<DocumentRow>(
-      `select ${COLUMNS} from patient_documents where id = $1 for update`,
-      [id],
+      `select ${COLUMNS} from patient_documents
+       where id = $1 and ${sheetVisibleSql('patient_documents', '$2', '$3')} for update`,
+      [id, sheet.scope, sheet.userId],
     );
     const row = rows[0];
     if (!row) throw documentNotFound();
@@ -156,7 +159,7 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'requestPatientDocumentUpload',
         tags: ['documents'],
         headers: RequiredIdempotencyHeaders,
-        description: `Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid ${UPLOAD_TTL_SECONDS / 60} minutes) to PUT the file to with the same Content-Type. At most ${DOCUMENT_MAX_BYTES} bytes (422 \`file_too_large\`); one of ${DOCUMENT_TYPES.join(', ')} (422 \`file_type_not_allowed\`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. \`encounterId\`, when sent, must be an encounter of this patient (422 \`encounter_mismatch\`). 409 \`patient_merged\` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag.`,
+        description: `Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid ${UPLOAD_TTL_SECONDS / 60} minutes) to PUT the file to with the same Content-Type. At most ${DOCUMENT_MAX_BYTES} bytes (422 \`file_too_large\`); one of ${DOCUMENT_TYPES.join(', ')} (422 \`file_type_not_allowed\`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. \`encounterId\`, when sent, must be an encounter of this patient (422 \`encounter_mismatch\`); an \`opd_sheet\` needs one (422 \`encounter_required\`). 409 \`patient_merged\` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag.`,
         params: PatientParams,
         body: ref(PatientDocumentCreate),
         response: { 201: ref(PatientDocumentUpload), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -177,7 +180,9 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         const row = again?.rows[0];
         if (!row) throw patientNotFound();
         request.audit('read', 'patient_document', row.id);
-        return reply.status(201).send(uploadOf(row));
+        // The uploader may not read a sheet (#1200): a repeat carries nothing written since.
+        const retired_reason = row.category === 'opd_sheet' ? null : row.retired_reason;
+        return reply.status(201).send(uploadOf({ ...row, retired_reason }));
       }
 
       if (!DOCUMENT_TYPES.includes(body.contentType as DocumentType)) {
@@ -196,6 +201,9 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
       if ((await patientMergedInto(request.txClient, request.params.patientId)) !== null) {
         throw new HttpError(409, 'patient_merged', 'This record was merged into another');
+      }
+      if (body.category === 'opd_sheet' && !body.encounterId) {
+        throw new HttpError(422, 'encounter_required', 'An OPD sheet belongs to a visit');
       }
       if (body.encounterId) {
         const { rowCount } = await request.txClient.query(
@@ -307,7 +315,7 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'listPatientDocuments',
         tags: ['documents'],
         description:
-          'The documents kept on a patient’s record (#194), newest first, one cursor page at a time. `encounterId` narrows them to those of one visit. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with.',
+          'The documents kept on a patient’s record (#194), newest first, one cursor page at a time. `encounterId` narrows them to those of one visit. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with. An `opd_sheet` is listed only for a caller who also holds diagnosis:read for its visit.',
         params: PatientParams,
         querystring: DocumentListQuery,
         response: { 200: ref(PatientDocumentPage), ...errors(400, 401, 403, 404, 429) },
@@ -316,8 +324,9 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       await reachable(request, request.params.patientId, READ);
       const { cursor, limit, category, encounterId, includeRetired } = request.query;
-      const params: unknown[] = [request.params.patientId];
-      const where = ['patient_id = $1'];
+      const sheet = await sheetReader(request);
+      const params: unknown[] = [request.params.patientId, sheet.scope, sheet.userId];
+      const where = ['patient_id = $1', sheetVisibleSql('patient_documents', '$2', '$3')];
       if (category) {
         params.push(category);
         where.push(`category = $${params.length}`);
@@ -358,7 +367,7 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'getPatientDocumentDownloadUrl',
         tags: ['documents'],
         description:
-          'A signed, short-lived address for a document that passed the malware scan (`REPORT_URL_TTL_SECONDS`). The link needs no session, so give it only to the person who asked; it is audited here as an `export`. 409 `document_not_ready` until the scan has finished, 409 `document_blocked` for a file that was infected, lost or removed after its retention. A retired document can still be downloaded. Requires document:read.',
+          'A signed, short-lived address for a document that passed the malware scan (`REPORT_URL_TTL_SECONDS`). The link needs no session, so give it only to the person who asked; it is audited here as an `export`. 409 `document_not_ready` until the scan has finished, 409 `document_blocked` for a file that was infected, lost or removed after its retention. A retired document can still be downloaded. Requires document:read; an `opd_sheet` also diagnosis:read for its visit (else 404).',
         params: DocumentParams,
         response: { 200: ref(PatientDocumentDownload), ...errors(401, 403, 404, 409, 429) },
       },

@@ -3831,10 +3831,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The documents kept on a patient’s record (#194), newest first, one cursor page at a time. `encounterId` narrows them to those of one visit. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with. */
+        /** @description The documents kept on a patient’s record (#194), newest first, one cursor page at a time. `encounterId` narrows them to those of one visit. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with. An `opd_sheet` is listed only for a caller who also holds diagnosis:read for its visit. */
         get: operations["listPatientDocuments"];
         put?: never;
-        /** @description Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid 15 minutes) to PUT the file to with the same Content-Type. At most 26214400 bytes (422 `file_too_large`); one of image/jpeg, image/png, application/pdf (422 `file_type_not_allowed`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. `encounterId`, when sent, must be an encounter of this patient (422 `encounter_mismatch`). 409 `patient_merged` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag. */
+        /** @description Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid 15 minutes) to PUT the file to with the same Content-Type. At most 26214400 bytes (422 `file_too_large`); one of image/jpeg, image/png, application/pdf (422 `file_type_not_allowed`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. `encounterId`, when sent, must be an encounter of this patient (422 `encounter_mismatch`); an `opd_sheet` needs one (422 `encounter_required`). 409 `patient_merged` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag. */
         post: operations["requestPatientDocumentUpload"];
         delete?: never;
         options?: never;
@@ -3883,7 +3883,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description A signed, short-lived address for a document that passed the malware scan (`REPORT_URL_TTL_SECONDS`). The link needs no session, so give it only to the person who asked; it is audited here as an `export`. 409 `document_not_ready` until the scan has finished, 409 `document_blocked` for a file that was infected, lost or removed after its retention. A retired document can still be downloaded. Requires document:read. */
+        /** @description A signed, short-lived address for a document that passed the malware scan (`REPORT_URL_TTL_SECONDS`). The link needs no session, so give it only to the person who asked; it is audited here as an `export`. 409 `document_not_ready` until the scan has finished, 409 `document_blocked` for a file that was infected, lost or removed after its retention. A retired document can still be downloaded. Requires document:read; an `opd_sheet` also diagnosis:read for its visit (else 404). */
         get: operations["getPatientDocumentDownloadUrl"];
         put?: never;
         post?: never;
@@ -11130,7 +11130,7 @@ export interface components {
             patientId: string;
             encounterId?: string;
             /** @enum {string} */
-            category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
+            category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "opd_sheet" | "other";
             title: string;
             fileName: string;
             contentType: string;
@@ -11156,7 +11156,7 @@ export interface components {
         };
         PatientDocumentCreate: {
             /** @enum {string} */
-            category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
+            category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "opd_sheet" | "other";
             title: string;
             fileName: string;
             /** @description One of image/jpeg, image/png, application/pdf (422 `file_type_not_allowed`). */
@@ -11190,7 +11190,7 @@ export interface components {
         };
         DocumentRetentionRule: {
             /** @enum {string} */
-            category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
+            category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "opd_sheet" | "other";
             /** @description Years a document of the category is kept; null keeps it for ever. */
             years: number | null;
             /** @description Only in the list: documents of the category not yet purged whose retention date is not the one the rule would give today, kept under an earlier rule (#674). */
@@ -35426,7 +35426,7 @@ export interface operations {
             query: {
                 cursor?: string;
                 limit: number;
-                category?: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
+                category?: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "opd_sheet" | "other";
                 encounterId?: string;
                 /** @description Retired documents are left out unless asked for. */
                 includeRetired?: boolean;
@@ -35889,7 +35889,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "other";
+                category: "consent" | "referral_letter" | "outside_report" | "id_proof" | "insurance" | "certificate" | "opd_sheet" | "other";
             };
             cookie?: never;
         };

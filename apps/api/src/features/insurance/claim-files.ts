@@ -3,6 +3,7 @@ import { Type, type Static } from '@sinclair/typebox';
 import type { FastifyRequest } from 'fastify';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
+import { sheetReader, sheetVisibleSql } from '../documents/index.js';
 import { patientInScope } from '../patients/index.js';
 import { ClaimParams } from './claim-schemas.js';
 import { isCode, isUuid, userIdOf } from './util.js';
@@ -54,11 +55,11 @@ interface FileRow {
   attached_at: Date;
 }
 
-const FILES = `select cd.document_id, d.title, d.file_name, d.content_type, d.size_bytes, d.category,
-    d.status, d.retired_at, cd.attached_at
+const FILES = `select cd.document_id, pd.title, pd.file_name, pd.content_type, pd.size_bytes, pd.category,
+    pd.status, pd.retired_at, cd.attached_at
   from claim_documents cd
-  join patient_documents d on d.tenant_id = cd.tenant_id and d.id = cd.document_id
- where cd.claim_id = $1
+  join patient_documents pd on pd.tenant_id = cd.tenant_id and pd.id = cd.document_id
+ where cd.claim_id = $1 and ${sheetVisibleSql('pd', '$2', '$3')}
  order by cd.attached_at, cd.document_id`;
 
 const fileView = (row: FileRow): ClaimFile => ({
@@ -72,6 +73,12 @@ const fileView = (row: FileRow): ClaimFile => ({
   retired: row.retired_at !== null,
   attachedAt: row.attached_at.toISOString(),
 });
+
+/** The values of `FILES`: an OPD sheet is left out for a caller who may not read it (#1200). */
+async function filesOf(request: FastifyRequest, claimId: string) {
+  const sheet = await sheetReader(request);
+  return [claimId, sheet.scope, sheet.userId];
+}
 
 const claimGone = () => new HttpError(404, 'claim_not_found', 'No such claim');
 const documentGone = () => new HttpError(404, 'document_not_found', 'No such document');
@@ -124,7 +131,10 @@ export const claimFileRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request) => {
       const claim = await open(request, request.params.claimId);
-      const { rows } = await request.txClient.query<FileRow>(FILES, [claim.id]);
+      const { rows } = await request.txClient.query<FileRow>(
+        FILES,
+        await filesOf(request, claim.id),
+      );
       request.audit('read', 'claim', claim.id);
       return { items: rows.map(fileView) };
     },
@@ -147,6 +157,7 @@ export const claimFileRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       const claim = await open(request, request.params.claimId);
       const client = request.txClient;
+      const sheet = await sheetReader(request);
       // The claim row is locked, so two attachments cannot both pass the count.
       const { rows: locked } = await client.query<{ status: string }>(
         'select status from claims where id = $1 for update',
@@ -154,8 +165,9 @@ export const claimFileRoutes: FastifyPluginAsyncTypebox = async (app) => {
       );
       if (!OPEN_FOR_FILES.includes(locked[0]?.status ?? '')) throw closed();
       const { rows: docs } = await client.query<{ status: string; retired_at: Date | null }>(
-        'select status, retired_at from patient_documents where id = $1 and patient_id = $2',
-        [request.body.documentId, claim.patient_id],
+        `select status, retired_at from patient_documents
+         where id = $1 and patient_id = $2 and ${sheetVisibleSql('patient_documents', '$3', '$4')}`,
+        [request.body.documentId, claim.patient_id, sheet.scope, sheet.userId],
       );
       const doc = docs[0];
       if (!doc) throw documentGone();
@@ -185,7 +197,7 @@ export const claimFileRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw error;
       }
       request.audit('update', 'claim', claim.id, `attach:${request.body.documentId}`);
-      const { rows } = await client.query<FileRow>(FILES, [claim.id]);
+      const { rows } = await client.query<FileRow>(FILES, await filesOf(request, claim.id));
       return reply.code(201).send({ items: rows.map(fileView) });
     },
   );
@@ -207,15 +219,21 @@ export const claimFileRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const claim = await open(request, request.params.claimId);
       if (!OPEN_FOR_FILES.includes(claim.status)) throw closed();
       const { documentId } = request.params;
+      const sheet = await sheetReader(request);
       const removed = isUuid(documentId)
         ? await request.txClient.query(
-            'delete from claim_documents where claim_id = $1 and document_id = $2',
-            [claim.id, documentId],
+            `delete from claim_documents cd where cd.claim_id = $1 and cd.document_id = $2
+               and exists (select 1 from patient_documents pd where pd.id = cd.document_id
+                 and ${sheetVisibleSql('pd', '$3', '$4')})`,
+            [claim.id, documentId, sheet.scope, sheet.userId],
           )
         : null;
       if (!removed?.rowCount) throw documentGone();
       request.audit('update', 'claim', claim.id, `detach:${documentId}`);
-      const { rows } = await request.txClient.query<FileRow>(FILES, [claim.id]);
+      const { rows } = await request.txClient.query<FileRow>(
+        FILES,
+        await filesOf(request, claim.id),
+      );
       return { items: rows.map(fileView) };
     },
   );

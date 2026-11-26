@@ -50,6 +50,7 @@ function PatientDocuments({ patientId }: { patientId: string }) {
   const headingId = useId();
   const categoryId = useId();
   const canUpload = usePermission('document:upload');
+  const canReadSheets = usePermission('diagnosis:read');
   const canHold = usePermission('documentRetention:manage');
   const [category, setCategory] = useState<DocumentCategory | ''>('');
   const [includeRetired, setIncludeRetired] = useState(false);
@@ -218,11 +219,13 @@ function PatientDocuments({ patientId }: { patientId: string }) {
             className="h-9 rounded-md border bg-background px-2 text-base md:text-sm pointer-coarse:h-11"
           >
             <option value="">{t('filter.all')}</option>
-            {DOCUMENT_CATEGORIES.map((value) => (
-              <option key={value} value={value}>
-                {t(`category.${value}`)}
-              </option>
-            ))}
+            {DOCUMENT_CATEGORIES.filter((value) => canReadSheets || value !== 'opd_sheet').map(
+              (value) => (
+                <option key={value} value={value}>
+                  {t(`category.${value}`)}
+                </option>
+              ),
+            )}
           </select>
         </div>
         <label className="flex items-center gap-2 text-sm pointer-coarse:min-h-11">

@@ -5,7 +5,7 @@ import { authorize, error } from '../respond';
 import { mockEncounter } from './clinical';
 import { mockActivePolicy } from './coverage';
 import { mockSplit } from './coverage-split';
-import { findMockDocument } from './documents';
+import { findMockDocument, mockMayRead } from './documents';
 
 type Schemas = components['schemas'];
 type Claim = Schemas['Claim'];
@@ -165,7 +165,7 @@ function filesOf(tenantId: string, claimId: string) {
     .filter((one) => one.tenantId === tenantId && one.claimId === claimId)
     .flatMap((link) => {
       const document = findMockDocument(tenantId, link.documentId);
-      return document
+      return document && mockMayRead(document)
         ? [
             {
               documentId: document.id,
@@ -340,7 +340,7 @@ export const claimHandlers = [
       return error(400, 'validation_failed', 'A document is needed');
     }
     const document = findMockDocument(access.tenantId, body.documentId);
-    if (!document || document.patientId !== found.patientId) {
+    if (!document || document.patientId !== found.patientId || !mockMayRead(document)) {
       return error(404, 'document_not_found', 'No such document');
     }
     if (document.status !== 'clean') {

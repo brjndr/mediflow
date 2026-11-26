@@ -64,6 +64,7 @@ function VisitDocuments({
   const { t: tCommon } = useTranslation();
   const format = useFormatters();
   const canUpload = usePermission('document:upload');
+  const canReadSheets = usePermission('diagnosis:read');
   const documents = usePatientDocuments(patientId, {
     category: '',
     includeRetired: false,
@@ -151,7 +152,8 @@ function VisitDocuments({
           onClose={() => setAdding(false)}
           onUploaded={(document) => {
             setAdding(false);
-            say(t('upload.done', { title: document.title }));
+            const hidden = document.category === 'opd_sheet' && !canReadSheets;
+            say(t(hidden ? 'upload.doneHidden' : 'upload.done', { title: document.title }));
           }}
         />
       )}

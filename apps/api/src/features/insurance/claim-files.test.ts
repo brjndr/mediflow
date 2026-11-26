@@ -267,6 +267,35 @@ describe('claim packet files', () => {
     ]);
   });
 
+  it('leaves an OPD sheet out for a caller who may not read it (#1200)', async () => {
+    const { claimId, patientId } = await claim();
+    const visit = await one('select id from encounters where patient_id = $1', [patientId]);
+    const sheet = await document(patientId);
+    await pool.query(
+      "update patient_documents set category = 'opd_sheet', encounter_id = $2 where id = $1",
+      [sheet, visit],
+    );
+    const url = `/claims/${claimId}/files`;
+    await ok(await post(url, { documentId: sheet }), 201);
+    // The desk reads claims and documents but not diagnoses.
+    expect((await ok<Files>(await get(url, { user: receptionist }))).items).toEqual([]);
+    const restrict = (scope: string) =>
+      pool.query(
+        `update role_permissions set scope = $2
+         where tenant_id = $1 and permission = 'diagnosis:read' and role_id = 'admin'`,
+        [hospital.id, scope],
+      );
+    // The visit has no attending doctor, so it is nobody's own.
+    await restrict('own');
+    try {
+      expect(errorOf(await del(`${url}/${sheet}`))).toEqual([404, 'document_not_found']);
+      expect(errorOf(await post(url, { documentId: sheet }))).toEqual([404, 'document_not_found']);
+    } finally {
+      await restrict('all');
+    }
+    expect((await ok<Files>(await get(url))).items).toHaveLength(1);
+  });
+
   it('keeps hospitals apart and follows the documents switch', async () => {
     const { claimId, patientId } = await claim();
     const documentId = await document(patientId);

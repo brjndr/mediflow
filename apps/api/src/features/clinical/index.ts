@@ -20,6 +20,7 @@ export const clinicalFeature: FastifyPluginAsync = async (app) => {
  * For the laboratory: a lab order, and moving it on as its sample and results go, so the
  * laboratory never writes the orders table. The order's enums, for its own answers.
  */
+export { encounterVisibleSql } from './repository.js';
 export { labOrder, moveLabOrder, type LabOrder } from './lab.js';
 /** For radiology: an imaging order, and moving it on as it is scheduled, performed and reported. */
 export { imagingOrder, moveImagingOrder, type ImagingOrder } from './imaging.js';

@@ -59,3 +59,33 @@ describe('documents of a visit', { timeout: 20000 }, () => {
     expect(screen.queryByRole('button', { name: 'Add document' })).toBeNull();
   });
 });
+
+describe('a scanned OPD sheet (#1200)', { timeout: 20000 }, () => {
+  async function attachSheet() {
+    await userEvent.click(screen.getByRole('button', { name: 'Add document' }));
+    await userEvent.upload(
+      screen.getByLabelText('File'),
+      new File(['%PDF-1.4 hello'], 'paper-sheet.pdf', { type: 'application/pdf' }),
+    );
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /^Category/ }), 'opd_sheet');
+    await userEvent.click(screen.getByRole('button', { name: 'Upload' }));
+  }
+
+  it('is listed for a caller who can see diagnoses', async () => {
+    const table = await openPanel();
+    await attachSheet();
+    expect(await within(table).findByText('paper-sheet.pdf')).toBeInTheDocument();
+  });
+
+  it('is saved but not shown without diagnosis:read', async () => {
+    revokePermission(HOSPITAL, 'admin', 'diagnosis:read');
+    await openPanel();
+    await attachSheet();
+    expect(
+      await screen.findByText(/shown only to those who can see diagnoses/),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('No documents attached to this visit.')).toBeInTheDocument();
+    expect(screen.queryByText('paper-sheet.pdf')).toBeNull();
+    await expectNoAxeViolations();
+  });
+});
