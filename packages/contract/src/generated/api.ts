@@ -7851,7 +7851,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Emails a signed download link of a made export, valid for seven days, to one active member of the hospital whose role holds `role:manage`, whatever it is called. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`. */
+        /** @description Emails a signed download link of a made export, valid for seven days, to one active member of the hospital whose role, whatever it is called, holds both `role:manage` and `patient:read`. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, `not_a_hospital_admin` (this person may not receive it) or `export_has_no_recipient` (nobody at the hospital may, so no id will do). */
         post: operations["platformEmailHospitalExportLink"];
         delete?: never;
         options?: never;

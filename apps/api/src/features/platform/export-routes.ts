@@ -7,7 +7,12 @@ import { errors, ref } from '../../core/http/schemas.js';
 import { withPlatformTransaction } from '../../core/platform/db.js';
 import { createExport, EXPORT_JOB, type ExportJob } from './export.js';
 import { EXPORT_LINK_JOB, EXPORT_LINK_TTL_SECONDS, type ExportLinkJob } from './export-link.js';
-import { getHospital, mayReceiveExport, recordPlatformAudit } from './repository.js';
+import {
+  getHospital,
+  hasExportRecipient,
+  mayReceiveExport,
+  recordPlatformAudit,
+} from './repository.js';
 import {
   ExportDownloadParams,
   ExportDownloadQuery,
@@ -161,7 +166,7 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'platformEmailHospitalExportLink',
         tags,
         description:
-          'Emails a signed download link of a made export, valid for seven days, to one active member of the hospital whose role holds `role:manage`, whatever it is called. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`.',
+          'Emails a signed download link of a made export, valid for seven days, to one active member of the hospital whose role, whatever it is called, holds both `role:manage` and `patient:read`. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, `not_a_hospital_admin` (this person may not receive it) or `export_has_no_recipient` (nobody at the hospital may, so no id will do).',
         params: ExportParams,
         body: ExportLinkBody,
         response: { 202: ref(ExportLinkSent), ...errors(400, 401, 403, 404, 409, 429) },
@@ -185,7 +190,19 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
           throw new HttpError(409, 'hospital_not_offboarding', 'The hospital is not offboarding');
         }
         if (!(await mayReceiveExport(client, id, adminUserId))) {
-          throw new HttpError(409, 'not_a_hospital_admin', 'Not an active admin of the hospital');
+          // Told apart, so a wrong id is not retried for a hospital where no id would do.
+          if (!(await hasExportRecipient(client, id))) {
+            throw new HttpError(
+              409,
+              'export_has_no_recipient',
+              'Nobody at the hospital may receive the export',
+            );
+          }
+          throw new HttpError(
+            409,
+            'not_a_hospital_admin',
+            'This person may not receive the export',
+          );
         }
         await recordPlatformAudit(client, {
           actorId: userId,
@@ -211,8 +228,8 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
   );
 
   // The signed link is the credential, so this route has no session. Every refusal is the same
-  // 404: a forged or expired link, an export that is gone, a hospital no longer offboarding, an
-  // admin who has since lost the role.
+  // 404: a forged or expired link, an export that is gone, a hospital no longer offboarding, a
+  // person who has since lost either permission or their active account.
   app.get(
     '/offboarding-exports/:exportId',
     {

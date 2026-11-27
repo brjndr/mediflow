@@ -268,39 +268,64 @@ describe('the offboarding export', () => {
     expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
   });
 
-  it('goes only to a holder of role:manage, whatever the role is called', async () => {
+  it('goes only to a holder of role:manage and patient:read, in any role', async () => {
     const [made] = (await call('GET', `/platform/hospitals/${hospitalA.id}/exports`)).json().items;
     const link = `/platform/hospitals/${hospitalA.id}/exports/${made.id}/email-link`;
-    const member = async (roleId: string, permission: string) => {
+    const member = async (roleId: string, ...permissions: string[]) => {
       await pool.query('insert into roles (tenant_id, id, name) values ($1, $2, $2)', [
         hospitalA.id,
         roleId,
       ]);
-      await pool.query(
-        'insert into role_permissions (tenant_id, role_id, permission) values ($1, $2, $3)',
-        [hospitalA.id, roleId, permission],
-      );
+      for (const permission of permissions) {
+        await pool.query(
+          'insert into role_permissions (tenant_id, role_id, permission) values ($1, $2, $3)',
+          [hospitalA.id, roleId, permission],
+        );
+      }
       const user = await createUser(pool, `Export ${roleId}`);
       users.push(user);
       await addMembership(pool, user, hospitalA, roleId);
       return user;
     };
-    const people = await member('people_lead', 'staff:manage');
+    const people = await member('people_lead', 'staff:manage', 'patient:read');
+    const reader = await member('reader', 'patient:read');
     const access = await member('access_lead', 'role:manage');
-
-    // The same role id managing roles at another hospital counts for nothing here.
+    // The same role id holding both at another hospital counts for nothing here.
     await pool.query(
-      "insert into roles (tenant_id, id, name) values ($1, 'people_lead', 'people_lead')",
+      "insert into roles (tenant_id, id, name) values ($1, 'access_lead', 'access_lead')",
       [hospitalB.id],
     );
     await pool.query(
       `insert into role_permissions (tenant_id, role_id, permission)
-       values ($1, 'people_lead', 'role:manage')`,
+       values ($1, 'access_lead', 'role:manage'), ($1, 'access_lead', 'patient:read')`,
       [hospitalB.id],
     );
+    const refusal = async (adminUserId: string) =>
+      (await call('POST', link, { adminUserId })).json().error.code;
 
-    const refused = await call('POST', link, { adminUserId: people.id });
-    expect(refused.json().error.code).toBe('not_a_hospital_admin');
+    // Nobody holds both: said as such, whoever is named.
+    for (const user of [people, reader, access]) {
+      expect(await refusal(user.id)).toBe('export_has_no_recipient');
+    }
+
+    await pool.query(
+      `insert into role_permissions (tenant_id, role_id, permission)
+       values ($1, 'access_lead', 'patient:read')`,
+      [hospitalA.id],
+    );
+    // Held at a narrower scope, it does not count.
+    const scope = (value: string) =>
+      pool.query(
+        `update role_permissions set scope = $2
+         where tenant_id = $1 and role_id = 'access_lead' and permission = 'patient:read'`,
+        [hospitalA.id, value],
+      );
+    await scope('own');
+    expect(await refusal(access.id)).toBe('export_has_no_recipient');
+    await scope('all');
+
+    expect(await refusal(people.id)).toBe('not_a_hospital_admin');
+    expect(await refusal(reader.id)).toBe('not_a_hospital_admin');
 
     notifier.sent.length = 0;
     expect((await call('POST', link, { adminUserId: access.id })).statusCode).toBe(202);
@@ -313,15 +338,16 @@ describe('the offboarding export', () => {
     // A disabled account is refused, and its link stops working.
     await pool.query("update users set status = 'disabled' where id = $1", [access.id]);
     const disabled = await call('POST', link, { adminUserId: access.id });
-    expect(disabled.json().error.code).toBe('not_a_hospital_admin');
+    expect(disabled.json().error.code).toBe('export_has_no_recipient');
     expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
     await pool.query("update users set status = 'active' where id = $1", [access.id]);
 
-    // Losing the permission, while still a member, ends both a queued email and the link.
+    // Losing patient:read, while still a member managing roles, ends both a queued email and the link.
     notifier.sent.length = 0;
     await call('POST', link, { adminUserId: access.id });
     await pool.query(
-      "delete from role_permissions where tenant_id = $1 and role_id = 'access_lead'",
+      `delete from role_permissions
+       where tenant_id = $1 and role_id = 'access_lead' and permission = 'patient:read'`,
       [hospitalA.id],
     );
     await queue.drain();

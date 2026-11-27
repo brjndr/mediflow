@@ -404,21 +404,43 @@ export function hasActiveManager(client: pg.ClientBase, hospitalId: string): Pro
   return activeMemberHolds(client, hospitalId, MANAGING_PERMISSIONS, null);
 }
 
+/** What the person handed a hospital's whole export must hold, both at scope `all` (#1210). */
+const EXPORT_PERMISSIONS = ['role:manage', 'patient:read'];
+
+async function exportRecipientExists(
+  client: pg.ClientBase,
+  hospitalId: string,
+  userId: string | null,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from offboarding_admin_contacts($1) c
+     join memberships m on m.tenant_id = $1 and m.user_id = c.user_id
+     where ($2::uuid is null or c.user_id = $2)
+       and (select count(*) from role_permissions p
+            where p.tenant_id = m.tenant_id and p.role_id = m.role_id and p.scope = 'all'
+              and p.permission = any($3::text[])) = cardinality($3::text[])
+     limit 1`,
+    [hospitalId, userId, EXPORT_PERMISSIONS],
+  );
+  return rowCount !== 0;
+}
+
 /**
  * Whether the person may be handed the offboarding hospital's whole export: one of its contacts
- * (an active member and account, never a platform admin) who holds `role:manage`. Narrower than
- * `hasActiveManager`: someone who only manages staff accounts is not given every record.
+ * (an active member and account, never a platform admin) whose role holds both `role:manage` and
+ * `patient:read`. Narrower than `hasActiveManager`: the export is every record of the hospital.
  */
-export async function mayReceiveExport(
+export function mayReceiveExport(
   client: pg.ClientBase,
   hospitalId: string,
   userId: string,
 ): Promise<boolean> {
-  const { rowCount } = await client.query(
-    'select 1 from offboarding_admin_contacts($1) where user_id = $2',
-    [hospitalId, userId],
-  );
-  return rowCount !== 0 && activeMemberHolds(client, hospitalId, ['role:manage'], userId);
+  return exportRecipientExists(client, hospitalId, userId);
+}
+
+/** Whether anybody at the offboarding hospital may receive its export. */
+export function hasExportRecipient(client: pg.ClientBase, hospitalId: string): Promise<boolean> {
+  return exportRecipientExists(client, hospitalId, null);
 }
 
 export async function isPlatformAdminEmail(client: pg.ClientBase, email: string): Promise<boolean> {
