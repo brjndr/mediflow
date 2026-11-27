@@ -316,7 +316,7 @@ describe('a hospital that requires an authenticator', () => {
 
     const { queryClient } = renderApp({ entry: '/' });
 
-    expect(await screen.findByRole('heading', HOME, { timeout: 4000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', HOME)).toBeInTheDocument();
     const query = queryClient
       .getQueryCache()
       .getAll()

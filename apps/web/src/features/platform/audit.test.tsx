@@ -42,9 +42,7 @@ describe('the platform audit trail', () => {
     );
     await user.type(screen.getByLabelText('Actor id'), 'user_platform_two');
     expect(await within(grid).findByText('Module switched on')).toBeVisible();
-    await waitFor(() => expect(within(grid).queryByText('First admin invited')).toBeNull(), {
-      timeout: 4000,
-    });
+    await waitFor(() => expect(within(grid).queryByText('First admin invited')).toBeNull());
   });
 
   it('says so when the actor is not an id', async () => {

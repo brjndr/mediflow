@@ -19,19 +19,18 @@ import { renderApp } from '@/test/render';
 
 const HOSPITAL = TENANT_IDS.hospital;
 const NAME = /^Attach OPD sheet, token/;
-const SLOW = { timeout: 8000 };
 const photo = () => new File(['sheet'], 'sheet.jpg', { type: 'image/jpeg' });
 
 async function openDialog(token = 'Attach OPD sheet, token 1') {
   renderApp({ entry: '/queue' });
-  const [button] = await screen.findAllByRole('button', { name: token }, SLOW);
+  const [button] = await screen.findAllByRole('button', { name: token });
   await userEvent.click(button!);
-  const dialog = await screen.findByRole('dialog', {}, SLOW);
-  await within(dialog).findByText('Check that the name and token match the paper.', {}, SLOW);
+  const dialog = await screen.findByRole('dialog');
+  await within(dialog).findByText('Check that the name and token match the paper.');
   return dialog;
 }
 
-describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
+describe('attaching a scanned OPD sheet', () => {
   afterEach(() => {
     server.events.removeAllListeners();
   });
@@ -44,9 +43,9 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
 
     await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
     await userEvent.click(submit);
-    expect(await within(dialog).findByText(/The sheet was attached/, {}, SLOW)).toBeVisible();
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
-    expect(await within(dialog).findByText('The visit is closed.', {}, SLOW)).toBeVisible();
+    expect(await within(dialog).findByText(/The sheet was attached/)).toBeVisible();
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }));
+    expect(await within(dialog).findByText('The visit is closed.')).toBeVisible();
     expect(within(dialog).queryByRole('button', { name: 'Close visit' })).toBeNull();
     // Nothing of the file or the patient is kept in the browser.
     expect(window.localStorage).toHaveLength(0);
@@ -69,12 +68,12 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
 
     await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
-    expect(await within(dialog).findByText(/The sheet was attached/, {}, SLOW)).toBeVisible();
+    expect(await within(dialog).findByText(/The sheet was attached/)).toBeVisible();
     // The upload answers with a document, not the visit: one read shows the new sheet.
-    await waitFor(() => expect(reads).toHaveLength(2), SLOW);
+    await waitFor(() => expect(reads).toHaveLength(2));
 
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
-    expect(await within(dialog).findByText('The visit is closed.', {}, SLOW)).toBeVisible();
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }));
+    expect(await within(dialog).findByText('The visit is closed.')).toBeVisible();
     expect(within(dialog).queryByRole('button', { name: 'Close visit' })).toBeNull();
 
     await userEvent.click(
@@ -85,7 +84,7 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
       'Wrong visit',
     );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Retire sheet' }));
-    expect(await within(dialog).findByText(/The sheet was retired/, {}, SLOW)).toBeVisible();
+    expect(await within(dialog).findByText(/The sheet was retired/)).toBeVisible();
     expect(
       within(dialog).queryByRole('button', { name: 'Wrong sheet: retire sheet.jpg' }),
     ).toBeNull();
@@ -107,11 +106,11 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     const dialog = await openDialog();
     await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
-    await within(dialog).findByText(/The sheet was attached/, {}, SLOW);
-    await waitFor(() => expect(reads).toHaveLength(2), SLOW);
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
-    expect(await within(dialog).findByRole('alert', {}, SLOW)).toBeVisible();
-    await waitFor(() => expect(reads).toHaveLength(3), SLOW);
+    await within(dialog).findByText(/The sheet was attached/);
+    await waitFor(() => expect(reads).toHaveLength(2));
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }));
+    expect(await within(dialog).findByRole('alert')).toBeVisible();
+    await waitFor(() => expect(reads).toHaveLength(3));
   });
 
   it('retires a wrong sheet with a reason, after which the visit cannot be closed', async () => {
@@ -119,14 +118,14 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     await userEvent.upload(within(dialog).getByLabelText('Take a photo of the sheet'), photo());
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
     await userEvent.click(
-      await within(dialog).findByRole('button', { name: 'Wrong sheet: retire sheet.jpg' }, SLOW),
+      await within(dialog).findByRole('button', { name: 'Wrong sheet: retire sheet.jpg' }),
     );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Retire sheet' }));
     const reason = within(dialog).getByRole('textbox', { name: /Why it is retired/ });
     expect(reason).toHaveFocus();
     await userEvent.type(reason, 'Wrong visit');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Retire sheet' }));
-    expect(await within(dialog).findByText(/The sheet was retired/, {}, SLOW)).toBeVisible();
+    expect(await within(dialog).findByText(/The sheet was retired/)).toBeVisible();
     await waitFor(() =>
       expect(within(dialog).queryByRole('button', { name: 'Close visit' })).toBeNull(),
     );
@@ -137,12 +136,10 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     const dialog = await openDialog();
     await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
-    await within(dialog).findByText(/The sheet was attached/, {}, SLOW);
-    const wrong = await within(dialog).findByRole(
-      'button',
-      { name: 'Wrong sheet: retire sheet.jpg' },
-      SLOW,
-    );
+    await within(dialog).findByText(/The sheet was attached/);
+    const wrong = await within(dialog).findByRole('button', {
+      name: 'Wrong sheet: retire sheet.jpg',
+    });
     // A visit with a file on it is not cancelled.
     expect(within(dialog).queryByRole('button', { name: 'Cancel visit' })).toBeNull();
     await userEvent.click(wrong);
@@ -151,15 +148,13 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
       'Wrong token',
     );
     await userEvent.click(within(dialog).getByRole('button', { name: 'Retire sheet' }));
-    await within(dialog).findByText(/The sheet was retired/, {}, SLOW);
+    await within(dialog).findByText(/The sheet was retired/);
     return dialog;
   }
 
   it('cancels an empty visit opened for the wrong token, with a reason', async () => {
     const dialog = await openedByMistake();
-    await userEvent.click(
-      await within(dialog).findByRole('button', { name: 'Cancel visit' }, SLOW),
-    );
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Cancel visit' }));
     expect(within(dialog).getByRole('heading', { name: 'Cancel this visit' })).toHaveFocus();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Keep the visit' }));
     const cancel = within(dialog).getByRole('button', { name: 'Cancel visit' });
@@ -171,7 +166,7 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     await expectNoAxeViolations();
     await userEvent.type(reason, 'Wrong token');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel this visit' }));
-    const done = await within(dialog).findByText('The visit was cancelled.', {}, SLOW);
+    const done = await within(dialog).findByText('The visit was cancelled.');
     await waitFor(() => expect(done).toHaveFocus());
     expect(within(dialog).queryByRole('button', { name: /^Attach to/ })).toBeNull();
     expect(within(dialog).queryByRole('button', { name: 'Cancel visit' })).toBeNull();
@@ -187,32 +182,28 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
       ),
     );
     const dialog = await openedByMistake();
-    await userEvent.click(
-      await within(dialog).findByRole('button', { name: 'Cancel visit' }, SLOW),
-    );
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Cancel visit' }));
     await userEvent.type(
       within(dialog).getByRole('textbox', { name: /Why it is cancelled/ }),
       'Wrong token',
     );
     const reads = countReads();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel this visit' }));
-    await waitFor(
-      () =>
-        expect(
-          within(dialog)
-            .getAllByRole('status')
-            .some((each) => each.textContent?.includes('cannot be cancelled from here')),
-        ).toBe(true),
-      SLOW,
+    await waitFor(() =>
+      expect(
+        within(dialog)
+          .getAllByRole('status')
+          .some((each) => each.textContent?.includes('cannot be cancelled from here')),
+      ).toBe(true),
     );
-    await waitFor(() => expect(reads).toHaveLength(1), SLOW);
+    await waitFor(() => expect(reads).toHaveLength(1));
   });
 
   it('does not offer cancelling a visit that was not opened from paper', async () => {
     renderApp({ entry: '/encounters/enc_h_1' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }, SLOW));
-    const dialog = await screen.findByRole('dialog', {}, SLOW);
-    await within(dialog).findByRole('button', { name: /^Attach to / }, SLOW);
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByRole('button', { name: /^Attach to / });
     expect(within(dialog).queryByRole('button', { name: 'Cancel visit' })).toBeNull();
   });
 
@@ -236,28 +227,25 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
   ])('is not offered without %s', async (_name, take) => {
     take();
     renderApp({ entry: '/queue' });
-    await screen.findAllByRole('row', {}, SLOW);
+    await screen.findAllByRole('row');
     expect(screen.queryByRole('button', { name: NAME })).toBeNull();
   });
 
   it('is offered on an open visit, naming its patient', async () => {
     renderApp({ entry: '/encounters/enc_h_1' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }, SLOW));
-    const dialog = await screen.findByRole('dialog', {}, SLOW);
-    expect(await within(dialog).findByRole('button', { name: /^Attach to / }, SLOW)).toBeVisible();
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByRole('button', { name: /^Attach to / })).toBeVisible();
   });
 
   it('refuses to close a visit that is written up on screen', async () => {
     renderApp({ entry: '/encounters/enc_h_1' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }, SLOW));
-    const dialog = await screen.findByRole('dialog', {}, SLOW);
-    await userEvent.upload(
-      await within(dialog).findByLabelText('Choose a file', {}, SLOW),
-      photo(),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.upload(await within(dialog).findByLabelText('Choose a file'), photo());
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
-    expect(await within(dialog).findByRole('alert', {}, SLOW)).toHaveTextContent(
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
       'closes it from the consultation',
     );
   });
@@ -267,9 +255,9 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     setTenantFeature(TENANT_IDS.clinic, 'documents', true);
     grantPermission(TENANT_IDS.clinic, 'doctor', 'document:upload');
     renderApp({ entry: '/encounters/enc_c_1' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }, SLOW));
-    const dialog = await screen.findByRole('dialog', {}, SLOW);
-    await within(dialog).findByRole('button', { name: /^Attach to / }, SLOW);
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByRole('button', { name: /^Attach to / });
     // The clinic's patient, never one of the hospital.
     expect(dialog).toHaveTextContent('MRN-PTC-00001');
   });
@@ -290,7 +278,7 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
       callCount: 0,
       version: 1,
     });
-    await waitFor(() => expect(screen.queryByText('Nobody is being served.')).not.toBeNull(), SLOW);
+    await waitFor(() => expect(screen.queryByText('Nobody is being served.')).not.toBeNull());
     expect(screen.getByRole('dialog')).toHaveTextContent('Chosen: sheet.jpg');
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -300,10 +288,10 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
   it('is offered on a served token', async () => {
     mockQueueToken('qt_tenant_1_dep_h_01_1')!.status = 'served';
     renderApp({ entry: '/queue' });
-    await userEvent.click(await screen.findByRole('button', { name: 'Show served today' }, SLOW));
-    const served = await screen.findByRole('region', { name: 'Served' }, SLOW);
+    await userEvent.click(await screen.findByRole('button', { name: 'Show served today' }));
+    const served = await screen.findByRole('region', { name: 'Served' });
     expect(
-      await within(served).findAllByRole('button', { name: 'Attach OPD sheet, token 1' }, SLOW),
+      await within(served).findAllByRole('button', { name: 'Attach OPD sheet, token 1' }),
     ).not.toHaveLength(0);
   });
 
@@ -320,21 +308,17 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     const dialog = await openDialog();
     await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
-    expect(await within(dialog).findByRole('alert', {}, SLOW)).toHaveTextContent(words);
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(words);
   });
 
   it('says a token without a doctor opens no visit', async () => {
     mockQueueToken('qt_tenant_1_dep_h_01_1')!.doctorId = undefined;
     renderApp({ entry: '/queue' });
-    const [button] = await screen.findAllByRole(
-      'button',
-      { name: 'Attach OPD sheet, token 1' },
-      SLOW,
-    );
+    const [button] = await screen.findAllByRole('button', { name: 'Attach OPD sheet, token 1' });
     await userEvent.click(button!);
-    const dialog = await screen.findByRole('dialog', {}, SLOW);
-    await within(dialog).findByText(/no visit can be opened/, {}, SLOW);
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText(/no visit can be opened/);
     expect(within(dialog).queryByLabelText('Choose a file')).toBeNull();
   });
 
@@ -349,18 +333,16 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     const dialog = await openDialog();
     await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
-    expect(await within(dialog).findByRole('alert', {}, SLOW)).toHaveTextContent(
-      'could not be sent',
-    );
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('could not be sent');
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
-    expect(await within(dialog).findByText(/The sheet was attached/, {}, SLOW)).toBeVisible();
+    expect(await within(dialog).findByText(/The sheet was attached/)).toBeVisible();
   });
 
   it('shows the served tokens when asked for', async () => {
     renderApp({ entry: '/queue' });
-    const show = await screen.findByRole('button', { name: 'Show served today' }, SLOW);
+    const show = await screen.findByRole('button', { name: 'Show served today' });
     await userEvent.click(show);
-    expect(await screen.findByRole('heading', { name: 'Served' }, SLOW)).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Served' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Hide served' })).toHaveAttribute(
       'aria-expanded',
       'true',

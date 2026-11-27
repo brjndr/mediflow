@@ -50,7 +50,7 @@ describe('the nursing worklist', () => {
     expect(
       await screen.findByRole('heading', { name: /Vital signs: Asha Verma/ }),
     ).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('is unreachable without the permission', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'nursingVitals:read');
@@ -94,7 +94,7 @@ describe('the vitals chart', () => {
     expect(within(row).getByText('Score 8, urgent')).toBeInTheDocument();
     expect(screen.getByText('Ask a doctor to review the patient now.')).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('refuses a diastolic pressure without a systolic', async () => {
     await openChart();
@@ -137,7 +137,7 @@ describe('the vitals chart', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save correction' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Correction saved'));
     await waitFor(() => expect(within(grid).getByText('Corrected')).toBeInTheDocument());
-  }, 30_000);
+  });
 
   it('offers no recording without the permission', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'nursingVitals:record');

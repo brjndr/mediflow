@@ -45,7 +45,7 @@ async function report({ sign }: { sign: boolean }) {
 }
 
 describe('the imaging reports of a consultation', () => {
-  it('shows the doctor the signed report and its addenda', { timeout: 30_000 }, async () => {
+  it('shows the doctor the signed report and its addenda', async () => {
     await report({ sign: true });
     await send('POST', `/radiology/orders/${ORDER}/report/addenda`, {
       body: doc('Small left effusion.'),

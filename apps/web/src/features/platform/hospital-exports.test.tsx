@@ -52,7 +52,7 @@ describe('offboarding exports (platform)', () => {
     ).toBeInTheDocument();
     expect(within(section).queryByLabelText('Download link')).toBeNull();
     expect(document.activeElement).not.toBe(document.body);
-  }, 20_000);
+  });
 
   it('starts another export, and refuses a second while one is queued', async () => {
     setMockOffboarding('hosp_city', { downloadedExport: false });

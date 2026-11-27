@@ -50,7 +50,7 @@ describe('writing and signing the discharge summary', () => {
     // Signed: no draft form is left, only an addendum.
     expect(screen.queryByRole('button', { name: 'Save draft' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Add an addendum' })).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('will not sign without the diagnoses and the course', async () => {
     await open();
@@ -58,7 +58,7 @@ describe('writing and signing the discharge summary', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign summary' }));
     expect(await screen.findByText(/Fill in before signing: Course in hospital/)).toBeVisible();
     expect(screen.queryByRole('alertdialog')).toBeNull();
-  }, 30_000);
+  });
 
   it('starts the course from a template, filled with the stay', async () => {
     await open();
@@ -72,14 +72,14 @@ describe('writing and signing the discharge summary', () => {
     const text = () => (course as HTMLTextAreaElement).value;
     await waitFor(() => expect(text()).toContain('Advice on discharge'));
     expect(text()).not.toContain('{{');
-  }, 30_000);
+  });
 
   it('refuses text that is not plain', async () => {
     await open();
     await userEvent.type(await field('Diagnoses'), 'Pneumonia\u0000');
     await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
     expect(await screen.findAllByText(/character that cannot be seen/)).not.toHaveLength(0);
-  }, 30_000);
+  });
 });
 
 describe('a signed discharge summary', () => {
@@ -95,7 +95,7 @@ describe('a signed discharge summary', () => {
     expect(await within(document_).findByText('Platelets 90')).toBeInTheDocument();
     expect(within(document_).getByText('Dengue')).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('is printed once the print is recorded', async () => {
     addMockSignedSummary(HOSPITAL, 'adm_sum');
@@ -105,7 +105,7 @@ describe('a signed discharge summary', () => {
     const sheet = document.querySelector<HTMLElement>('[data-print-sheet]');
     expect(sheet).not.toBeNull();
     expect(within(sheet as HTMLElement).getByText(/Signed by/)).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('offers no addendum without dischargeSummary:sign', async () => {
     addMockSignedSummary(HOSPITAL, 'adm_sum');
@@ -113,7 +113,7 @@ describe('a signed discharge summary', () => {
     await open();
     await screen.findByRole('article', { name: 'Discharge summary' });
     expect(screen.queryByRole('heading', { name: 'Add an addendum' })).toBeNull();
-  }, 30_000);
+  });
 });
 
 describe('access to the discharge summary', () => {
@@ -124,7 +124,7 @@ describe('access to the discharge summary', () => {
     const grid = await screen.findByRole('table', { name: 'Admissions' });
     await within(grid).findAllByRole('button', { name: /Admission details/ });
     expect(within(grid).queryByRole('button', { name: /Summary of stay/ })).toBeNull();
-  }, 30_000);
+  });
 
   it('opens from the admissions list', async () => {
     addMockAdmission({ id: 'adm_list', status: 'admitted', version: 1 });
@@ -135,7 +135,7 @@ describe('access to the discharge summary', () => {
     expect(
       await screen.findByRole('heading', { name: 'Discharge summary', level: 1 }),
     ).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('is out of reach for a hospital without the admissions module', async () => {
     signIn(USER_IDS.admin, TENANT_IDS.clinic);
@@ -143,5 +143,5 @@ describe('access to the discharge summary', () => {
     await waitFor(() =>
       expect(screen.queryByRole('heading', { name: 'Discharge summary', level: 1 })).toBeNull(),
     );
-  }, 30_000);
+  });
 });

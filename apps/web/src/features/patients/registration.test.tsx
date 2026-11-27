@@ -374,7 +374,7 @@ describe('suggestions while registering', () => {
     // The name and date of birth of the first patient in the register.
     await fill({ firstName: 'Asha', lastName: 'Verma1', dob: '1950-01-01' });
 
-    expect(await screen.findByText(SUGGESTION, undefined, { timeout: 4000 })).toBeInTheDocument();
+    expect(await screen.findByText(SUGGESTION)).toBeInTheDocument();
     // Masked, like the warning on saving: enough to recognise the person.
     const text = document.body.textContent ?? '';
     expect(text).toContain('Asha Verma1');
@@ -401,7 +401,7 @@ describe('suggestions while registering', () => {
     expect(seen.checks).toEqual([]);
 
     await userEvent.type(screen.getByLabelText(/Phone number/), '+91 91234 56789');
-    await waitFor(() => expect(seen.checks).toHaveLength(1), { timeout: 4000 });
+    await waitFor(() => expect(seen.checks).toHaveLength(1));
     expect(screen.queryByText(SUGGESTION)).not.toBeInTheDocument();
   });
 

@@ -177,10 +177,10 @@ describe('the audit log screen', () => {
   it('exports the days, follows the run and offers the download', async () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Export these days (CSV)' }));
-    expect(await screen.findByText('The export is ready.', {}, { timeout: 8000 })).toBeVisible();
+    expect(await screen.findByText('The export is ready.')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Download CSV' }));
     await waitFor(() => expect(startDownload).toHaveBeenCalledTimes(1));
-  }, 15_000);
+  });
 });
 
 describe('who may see it', () => {

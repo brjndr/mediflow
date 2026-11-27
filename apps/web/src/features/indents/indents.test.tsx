@@ -46,7 +46,7 @@ describe('indents', () => {
     expect(within(list).getByText('IND-000002')).toBeInTheDocument();
   });
 
-  it('asks a store for items', { timeout: 30_000 }, async () => {
+  it('asks a store for items', async () => {
     await open('/inventory/indents/new', 'New indent');
     await screen.findAllByRole('option', { name: 'Main store' });
     const from = screen.getByRole('combobox', { name: /^Place that asks/ });

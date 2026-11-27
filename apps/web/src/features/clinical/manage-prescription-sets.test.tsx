@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { revokePermission, setTenantFeature, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { mockDrugsOf } from '@/mocks/handlers/drugs';
 import {
@@ -11,8 +11,6 @@ import {
 } from '@/mocks/handlers/prescription-sets';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
-
-vi.setConfig({ testTimeout: 30_000 });
 
 const HOSPITAL = TENANT_IDS.hospital;
 const CLINIC = TENANT_IDS.clinic;

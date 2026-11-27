@@ -1,14 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { grantPermission, revokePermission, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
 import { apiFetch } from '@/shared/api';
 import { renderApp } from '@/test/render';
 import { box } from './matrix-test-utils';
-
-vi.setConfig({ testTimeout: 30_000 });
 
 const DENIED_URL = 'http://localhost:3000/api/denied';
 const NO_ACCESS = { name: 'You do not have access to this page' };

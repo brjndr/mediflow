@@ -68,7 +68,7 @@ describe('applying a package to a visit', () => {
     const covered = mockCharges().find((charge) => charge.description === 'Wound dressing');
     expect(covered).toMatchObject({ status: 'void', flag: 'package_covered' });
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('covers an included service charged afterwards, and bills an excluded one', async () => {
     setMockPackage(HOSPITAL, idOf('Basic health check'), [
@@ -88,7 +88,7 @@ describe('applying a package to a visit', () => {
     await chooseService('Suturing');
     await userEvent.click(screen.getByRole('button', { name: 'Add charge' }));
     expect(await within(charges()).findByText('Suturing')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('says so when the package has nothing included', async () => {
     await openBuilder();

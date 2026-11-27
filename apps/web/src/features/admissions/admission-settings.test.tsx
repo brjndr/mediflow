@@ -44,7 +44,7 @@ describe('requiring a signed discharge summary', () => {
     ).toBeInTheDocument();
     expect(toggle).toBeChecked();
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('is not shown without admission:configure', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'admission:configure');
@@ -59,7 +59,7 @@ describe('requiring a signed discharge summary', () => {
     renderApp({ entry: '/admissions' });
     await dischargeStay('adm_off');
     expect(await screen.findByText(/is discharged\. The bed is being cleaned/)).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('says before submit that the summary is needed and holds the button', async () => {
     setMockSummaryRequired(TENANT_IDS.hospital, true);
@@ -75,7 +75,7 @@ describe('requiring a signed discharge summary', () => {
       'true',
     );
     expect(screen.queryByText(/is discharged. The bed is being cleaned/)).toBeNull();
-  }, 30_000);
+  });
 
   it('does not wait for the summary of an absconded patient', async () => {
     setMockSummaryRequired(TENANT_IDS.hospital, true);
@@ -89,7 +89,7 @@ describe('requiring a signed discharge summary', () => {
       'absconded',
     );
     expect(screen.queryByTestId('summary-gate')).toBeNull();
-  }, 30_000);
+  });
 
   it('discharges once the summary is signed', async () => {
     setMockSummaryRequired(TENANT_IDS.hospital, true);
@@ -99,7 +99,7 @@ describe('requiring a signed discharge summary', () => {
     await dischargeStay('adm_signed');
     expect(screen.queryByTestId('summary-gate')).toBeNull();
     expect(await screen.findByText(/is discharged. The bed is being cleaned/)).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('does not apply to a second hospital', async () => {
     // Required for the clinic only: the hospital under test discharges freely.
@@ -108,5 +108,5 @@ describe('requiring a signed discharge summary', () => {
     renderApp({ entry: '/admissions' });
     await dischargeStay('adm_other');
     expect(await screen.findByText(/is discharged\. The bed is being cleaned/)).toBeInTheDocument();
-  }, 30_000);
+  });
 });

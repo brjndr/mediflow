@@ -34,7 +34,7 @@ describe('register of medico-legal cases', () => {
     // The record itself is not on this screen.
     expect(screen.queryByText('Hit by a truck, head injury')).not.toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('is linked from the board only with medicoLegal:read, and unreachable without it', async () => {
     renderApp({ entry: '/emergency' });
@@ -51,5 +51,5 @@ describe('register of medico-legal cases', () => {
     cleanup();
     renderApp({ entry: '/emergency/medico-legal' });
     expect(screen.queryByRole('heading', { level: 1, name: 'Medico-legal cases' })).toBeNull();
-  }, 30_000);
+  });
 });
