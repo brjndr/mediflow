@@ -893,6 +893,43 @@ describe('suspension and the first admin', () => {
     expect(again.statusCode).toBe(201);
   });
 
+  it.each(['role:manage', 'staff:manage'])(
+    'counts a custom role holding %s as the admin, with nobody in the admin role',
+    async (permission) => {
+      const hospital = await createHospital();
+      const target = { id: hospital.id, slug: hospital.slug, name: 'x' };
+      await pool.query("insert into roles (tenant_id, id, name) values ($1, 'boss', 'Boss')", [
+        hospital.id,
+      ]);
+      await pool.query(
+        "insert into role_permissions (tenant_id, role_id, permission) values ($1, 'boss', $2)",
+        [hospital.id, permission],
+      );
+      await addMembership(pool, await newUser('Custom Cara'), target, 'boss');
+      const refused = await call('POST', `/platform/hospitals/${hospital.id}/admin-invite`, {
+        payload: { name: 'Second', email: `c.${randomBytes(3).toString('hex')}@onboarded.test` },
+      });
+      expect(refused.statusCode).toBe(409);
+      expect(code(refused)).toBe('hospital_has_admin');
+    },
+  );
+
+  it('does not count members whose roles manage nothing, the admin role included', async () => {
+    const hospital = await createHospital();
+    const target = { id: hospital.id, slug: hospital.slug, name: 'x' };
+    await addMembership(pool, await newUser('Powerless Pia'), target, 'admin');
+    await addMembership(pool, await newUser('Nurse Noor'), target, 'nurse');
+    await pool.query(
+      `delete from role_permissions where tenant_id = $1 and role_id = 'admin'
+         and permission in ('role:manage', 'staff:manage')`,
+      [hospital.id],
+    );
+    const invited = await call('POST', `/platform/hospitals/${hospital.id}/admin-invite`, {
+      payload: { name: 'New', email: `p.${randomBytes(3).toString('hex')}@onboarded.test` },
+    });
+    expect(invited.statusCode).toBe(201);
+  });
+
   it('records who was invited as a domain and a short hash, never the address', async () => {
     const hospital = await createHospital();
     const email = `traced.${randomBytes(3).toString('hex')}@onboarded.test`;

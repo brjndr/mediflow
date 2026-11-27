@@ -536,7 +536,8 @@
       "refused": {
         "export_in_progress": "An export is already queued or running.",
         "hospital_not_offboarding": "The hospital is not offboarding.",
-        "not_a_hospital_admin": "That user is not an active admin of this hospital.",
+        "not_a_hospital_admin": "That user cannot receive the export. It needs an active member whose role manages roles and reads patients.",
+        "export_has_no_recipient": "Nobody at this hospital can receive the export: no active member has a role that both manages roles and reads patients. The hospital’s access has to be repaired first.",
         "export_not_ready": "The export is not ready."
       }
     }

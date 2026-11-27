@@ -376,13 +376,71 @@ export async function rememberKey(
   );
 }
 
-/** Whether any active member of the hospital holds the admin role. */
-export async function hasActiveAdmin(client: pg.ClientBase, hospitalId: string): Promise<boolean> {
+/**
+ * The permissions that manage a hospital (#1210). Never a role id: a custom role may hold them
+ * while nobody is in `admin`. `offboarding_admin_contacts` (migration 0168) names the same two.
+ */
+const MANAGING_PERMISSIONS = ['role:manage', 'staff:manage'];
+
+async function activeMemberHolds(
+  client: pg.ClientBase,
+  hospitalId: string,
+  permissions: readonly string[],
+  userId: string | null,
+): Promise<boolean> {
   const { rowCount } = await client.query(
-    "select 1 from memberships where tenant_id = $1 and role_id = 'admin' and status = 'active' limit 1",
-    [hospitalId],
+    `select 1 from memberships m
+     join role_permissions p on p.tenant_id = m.tenant_id and p.role_id = m.role_id
+     where m.tenant_id = $1 and m.status = 'active' and p.permission = any($2::text[])
+       and ($3::uuid is null or m.user_id = $3)
+     limit 1`,
+    [hospitalId, permissions, userId],
   );
   return rowCount !== 0;
+}
+
+/** Whether any active member of the hospital manages it: holds either managing permission. */
+export function hasActiveManager(client: pg.ClientBase, hospitalId: string): Promise<boolean> {
+  return activeMemberHolds(client, hospitalId, MANAGING_PERMISSIONS, null);
+}
+
+/** What the person handed a hospital's whole export must hold, both at scope `all` (#1210). */
+const EXPORT_PERMISSIONS = ['role:manage', 'patient:read'];
+
+async function exportRecipientExists(
+  client: pg.ClientBase,
+  hospitalId: string,
+  userId: string | null,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from offboarding_admin_contacts($1) c
+     join memberships m on m.tenant_id = $1 and m.user_id = c.user_id
+     where ($2::uuid is null or c.user_id = $2)
+       and (select count(*) from role_permissions p
+            where p.tenant_id = m.tenant_id and p.role_id = m.role_id and p.scope = 'all'
+              and p.permission = any($3::text[])) = cardinality($3::text[])
+     limit 1`,
+    [hospitalId, userId, EXPORT_PERMISSIONS],
+  );
+  return rowCount !== 0;
+}
+
+/**
+ * Whether the person may be handed the offboarding hospital's whole export: one of its contacts
+ * (an active member and account, never a platform admin) whose role holds both `role:manage` and
+ * `patient:read`. Narrower than `hasActiveManager`: the export is every record of the hospital.
+ */
+export function mayReceiveExport(
+  client: pg.ClientBase,
+  hospitalId: string,
+  userId: string,
+): Promise<boolean> {
+  return exportRecipientExists(client, hospitalId, userId);
+}
+
+/** Whether anybody at the offboarding hospital may receive its export. */
+export function hasExportRecipient(client: pg.ClientBase, hospitalId: string): Promise<boolean> {
+  return exportRecipientExists(client, hospitalId, null);
 }
 
 export async function isPlatformAdminEmail(client: pg.ClientBase, email: string): Promise<boolean> {

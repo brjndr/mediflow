@@ -19,6 +19,7 @@ const REFUSALS = new Set([
   'export_in_progress',
   'hospital_not_offboarding',
   'not_a_hospital_admin',
+  'export_has_no_recipient',
   'export_not_ready',
 ]);
 

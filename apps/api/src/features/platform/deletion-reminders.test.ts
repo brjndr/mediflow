@@ -7,6 +7,7 @@ import {
   createUser,
   deleteTenants,
   deleteUsers,
+  grantRoleDefaults,
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
@@ -41,6 +42,8 @@ beforeAll(async () => {
   pool = app.database.pool;
   hospital = await createTenant(pool, 'Reminder Hospital');
   other = await createTenant(pool, 'Other Reminder Hospital');
+  await grantRoleDefaults(app, hospital);
+  await grantRoleDefaults(app, other);
   for (const [name, role, tenant] of [
     ['Rem Admin', 'admin', hospital],
     ['Rem Admin Two', 'admin', hospital],
@@ -161,5 +164,54 @@ describe('the deletion reminders', () => {
     expect(await sendDeletionReminders(pool, notifier)).toBe(1);
     expect(notifier.sent).toHaveLength(2);
     expect(new Set(notifier.sent.map((mail) => mail.to)).size).toBe(2);
+  });
+
+  it('writes to whoever manages the hospital, whatever the role is called', async () => {
+    const custom = await createTenant(pool, 'Custom Reminder Hospital');
+    try {
+      await grantRoleDefaults(app, custom);
+      // The admin role no longer manages anything; two custom roles do.
+      await pool.query(
+        `delete from role_permissions where tenant_id = $1 and role_id = 'admin'
+           and permission in ('role:manage', 'staff:manage')`,
+        [custom.id],
+      );
+      const roles = [
+        ['access_lead', 'role:manage'],
+        ['people_lead', 'staff:manage'],
+        ['onlooker', 'staff:read'],
+      ] as const;
+      const expected: string[] = [];
+      for (const [roleId, permission] of roles) {
+        await pool.query('insert into roles (tenant_id, id, name) values ($1, $2, $2)', [
+          custom.id,
+          roleId,
+        ]);
+        await pool.query(
+          'insert into role_permissions (tenant_id, role_id, permission) values ($1, $2, $3)',
+          [custom.id, roleId, permission],
+        );
+      }
+      for (const roleId of ['access_lead', 'people_lead', 'onlooker', 'admin']) {
+        const user = await createUser(pool, `Rem ${roleId}`);
+        users.push(user);
+        await addMembership(pool, user, custom, roleId);
+        if (roleId.endsWith('_lead')) expected.push(user.email);
+      }
+      // Further from deletion than the shared hospital, so only this one is newly due.
+      await offboard(custom, 20);
+      clear();
+      await sendDeletionReminders(pool, notifier);
+      const mine = new Set(users.map((user) => user.email));
+      expect(
+        notifier.sent
+          .map((mail) => mail.to)
+          .filter((to) => mine.has(to))
+          .sort(),
+      ).toEqual(expected.sort());
+    } finally {
+      await pool.query('delete from deletion_reminders where hospital_id = $1', [custom.id]);
+      await deleteTenants(pool, [custom]);
+    }
   });
 });
