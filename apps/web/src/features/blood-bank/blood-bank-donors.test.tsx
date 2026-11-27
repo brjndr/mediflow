@@ -412,7 +412,7 @@ describe('the blood group tab of a patient', () => {
   it('has no tab without patient.bloodGroup:read or with the module off', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'patient.bloodGroup:read');
     renderApp({ entry: '/patients/pth_00001' });
-    await screen.findByRole('tab', { name: /Overview|Details/ }).catch(() => undefined);
+    await screen.findByRole('tablist');
     expect(screen.queryByRole('tab', { name: 'Blood group' })).not.toBeInTheDocument();
   }, 20_000);
 

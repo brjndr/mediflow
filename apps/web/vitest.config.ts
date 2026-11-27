@@ -12,6 +12,11 @@ export default defineConfig(() =>
       // The dev laptop has 2 cores: keep at most 2 workers (CLAUDE.md Package Manager).
       maxWorkers: 2,
       restoreMocks: true,
+      // A screen test renders the whole app and takes several seconds on a slow or busy machine,
+      // so the default of 5 s fails tests that are only slow (#1216). It is well above how long
+      // one wait may take (asyncUtilTimeout in src/test/setup.ts), so a wait that fails says
+      // what it was looking for rather than "test timed out".
+      testTimeout: 60_000,
       // A test that ends while a request is in flight (the page aborts it on navigation) can make
       // undici's fetch assert `!this.aborted` when the response then arrives, after every test has
       // passed (seen once on web shard 2, #819). Only that one assertion is ignored; any other

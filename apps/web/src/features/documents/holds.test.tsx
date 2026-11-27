@@ -68,15 +68,13 @@ describe('the held badge (#672)', () => {
   it('marks only the held document', async () => {
     await holdOneDocument('Court order 12');
     const documents = () => screen.getByRole('table', { name: 'Documents' });
-    await waitFor(
-      () =>
-        expect(
-          within(rowOf(documents(), 'Signed consent for surgery')).getByText('On legal hold'),
-        ).toBeInTheDocument(),
-      { timeout: 8000 },
+    await waitFor(() =>
+      expect(
+        within(rowOf(documents(), 'Signed consent for surgery')).getByText('On legal hold'),
+      ).toBeInTheDocument(),
     );
     expect(within(rowOf(documents(), 'Insurance card')).queryByText('On legal hold')).toBeNull();
-  }, 20000);
+  });
 
   it('marks every document of a patient held, and ignores another hospital’s hold', async () => {
     holdMockDocument(TENANT_IDS.clinic, 'pth_00001');
@@ -88,14 +86,12 @@ describe('the held badge (#672)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Hold all documents' }));
     await userEvent.type(await screen.findByLabelText(/Reason/), 'Investigation');
     await userEvent.click(screen.getByRole('button', { name: 'Place hold' }));
-    await waitFor(
-      () =>
-        expect(
-          within(screen.getByRole('table', { name: 'Documents' })).getAllByText('On legal hold'),
-        ).toHaveLength(3),
-      { timeout: 8000 },
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('table', { name: 'Documents' })).getAllByText('On legal hold'),
+      ).toHaveLength(3),
     );
-  }, 20000);
+  });
 });
 
 describe('who sees what', () => {
