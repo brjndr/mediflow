@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRefreshDocuments } from '@/features/documents';
 import { useTenant } from '@/tenancy';
 import {
+  cancelPaperVisit,
   closePaperVisit,
   fetchPaperVisit,
   openPaperVisit,
@@ -28,6 +29,7 @@ export function usePaperVisit(subject: PaperSubject) {
   const refreshDocuments = useRefreshDocuments();
   const openKey = useIdempotencyKey();
   const closeKey = useIdempotencyKey();
+  const cancelKey = useIdempotencyKey();
   const keyOf = (tenant: string) =>
     [...clinicalKeys.detail(tenant, idOf(subject)), 'paper'] as const;
 
@@ -98,6 +100,20 @@ export function usePaperVisit(subject: PaperSubject) {
     // A refusal holds no visit: what is shown may be out of date, so it is read again.
     onSettled: (visit) => refresh({ kept: visit !== undefined }),
   });
+  const cancel = useMutation({
+    gcTime: 0,
+    mutationFn: (asked: { id: string; version: number; reason: string }) =>
+      cancelPaperVisit(
+        asked.id,
+        { version: asked.version, reason: asked.reason },
+        cancelKey.keyFor(asked),
+      ),
+    onSuccess: (visit) => {
+      cancelKey.clear();
+      return keep(visit);
+    },
+    onSettled: (visit) => refresh({ kept: visit !== undefined }),
+  });
   const retire = useMutation({
     gcTime: 0,
     mutationFn: (sheet: { encounterId: string; id: string; version: number; reason: string }) =>
@@ -109,5 +125,5 @@ export function usePaperVisit(subject: PaperSubject) {
     onSettled: (visit) => refresh({ kept: visit !== undefined }),
   });
 
-  return { query, open, close, retire, refresh };
+  return { query, open, close, cancel, retire, refresh };
 }

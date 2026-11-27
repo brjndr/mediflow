@@ -479,3 +479,45 @@ test('attach a scanned OPD sheet from a token and close the visit with the keybo
   await page.keyboard.press('Escape');
   await expect(attach).toBeFocused();
 });
+
+test('cancel an empty visit opened for the wrong token with the keyboard', async ({ page }) => {
+  await page.goto('/');
+  await goTo(page, 'OPD queue');
+  const attach = page.getByRole('button', { name: 'Attach OPD sheet, token 1' }).first();
+  await attach.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Attach OPD sheet' });
+  await dialog.getByLabel('Choose a file').setInputFiles({
+    name: 'sheet.jpg',
+    mimeType: 'image/jpeg',
+    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+  });
+  await dialog.getByRole('button', { name: /^Attach to .+, token 1$/ }).focus();
+  await page.keyboard.press('Enter');
+  // The wrong sheet is retired first: only an empty visit is cancelled.
+  await dialog.getByRole('button', { name: 'Wrong sheet: retire sheet.jpg' }).focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('Wrong token');
+  await page.keyboard.press('Enter');
+  await expect(dialog.getByText(/The sheet was retired/)).toBeFocused();
+  const cancel = dialog.getByRole('button', { name: 'Cancel visit' });
+  await cancel.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(cancel).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(dialog.getByRole('heading', { name: 'Cancel this visit' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  const reason = dialog.getByRole('textbox', { name: /Why it is cancelled/ });
+  await expect(reason).toBeFocused();
+  expect(await focusVisible(page)).toBe(true);
+  await expectNoAxeViolations(page);
+  await expectNoSidewaysScroll(page);
+  await page.keyboard.type('Wrong token');
+  await page.keyboard.press('Enter');
+  await expect(dialog.getByText('The visit was cancelled.')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(attach).toBeFocused();
+});

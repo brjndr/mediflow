@@ -69,6 +69,7 @@ export const paperVisitSchema: z.ZodType<PaperVisit> = z.object({
     })
     .optional(),
   hasSheet: z.boolean(),
+  canCancel: z.boolean(),
   sheets: z.array(
     z.object({
       id: z.string(),

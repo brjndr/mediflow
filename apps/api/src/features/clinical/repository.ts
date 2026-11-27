@@ -160,6 +160,7 @@ export interface EncounterRow {
   ended_at: Date | null;
   ended_by_name: string | null;
   cancel_reason: string | null;
+  opened_from_paper: boolean;
   version: number;
 }
 
@@ -169,7 +170,8 @@ const ENCOUNTERS = `select e.id, e.tenant_id, e.patient_id,
                            e.attending_doctor_id, du.name as attending_doctor_name,
                            e.department_id, dp.name as department_name,
                            e.opened_at, coalesce(ou.name, '') as opened_by_name,
-                           e.ended_at, eu.name as ended_by_name, e.cancel_reason, e.version
+                           e.ended_at, eu.name as ended_by_name, e.cancel_reason,
+                           e.opened_from_paper, e.version
                     from encounters e
                     join patients p on p.id = e.patient_id
                     left join doctors d on d.id = e.attending_doctor_id
@@ -277,6 +279,8 @@ export interface NewEncounter {
   appointmentId: string | null;
   queueTokenId: string | null;
   doctor: Doctor;
+  /** Opened from the paper OPD sheet (#1202): may be cancelled from there while empty. */
+  fromPaper?: boolean;
 }
 
 export async function insertEncounter(
@@ -286,8 +290,8 @@ export async function insertEncounter(
 ): Promise<string> {
   const { rows } = await client.query<{ id: string }>(
     `insert into encounters (tenant_id, patient_id, type, appointment_id, queue_token_id,
-                             attending_doctor_id, department_id, opened_by)
-     values (app_tenant_id(), $1, 'opd', $2, $3, $4, $5, $6)
+                             attending_doctor_id, department_id, opened_by, opened_from_paper)
+     values (app_tenant_id(), $1, 'opd', $2, $3, $4, $5, $6, $7)
      returning id`,
     [
       encounter.patientId,
@@ -296,6 +300,7 @@ export async function insertEncounter(
       encounter.doctor.id,
       encounter.doctor.department_id,
       userId,
+      encounter.fromPaper ?? false,
     ],
   );
   const id = rows[0]?.id;

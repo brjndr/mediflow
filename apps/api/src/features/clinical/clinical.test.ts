@@ -209,6 +209,9 @@ const clearClinical = async () => {
       'clinical_notes',
       'vitals',
       'patient_documents',
+      'charges',
+      'invoices',
+      'patient_consents',
       'encounters',
       'queue_tokens',
       'appointments',
@@ -1840,5 +1843,224 @@ describe('what a visit kept on paper refuses (#1202)', () => {
       asNurse(),
     );
     expect(errorOf(retired)).toEqual([404, 'document_not_found']);
+  });
+});
+
+describe('cancelling a visit opened from paper (#1214)', () => {
+  interface Paper {
+    encounter: { id: string; status: string; version: number };
+    canCancel: boolean;
+  }
+  let token = '';
+  const asNurse = (key?: string) => ({ user: nurse, ...(key ? { key } : {}) });
+  const start = () =>
+    ok<Paper>(post('/queue/tokens/' + token + '/paper-visit', {}, asNurse()), 200);
+  const seen = (id: string) => ok<Paper>(get('/encounters/' + id + '/paper-visit', asNurse()), 200);
+  const cancel = (visit: Paper, options: Options = asNurse(), reason = 'Wrong token') =>
+    post(
+      '/encounters/' + visit.encounter.id + '/paper-visit/cancel',
+      { version: visit.encounter.version, reason },
+      options,
+    );
+  const feature = (name: string, tenant = hospital) =>
+    pool.query(
+      'insert into tenant_features (tenant_id, feature, enabled) values ($1, $2, true) ' +
+        'on conflict (tenant_id, feature) do update set enabled = true',
+      [tenant.id, name],
+    );
+  const attach = async (encounterId: string, status: string) => {
+    const kept = ['scanning', 'clean'].includes(status);
+    const { rows } = await pool.query<{ id: string }>(
+      'insert into patient_documents (tenant_id, patient_id, encounter_id, category, title, ' +
+        'file_name, content_type, size_bytes, status, file_key, uploaded_at, created_by) ' +
+        "values ($1, $2, $3, 'opd_sheet', 'OPD sheet', 'sheet.jpg', 'image/jpeg', 10, $4, " +
+        '$5, $6, $7) returning id',
+      [
+        hospital.id,
+        patients.asha,
+        encounterId,
+        status,
+        kept ? 'documents/' + hospital.id + '/' + randomUUID() : null,
+        status === 'pending' ? null : new Date(),
+        nurse.id,
+      ],
+    );
+    return rows[0]!.id;
+  };
+
+  beforeEach(async () => {
+    await feature('documents');
+    token = await addToken(patients.asha, doctors.doctor);
+  });
+
+  it('cancels the empty visit once, audits it and frees the token', async () => {
+    const visit = await start();
+    expect(visit.canCancel).toBe(true);
+    const key = randomUUID();
+    const done = await ok<Paper>(cancel(visit, asNurse(key)), 200);
+    expect(done).toMatchObject({ canCancel: false, encounter: { status: 'cancelled' } });
+    await ok(cancel(visit, asNurse(key)), 200);
+    expect((await events(visit.encounter.id)).map((each) => each.event)).toEqual([
+      'encounter.opened',
+      'encounter.cancelled',
+    ]);
+    expect(await audited('encounter', visit.encounter.id)).toContain('update');
+    expect(errorOf(await cancel(done))).toEqual([409, 'invalid_transition']);
+    expect((await start()).encounter.id).not.toBe(visit.encounter.id);
+  });
+
+  it('gives no ordinary cancel, and refuses a blank reason or an old version', async () => {
+    const visit = await start();
+    const ordinary = await post(
+      '/encounters/' + visit.encounter.id + '/cancel',
+      { version: 1, reason: 'Wrong token' },
+      asNurse(),
+    );
+    expect(errorOf(ordinary)).toEqual([403, 'permission_denied']);
+    expect(errorOf(await cancel(visit, asNurse(), '   '))).toEqual([400, 'validation_failed']);
+    const old = { ...visit, encounter: { ...visit.encounter, version: 2 } };
+    expect(errorOf(await cancel(old))).toEqual([409, 'conflict']);
+  });
+
+  it('refuses a visit that was not opened from paper', async () => {
+    const opened = await ok<{ id: string }>(
+      post('/encounters', { patientId: patients.asha, queueTokenId: token }),
+    );
+    const visit = await seen(opened.id);
+    expect(visit.canCancel).toBe(false);
+    expect(errorOf(await cancel(visit))).toEqual([409, 'not_paper_visit']);
+  });
+
+  it('refuses while anything is written on the visit', async () => {
+    const visit = await start();
+    const id = visit.encounter.id;
+    await draft(id);
+    expect((await seen(id)).canCancel).toBe(false);
+    expect(errorOf(await cancel(visit))).toEqual([409, 'unsigned_notes']);
+    await pool.query('delete from clinical_notes where encounter_id = $1', [id]);
+    await ok(post('/encounters/' + id + '/diagnoses', { text: 'Fever', kind: 'final' }));
+    expect(errorOf(await cancel(visit))).toEqual([409, 'has_records']);
+  });
+
+  it('refuses while a file is on the visit, until it is retired', async () => {
+    const visit = await start();
+    const id = visit.encounter.id;
+    await attach(id, 'infected');
+    expect((await seen(id)).canCancel).toBe(true);
+    for (const status of ['pending', 'scanning', 'clean']) {
+      const sheet = await attach(id, status);
+      expect((await seen(id)).canCancel).toBe(false);
+      expect(errorOf(await cancel(visit))).toEqual([409, 'visit_not_empty']);
+      await ok(
+        post(
+          '/encounters/' + id + '/paper-visit/sheets/' + sheet + '/retire',
+          { reason: 'Wrong visit', expectedVersion: 1 },
+          asNurse(),
+        ),
+        200,
+      );
+    }
+    await ok(cancel(visit), 200);
+    const late = await post(
+      '/patients/' + patients.asha + '/documents',
+      {
+        category: 'opd_sheet',
+        title: 'OPD sheet',
+        fileName: 'sheet.jpg',
+        contentType: 'image/jpeg',
+        size: 10,
+        encounterId: id,
+      },
+      asNurse(randomUUID()),
+    );
+    expect(errorOf(late)).toEqual([409, 'encounter_cancelled']);
+  });
+
+  it('refuses while a charge stands on the visit', async () => {
+    const visit = await start();
+    await pool.query(
+      'insert into charges (tenant_id, encounter_id, patient_id, service_id, source, ' +
+        'source_ref, description, quantity, unit_price_minor) ' +
+        "values ($1, $2, $3, $4, 'manual', $5, 'Consultation', 1, 100)",
+      [hospital.id, visit.encounter.id, patients.asha, catalog.procedure, randomUUID()],
+    );
+    expect(errorOf(await cancel(visit))).toEqual([409, 'visit_not_empty']);
+    await pool.query("update charges set status = 'void' where encounter_id = $1", [
+      visit.encounter.id,
+    ]);
+    await ok(cancel(visit), 200);
+  });
+
+  it('refuses an invoice of typed lines and a consent, and needs each module', async () => {
+    const visit = await start();
+    const id = visit.encounter.id;
+    await pool.query(
+      'insert into invoices (tenant_id, encounter_id, patient_id, currency, created_by) ' +
+        "values ($1, $2, $3, 'INR', $4)",
+      [hospital.id, id, patients.asha, nurse.id],
+    );
+    expect(errorOf(await cancel(visit))).toEqual([409, 'visit_not_empty']);
+    await pool.query('delete from invoices where encounter_id = $1', [id]);
+    // The template it was signed from is not part of this test.
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local session_replication_role = replica');
+      await client.query(
+        'insert into patient_consents (tenant_id, patient_id, procedure_name, template_id, ' +
+          'template_version, body, signer_name, signer_role, signature_method, signed_by, ' +
+          "encounter_id) values ($1, $2, 'Dressing', gen_random_uuid(), 1, '{}', 'Asha Test', " +
+          "'patient', 'typed', $3, $4)",
+        [hospital.id, patients.asha, nurse.id, id],
+      );
+      await client.query('commit');
+    } finally {
+      client.release();
+    }
+    expect((await seen(id)).canCancel).toBe(false);
+    expect(errorOf(await cancel(visit))).toEqual([409, 'visit_not_empty']);
+    for (const name of ['documents', 'clinical']) {
+      await pool.query(
+        'update tenant_features set enabled = false where tenant_id = $1 and feature = $2',
+        [hospital.id, name],
+      );
+      try {
+        expect(errorOf(await cancel(visit))).toEqual([403, 'feature_disabled']);
+      } finally {
+        await feature(name);
+      }
+    }
+  });
+
+  it('is not there for another hospital, and needs the permission and its scope', async () => {
+    const visit = await start();
+    await feature('documents', clinic);
+    expect(errorOf(await cancel(visit, { tenant: clinic, user: clinicDoctor }))).toEqual([
+      404,
+      'encounter_not_found',
+    ]);
+    expect(errorOf(await cancel(visit, { user: desk }))).toEqual([403, 'permission_denied']);
+    const where =
+      "where tenant_id = $1 and role_id = 'nurse' and permission = 'encounter:recordPaper'";
+    const { rows } = await pool.query<{ scope: string }>(
+      'delete from role_permissions ' + where + ' returning scope',
+      [hospital.id],
+    );
+    const put = (scope: string) =>
+      pool.query(
+        'insert into role_permissions (tenant_id, role_id, permission, scope) ' +
+          "values ($1, 'nurse', 'encounter:recordPaper', $2)",
+        [hospital.id, scope],
+      );
+    try {
+      expect(errorOf(await cancel(visit))).toEqual([403, 'permission_denied']);
+      // The nurse has no doctor profile: no visit is their own.
+      await put('own');
+      expect(errorOf(await cancel(visit))).toEqual([404, 'encounter_not_found']);
+    } finally {
+      await pool.query('delete from role_permissions ' + where, [hospital.id]);
+      await put(rows[0]!.scope);
+    }
+    expect((await seen(visit.encounter.id)).encounter.status).toBe('open');
   });
 });

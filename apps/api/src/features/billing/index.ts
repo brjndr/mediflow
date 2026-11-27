@@ -23,3 +23,6 @@ export const billingFeature: FastifyPluginAsync = async (app) => {
   app.jobs.work(BED_CHARGE_JOB, () => postBedDaysEverywhere(app.database.pool));
   app.jobs.schedule(BED_CHARGE_JOB, '10 * * * *');
 };
+
+/** For the paper visit (#1214): one with a charge or invoice standing on it is not empty. */
+export { hasStandingBilling } from './repository.js';

@@ -3910,6 +3910,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{encounterId}/paper-visit/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancels a visit opened from paper by mistake, such as under the wrong token (#1214), with a reason. Only a visit this paper flow opened (409 `not_paper_visit`; any other needs encounter:update) and only while it is empty: 409 `unsigned_notes` for a draft note; `has_records` for a signed note, diagnosis, order, prescription, referral or follow-up; `visit_not_empty` for a file of any kind that is not retired (one blocked by the scan does not count), a consent naming the visit, a charge or invoice not void, a surgery or ambulance trip not cancelled, or an admission raised from it. Retire a wrong sheet first. 409 `invalid_transition` for one not open, `conflict` for another version. The token or appointment may then open another visit. Emits `encounter.cancelled`. The Idempotency-Key header is required: a repeat changes nothing. Requires encounter:recordPaper and patient:read, and the documents and clinical feature flags. A visit of another hospital, outside the scope of encounter:recordPaper or of a patient the caller may not read is 404 `encounter_not_found`; one that is not OPD is 409 `not_opd_visit`. */
+        post: operations["cancelPaperVisit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/encounters/{encounterId}/paper-visit/sheets/{documentId}/retire": {
         parameters: {
             query?: never;
@@ -3937,7 +3954,7 @@ export interface paths {
         /** @description The documents kept on a patient’s record (#194), newest first, one cursor page at a time. `encounterId` narrows them to those of one visit. Retired documents are left out unless `includeRetired` is true. Requires document:read, within the scope the role holds it with. An `opd_sheet` is listed only for a caller who also holds diagnosis:read for its visit. */
         get: operations["listPatientDocuments"];
         put?: never;
-        /** @description Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid 15 minutes) to PUT the file to with the same Content-Type. At most 26214400 bytes (422 `file_too_large`); one of image/jpeg, image/png, application/pdf (422 `file_type_not_allowed`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. `encounterId`, when sent, must be an encounter of this patient (422 `encounter_mismatch`); an `opd_sheet` needs one (422 `encounter_required`). 409 `patient_merged` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag. */
+        /** @description Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid 15 minutes) to PUT the file to with the same Content-Type. At most 26214400 bytes (422 `file_too_large`); one of image/jpeg, image/png, application/pdf (422 `file_type_not_allowed`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. `encounterId`, when sent, must be an encounter of this patient (422 `encounter_mismatch`); an `opd_sheet` needs one (422 `encounter_required`) that is not cancelled (409 `encounter_cancelled`). 409 `patient_merged` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag. */
         post: operations["requestPatientDocumentUpload"];
         delete?: never;
         options?: never;
@@ -11339,6 +11356,8 @@ export interface components {
             };
             /** @description Whether an OPD sheet that is clean or being scanned, and not retired, is on the visit, whoever attached it: the visit may then be closed from here. */
             hasSheet: boolean;
+            /** @description Whether the visit may be cancelled from here: open, opened from paper, and empty (nothing written on it, and no file, consent, billing, surgery, trip or admission). */
+            canCancel: boolean;
             /** @description The sheets the caller attached to this visit and has not retired, newest first, at most 20: never anyone else’s, and no way to open them. */
             sheets: {
                 /** Format: uuid */
@@ -11353,6 +11372,12 @@ export interface components {
         PaperVisitClose: {
             /** @description Of the visit, as last read. */
             version: number;
+        };
+        PaperVisitCancel: {
+            /** @description Of the visit, as last read. */
+            version: number;
+            /** @description Why it is cancelled: it was opened by mistake. */
+            reason: string;
         };
         DocumentRetentionRule: {
             /** @enum {string} */
@@ -35967,6 +35992,89 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PaperVisitClose"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperVisit"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelPaperVisit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperVisitCancel"];
             };
         };
         responses: {

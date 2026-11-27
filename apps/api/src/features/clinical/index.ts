@@ -24,11 +24,16 @@ export { encounterVisibleSql } from './repository.js';
 export { labOrder, moveLabOrder, type LabOrder } from './lab.js';
 /** For radiology: an imaging order, and moving it on as it is scheduled, performed and reported. */
 export { imagingOrder, moveImagingOrder, type ImagingOrder } from './imaging.js';
-/** For the paper OPD sheet (#1202): a visit opened from a token and closed with its scan. */
+/**
+ * For the paper OPD sheet (#1202): a visit opened from a token and closed with its scan, or
+ * cancelled while empty when it was opened by mistake (#1214).
+ */
 export {
+  cancelPaperVisit,
   closePaperVisit,
   findPaperVisit,
   findPaperVisitOfToken,
+  isUnwrittenVisit,
   openPaperVisit,
   type PaperVisitRecord,
 } from './paper.js';

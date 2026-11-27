@@ -5,11 +5,12 @@ import { visibilityFor } from './http.js';
 import {
   encounterOpenedFor,
   findEncounter,
+  hasDrafts,
   hasRecords,
   practisingDoctor,
   type EncounterRow,
 } from './repository.js';
-import { closeOpenVisit, openOpdVisit, refuseManagedElsewhere } from './visit.js';
+import { cancelOpenVisit, closeOpenVisit, openOpdVisit, refuseManagedElsewhere } from './visit.js';
 
 /**
  * A visit kept on paper (#1202), for the documents module, which holds its scanned sheet. Every
@@ -26,6 +27,7 @@ export interface PaperVisitRecord {
   queueTokenId: string | null;
   doctorName: string | null;
   openedAt: Date;
+  openedFromPaper: boolean;
   version: number;
 }
 
@@ -39,6 +41,7 @@ const record = (row: EncounterRow): PaperVisitRecord => ({
   queueTokenId: row.queue_token_id,
   doctorName: row.attending_doctor_name,
   openedAt: row.opened_at,
+  openedFromPaper: row.opened_from_paper,
   version: row.version,
 });
 
@@ -101,22 +104,19 @@ export async function openPaperVisit(
     queueTokenId: token.id,
     appointmentId: token.appointmentId,
     doctor,
+    fromPaper: true,
   });
   const opened = await findPaperVisit(request, id, permission);
   if (!opened) throw new Error('encounter was not opened');
   return opened;
 }
 
-/**
- * Closes an open OPD visit with nothing written on it, at the version read. `requireSheet` runs once the row is locked and
- * throws when no sheet is on the visit.
- */
-export async function closePaperVisit(
+/** The open OPD visit to be changed from the paper, locked, at the version read. */
+async function lockOpenPaperVisit(
   request: FastifyRequest,
   { id, version }: { id: string; version: number },
   permission: Permission,
-  requireSheet: () => Promise<void>,
-): Promise<void> {
+): Promise<EncounterRow> {
   const row = await findEncounter(
     request.txClient,
     id,
@@ -134,6 +134,20 @@ export async function closePaperVisit(
   if (row.type !== 'opd') {
     throw new HttpError(409, 'not_opd_visit', 'Only an OPD visit is kept on paper');
   }
+  return row;
+}
+
+/**
+ * Closes an open OPD visit with nothing written on it, at the version read. `requireSheet` runs
+ * once the row is locked and throws when no sheet is on the visit.
+ */
+export async function closePaperVisit(
+  request: FastifyRequest,
+  asked: { id: string; version: number },
+  permission: Permission,
+  requireSheet: () => Promise<void>,
+): Promise<void> {
+  const row = await lockOpenPaperVisit(request, asked, permission);
   // A visit written up on screen is the doctor's to close, never closed from the paper.
   if (await hasRecords(request.txClient, row.id)) {
     throw new HttpError(
@@ -144,5 +158,29 @@ export async function closePaperVisit(
   }
   await requireSheet();
   await closeOpenVisit(request, row);
+  request.audit('update', 'encounter', row.id);
+}
+
+/** Whether no note, not even a draft, and nothing else of this module is on the visit. */
+export async function isUnwrittenVisit(request: FastifyRequest, id: string): Promise<boolean> {
+  return !(await hasDrafts(request.txClient, id)) && !(await hasRecords(request.txClient, id));
+}
+
+/**
+ * Cancels a visit opened from paper by mistake (#1214), such as under the wrong token, while it
+ * is empty. `requireEmpty` runs once the row is locked and throws when another module holds
+ * something on it. A visit opened any other way is cancelled with encounter:update only.
+ */
+export async function cancelPaperVisit(
+  request: FastifyRequest,
+  asked: { id: string; version: number; reason: string },
+  permission: Permission,
+  requireEmpty: () => Promise<void>,
+): Promise<void> {
+  const row = await lockOpenPaperVisit(request, asked, permission);
+  if (!row.opened_from_paper) {
+    throw new HttpError(409, 'not_paper_visit', 'The visit was not opened from paper');
+  }
+  await cancelOpenVisit(request, row, asked.reason, requireEmpty);
   request.audit('update', 'encounter', row.id);
 }

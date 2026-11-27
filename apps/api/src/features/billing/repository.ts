@@ -75,6 +75,21 @@ export interface ChargeRow {
   total: number;
 }
 
+/** Whether a charge or an invoice (typed lines alone make no charge) of the visit is not void. */
+export async function hasStandingBilling(
+  client: pg.ClientBase,
+  encounterId: string,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from charges where encounter_id = $1 and status <> 'void'
+     union all
+     select 1 from invoices where encounter_id = $1 and status <> 'void'
+     limit 1`,
+    [encounterId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 export async function findCharge(client: pg.ClientBase, id: string): Promise<ChargeRow | null> {
   if (!isUuid(id)) return null;
   const { rows } = await client.query<ChargeRow>(
