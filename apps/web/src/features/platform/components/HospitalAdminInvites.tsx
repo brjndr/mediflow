@@ -14,7 +14,7 @@ const EMPTY = { name: '', email: '' };
 /**
  * Invites the hospital's first admin, and lists the invites still open so one can be sent again
  * or withdrawn. Sending again is inviting the same address again: the API withdraws the earlier
- * invite and emails a new link. The invitee sets a password through the link (A-03).
+ * invite (one to another address too) and emails a new link. The invitee sets a password through the link (A-03).
  */
 export function HospitalAdminInvites({ hospitalId }: { hospitalId: string }) {
   const { t } = useTranslation();

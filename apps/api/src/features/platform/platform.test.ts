@@ -623,6 +623,128 @@ describe('the first admin', () => {
   });
 });
 
+describe('one open invite of the platform per hospital (#1231)', () => {
+  const address = (who: string) => `${who}.${randomBytes(3).toString('hex')}@onboarded.test`;
+  const invite = (id: string, email: string) =>
+    call('POST', `/platform/hospitals/${id}/admin-invite`, {
+      payload: { name: 'First Admin', email },
+    });
+  const openInvites = async (id: string) => {
+    const { rows } = await pool.query<{ email: string }>(
+      `select email from invites where tenant_id = $1 and accepted_at is null and revoked_at is null
+       order by email`,
+      [id],
+    );
+    return rows.map((row) => row.email);
+  };
+  /** Sends the queued emails and takes the link's token from the one to this address. */
+  const tokenFor = async (email: string) => {
+    await queue.drain();
+    const mail = notifier.sent.filter((sent) => sent.to === email).at(-1);
+    return mail?.text.match(/token=([A-Za-z0-9_-]{43})/)?.[1];
+  };
+  const accept = (token: string | undefined) =>
+    cookieApp.inject({
+      method: 'POST',
+      url: '/auth/invite/accept',
+      headers: { origin: ORIGIN },
+      payload: { token, password: TEST_PASSWORD },
+    });
+
+  it('withdraws an invite to another address, so its link no longer works', async () => {
+    const hospital = await createHospital();
+    const other = await createHospital();
+    const first = address('first');
+    const second = address('second');
+    const elsewhere = address('elsewhere');
+    await invite(other.id, elsewhere);
+    const earlier = (await invite(hospital.id, first)).json();
+    const earlierToken = await tokenFor(first);
+    expect(earlierToken).toBeDefined();
+
+    expect((await invite(hospital.id, second)).statusCode).toBe(201);
+    expect(await openInvites(hospital.id)).toEqual([second]);
+    expect(await openInvites(other.id)).toEqual([elsewhere]);
+
+    const trail = await pool.query(
+      `select entity_id, detail from platform_audit_log
+       where hospital_id = $1 and action = 'hospital.admin_invite_revoked'`,
+      [hospital.id],
+    );
+    expect(trail.rows).toEqual([{ entity_id: earlier.id, detail: { reason: 'replaced' } }]);
+
+    expect((await accept(await tokenFor(second))).statusCode).toBe(204);
+    expect((await accept(earlierToken)).statusCode).toBe(400);
+    const members = await pool.query('select 1 from memberships where tenant_id = $1', [
+      hospital.id,
+    ]);
+    expect(members.rowCount).toBe(1);
+    expect(await openInvites(hospital.id)).toEqual([]);
+  });
+
+  it('leaves an invitation the hospital sent to somebody else', async () => {
+    const hospital = await createHospital();
+    const colleague = address('colleague');
+    await pool.query(
+      `insert into invites (tenant_id, email, name, role_id, token_hash, expires_at)
+       values ($1, $2, 'Colleague', 'nurse', $3, now() + interval '1 day')`,
+      [hospital.id, colleague, randomBytes(32)],
+    );
+    const admin = address('admin');
+    await invite(hospital.id, admin);
+    expect(await openInvites(hospital.id)).toEqual([admin, colleague]);
+  });
+
+  it('keeps one open when several addresses are invited at once', async () => {
+    const hospital = await createHospital();
+    const responses = await Promise.all(
+      ['a', 'b', 'c'].map((who) => invite(hospital.id, address(who))),
+    );
+    expect(responses.map((response) => response.statusCode)).toEqual([201, 201, 201]);
+    expect(await openInvites(hospital.id)).toHaveLength(1);
+  });
+
+  it('waits for an invite being accepted, then refuses and withdraws nothing', async () => {
+    const hospital = await createHospital();
+    const earlier = (await invite(hospital.id, address('accepting'))).json();
+    const member = await newUser('Accepting Admin');
+
+    // What acceptance does, held open: the invite locked, the membership made, not yet committed.
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('select 1 from invites where id = $1 for update', [earlier.id]);
+      await client.query(
+        "insert into memberships (tenant_id, user_id, role_id) values ($1, $2, 'admin')",
+        [hospital.id, member.id],
+      );
+      await client.query('update invites set accepted_at = now() where id = $1', [earlier.id]);
+
+      const pending = invite(hospital.id, address('late'));
+      await expect
+        .poll(async () => {
+          const { rowCount } = await pool.query(
+            `select 1 from pg_stat_activity
+             where datname = current_database() and wait_event_type = 'Lock'
+               and query like 'update invites i set revoked_at%'`,
+          );
+          return rowCount;
+        })
+        .toBe(1);
+      await client.query('commit');
+
+      const response = await pending;
+      expect(response.statusCode).toBe(409);
+      expect(code(response)).toBe('hospital_has_admin');
+    } finally {
+      await client.query('rollback');
+      client.release();
+    }
+    const invites = await pool.query('select 1 from invites where tenant_id = $1', [hospital.id]);
+    expect(invites.rowCount).toBe(1);
+  });
+});
+
 describe('open invites of a hospital', () => {
   it('lists the open ones, withdraws one, and sends again by inviting again', async () => {
     const hospital = await createHospital();

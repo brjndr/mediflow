@@ -19,6 +19,8 @@ import {
   hasActiveManager,
   isPlatformAdminEmail,
   withdrawOpenInvites,
+  lockHospital,
+  withdrawEarlierAdminInvites,
   findHospital,
   getHospital,
   listAudit,
@@ -432,7 +434,7 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'platformInviteHospitalAdmin',
         tags,
         description:
-          'Invites the first admin of a hospital. Only while the hospital is active and has no active member who manages it, one whose role (whatever it is called) holds `role:manage` or `staff:manage` (409 `hospital_has_admin` after that: they invite their own staff, and the platform cannot put anyone into a live hospital’s admin role), and never to a platform admin’s address. An earlier open invite to the same address is withdrawn. The link is emailed by a job; the admin sets a password and an authenticator and signs in.',
+          'Invites the first admin of a hospital. Only while the hospital is active and has no active member who manages it, one whose role (whatever it is called) holds `role:manage` or `staff:manage` (409 `hospital_has_admin` after that: they invite their own staff, and the platform cannot put anyone into a live hospital’s admin role), and never to a platform admin’s address. Every earlier open invite the platform made for the hospital is withdrawn, whatever its address, as is any open invite to this address, so only the newest link works. The link is emailed by a job; the admin sets a password and an authenticator and signs in.',
         params: HospitalParams,
         body: AdminInviteBody,
         response: { 201: ref(PlatformInvite), ...errors(400, 401, 403, 404, 409, 429) },
@@ -447,10 +449,15 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
 
       const invite = await withPlatformTransaction(pool, async (client) => {
+        // Two invites at once would each miss the other's, and leave both open.
+        await lockHospital(client, id);
         const hospital = await getHospital(client, id);
         if (hospital.status !== 'active') {
           throw new HttpError(409, 'hospital_not_active', 'The hospital is not active');
         }
+        // Before asking who manages the hospital: this waits for an invite being accepted now, so
+        // the question sees its membership. A refusal below rolls the withdrawal back.
+        const replaced = await withdrawEarlierAdminInvites(client, id, email);
         // Only until somebody of its own manages the hospital: after that they invite their
         // staff, and nobody on the platform can put themselves in a live hospital's admin role.
         if (await hasActiveManager(client, id)) {
@@ -458,6 +465,17 @@ export const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
         if (await isPlatformAdminEmail(client, email)) {
           throw new HttpError(400, 'validation_failed', 'That address belongs to a platform admin');
+        }
+        for (const inviteId of replaced) {
+          await recordPlatformAudit(client, {
+            actorId: userId,
+            action: 'hospital.admin_invite_revoked',
+            entity: 'invite',
+            entityId: inviteId,
+            hospitalId: id,
+            detail: { reason: 'replaced' },
+            requestId: request.id,
+          });
         }
         const created = await createAdminInvite(client, {
           hospitalId: id,
