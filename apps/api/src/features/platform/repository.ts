@@ -244,8 +244,8 @@ export async function listAudit(
 
 /**
  * Invites the first admin of a hospital. Saved with a hash that matches no token, as every invite
- * is: the email job gives it a token when it sends the link (core/auth/emails.ts). An earlier open
- * invite to the same address is withdrawn, so only the newest link works.
+ * is: the email job gives it a token when it sends the link (core/auth/emails.ts). Call
+ * `withdrawEarlierAdminInvites` first, so only the newest link works.
  */
 export async function createAdminInvite(
   client: pg.ClientBase,
@@ -257,11 +257,6 @@ export async function createAdminInvite(
     ttlHours: number;
   },
 ): Promise<{ id: string; email: string; name: string; expiresAt: string }> {
-  await client.query(
-    `update invites set revoked_at = now()
-     where tenant_id = $1 and email = $2 and accepted_at is null and revoked_at is null`,
-    [input.hospitalId, input.email],
-  );
   const { rows } = await client.query<{ id: string; expires_at: Date }>(
     `insert into invites (tenant_id, email, name, role_id, invited_by, token_hash, expires_at)
      values ($1, $2, $3, 'admin', $4, $5, now() + make_interval(hours => $6))
@@ -276,6 +271,41 @@ export async function createAdminInvite(
     name: input.name,
     expiresAt: row.expires_at.toISOString(),
   };
+}
+
+/**
+ * Holds the hospital's row until the transaction ends, so its first admin invites and status
+ * changes happen one after another. It does not block someone accepting an invite, whose
+ * membership only references the row.
+ */
+export async function lockHospital(client: pg.ClientBase, hospitalId: string): Promise<void> {
+  await client.query('select 1 from tenants where id = $1 for no key update', [hospitalId]);
+}
+
+/**
+ * Withdraws, before a new first admin invite, every open invite the platform made for the hospital
+ * (#1231: one left to another address would still make an admin after the hospital is live) and
+ * any open invite to the new address. The platform's own are known by its trail; an invitation the
+ * hospital's staff sent to somebody else is left alone. Returns the ids withdrawn.
+ *
+ * Waits for an invite being accepted at this moment, so ask who manages the hospital after it.
+ */
+export async function withdrawEarlierAdminInvites(
+  client: pg.ClientBase,
+  hospitalId: string,
+  email: string,
+): Promise<string[]> {
+  const { rows } = await client.query<{ id: string }>(
+    `update invites i set revoked_at = now()
+     where i.tenant_id = $1 and i.accepted_at is null and i.revoked_at is null
+       and (i.email = $2 or exists (
+         select from platform_audit_log a
+         where a.hospital_id = $1 and a.action = 'hospital.admin_invited'
+           and a.entity_id = i.id::text))
+     returning i.id`,
+    [hospitalId, email],
+  );
+  return rows.map((row) => row.id);
 }
 
 /** The invites to a hospital that nobody has accepted or withdrawn, newest first (an expired one still shows, so it can be sent again). */

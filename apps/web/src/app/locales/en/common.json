@@ -436,7 +436,7 @@
     },
     "invite": {
       "heading": "First hospital admin",
-      "hint": "Invite the person who will run this hospital. They get an email with a link to set a password and an authenticator. Once the hospital has an admin, its admins invite their own staff.",
+      "hint": "Invite the person who will run this hospital. They get an email with a link to set a password and an authenticator. Sending an invite withdraws any earlier one, so only the newest link works. Once the hospital has an admin, its admins invite their own staff.",
       "name": "Name",
       "email": "Email address",
       "submit": "Send invite",

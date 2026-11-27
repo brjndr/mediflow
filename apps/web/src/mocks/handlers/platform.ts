@@ -473,14 +473,14 @@ export const platformHandlers = [
     if (email.startsWith('platform.')) {
       return error(400, 'validation_failed', 'That address belongs to a platform admin');
     }
-    const open = (invites.get(hospital.id) ?? []).filter((i) => i.email !== email);
     const invite: Invite = {
       id: `invite_${++invited}`,
       email,
       name: body.name.trim(),
       expiresAt: new Date(Date.now() + 72 * 3_600_000).toISOString(),
     };
-    invites.set(hospital.id, [...open, invite]);
+    // As the API: every earlier invite the platform made is withdrawn, whatever its address.
+    invites.set(hospital.id, [invite]);
     return HttpResponse.json<Invite>(invite, { status: 201 });
   }),
 

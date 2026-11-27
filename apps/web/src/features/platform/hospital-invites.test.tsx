@@ -49,6 +49,17 @@ describe('inviting the first hospital admin (platform)', () => {
     expect((await fetchAdminInvites(hospital.id)).items).toHaveLength(1);
   });
 
+  it('keeps one invite open: another address replaces the earlier one', async () => {
+    asPlatformAdmin();
+    const hospital = await newHospital();
+    await inviteHospitalAdmin(hospital.id, { name: 'Asha Rao', email: 'asha@lakeside.test' });
+    await inviteHospitalAdmin(hospital.id, { name: 'Ravi Nair', email: 'ravi@lakeside.test' });
+
+    expect((await fetchAdminInvites(hospital.id)).items.map((i) => i.email)).toEqual([
+      'ravi@lakeside.test',
+    ]);
+  });
+
   it('withdraws an invite and moves focus on', async () => {
     asPlatformAdmin();
     const user = userEvent.setup();

@@ -7714,7 +7714,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Invites the first admin of a hospital. Only while the hospital is active and has no active member who manages it, one whose role (whatever it is called) holds `role:manage` or `staff:manage` (409 `hospital_has_admin` after that: they invite their own staff, and the platform cannot put anyone into a live hospital’s admin role), and never to a platform admin’s address. An earlier open invite to the same address is withdrawn. The link is emailed by a job; the admin sets a password and an authenticator and signs in. */
+        /** @description Invites the first admin of a hospital. Only while the hospital is active and has no active member who manages it, one whose role (whatever it is called) holds `role:manage` or `staff:manage` (409 `hospital_has_admin` after that: they invite their own staff, and the platform cannot put anyone into a live hospital’s admin role), and never to a platform admin’s address. Every earlier open invite the platform made for the hospital is withdrawn, whatever its address, as is any open invite to this address, so only the newest link works. The link is emailed by a job; the admin sets a password and an authenticator and signs in. */
         post: operations["platformInviteHospitalAdmin"];
         delete?: never;
         options?: never;
