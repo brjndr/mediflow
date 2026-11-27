@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -188,6 +188,40 @@ describe('what an admin does to a member', () => {
       'This is the only person who can manage staff here.',
     );
     expect(screen.getByText('Aarav Iyer')).toBeInTheDocument();
+  });
+
+  it('changes a role after asking, offering only roles the caller may give', async () => {
+    await openList();
+    await userEvent.click(button('Change role: Aarav Iyer'));
+
+    expect(screen.getByRole('heading', { name: 'Change the role of Aarav Iyer' })).toHaveFocus();
+    await expectNoAxeViolations(document.body);
+    const select = screen.getByRole('combobox', { name: 'New role' });
+    await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(1));
+    expect(button('Change role')).toBeUnavailable();
+    await userEvent.selectOptions(select, 'Pharmacist');
+    await userEvent.click(button('Change role'));
+
+    await waitFor(() => expect(statuses()).toContain('Aarav Iyer now has the role Pharmacist.'));
+  });
+
+  it('explains a refusal to take away one’s own access', async () => {
+    server.use(
+      http.put('*/api/staff/:id/role', () =>
+        HttpResponse.json(
+          { error: { code: 'cannot_remove_own_access', message: 'x' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    await openList();
+    await userEvent.click(button('Change role: Aarav Iyer'));
+    const select = screen.getByRole('combobox', { name: 'New role' });
+    await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(1));
+    await userEvent.selectOptions(select, 'Pharmacist');
+    await userEvent.click(button('Change role'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('own ability to manage');
   });
 
   it('signs someone out everywhere', async () => {

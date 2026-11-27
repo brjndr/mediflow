@@ -44,6 +44,7 @@
     "deactivate": "Deactivate",
     "reactivate": "Reactivate",
     "revokeSessions": "Sign out everywhere",
+    "changeRole": "Change role",
     "resend": "Send again",
     "withdraw": "Withdraw"
   },
@@ -53,7 +54,17 @@
     "yes": "Deactivate",
     "no": "Cancel"
   },
+  "role": {
+    "heading": "Change the role of {{name}}",
+    "body": "Their permissions change at once: the next thing they do here uses the new role. Only roles that hold no more than your own are offered.",
+    "label": "New role",
+    "loading": "Loading the roles",
+    "failed": "The roles could not be loaded.",
+    "yes": "Change role",
+    "no": "Cancel"
+  },
   "done": {
+    "changeRole": "{{name}} now has the role {{role}}.",
     "deactivate": "{{name}} was deactivated.",
     "reactivate": "{{name}} is active again.",
     "revokeSessions": "{{name}} was signed out everywhere.",
@@ -61,6 +72,8 @@
     "withdraw": "The invitation to {{name}} was withdrawn. Its link no longer works."
   },
   "errors": {
+    "ownAccess": "You cannot take away your own ability to manage staff or roles. Ask another administrator.",
+    "roleGone": "That role no longer exists at this hospital. Choose another.",
     "self": "You cannot deactivate yourself. Ask another administrator.",
     "lastAdmin": "This is the only person who can manage staff here. Give someone else that role first.",
     "unknownRole": "That role no longer exists at this hospital. Choose another.",

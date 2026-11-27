@@ -43,6 +43,14 @@ export async function deactivateStaff(userId: string): Promise<StaffMember> {
   return staffMemberSchema.parse(requireData(result));
 }
 
+export async function changeStaffRole(userId: string, roleId: string): Promise<StaffMember> {
+  const result = await api.PUT('/staff/{userId}/role', {
+    params: { path: { userId } },
+    body: { roleId },
+  });
+  return staffMemberSchema.parse(requireData(result));
+}
+
 export async function reactivateStaff(userId: string): Promise<StaffMember> {
   const result = await api.POST('/staff/{userId}/reactivate', { params: { path: { userId } } });
   return staffMemberSchema.parse(requireData(result));

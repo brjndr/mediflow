@@ -5,10 +5,11 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-
+import { sessionKey, useSession } from '@/app/session';
 import { createTenantKeys } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  changeStaffRole,
   deactivateStaff,
   fetchStaff,
   fetchStaffRoles,
@@ -92,6 +93,27 @@ export function useStaffAction() {
       else if (action === 'withdraw') await withdrawInvite(member.id);
       else await revokeStaffSessions(member.id);
       return { action, member };
+    },
+    onSettled: refresh,
+  });
+}
+
+/** Moves a member to another role. Every list is asked for again, so the role shown is fresh. */
+export function useChangeStaffRole() {
+  const refresh = useRefreshLists();
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const ownId = useSession()?.user.id;
+  return useMutation({
+    mutationFn: ({ member, roleId }: { member: StaffMember; roleId: string }) =>
+      changeStaffRole(member.id, roleId),
+    onSuccess: async (changed) => {
+      // One's own role: the session and the roles on offer are read again now.
+      if (changed.id !== ownId || !tenantId) return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: sessionKey }),
+        queryClient.invalidateQueries({ queryKey: rolesKey(tenantId) }),
+      ]);
     },
     onSettled: refresh,
   });

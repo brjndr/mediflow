@@ -192,20 +192,6 @@ export async function lockMember(client: pg.ClientBase, userId: string): Promise
   return rows[0] ?? null;
 }
 
-/**
- * Whether someone is an active member of this hospital right now. Asked again once the rows a
- * request acts on are locked: the caller passed the guard when the request arrived, and may have
- * been deactivated while it waited.
- */
-export async function isActiveMember(client: pg.ClientBase, userId: string): Promise<boolean> {
-  if (!UUID.test(userId)) return false;
-  const { rowCount } = await client.query(
-    "select 1 from memberships where user_id = $1 and status = 'active'",
-    [userId],
-  );
-  return (rowCount ?? 0) > 0;
-}
-
 /** False when the membership already had that status: nothing was written. */
 export async function setMemberStatus(
   client: pg.ClientBase,
@@ -259,6 +245,21 @@ export async function revokeInvitesSentBy(client: pg.ClientBase, userId: string)
   return rowCount ?? 0;
 }
 
+/** The open invitations a person sent here, locked. */
+export async function lockOpenInvitesSentBy(
+  client: pg.ClientBase,
+  userId: string,
+): Promise<{ id: string; role_id: string }[]> {
+  const { rows } = await client.query<{ id: string; role_id: string }>(
+    `select id, role_id from invites
+     where invited_by = $1 and accepted_at is null and revoked_at is null
+     order by id
+     for update`,
+    [userId],
+  );
+  return rows;
+}
+
 /** An open invitation of this hospital, locked, or null. */
 export async function lockOpenInvite(
   client: pg.ClientBase,
@@ -304,4 +305,18 @@ export async function markInviteRequeued(
      where id = $1`,
     [inviteId, attempt],
   );
+}
+
+/** Moves a membership to another role of the hospital. False when it already held that role. */
+export async function setMemberRole(
+  client: pg.ClientBase,
+  userId: string,
+  roleId: string,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `update memberships set role_id = $2, updated_at = now()
+     where user_id = $1 and role_id <> $2`,
+    [userId, roleId],
+  );
+  return (rowCount ?? 0) > 0;
 }

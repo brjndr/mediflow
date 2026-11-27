@@ -1,8 +1,8 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { Type } from '@sinclair/typebox';
+import { Type, type Static } from '@sinclair/typebox';
 import type { FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { grantsWithin } from '../../core/access/policy.js';
+import { grantsWithin, loadPolicy } from '../../core/access/policy.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { queueInviteEmailTracked } from '../../core/auth/emails.js';
@@ -10,16 +10,17 @@ import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { requireUserPlace } from '../../core/tenancy/limits.js';
 import {
   cutOffSessions,
-  isActiveMember,
   listPeople,
   lockMember,
   lockOpenInvite,
+  lockOpenInvitesSentBy,
   lockManagers,
   markInviteRequeued,
   revokeInvite,
   revokeInvitesSentBy,
   revokeSessionsHere,
   roleGrants,
+  setMemberRole,
   setMemberStatus,
   type MemberRow,
   type PersonRow,
@@ -31,6 +32,7 @@ import {
   InviteResent,
   StaffMember,
   StaffPage,
+  StaffRoleChange,
   StaffRoleList,
   StaffSessionsRevoked,
 } from './schemas.js';
@@ -81,17 +83,30 @@ async function heldBy(request: FastifyRequest) {
 }
 
 /**
+ * What the caller holds, read again once the rows a request acts on are locked. The policy loaded
+ * for the guard may predate a deactivation, a change of role or a role edit made while this
+ * request waited; someone who may no longer manage staff changes nothing.
+ */
+async function managerNow(request: FastifyRequest) {
+  const policy = await loadPolicy(
+    request.txClient,
+    request.tenant?.id ?? '',
+    request.session?.userId ?? '',
+  );
+  if (!policy?.permissions.some((grant) => grant.permission === MANAGE)) throw gone();
+  return policy.permissions;
+}
+
+/**
  * The member, locked, once the caller is known to be allowed to act on them: their role holds
  * nothing the caller's does not.
  */
 async function memberWithin(request: FastifyRequest, userId: string): Promise<MemberRow> {
   const target = await lockMember(request.txClient, userId);
   if (!target) throw notFound();
-  // The caller was a member when the request arrived. If they were deactivated while it waited
-  // for the lock, what they asked for is no longer theirs to do.
-  if (!(await isActiveMember(request.txClient, request.session?.userId ?? ''))) throw gone();
+  const held = await managerNow(request);
   const roles = await roleGrants(request.txClient);
-  if (!grantsWithin(roles.get(target.role_id)?.grants ?? [], await heldBy(request))) {
+  if (!grantsWithin(roles.get(target.role_id)?.grants ?? [], held)) {
     throw notAllowed();
   }
   return target;
@@ -225,6 +240,62 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
         request.audit('reactivate', 'membership', target.user_id);
       }
       return member(target, 'active');
+    },
+  );
+
+  app.put(
+    '/staff/:userId/role',
+    {
+      config: { permissions: [MANAGE] },
+      schema: {
+        operationId: 'changeStaffRole',
+        tags: ['staff'],
+        description:
+          'Moves a member to another role of the hospital. Their next request uses the new permissions (their policy version holds the role id, so open tabs refresh). Both the role they have and the role they are to have must be within what the caller holds (403 role_not_allowed). 404 role_not_found for a role that is not one of this hospital. 409 last_admin when nobody else could manage staff or roles afterwards, 409 cannot_remove_own_access when the caller would lose their own ability to manage staff or roles. Open invitations the member sent that their new role could not send are withdrawn. Giving the role someone already has changes nothing.' +
+          OTHER_HOSPITAL,
+        params: UserParams,
+        body: ref(StaffRoleChange),
+        response: { 200: ref(StaffMember), ...errors(401, 403, 404, 409, 422, 429) },
+      },
+    },
+    async (request) => {
+      const { userId } = request.params;
+      const { roleId } = request.body as Static<typeof StaffRoleChange>;
+      // Same order as deactivating: the role-change lock, then the managers by user id, then the member.
+      const managers = await lockManagers(request.txClient, [MANAGE, ROLE_MANAGE]);
+      const caller = request.session?.userId ?? '';
+      const target = await memberWithin(request, userId);
+      const roles = await roleGrants(request.txClient);
+      const next = roles.get(roleId);
+      if (!next) throw new HttpError(404, 'role_not_found', 'No such role');
+      if (!grantsWithin(next.grants, await managerNow(request))) throw notAllowed();
+      const kept = new Set(next.grants.map((grant) => grant.permission));
+      for (const permission of [MANAGE, ROLE_MANAGE]) {
+        const holders = managers.filter((row) => row.held.includes(permission));
+        if (kept.has(permission) || !holders.some((row) => row.userId === target.user_id)) continue;
+        if (target.user_id === caller) {
+          throw new HttpError(
+            409,
+            'cannot_remove_own_access',
+            'You cannot take away your own ability to manage the hospital',
+          );
+        }
+        if (holders.length === 1) {
+          throw new HttpError(409, 'last_admin', 'Nobody else could manage the hospital here');
+        }
+      }
+      if (await setMemberRole(request.txClient, target.user_id, roleId)) {
+        request.audit('update', 'membership', target.user_id);
+        // An invitation stands on its sender's word: what they could not send now is withdrawn.
+        const mayInvite = next.grants.some((grant) => grant.permission === INVITE);
+        for (const invite of await lockOpenInvitesSentBy(request.txClient, target.user_id)) {
+          const offered = roles.get(invite.role_id)?.grants ?? [];
+          if (mayInvite && grantsWithin(offered, next.grants)) continue;
+          await revokeInvite(request.txClient, invite.id);
+          request.audit('withdraw', 'invite', invite.id);
+        }
+      }
+      return member({ ...target, role_id: roleId, role_name: next.name }, target.status);
     },
   );
 
