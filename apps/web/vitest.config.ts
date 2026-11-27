@@ -1,5 +1,6 @@
 import { mergeConfig, defineConfig } from 'vitest/config';
 import viteConfig from './vite.config.ts';
+import { isIgnoredUnhandledError } from './src/test/ignored-errors.ts';
 
 export default defineConfig(() =>
   mergeConfig(viteConfig, {
@@ -17,12 +18,9 @@ export default defineConfig(() =>
       // one wait may take (asyncUtilTimeout in src/test/setup.ts), so a wait that fails says
       // what it was looking for rather than "test timed out".
       testTimeout: 60_000,
-      // A test that ends while a request is in flight (the page aborts it on navigation) can make
-      // undici's fetch assert `!this.aborted` when the response then arrives, after every test has
-      // passed (seen once on web shard 2, #819). Only that one assertion is ignored; any other
-      // unhandled error still fails the run.
+      // The one error that does not fail the run (#819).
       onUnhandledError(error: { message?: string }) {
-        if (/assert(!this.aborted)/.test(error.message ?? '')) return false;
+        if (isIgnoredUnhandledError(error)) return false;
       },
       // `pnpm test:coverage` (what CI runs). Coverage is measured and enforced for the foundation
       // only: the code that keeps hospitals apart and decides who may do what. A change that
