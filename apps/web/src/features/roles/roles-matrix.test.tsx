@@ -140,6 +140,7 @@ describe('the permission matrix', () => {
     await api.PUT('/roles/{roleId}', {
       params: { path: { roleId: 'doctor' } },
       body: {
+        expectedVersion: current?.version ?? 0,
         permissions: [
           ...(current?.permissions ?? []).filter((g) => g.permission !== 'patient:update'),
           { permission: 'patient:delete', scope: 'all' },
@@ -159,6 +160,59 @@ describe('the permission matrix', () => {
     await waitFor(() => expect(status()).toHaveTextContent('Saved the permissions of Doctor.'));
     // Many steps over the whole catalog: slow on a shared CI runner, so it gets more time.
   }, 90_000);
+
+  /** Someone else's save: the Doctor's grants as `change` leaves them. */
+  const saveElsewhere = async (without?: string) => {
+    const current = await roleOf('doctor');
+    await api.PUT('/roles/{roleId}', {
+      params: { path: { roleId: 'doctor' } },
+      body: {
+        expectedVersion: current?.version ?? 0,
+        permissions: current?.permissions.filter((g) => g.permission !== without),
+      },
+    });
+  };
+
+  it('saves at once when what changed meanwhile was not a permission', async () => {
+    await openMatrix();
+    await userEvent.click(box('patient:delete'));
+    await saveElsewhere();
+
+    await userEvent.click(save());
+
+    await waitFor(() => expect(status()).toHaveTextContent('Saved the permissions of Doctor.'));
+    expect((await roleOf('doctor'))?.permissions.map((g) => g.permission)).toContain(
+      'patient:delete',
+    );
+  });
+
+  it('asks for a review when they changed other permissions, and sends nothing yet', async () => {
+    await openMatrix();
+    await userEvent.click(box('patient:delete'));
+    await saveElsewhere('patient:update');
+
+    await userEvent.click(save());
+
+    await waitFor(() => expect(status()).toHaveTextContent(/none of the permissions you changed/));
+    expect(box('patient:update')).not.toBeChecked();
+    expect(box('patient:delete')).toBeChecked();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect((await roleOf('doctor'))?.permissions.map((g) => g.permission)).not.toContain(
+      'patient:delete',
+    );
+  });
+
+  it('keeps the edit when the role cannot be read again after a conflict', async () => {
+    await openMatrix();
+    await userEvent.click(box('patient:delete'));
+    await saveElsewhere();
+    server.use(http.get('*/api/roles/:roleId', () => new HttpResponse(null, { status: 403 })));
+
+    await userEvent.click(save());
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(box('patient:delete')).toBeChecked();
+  });
 
   it('refreshes the policy of the caller at once when their own role was changed', async () => {
     const { queryClient } = await openMatrix('admin', 'Admin');

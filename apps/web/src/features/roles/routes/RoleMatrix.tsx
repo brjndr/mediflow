@@ -19,7 +19,14 @@ import {
   withinHeld,
   type Grants,
 } from '../matrix';
-import { useLatestRole, usePermissionCatalog, useRole, useSaveGrants } from '../hooks/use-roles';
+import {
+  isVersionConflict,
+  useLatestRole,
+  usePermissionCatalog,
+  useRole,
+  useSaveGrants,
+  useStillThisHospital,
+} from '../hooks/use-roles';
 import type { PermissionCatalog, RoleDetail } from '../types';
 
 const REFUSALS: Record<string, string> = {
@@ -37,13 +44,16 @@ function Editor({ role, catalog }: { role: RoleDetail; catalog: PermissionCatalo
   const canManage = usePermission('role:manage');
   const save = useSaveGrants(role.id);
   const latestRole = useLatestRole(role.id);
+  const stillHere = useStillThisHospital();
 
   // The role as it was when the editor opened, and the edit made over it. A read in the
   // background never changes what is being edited.
   const [base, setBase] = useState<Grants>(() => toGrants(role.permissions));
   const [draft, setDraft] = useState<Grants>(base);
+  const [version, setVersion] = useState(role.version);
   const [done, setDone] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
+  // Covers the read and the second try after a conflict, not only the request itself.
+  const [saving, setSaving] = useState(false);
   // After a conflict: what the other person saved for permissions this person changed too.
   const [theirs, setTheirs] = useState<ReadonlyMap<string, PermissionScope | null>>(new Map());
   const [conflicted, setConflicted] = useState(false);
@@ -57,7 +67,7 @@ function Editor({ role, catalog }: { role: RoleDetail; catalog: PermissionCatalo
   const readOnly = !canManage || above;
 
   const changed = differences(base, draft);
-  const busy = save.isPending || checking;
+  const busy = save.isPending || saving;
 
   const blocked = (permission: string): Reason | null => {
     if (permission === OWN_ACCESS && isOwnRole) return 'ownAccess';
@@ -92,39 +102,50 @@ function Editor({ role, catalog }: { role: RoleDetail; catalog: PermissionCatalo
     if (busy || changed.length === 0) return;
     setDone(null);
     save.reset();
-    setChecking(true);
+    setSaving(true);
     try {
-      // The API takes no version of a role: the grants are read again, and when someone has
-      // changed them since the editor opened, their change is shown and nothing is sent.
-      const latest = toGrants((await latestRole()).permissions);
-      if (differences(latest, base).length > 0) {
-        const seen = new Map<string, PermissionScope | null>();
-        for (const permission of changed) {
-          if (latest.get(permission) !== base.get(permission)) {
-            seen.set(permission, latest.get(permission) ?? null);
-          }
-        }
-        setTheirs(seen);
-        setBase(latest);
-        setDraft(rebase(latest, draft, changed));
-        setConflicted(true);
-        return;
-      }
-    } catch {
-      // The read failed; the save below reports it if the server is unreachable.
+      await send(version, true);
     } finally {
-      setChecking(false);
+      setSaving(false);
     }
+  };
+
+  const send = async (from: number, again: boolean): Promise<void> => {
     try {
-      const saved = await save.mutateAsync(toList(draft));
+      const saved = await save.mutateAsync({ permissions: toList(draft), version: from });
       const next = toGrants(saved.permissions);
       setBase(next);
       setDraft(next);
+      setVersion(saved.version);
       setTheirs(new Map());
       setConflicted(false);
       setDone(t('matrix.saved', { name: saved.name }));
-    } catch {
-      // Shown above the matrix.
+    } catch (error) {
+      // Any other refusal is shown above the matrix.
+      if (!isVersionConflict(error)) return;
+      // Someone else saved first. When the read fails the refusal stays on screen, and the next
+      // Save is refused and read again.
+      const latest = await latestRole().catch(() => undefined);
+      if (!latest || !stillHere()) return;
+      const grants = toGrants(latest.permissions);
+      setVersion(latest.version);
+      // Their change was not to the permissions (a rename): nothing to review.
+      if (differences(grants, base).length === 0) {
+        if (again) await send(latest.version, false);
+        return;
+      }
+      const seen = new Map<string, PermissionScope | null>();
+      for (const permission of changed) {
+        if (grants.get(permission) !== base.get(permission)) {
+          seen.set(permission, grants.get(permission) ?? null);
+        }
+      }
+      save.reset();
+      setTheirs(seen);
+      setBase(grants);
+      // The edit as it is now: a box switched while the save was on its way is kept too.
+      setDraft((current) => rebase(grants, current, differences(base, current)));
+      setConflicted(true);
     }
   };
 
@@ -140,14 +161,13 @@ function Editor({ role, catalog }: { role: RoleDetail; catalog: PermissionCatalo
     isApiError(save.error) && save.error.serverCode
       ? (REFUSALS[save.error.serverCode] ?? null)
       : null;
-  const errorText = save.isError
-    ? refusal
-      ? t(refusal)
-      : tCommon(errorMessageKey(save.error))
-    : null;
+  const errorText =
+    save.isError && !saving ? (refusal ? t(refusal) : tCommon(errorMessageKey(save.error))) : null;
 
   const status = conflicted
-    ? t('matrix.conflict', { count: theirs.size })
+    ? theirs.size === 0
+      ? t('matrix.conflictNone')
+      : t('matrix.conflict', { count: theirs.size })
     : (done ??
       (changed.length > 0
         ? t('matrix.unsaved', { count: changed.length })
@@ -224,7 +244,8 @@ function Matrix() {
   const catalog = usePermissionCatalog();
 
   if (role.isPending || catalog.isPending) return <PageSkeleton label={t('matrix.loading')} />;
-  if (role.isError || catalog.isError || !role.data || !catalog.data) {
+  // A later read that fails (after a conflict) keeps the editor and what was typed into it.
+  if (!role.data || !catalog.data) {
     const error = role.error ?? catalog.error;
     const missing = isApiError(error) && error.serverCode === 'role_not_found';
     return (

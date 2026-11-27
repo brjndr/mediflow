@@ -1,4 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { ErrorBody } from '../../core/http/errors.js';
 import { ref, StringEnum } from '../../core/http/schemas.js';
 import { PLAIN_TEXT } from '../../core/http/text.js';
 
@@ -13,6 +14,8 @@ export const RoleGrant = Type.Object(
   { $id: 'RoleGrant', description: 'A permission and the scope it is held at (default all).' },
 );
 
+const Version = Type.Integer({ description: 'Counts the changes. Sent back as expectedVersion.' });
+
 export const RoleSummary = Type.Object(
   {
     id: Type.String(),
@@ -20,6 +23,7 @@ export const RoleSummary = Type.Object(
     builtIn: Type.Boolean(),
     permissionCount: Type.Integer(),
     memberCount: Type.Integer({ description: 'Active members in the role' }),
+    version: Version,
   },
   { $id: 'RoleSummary' },
 );
@@ -34,6 +38,7 @@ export const RoleDetail = Type.Object(
     memberCount: Type.Integer(),
     permissions: Type.Array(ref(RoleGrant)),
     updatedAt: Type.String(),
+    version: Version,
   },
   { $id: 'RoleDetail' },
 );
@@ -61,7 +66,20 @@ export const CreateRoleBody = Type.Object({
   permissions: Type.Array(ref(RoleGrant), { maxItems: MAX_GRANTS }),
 });
 
+/**
+ * What a 409 of `PUT /roles/{roleId}` looks like: the standard error body, with the role as it is
+ * now beside it when the code is version_conflict.
+ */
+export const RoleConflict = Type.Object(
+  { error: ErrorBody.properties.error, current: Type.Optional(ref(RoleDetail)) },
+  { $id: 'RoleConflict', description: 'Error body; `current` comes with version_conflict.' },
+);
+
 export const UpdateRoleBody = Type.Object({
+  expectedVersion: Type.Integer({
+    minimum: 1,
+    description: 'The version of the role the change was made from',
+  }),
   name: Type.Optional(Name),
   permissions: Type.Optional(Type.Array(ref(RoleGrant), { maxItems: MAX_GRANTS })),
 });
@@ -72,5 +90,6 @@ export const ROLE_SCHEMAS = [
   RoleList,
   RoleDetail,
   PermissionCatalog,
+  RoleConflict,
 ] as const;
 export type RoleGrantInput = Static<typeof RoleGrant>;

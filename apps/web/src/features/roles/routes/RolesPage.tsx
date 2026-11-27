@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
 import { DesktopOnly } from '@/shared/ui/desktop-only';
 import { RoleForm } from '../components/RoleForm';
-import { useDeleteRole, useRoles, useSaveRole } from '../hooks/use-roles';
+import { isVersionConflict, useDeleteRole, useRoles, useSaveRole } from '../hooks/use-roles';
 import type { RoleFormValues } from '../schemas';
 import type { RoleSummary } from '../types';
 
@@ -36,6 +36,8 @@ function Roles() {
   // Error messages come from the API client and live in core `common`.
   const { t: tCommon } = useTranslation();
   const [panel, setPanel] = useState<Panel | null>(null);
+  // The name someone else gave the role being renamed, when their save came first.
+  const [theirName, setTheirName] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<RoleSummary | null>(null);
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
@@ -51,18 +53,30 @@ function Roles() {
     save.reset();
     remove.reset();
     setDone(null);
+    setTheirName(null);
     setPanel(next);
   };
 
   const onSave = async (values: RoleFormValues) => {
     const editing = panel?.mode === 'rename' ? panel.role : undefined;
     setDone(null);
+    setTheirName(null);
     try {
       const saved = await save.mutateAsync({ editing, name: values.name });
       setPanel(null);
       setDone(t(editing ? 'saved.renamed' : 'saved.added', { name: saved.name }));
-    } catch {
-      // Shown in the form.
+    } catch (error) {
+      // Shown in the form. After a conflict the form keeps what was typed and the next save is
+      // made from the role as it is now.
+      if (!editing || !isVersionConflict(error)) return;
+      const latest = (await roles.refetch()).data?.find((role) => role.id === editing.id);
+      if (!latest) return;
+      // Said as a rename only when it was one; otherwise the plain conflict message stays.
+      if (latest.name !== editing.name) {
+        save.reset();
+        setTheirName(latest.name);
+      }
+      setPanel({ mode: 'rename', role: latest });
     }
   };
 
@@ -114,6 +128,7 @@ function Roles() {
           save.reset();
           remove.reset();
           setDone(null);
+          setTheirName(null);
           setPanel({ mode: 'rename', role: row });
         },
       },
@@ -138,7 +153,9 @@ function Roles() {
     ? saveRefusal
       ? t(saveRefusal)
       : tCommon(errorMessageKey(save.error))
-    : undefined;
+    : theirName !== null
+      ? t('errors.renamed', { name: theirName })
+      : undefined;
   const deleteRefusal = refusal(remove.error);
   const listError = remove.isError
     ? deleteRefusal
