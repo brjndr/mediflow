@@ -12,6 +12,7 @@ import {
   hasExportRecipient,
   mayReceiveExport,
   recordPlatformAudit,
+  wouldHaveExportRecipient,
 } from './repository.js';
 import {
   ExportDownloadParams,
@@ -19,6 +20,7 @@ import {
   ExportLinkBody,
   ExportLinkSent,
   ExportParams,
+  ExportRecipient,
   HospitalParams,
   PlatformExport,
   PlatformExportList,
@@ -154,6 +156,28 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
           [id],
         );
         return { items: rows.map(toExport) };
+      });
+    },
+  );
+
+  app.get(
+    '/platform/hospitals/:id/export-recipient',
+    {
+      config: { access: 'platform', ...limit },
+      schema: {
+        operationId: 'platformGetHospitalExportRecipient',
+        tags,
+        description:
+          'Whether anybody at the hospital, in any status, could receive its export: an active member whose role holds both `role:manage` and `patient:read`. Read before offboarding, to warn when nobody can (the export would then wait for an operator). Offboarding is not refused.',
+        params: HospitalParams,
+        response: { 200: ref(ExportRecipient), ...errors(401, 403, 404, 429) },
+      },
+    },
+    async (request) => {
+      const { id } = request.params;
+      return withPlatformTransaction(pool, async (client) => {
+        await getHospital(client, id);
+        return { hasRecipient: await wouldHaveExportRecipient(client, id) };
       });
     },
   );

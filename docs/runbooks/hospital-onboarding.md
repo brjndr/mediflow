@@ -27,7 +27,7 @@ Only platform admins see `/platform`; others get "no access". The screens need a
 ## 3. Changing a hospital later
 
 - **Suspend:** staff lose access on their next request, open invites are withdrawn and sessions end. **Reactivate** reverses it. Each asks for confirmation.
-- **Offboard:** schedules deletion after a grace period, queues an export and lets you email the hospital admin a download link. Confirm the export was downloaded before the deletion date (details in the platform API notes).
+- **Offboard:** schedules deletion after a grace period, queues an export and lets you email the hospital admin a download link. Confirm the export was downloaded before the deletion date (details in the platform API notes). The offboard question warns when nobody at the hospital could receive it: follow [Offboarding export recipient](offboarding-export-recipient.md).
 - Every action is written to the platform audit trail with ids and codes only. Do not put patient or staff details in anything you add there.
 
 ## Not covered yet

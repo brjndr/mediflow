@@ -31,6 +31,7 @@ const DEFINER_FUNCTIONS = new Set<string>([
   'platform_seal_lagging',
   'bump_policy_revision',
   'ensure_audit_partition',
+  'has_export_recipient',
   'invite_hospital_name',
   'is_platform_admin_email',
   'offboarding_admin_contacts',

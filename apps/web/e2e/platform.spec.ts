@@ -187,6 +187,32 @@ test.describe('at desktop width', () => {
     await expectNoAxeViolations(page);
   });
 
+  test('offboarding by keyboard warns when nobody can receive the export', async ({ page }) => {
+    // A new hospital has no member yet, so nobody could receive its export.
+    await page.goto(START);
+    await page.getByRole('link', { name: 'New hospital' }).click();
+    await page.getByLabel('Hospital name').fill('Empty Hospital');
+    await page.getByLabel('Hospital name').press('Enter');
+    await page.getByLabel('Locale').fill('en-IN');
+    await page.getByLabel('Time zone').fill('Asia/Kolkata');
+    await page.getByLabel('Currency').selectOption('INR');
+    await page.getByRole('button', { name: 'Next' }).press('Enter');
+    await page.getByRole('button', { name: 'Create hospital' }).press('Enter');
+    await page.getByRole('link', { name: 'Empty Hospital' }).press('Enter');
+
+    await page.getByRole('button', { name: 'Offboard' }).press('Enter');
+    const dialog = page.getByRole('alertdialog', { name: /Offboard Empty Hospital/ });
+    await expect(dialog.getByRole('alert')).toContainText('nobody at this hospital can receive');
+    const slug = dialog.getByLabel(/Type empty-hospital to confirm/);
+    await expect(slug).toBeFocused();
+    await expectNoSidewaysScroll(page);
+    await expectNoAxeViolations(page);
+
+    await slug.fill('empty-hospital');
+    await slug.press('Enter');
+    await expect(page.getByText('Offboarding has started.')).toBeVisible();
+  });
+
   test('the audit trail fits the screen and passes axe', async ({ page }) => {
     await page.goto('/platform/audit?mockUser=user_platform_admin&mockMfa=on');
     await expect(page.getByRole('heading', { name: 'Audit trail', level: 1 })).toBeVisible();

@@ -41,7 +41,8 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 
 - **Section** `HospitalStatus` at the top of a hospital's page: the status in words with its dates, and the actions that apply (active: Suspend, Offboard; suspended: Reactivate, Offboard; offboarding: Reactivate, which cancels it and clears the dates).
 - **Every action asks first** in a `ConfirmDialog` (`shared/ui/confirm-dialog`) that says what happens: staff are signed out now, open invites are withdrawn, nothing is deleted. Cancel has focus first. **Offboard** also needs the hospital's slug typed back and the days (1 to 3650, default 90) before its data may be deleted.
-- **The export and the deletion are not built** (API notes): offboarding closes the hospital and marks a date, and the dialog and the page say that nothing is deleted yet. Do not word a screen as if an export ran.
+- **Offboarding starts the export and deletes nothing** (see Exports and Deleting below): the dialog says both.
+- **The offboard dialog warns when nobody could receive the export** (#1234): `GET .../export-recipient`, read afresh at each opening. Confirm waits for the answer; a "nobody" or a failed check is a warning, never a block. The operator's steps are in `docs/runbooks/offboarding-export-recipient.md`. Mock: `setMockNoExportRecipient(id)`; a hospital with no members has none.
 - **A refused change** (409 `invalid_transition`: someone changed the status first) is said in words and the hospital is read again, so the page shows the status it has.
 - **Focus:** the button that asked often goes away (Suspend becomes Reactivate), so after a change focus goes to the status line (`focusIfLost`), which also says what was done.
 - **Suspended users see the suspended page** through `tenancy/SuspendedPage` (the tenancy hook answers 403 `tenant_suspended`); `app/layout.test.tsx` covers it, including a suspension during an open session.
@@ -63,7 +64,7 @@ What was decided for the platform admin screens (M13, PL-01 #125). The API is `a
 
 - **Section** `HospitalExports` on the hospital's page, above `HospitalDeletion`, for `offboarding` (and read-only once `deleted`): a `DataGrid` of the exports (`GET .../exports`, followed every 5 seconds while one is queued or running) with status, contents and how often each was downloaded; "Start a new export" (`POST .../exports`, 409 `export_in_progress`); "Email a download link" on a ready export (`POST .../email-link`, 202): a job emails the link to the chosen admin, so the screen only says it was sent and never holds the link.
 - **The link needs an admin's user id**, which the platform cannot look up (no endpoint lists a hospital's admins; the platform role has no grant on `users`). The dialog takes the id as typed. The link is emailed by the API and never shown here.
-- **Who may receive it** is the API’s rule (a role holding `role:manage` and `patient:read`). `not_a_hospital_admin` says this person may not; `export_has_no_recipient` says nobody at the hospital may, so the operator does not keep trying ids (the repair is in the API notes).
+- **Who may receive it** is the API’s rule (a role holding `role:manage` and `patient:read`). `not_a_hospital_admin` says this person may not; `export_has_no_recipient` says nobody at the hospital may, so the operator does not keep trying ids (the repair is in `docs/runbooks/offboarding-export-recipient.md`).
 - **Mock:** `MOCK_ADMIN_ID` is the one id the mock accepts as a recipient.
 
 ## Hindi (#1103)

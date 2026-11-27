@@ -355,6 +355,53 @@ describe('the offboarding export', () => {
     expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
   });
 
+  it('says before the offboarding whether anybody could receive the export', async () => {
+    const base = `/platform/hospitals/${hospitalB.id}`;
+    const answer = async () => (await call('GET', `${base}/export-recipient`)).json();
+    // An active hospital with its admin: the question needs no offboarding.
+    expect(await answer()).toEqual({ hasRecipient: true });
+    // Only the platform may ask.
+    const staff = await call('GET', `${base}/export-recipient`, undefined, adminB.id);
+    expect(staff.statusCode).toBe(403);
+
+    // Held at a narrower scope, it does not count.
+    const scope = (value: string) =>
+      pool.query(
+        `update role_permissions set scope = $2
+         where tenant_id = $1 and permission = 'patient:read'`,
+        [hospitalB.id, value],
+      );
+    await scope('own');
+    expect(await answer()).toEqual({ hasRecipient: false });
+    await scope('all');
+
+    const members = 'select user_id from memberships where tenant_id = $1';
+    const accounts = (status: string) =>
+      pool.query(`update users set status = $2 where id in (${members})`, [hospitalB.id, status]);
+    await accounts('disabled');
+    expect(await answer()).toEqual({ hasRecipient: false });
+    await accounts('active');
+
+    const memberships = (status: string) =>
+      pool.query('update memberships set status = $2 where tenant_id = $1', [hospitalB.id, status]);
+    await memberships('suspended');
+    expect(await answer()).toEqual({ hasRecipient: false });
+    await memberships('active');
+    expect(await answer()).toEqual({ hasRecipient: true });
+
+    // Both permissions are needed.
+    await pool.query(
+      `delete from role_permissions where tenant_id = $1 and permission = 'role:manage'`,
+      [hospitalB.id],
+    );
+    expect(await answer()).toEqual({ hasRecipient: false });
+    const unknown = await call(
+      'GET',
+      '/platform/hospitals/00000000-0000-4000-8000-000000000000/export-recipient',
+    );
+    expect(unknown.statusCode).toBe(404);
+  });
+
   it('starts with the offboarding itself', async () => {
     const base = `/platform/hospitals/${hospitalB.id}`;
     const response = await call('POST', `${base}/offboard`, { deleteAfterDays: 90 });

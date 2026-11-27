@@ -344,14 +344,19 @@
       "offboard": {
         "action": "Offboard",
         "title": "Offboard {{name}}?",
-        "description": "Its staff are signed out now, open invites are withdrawn, and its data is marked for deletion after the days below. The export and the deletion are not built yet: nothing is deleted. Reactivating cancels this.",
+        "description": "Its staff are signed out now, open invites are withdrawn, an export of its data is started, and the data is marked for deletion after the days below. By itself nothing is deleted: that needs a downloaded export or a waiver, and a second admin's approval. Reactivating cancels this.",
         "slug": "Type {{slug}} to confirm",
         "slugMismatch": "This is not the hospital's slug.",
         "days": "Days until its data may be deleted",
         "daysHint": "From 1 to 3650.",
         "daysInvalid": "Enter a whole number from 1 to 3650.",
         "confirm": "Offboard hospital",
-        "done": "Offboarding has started."
+        "done": "Offboarding has started.",
+        "recipient": {
+          "checking": "Checking who could receive the export.",
+          "none": "Warning: nobody at this hospital can receive its export. No active member has a role that both manages roles and reads patients. Cancel and ask the hospital to repair this first. If it cannot, an operator repairs it after offboarding (see the offboarding export recipient runbook): the export is made and kept, but no download link can be sent until then.",
+          "unknown": "Warning: it could not be checked whether anybody at this hospital can receive its export. Close this and try again before offboarding."
+        }
       }
     },
     "deletion": {

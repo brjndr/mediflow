@@ -7842,6 +7842,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/hospitals/{id}/export-recipient": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether anybody at the hospital, in any status, could receive its export: an active member whose role holds both `role:manage` and `patient:read`. Read before offboarding, to warn when nobody can (the export would then wait for an operator). Offboarding is not refused. */
+        get: operations["platformGetHospitalExportRecipient"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/hospitals/{id}/exports/{exportId}/email-link": {
         parameters: {
             query?: never;
@@ -15218,6 +15235,10 @@ export interface components {
             /** Format: uuid */
             adminUserId: string;
             expiresInDays: number;
+        };
+        /** @description Whether anybody at the hospital could receive its export. Nobody is named. */
+        ExportRecipient: {
+            hasRecipient: boolean;
         };
         PlatformModule: {
             /** @description The id `PUT .../features` and the create route accept. */
@@ -58156,6 +58177,64 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    platformGetHospitalExportRecipient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether anybody at the hospital could receive its export. Nobody is named. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRecipient"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

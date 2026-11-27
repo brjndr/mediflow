@@ -11,6 +11,7 @@ import {
   requestHospitalDeletion,
   fetchAudit,
   fetchAdminInvites,
+  fetchExportRecipient,
   fetchHospital,
   fetchHospitals,
   fetchModules,
@@ -40,6 +41,7 @@ export const platformKeys = {
   hospitals: () => [...platformKeys.all, 'hospitals'] as const,
   hospital: (id: string) => [...platformKeys.hospitals(), 'detail', id] as const,
   invites: (id: string) => [...platformKeys.hospital(id), 'invites'] as const,
+  exportRecipient: (id: string) => [...platformKeys.hospital(id), 'export-recipient'] as const,
   modules: () => [...platformKeys.all, 'modules'] as const,
   audit: (filters: unknown) => [...platformKeys.all, 'audit', filters] as const,
   hospitalList: (filters: unknown) => [...platformKeys.hospitals(), 'list', filters] as const,
@@ -186,6 +188,20 @@ export function useReactivateHospital(id: string) {
 
 export function useOffboardHospital(id: string) {
   return useStatusChange(id, (deleteAfterDays: number) => offboardHospital(id, deleteAfterDays));
+}
+
+/**
+ * Whether anybody could receive the hospital's export, read while the offboard question is open.
+ * Never answered from an earlier opening: the hospital's staff may have changed since.
+ */
+export function useExportRecipient(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: platformKeys.exportRecipient(id),
+    queryFn: ({ signal }) => fetchExportRecipient(id, signal),
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+  });
 }
 
 export const AUDIT_PAGE_SIZE = 50;
