@@ -11,6 +11,8 @@ import {
   approveInvoiceDiscount,
   createCharge,
   resolveChargeReview,
+  discardInvoice,
+  voidCharge,
   fetchPackageContents,
   setPackageContents,
   closeRegister,
@@ -40,6 +42,8 @@ import {
 import type {
   Charge,
   ChargeCreate,
+  ChargeVoid,
+  InvoiceDiscard,
   CreditNoteCreate,
   DiscountSettings,
   Invoice,
@@ -181,6 +185,37 @@ export function useResolveChargeReview() {
     gcTime: 0,
     mutationFn: ({ chargeId, reason }: { chargeId: string; reason: string }): Promise<Charge> =>
       resolveChargeReview(chargeId, reason),
+    onSettled: refresh,
+  });
+}
+
+/** Voiding a charge: one key per body; the charges and bills are read again whatever the answer. */
+export function useVoidCharge() {
+  const refresh = useRefreshBilling();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ chargeId, ...body }: ChargeVoid & { chargeId: string }): Promise<Charge> =>
+      voidCharge(chargeId, body, keys.keyFor({ chargeId, ...body })),
+    onSuccess: () => keys.clear(),
+    onSettled: refresh,
+  });
+}
+
+export function useDiscardDraft() {
+  const refresh = useRefreshBilling();
+  const queryClient = useQueryClient();
+  const stillHere = useStillHere();
+  const keys = useIdempotencyKey();
+  return useMutation({
+    gcTime: 0,
+    mutationFn: ({ invoiceId, ...body }: InvoiceDiscard & { invoiceId: string }) =>
+      discardInvoice(invoiceId, body, keys.keyFor({ invoiceId, ...body })),
+    onSuccess: (invoice: Invoice) => {
+      keys.clear();
+      const tenantId = stillHere();
+      if (tenantId) queryClient.setQueryData(billingKeys.detail(tenantId, invoice.id), invoice);
+    },
     onSettled: refresh,
   });
 }

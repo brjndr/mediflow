@@ -1567,6 +1567,31 @@ describe('the operation note, the visit and the charges', () => {
     ).toEqual([404, 'surgery_not_found']);
   });
 
+  it('does not charge the new visit for what was voided by hand before the relink (#1240)', async () => {
+    const { first, second, link, complete } = await strandedSetup();
+    await ok(await complete());
+    await chargesOf(first);
+    const { rows } = await pool.query<{ id: string }>(
+      'select id from charges where encounter_id = $1',
+      [first],
+    );
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      await ok(
+        await app.inject({
+          method: 'POST',
+          url: `/charges/${row.id}/void`,
+          headers: { ...headers(), 'idempotency-key': randomUUID() },
+          payload: { reason: 'not_chargeable' },
+        }),
+      );
+    }
+    await cancelVisit(first);
+    await ok(await put(link, { encounterId: second }));
+    await chargesOf(second);
+    expect(await ledger(second)).toEqual([]);
+  });
+
   it('voids what was still pending on the cancelled visit and flags what is on a bill (#1233)', async () => {
     const { first, second, link, complete } = await strandedSetup();
     await ok(await complete());

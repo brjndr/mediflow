@@ -273,6 +273,107 @@ afterAll(async () => {
   }
 });
 
+describe('discarding a split pair (#1240)', () => {
+  const insured = async () => {
+    const made = await visit([[serviceA, 10_000]]);
+    await cover(made.patientId, { copayPercent: 20 });
+    const pair = await ok<SplitBody>(await split(made.encounterId), 201);
+    const payer = await invoiceOf(pair.payerInvoiceId);
+    const patient = await invoiceOf(pair.patientInvoiceId as string);
+    return { ...made, payer, patient };
+  };
+  const discard = (invoice: InvoiceBody, options: Options = {}) =>
+    post(
+      `/invoices/${invoice.id}/discard`,
+      { version: invoice.version, reason: 'charges_changed' },
+      options,
+    );
+
+  it('discards both drafts together, and the visit can be split again', async () => {
+    const { encounterId, payer, patient } = await insured();
+    expect(await ok<InvoiceBody>(await discard(payer))).toMatchObject({ status: 'void' });
+    expect(await invoiceOf(patient.id)).toMatchObject({ status: 'void' });
+    for (const id of [payer.id, patient.id]) {
+      expect(await audited('invoice', id)).toContain('discard');
+    }
+    const { rows } = await pool.query(
+      'select status, invoice_id from charges where encounter_id = $1',
+      [encounterId],
+    );
+    expect(rows).toEqual([{ status: 'pending', invoice_id: null }]);
+    await ok(await split(encounterId), 201);
+  });
+
+  it('is refused while a claim to the payer stands on the visit', async () => {
+    const { encounterId, payer, patient } = await insured();
+    const claim = await ok<{ id: string; version: number }>(
+      await post(`/encounters/${encounterId}/claims`, { documents: [] }),
+      201,
+    );
+    for (const half of [payer, patient]) {
+      expect(errorOf(await discard(half))).toEqual([409, 'claim_depends']);
+    }
+    expect(await invoiceOf(payer.id)).toMatchObject({ status: 'draft' });
+    await ok(
+      await post(`/claims/${claim.id}/actions`, { action: 'cancel', version: claim.version }),
+    );
+    await ok(await discard(patient));
+    expect(await invoiceOf(payer.id)).toMatchObject({ status: 'void' });
+  });
+
+  it('is refused when one invoice is issued, and discards the draft left once that is void', async () => {
+    const { payer, patient } = await insured();
+    const issued = await ok<InvoiceBody>(
+      await post(`/invoices/${patient.id}/issue`, { version: patient.version }),
+    );
+    expect(errorOf(await discard(payer))).toEqual([409, 'split_issued']);
+    await ok(
+      await post(`/invoices/${issued.id}/credit-notes`, {
+        amountMinor: issued.totalMinor,
+        reason: 'Wrong split',
+      }),
+      201,
+    );
+    const left = await invoiceOf(payer.id);
+    expect(await ok<InvoiceBody>(await discard(left))).toMatchObject({ status: 'void' });
+  });
+
+  it('does not void a charge the other invoice of the pair still bills', async () => {
+    const { encounterId, payer, patient } = await insured();
+    const { rows } = await pool.query<{ id: string }>(
+      'select id from charges where encounter_id = $1',
+      [encounterId],
+    );
+    const voidIt = () => post(`/charges/${rows[0]?.id}/void`, { reason: 'duplicate' });
+    const issue = async (invoice: InvoiceBody) =>
+      ok<InvoiceBody>(await post(`/invoices/${invoice.id}/issue`, { version: invoice.version }));
+    const credit = async (invoice: InvoiceBody) =>
+      ok(
+        await post(`/invoices/${invoice.id}/credit-notes`, {
+          amountMinor: invoice.totalMinor,
+          reason: 'Wrong split',
+        }),
+        201,
+      );
+    const issued = await issue(patient);
+    await credit(issued);
+    expect(errorOf(await voidIt())).toEqual([409, 'charge_on_draft']);
+    await ok(await post(`/invoices/${payer.id}/split-review`, { reason: 'Kept for the payer' }));
+    const sent = await issue(await invoiceOf(payer.id));
+    expect(errorOf(await voidIt())).toEqual([409, 'charge_billed']);
+    await credit(sent);
+    await ok(await voidIt());
+  });
+
+  it('stays in its hospital', async () => {
+    const { payer } = await insured();
+    expect(errorOf(await discard(payer, { tenant: clinic, user: clinicAdmin }))).toEqual([
+      404,
+      'invoice_not_found',
+    ]);
+  });
+});
+
 describe('the payer share as its own invoice', () => {
   it('makes a draft for each share that adds up to the ledger, issues both, and bills each charge once', async () => {
     const { patientId, encounterId } = await visit([

@@ -20,6 +20,21 @@ export const SOURCES = [
   'manual',
   'package',
 ] as const;
+/** Why a charge is voided by hand, and why a draft is discarded (#1240): codes, never text. */
+export const VOID_REASONS = [
+  'entered_in_error',
+  'duplicate',
+  'not_performed',
+  'not_chargeable',
+  'other',
+] as const;
+export const DISCARD_REASONS = [
+  'made_in_error',
+  'duplicate',
+  'charges_changed',
+  'not_needed',
+  'other',
+] as const;
 export const METHODS = ['cash', 'card', 'upi', 'bank', 'other'] as const;
 const Id = Type.String({ maxLength: 64 });
 const Minor = (description: string) => Type.Integer({ minimum: 0, description });
@@ -62,6 +77,10 @@ export const Charge = Type.Object(
           'The tax class the work was posted with; none for a dispensed medicine, whose price holds the tax.',
       }),
     ),
+    voidedAt: Type.Optional(
+      Type.String({ format: 'date-time', description: 'When it was voided by hand.' }),
+    ),
+    voidReason: Type.Optional(StringEnum(VOID_REASONS)),
     postedAt: Type.String({ format: 'date-time' }),
   },
   {
@@ -87,6 +106,34 @@ export const ChargeCreate = Type.Object(
   },
 );
 export type ChargeCreate = Static<typeof ChargeCreate>;
+
+export const ChargeVoid = Type.Object(
+  {
+    reason: StringEnum(VOID_REASONS),
+    confirmCovered: Type.Optional(
+      Type.Boolean({
+        description:
+          'Needed to void a package charge that covers other charges: they stay void, so their work is not billed.',
+      }),
+    ),
+  },
+  {
+    $id: 'ChargeVoid',
+    additionalProperties: false,
+    description: 'Why a pending charge is voided.',
+  },
+);
+export type ChargeVoid = Static<typeof ChargeVoid>;
+
+export const InvoiceDiscard = Type.Object(
+  { version: Type.Integer({ minimum: 1 }), reason: StringEnum(DISCARD_REASONS) },
+  {
+    $id: 'InvoiceDiscard',
+    additionalProperties: false,
+    description: 'The version of the draft the person saw, and why it is discarded.',
+  },
+);
+export type InvoiceDiscard = Static<typeof InvoiceDiscard>;
 
 export const ChargeReview = Type.Object(
   {
@@ -265,6 +312,15 @@ export const Invoice = Type.Object(
           'The other invoice of the split pair was voided (#1033): the desk decides what to do with this one, and a draft is not issued until it takes the flag off.',
       }),
     ),
+    discardedAt: Type.Optional(
+      Type.String({
+        format: 'date-time',
+        description:
+          'Set on a void invoice that was a draft discarded (#1240): it never had a number.',
+      }),
+    ),
+    discardReason: Type.Optional(StringEnum(DISCARD_REASONS)),
+    discardedByName: Type.Optional(Type.String()),
     paidMinor: Minor('Payments less refunds.'),
     creditedMinor: Minor('The credit notes against the invoice.'),
     currency: Type.String({ minLength: 3, maxLength: 3 }),
@@ -566,6 +622,8 @@ export const BILLING_SCHEMAS = [
   ChargePage,
   ChargeCreate,
   ChargeReview,
+  ChargeVoid,
+  InvoiceDiscard,
   SplitReview,
   ManualLine,
   InvoiceLine,

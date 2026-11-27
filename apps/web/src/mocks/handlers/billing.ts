@@ -76,8 +76,14 @@ interface StoredInvoice {
   discountApprovedAt?: string;
   discountApprovedMinor?: number;
   discountApprovedGrossMinor?: number;
+  discardedAt?: string;
+  discardReason?: Invoice['discardReason'];
+  discardedByName?: string;
   version: number;
 }
+
+const VOID_REASONS = ['entered_in_error', 'duplicate', 'not_performed', 'not_chargeable', 'other'];
+const DISCARD_REASONS = ['made_in_error', 'duplicate', 'charges_changed', 'not_needed', 'other'];
 
 const DISCOUNT_REASONS = ['staff', 'charity', 'senior_citizen', 'goodwill', 'correction', 'other'];
 const DEFAULT_DISCOUNT_LIMIT_BP = 500;
@@ -371,6 +377,13 @@ function invoiceView(stored: StoredInvoice): Invoice {
     currency: mockTenantCurrency(stored.tenantId),
     createdAt: stored.createdAt,
     ...(stored.issuedAt ? { issuedAt: stored.issuedAt } : {}),
+    ...(stored.discardedAt
+      ? {
+          discardedAt: stored.discardedAt,
+          discardReason: stored.discardReason,
+          discardedByName: stored.discardedByName,
+        }
+      : {}),
     version: stored.version,
   };
 }
@@ -1318,6 +1331,81 @@ export const billingHandlers = [
     const refusal = applyContent(found, content);
     if (refusal) return refusal;
     found.version += 1;
+    return HttpResponse.json<Invoice>(invoiceView(found));
+  }),
+
+  // A pending charge on no draft is voided, with a reason (#1240).
+  http.post('*/api/charges/:chargeId/void', async ({ request, params }) => {
+    const access = authorize(request, { permission: 'charge:void', featureFlag: FEATURE_FLAG });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const found = state.charges.find(
+      (each) => each.id === String(params.chargeId) && each.tenantId === tenantId,
+    );
+    if (!found) return error(404, 'charge_not_found', 'No such charge');
+    if (sent.replay) return HttpResponse.json<Charge>(found);
+    const body = isObject(sent.body) ? sent.body : {};
+    if (typeof body.reason !== 'string' || !VOID_REASONS.includes(body.reason)) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (found.status !== 'pending') {
+      return error(409, 'charge_not_pending', 'Only a pending charge is voided');
+    }
+    if (found.invoiceId !== undefined) {
+      return error(409, 'charge_on_draft', 'Take the charge off its draft first');
+    }
+    const covers = Object.values(state.coveredBy).includes(found.id);
+    if (covers && body.confirmCovered !== true) {
+      return error(409, 'covers_charges', 'The package covers other charges');
+    }
+    found.status = 'void';
+    found.voidedAt = new Date().toISOString();
+    found.voidReason = body.reason as Charge['voidReason'];
+    if (found.flag === 'return_review' || found.flag === 'relink_review') delete found.flag;
+    answered.set(sent.keyOf, { body: JSON.stringify(sent.body), id: found.id });
+    return HttpResponse.json<Charge>(found);
+  }),
+
+  // A draft is discarded: void with no number, its charges pending again (#1240). The mock has no
+  // split invoices.
+  http.post('*/api/invoices/:invoiceId/discard', async ({ request, params }) => {
+    const access = authorize(request, {
+      permission: 'invoice:discard',
+      featureFlag: FEATURE_FLAG,
+    });
+    if ('denied' in access) return access.denied;
+    const { tenantId } = access;
+    const sent = await idempotent(request, tenantId);
+    if ('refused' in sent) return sent.refused;
+    const found = invoiceFor(tenantId, String(params.invoiceId));
+    if (!found) return notFound();
+    if (sent.replay) return HttpResponse.json<Invoice>(invoiceView(found));
+    const body = isObject(sent.body) ? sent.body : {};
+    if (
+      !Number.isInteger(body.version) ||
+      typeof body.reason !== 'string' ||
+      !DISCARD_REASONS.includes(body.reason)
+    ) {
+      return error(400, 'validation_failed', 'The request is not valid');
+    }
+    if (found.status !== 'draft') {
+      return error(409, 'invoice_not_draft', 'Only a draft is discarded');
+    }
+    if (body.version !== found.version) {
+      return error(409, 'version_conflict', 'The draft changed since it was read');
+    }
+    found.rates = ratesOf(tenantId);
+    found.status = 'void';
+    found.discardedAt = new Date().toISOString();
+    found.discardReason = body.reason as Invoice['discardReason'];
+    found.discardedByName = currentSession()?.user.name ?? '';
+    found.version += 1;
+    for (const each of state.charges) {
+      if (each.invoiceId === found.id) delete each.invoiceId;
+    }
+    answered.set(sent.keyOf, { body: JSON.stringify(sent.body), id: found.id });
     return HttpResponse.json<Invoice>(invoiceView(found));
   }),
 

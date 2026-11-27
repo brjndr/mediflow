@@ -50,6 +50,8 @@ export const chargeView = (row: ChargeRow): Charge => ({
   ...optional('invoiceId', row.invoice_id),
   ...optional('flag', row.flag as Charge['flag'] | null),
   ...optional('taxClass', row.tax_class as Charge['taxClass'] | null),
+  ...optional('voidedAt', row.voided_at?.toISOString()),
+  ...optional('voidReason', row.void_reason as Charge['voidReason'] | null),
   postedAt: row.posted_at.toISOString(),
 });
 
@@ -97,6 +99,9 @@ export const invoiceView = (row: InvoiceRow): Invoice => ({
   ...optional('payerName', row.payer_name),
   ...optional('splitGroup', row.split_group),
   ...optional('splitReview', row.split_review as 'sibling_void' | null),
+  ...optional('discardedAt', row.discarded_at?.toISOString()),
+  ...optional('discardReason', row.discard_reason as Invoice['discardReason'] | null),
+  ...optional('discardedByName', row.discarded_by_name),
   paidMinor: num(row.paid_minor),
   creditedMinor: num(row.credited_minor),
   currency: row.currency,

@@ -631,6 +631,16 @@ describe('bed days', () => {
     const after = await ok<Bill>(await get(`/admissions/${stay.id}/bill`));
     expect(after.lines).toMatchObject([{ source: 'bed', count: 4, totalMinor: 10_000 }]);
     expect(after.chargesMinor).toBe(10_000);
+
+    // A bed day voided by hand is not posted again, nor shown as still to come (#1240).
+    const { rows: day } = await pool.query<{ id: string }>(
+      `select id from charges where encounter_id = $1 and source = 'bed' limit 1`,
+      [stay.encounterId],
+    );
+    await pool.query("update charges set status = 'void' where id = $1", [day[0]?.id]);
+    expect(await postBedDays(pool, hospital.id)).toBe(0);
+    const less = await ok<Bill>(await get(`/admissions/${stay.id}/bill`));
+    expect(less.lines).toMatchObject([{ source: 'bed', count: 3, totalMinor: 7_500 }]);
   });
 
   it('does not charge the day a patient leaves a bed they were in the night before', async () => {

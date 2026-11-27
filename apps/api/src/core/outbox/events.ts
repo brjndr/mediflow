@@ -80,6 +80,9 @@ export const DOMAIN_EVENTS = [
   // the indent, the voucher and the two places, never an item or a quantity.
   'stock.issued',
   'charge.posted',
+  // A pending charge voided by hand, and a draft invoice discarded (#1240): ids only.
+  'charge.voided',
+  'invoice.discarded',
   'invoice.issued',
   'invoice.paid',
   'payment.refunded',

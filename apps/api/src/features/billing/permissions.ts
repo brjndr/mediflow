@@ -19,6 +19,11 @@ export const BILLING_PERMISSIONS = [
     defaults: { admin: 'all', receptionist: 'all' },
   },
   {
+    id: 'charge:void',
+    description: 'Void a pending charge that is on no draft, with a reason, so it is never billed',
+    defaults: { admin: 'all' },
+  },
+  {
     id: 'invoice:read',
     description: 'See invoices, with the name and MRN of the patient, their lines and payments',
     defaults: { admin: 'all', doctor: 'all', receptionist: 'all' },
@@ -26,6 +31,11 @@ export const BILLING_PERMISSIONS = [
   {
     id: 'invoice:create',
     description: 'Make a draft invoice of a visit from its pending charges, and change a draft',
+    defaults: { admin: 'all', receptionist: 'all' },
+  },
+  {
+    id: 'invoice:discard',
+    description: 'Discard a draft invoice, with a reason; its charges go back to pending',
     defaults: { admin: 'all', receptionist: 'all' },
   },
   {

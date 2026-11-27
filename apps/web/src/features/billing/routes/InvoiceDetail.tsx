@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router';
 import { Can, usePermission } from '@/access';
@@ -10,10 +10,11 @@ import { StatusBadge } from '@/shared/ui/status-badge';
 import { useFormatters } from '@/tenancy';
 import { InvoiceBuilder } from '../components/InvoiceBuilder';
 import { CreditNotePanel } from '../components/CreditNotePanel';
+import { DiscardDraftButton } from '../components/DiscardDraftButton';
 import { PaymentPanel } from '../components/PaymentPanel';
 import { PrintInvoiceButton } from '../components/PrintInvoiceButton';
 import { useInvoice } from '../hooks/use-billing';
-import { INVOICE_TONE } from '../lib/status-tone';
+import { INVOICE_TONE, invoiceState } from '../lib/status-tone';
 import { bpToPercent } from '../lib/tax';
 import type { Invoice, InvoiceLine } from '../types';
 
@@ -70,6 +71,9 @@ function Body({ invoice }: { invoice: Invoice }) {
   const canCreate = usePermission('invoice:create');
   const canReadEncounter = usePermission('encounter:read');
   const draft = invoice.status === 'draft';
+  const [discarding, setDiscarding] = useState(false);
+  // A discarded draft took no money and no credit.
+  const money = !draft && !invoice.discardedAt;
 
   return (
     <>
@@ -81,8 +85,8 @@ function Body({ invoice }: { invoice: Invoice }) {
           <dt className="text-muted-foreground">{t('detail.status')}</dt>
           <dd>
             <StatusBadge
-              tone={INVOICE_TONE[invoice.status]}
-              label={t(`status.${invoice.status}`)}
+              tone={INVOICE_TONE[invoiceState(invoice)]}
+              label={t(`status.${invoiceState(invoice)}`)}
             />
           </dd>
           {invoice.number && (
@@ -106,6 +110,15 @@ function Body({ invoice }: { invoice: Invoice }) {
               <PrintInvoiceButton invoiceId={invoice.id} />
             </Can>
           )}
+          {(draft || discarding) && (
+            <Can permission="invoice:discard">
+              <DiscardDraftButton
+                invoice={invoice}
+                open={discarding}
+                onOpenChange={setDiscarding}
+              />
+            </Can>
+          )}
           {canReadEncounter && (
             <Button asChild variant="outline" size="sm">
               <Link to={`/encounters/${invoice.encounterId}`}>{t('detail.openVisit')}</Link>
@@ -121,9 +134,9 @@ function Body({ invoice }: { invoice: Invoice }) {
         />
       ) : (
         <>
-          <Issued invoice={invoice} />
-          {invoice.status !== 'draft' && <PaymentPanel invoice={invoice} />}
-          {invoice.status !== 'draft' && <CreditNotePanel invoice={invoice} />}
+          <Issued invoice={invoice} discarding={discarding} />
+          {money && <PaymentPanel invoice={invoice} />}
+          {money && <CreditNotePanel invoice={invoice} />}
         </>
       )}
     </>
@@ -131,14 +144,16 @@ function Body({ invoice }: { invoice: Invoice }) {
 }
 
 /** An invoice that can no longer be changed: its lines and total. */
-function Issued({ invoice }: { invoice: Invoice }) {
+function Issued({ invoice, discarding }: { invoice: Invoice; discarding: boolean }) {
   const { t } = useTranslation('billing');
   const format = useFormatters();
   const status = useRef<HTMLParagraphElement>(null);
-  // The builder's buttons are gone once the invoice is issued: focus moves to what happened.
-  useLayoutEffect(() => {
+  // The builder's buttons, or "Discard draft", are gone once the invoice is issued or discarded:
+  // focus moves to what happened, after the discard dialog has closed (its effect runs first).
+  const draft = invoice.status === 'draft';
+  useEffect(() => {
     focusIfLost(status.current);
-  }, []);
+  }, [draft, discarding]);
   const columns = useMemo<GridColumn<InvoiceLine>[]>(
     () => [
       {
@@ -209,10 +224,16 @@ function Issued({ invoice }: { invoice: Invoice }) {
       >
         {invoice.status === 'draft'
           ? t('detail.draftReadOnly')
-          : t('detail.locked', {
-              number: invoice.number ?? '',
-              time: format.dateTime(invoice.issuedAt ?? invoice.createdAt),
-            })}
+          : invoice.discardedAt
+            ? t('detail.discarded', {
+                time: format.dateTime(invoice.discardedAt),
+                name: invoice.discardedByName ?? '',
+                reason: t(`discard.reasons.${invoice.discardReason ?? 'other'}`),
+              })
+            : t('detail.locked', {
+                number: invoice.number ?? '',
+                time: format.dateTime(invoice.issuedAt ?? invoice.createdAt),
+              })}
       </p>
       <DataGrid
         label={t('detail.lines')}
@@ -251,7 +272,7 @@ function Issued({ invoice }: { invoice: Invoice }) {
           )}
         </dl>
       )}
-      {invoice.discountStatus !== 'none' && (
+      {invoice.discountStatus !== 'none' && !invoice.discardedAt && (
         <p className="text-sm text-muted-foreground" data-testid="discount-status">
           {t(`discount.status.${invoice.discountStatus}`)}
         </p>
@@ -260,7 +281,7 @@ function Issued({ invoice }: { invoice: Invoice }) {
         <span className="sr-only">{t('builder.total')}: </span>
         {format.money(invoice.totalMinor)}
       </p>
-      {invoice.status !== 'draft' && (
+      {invoice.status !== 'draft' && !invoice.discardedAt && (
         <p className="text-sm text-muted-foreground">
           {t('detail.paidSummary', {
             paid: format.money(invoice.paidMinor),

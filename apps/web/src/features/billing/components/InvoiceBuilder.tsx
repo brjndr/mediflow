@@ -27,6 +27,7 @@ import { ChargeReviewDialog } from './ChargeReviewDialog';
 import { ApplyPackagePanel } from './ApplyPackagePanel';
 import { BILL, DiscountPanel } from './DiscountPanel';
 import { ManualLineForm } from './ManualLineForm';
+import { VoidChargeDialog } from './VoidChargeDialog';
 
 /** A typed line while it is being built: the API's, with an id for the row. */
 type KeyedLine = ManualLine & { key: string };
@@ -69,6 +70,7 @@ export function InvoiceBuilder({
   const canIssue = usePermission('invoice:issue');
   // Typed lines skip the price list: a permission of their own.
   const canAdjust = usePermission('invoice:adjust');
+  const canVoid = usePermission('charge:void');
   // Discounts (#116): giving one, approving another person's, and the limit that decides.
   const canDiscount = usePermission('discount:apply');
   const canApprove = usePermission('discount:approve');
@@ -85,6 +87,9 @@ export function InvoiceBuilder({
   const status = useRef<HTMLParagraphElement>(null);
   const [said, setSaid] = useState(notice);
   const [reviewing, setReviewing] = useState<Charge | null>(null);
+  const [voiding, setVoiding] = useState<Charge | null>(null);
+  // Set by a void: the row, and the button that had focus, leave the list.
+  const voided = useRef(false);
 
   // The charges this bill may hold: those no other draft holds.
   const available = useMemo(
@@ -201,6 +206,14 @@ export function InvoiceBuilder({
   useLayoutEffect(() => {
     focusIfLost(status.current);
   }, [manual.length]);
+
+  // After the dialog has closed (its own effect runs first): the voided row took focus with it.
+  useEffect(() => {
+    if (voided.current && !voiding) {
+      voided.current = false;
+      focusIfLost(status.current);
+    }
+  }, [voiding]);
 
   const toggle = useCallback(
     (charge: Charge, on: boolean) => {
@@ -327,6 +340,14 @@ export function InvoiceBuilder({
         onSelect: (row) => setReviewing(row),
         disabled: (row) => row.flag !== 'return_review' && row.flag !== 'relink_review',
       },
+      {
+        id: 'void',
+        label: t('charges.void.action'),
+        requires: 'charge:void',
+        onSelect: (row) => setVoiding(row),
+        // A charge on a saved draft is taken off it and the draft saved first.
+        disabled: (row) => row.invoiceId !== undefined,
+      },
     ],
     [t, included, toggle],
   );
@@ -386,6 +407,9 @@ export function InvoiceBuilder({
           {t('charges.heading')}
         </h2>
         <p className="text-sm text-muted-foreground">{t('charges.description')}</p>
+        {canVoid && available.some((charge) => charge.invoiceId) && (
+          <p className="text-sm text-muted-foreground">{t('charges.void.onDraft')}</p>
+        )}
         <DataGrid
           label={t('charges.heading')}
           columns={chargeColumns}
@@ -412,6 +436,15 @@ export function InvoiceBuilder({
         charge={reviewing}
         onClose={() => setReviewing(null)}
         onResolved={(name) => setSaid(t('charges.review.done', { name }))}
+      />
+
+      <VoidChargeDialog
+        charge={voiding}
+        onClose={() => setVoiding(null)}
+        onVoided={(name) => {
+          voided.current = true;
+          setSaid(t('charges.void.done', { name }));
+        }}
       />
 
       <AddChargePanel

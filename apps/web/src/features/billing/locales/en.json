@@ -6,7 +6,8 @@
     "draft": "Draft",
     "issued": "Issued",
     "paid": "Paid",
-    "void": "Void"
+    "void": "Void",
+    "discarded": "Discarded"
   },
   "new": {
     "heading": "New invoice",
@@ -29,7 +30,8 @@
     "lines": "Lines",
     "noLines": "This invoice has no lines.",
     "locked": "Invoice {{number}} was issued on {{time}} and can no longer be changed.",
-    "draftReadOnly": "This draft can be changed by someone who may create invoices."
+    "draftReadOnly": "This draft can be changed by someone who may create invoices.",
+    "discarded": "This draft was discarded on {{time}} by {{name}}. Reason: {{reason}}."
   },
   "charges": {
     "heading": "Pending charges",
@@ -77,6 +79,32 @@
       "cancel": "Cancel",
       "done": "{{name}} marked as reviewed.",
       "notFlagged": "This charge is no longer waiting for a review."
+    },
+    "void": {
+      "action": "Void charge",
+      "title": "Void this charge",
+      "description": "{{name}} will never be billed. It stays in the record, with your name and the reason.",
+      "reason": "Reason",
+      "choose": "Choose a reason",
+      "reasons": {
+        "entered_in_error": "Entered by mistake",
+        "duplicate": "Charged twice",
+        "not_performed": "The work was not done",
+        "not_chargeable": "Not to be charged",
+        "other": "Another reason"
+      },
+      "covers": "This package covers other charges on the visit. If you void it, they stay void and their work is not billed.",
+      "confirmCovered": "Void the package and leave the covered charges unbilled",
+      "confirmNeeded": "Tick the box to void a package that covers other charges.",
+      "confirm": "Void charge",
+      "cancel": "Cancel",
+      "done": "{{name}} voided.",
+      "onDraft": "To void a charge on a saved draft, leave it off the bill and save the draft first.",
+      "refused": {
+        "charge_not_pending": "This charge was billed or voided meanwhile.",
+        "charge_on_draft": "This charge is on a saved draft. Leave it off the bill, save the draft, then void it.",
+        "charge_billed": "This charge is billed on an issued invoice. Credit that invoice in full first."
+      }
     }
   },
   "line": {
@@ -122,7 +150,9 @@
       "total": "Total",
       "paid": "Paid",
       "status": "Status"
-    }
+    },
+    "discardedNumber": "Discarded draft",
+    "voidFilter": "Void or discarded"
   },
   "print": {
     "action": "Print invoice",
@@ -147,7 +177,7 @@
     "saved": "Draft saved.",
     "refused": {
       "chargeUnavailable": "A charge on this bill was billed or taken by another draft meanwhile. The list has been read again: check it and try again.",
-      "notDraft": "This invoice was issued meanwhile and can no longer be changed.",
+      "notDraft": "This invoice was issued or discarded meanwhile and can no longer be changed.",
       "conflict": "Someone else changed this draft. It has been read again; your choices are kept, so check them and try again.",
       "empty": "Put at least one line on the bill.",
       "cancelled": "This visit was cancelled and has nothing to bill.",
@@ -617,5 +647,28 @@
     "submit": "Save estimate",
     "saving": "Saving…",
     "saved": "Estimate saved."
+  },
+  "discard": {
+    "action": "Discard draft",
+    "title": "Discard this draft",
+    "description": "The draft is kept as a record, shown as discarded, and its charges go back to pending. Changes you have not saved are lost.",
+    "splitDescription": "This is one of a split pair: both drafts are discarded together and the charges go back to pending.",
+    "reason": "Reason",
+    "choose": "Choose a reason",
+    "reasons": {
+      "made_in_error": "Made by mistake",
+      "duplicate": "A second draft of the same bill",
+      "charges_changed": "The charges changed",
+      "not_needed": "No longer needed",
+      "other": "Another reason"
+    },
+    "confirm": "Discard draft",
+    "cancel": "Keep draft",
+    "refused": {
+      "version_conflict": "Someone else changed this draft. It has been read again: check it and try again.",
+      "invoice_not_draft": "This invoice was issued or discarded meanwhile.",
+      "split_issued": "The other invoice of this split pair is issued. Credit it in full first, then discard this draft.",
+      "claim_depends": "An insurance claim on this visit depends on this split. It can be discarded once the claim is cancelled or written off."
+    }
   }
 }

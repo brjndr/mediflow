@@ -153,7 +153,8 @@ async function moveProcedureCharge(
         where (c.source_ref = ${base} or c.source_ref like ${`${base}:%`})
           and c.encounter_id = ${move.from}
           and (c.status <> 'void' or c.flag in ('visit_cancelled', 'package_covered'))
-          and c.flag is distinct from 'relink_review'`,
+          and c.flag is distinct from 'relink_review'
+        for update`,
   );
   for (const charge of rows) {
     if (!charge.dropped) {
@@ -474,7 +475,8 @@ export function subscribeToPostings(app: FastifyInstance): void {
           where o.booking_id = ${surgeryId} and c.encounter_id = ${from}
             and (c.status <> 'void' or c.flag = 'visit_cancelled')
             and c.flag is distinct from 'relink_review'
-          order by c.id`,
+          order by c.id
+          for update of c`,
     );
     for (const charge of rows) {
       // Either way the new visit is charged; an old charge that cannot be voided stays, flagged

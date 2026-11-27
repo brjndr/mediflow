@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
+import type { SplitHold } from '../../core/invoice-hold/registry.js';
 import { patientFamily } from '../../core/patient-merge/family.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { IdempotencyHeaders, RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
@@ -40,6 +41,21 @@ export const CLAIM_TRANSITIONS: Record<
   settled: { write_off: 'written_off' },
   written_off: {},
   cancelled: {},
+};
+
+/**
+ * Whether a claim to this payer is in play on the visit (not cancelled, not written off): it was
+ * made for the payer's share, so the split pair that bills that share is not discarded (#1240). A
+ * claim holds no reference to an invoice; the visit and the payer are what tie them, as for the
+ * payer's receipts.
+ */
+export const claimStands: SplitHold = async (client, split) => {
+  const { rowCount } = await client.query(
+    `select 1 from claims where encounter_id = $1 and payer_id = $2
+       and status not in ('cancelled', 'written_off') limit 1`,
+    [split.encounterId, split.payerId],
+  );
+  return (rowCount ?? 0) > 0;
 };
 
 /** Actions that must say why or what was asked. */
