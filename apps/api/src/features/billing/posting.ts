@@ -103,6 +103,87 @@ export async function coveringPackage(
 }
 
 /**
+ * The visit a surgery is charged to now and the day it was completed (hospital clock), held until
+ * the charges are posted: an event that carries an earlier link and is handled after a relink
+ * charges the booking's visit (#1233). The link route locks the booking for update, so one of the
+ * two always sees the other.
+ */
+async function bookingOf(
+  tx: Database,
+  surgeryId: string,
+): Promise<{ visitId: string | null; doneOn: string | null }> {
+  const { rows } = await tx.execute<{ encounter_id: string | null; done_on: string | null }>(
+    sql`select b.encounter_id, (b.completed_at at time zone t.timezone)::date::text as done_on
+        from ot_bookings b join tenants t on t.id = b.tenant_id
+        where b.id = ${surgeryId} for share of b`,
+  );
+  return { visitId: rows[0]?.encounter_id ?? null, doneOn: rows[0]?.done_on ?? null };
+}
+
+/**
+ * Moves the procedure charge of a completed surgery off the cancelled visit it was linked to
+ * (#1233). A charge never changes its visit: one still pending and on no invoice is voided, one
+ * on an invoice or a draft is flagged `relink_review`, and one posted void stays. The new visit
+ * is charged at the price of the day the surgery was completed. Work a package of the old visit
+ * included is charged again too, and a package charge that is on a bill is flagged for the desk.
+ */
+async function moveProcedureCharge(
+  tx: Database,
+  move: {
+    surgeryId: string;
+    from: string;
+    to: string;
+    patientId: string;
+    eventId: string;
+    doneOn: string | null;
+  },
+): Promise<void> {
+  const base = `surgery:${move.surgeryId}`;
+  const { rows } = await tx.execute<{
+    id: string;
+    service_id: string;
+    package_charge_id: string | null;
+    movable: boolean;
+    dropped: boolean;
+  }>(
+    sql`select c.id, c.service_id, c.package_charge_id,
+          (c.status = 'pending' and c.invoice_id is null) as movable,
+          (c.status = 'void') as dropped
+        from charges c
+        where (c.source_ref = ${base} or c.source_ref like ${`${base}:%`})
+          and c.encounter_id = ${move.from}
+          and (c.status <> 'void' or c.flag in ('visit_cancelled', 'package_covered'))
+          and c.flag is distinct from 'relink_review'`,
+  );
+  for (const charge of rows) {
+    if (!charge.dropped) {
+      await tx.execute(
+        charge.movable
+          ? sql`update charges set status = 'void' where id = ${charge.id}`
+          : sql`update charges set flag = 'relink_review' where id = ${charge.id}`,
+      );
+    } else if (charge.package_charge_id) {
+      await tx.execute(
+        sql`update charges set flag = 'relink_review' where id = ${charge.package_charge_id}
+              and status <> 'void' and not (status = 'pending' and invoice_id is null)`,
+      );
+    }
+    await postCharge(tx, {
+      encounterId: move.to,
+      patientId: move.patientId,
+      serviceId: charge.service_id,
+      source: 'procedure',
+      sourceRef: `${base}:${move.eventId}`,
+      description: '',
+      quantity: 1,
+      unitPriceMinor: 0,
+      flag: null,
+      ...(move.doneOn ? { priceDate: move.doneOn } : {}),
+    });
+  }
+}
+
+/**
  * Posts one charge unless one was posted for the same cause; emits `charge.posted`. Answers the
  * charge's id, or null when nothing was posted.
  */
@@ -277,8 +358,10 @@ export function subscribeToPostings(app: FastifyInstance): void {
     const patientId = idOf(payload.patientId);
     const serviceId = idOf(payload.serviceId);
     if (!surgeryId || !encounterId || !patientId || !serviceId) return;
+    const booking = await bookingOf(tx, surgeryId);
     await postCharge(tx, {
-      encounterId,
+      encounterId: booking.visitId ?? encounterId,
+      ...(booking.doneOn ? { priceDate: booking.doneOn } : {}),
       patientId,
       serviceId,
       source: 'procedure',
@@ -298,6 +381,8 @@ export function subscribeToPostings(app: FastifyInstance): void {
     const encounterId = idOf(payload.encounterId);
     const patientId = idOf(payload.patientId);
     if (!useId || !encounterId || !patientId) return;
+    const surgeryId = idOf(message.entityId);
+    const visitId = (surgeryId && (await bookingOf(tx, surgeryId)).visitId) || encounterId;
     const { rows } = await tx.execute<{
       id: string;
       quantity: number;
@@ -313,7 +398,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
     );
     for (const line of rows) {
       await postCharge(tx, {
-        encounterId,
+        encounterId: visitId,
         patientId,
         serviceId: null,
         source: 'dispense',
@@ -344,7 +429,8 @@ export function subscribeToPostings(app: FastifyInstance): void {
     );
   });
 
-  // A surgery linked to another visit (#900). A charge never changes its visit, so those of its
+  // A surgery linked to another visit (#900). The procedure charge of a completed one is moved by
+  // moveProcedureCharge (#1233). A charge never changes its visit, so those of its
   // consumables still pending and on no invoice are voided; all are posted on the new visit
   // (source_ref `theatre:<row>:<event id>`, once for each event). A charge on an invoice or a
   // draft stays on the old visit, flagged `relink_review` for the billing desk to credit. One
@@ -355,6 +441,14 @@ export function subscribeToPostings(app: FastifyInstance): void {
     const to = idOf(message.payload.encounterId);
     const patientId = idOf(message.payload.patientId);
     if (!surgeryId || !from || !to || !patientId || from === to) return;
+    // Events can be handled out of order: what is moved goes to the visit the booking names now,
+    // and nothing is moved off that visit.
+    const booking = await bookingOf(tx, surgeryId);
+    const target = booking.visitId ?? to;
+    if (target === from) return;
+    const { eventId } = message;
+    const { doneOn } = booking;
+    await moveProcedureCharge(tx, { surgeryId, from, to: target, patientId, eventId, doneOn });
     const { rows } = await tx.execute<{
       id: string;
       description: string;
@@ -394,7 +488,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
       const quantity = charge.quantity - (back[0]?.returned ?? 0);
       if (quantity <= 0) continue;
       await postCharge(tx, {
-        encounterId: to,
+        encounterId: target,
         patientId,
         serviceId: null,
         source: 'dispense',

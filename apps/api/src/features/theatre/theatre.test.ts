@@ -1472,6 +1472,152 @@ describe('the operation note, the visit and the charges', () => {
     expect((await old()).rows).toEqual([{ status: 'void', flag: 'visit_cancelled' }]);
   });
 
+  /** A surgery with a priced procedure and two units used, started and linked to a new visit. */
+  async function strandedSetup() {
+    const surgery = await booked({ serviceId: procedureService });
+    const first = await addEncounter(hospital, surgery.patientId);
+    const second = await addEncounter(hospital, surgery.patientId);
+    await pool.query(
+      `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
+       select $1, $2, id, 250000, current_date - 10 from price_lists where tenant_id = $1 and standard
+       on conflict do nothing`,
+      [hospital.id, procedureService],
+    );
+    const batch = await stockIn(5);
+    await pool.query('update stock_batches set mrp_minor = 700 where id = $1', [batch]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const link = `/theatre/surgeries/${surgery.id}/encounter`;
+    await ok(await put(link, { encounterId: first }));
+    await ok(
+      await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+        drugId,
+        locationId: place,
+        lines: [{ batchId: batch, quantity: 2 }],
+      }),
+      201,
+    );
+    const complete = () => post(`/theatre/surgeries/${surgery.id}/complete`, { version: 3 });
+    return { surgery, first, second, link, complete };
+  }
+  const cancelVisit = (id: string) =>
+    pool.query(
+      "update encounters set status = 'cancelled', cancel_reason = 'Entered in error', ended_at = now(), ended_by = $2 where id = $1",
+      [id, admin.id],
+    );
+  const ledger = async (encounterId: string) =>
+    (
+      await pool.query<{ source: string; status: string; flag: string | null }>(
+        'select source, status, flag from charges where encounter_id = $1 order by source, status',
+        [encounterId],
+      )
+    ).rows;
+  const billedOnce = [
+    { source: 'dispense', status: 'pending', flag: null },
+    { source: 'procedure', status: 'pending', flag: null },
+  ];
+
+  it('links a completed surgery again when its visit was cancelled, billing it once (#1233)', async () => {
+    const { surgery, first, second, link, complete } = await strandedSetup();
+    await chargesOf(first);
+    await cancelVisit(first);
+    await ok(await complete());
+    await chargesOf(first);
+    const stranded = await ledger(first);
+    expect(stranded).toContainEqual({
+      source: 'procedure',
+      status: 'void',
+      flag: 'visit_cancelled',
+    });
+    const record = await ok<Operation & { encounterCancelled: boolean }>(
+      await get(`/theatre/surgeries/${surgery.id}/operation-note`),
+    );
+    expect(record.encounterCancelled).toBe(true);
+
+    // Still only to an open visit of the patient.
+    expect(errorOf(await put(link, { encounterId: first }))).toEqual([422, 'unknown_encounter']);
+    const moved = await ok<Operation & { encounterCancelled: boolean }>(
+      await put(link, { encounterId: second }),
+    );
+    expect(moved).toMatchObject({ encounterId: second, encounterCancelled: false });
+    await chargesOf(second);
+    expect(await ledger(second)).toEqual(billedOnce);
+    // The old ledger keeps what it had; nothing on it is billable.
+    expect((await ledger(first)).every((row) => row.status === 'void')).toBe(true);
+    const price = await pool.query(
+      "select unit_price_minor::int as price from charges where encounter_id = $1 and source = 'procedure'",
+      [second],
+    );
+    expect(price.rows).toEqual([{ price: 250000 }]);
+    // Linked to an open visit, it is closed again.
+    const third = await addEncounter(hospital, surgery.patientId);
+    expect(errorOf(await put(link, { encounterId: third }))).toEqual([409, 'invalid_state']);
+    await expect(
+      pool.query('update ot_bookings set encounter_id = $2 where id = $1', [surgery.id, third]),
+    ).rejects.toThrow(/finished booking is closed/);
+    // Another hospital finds no such surgery.
+    expect(
+      errorOf(
+        await app.inject({
+          method: 'PUT',
+          url: link,
+          headers: headers({ tenant: clinic, user: clinicAdmin }),
+          payload: { encounterId: third },
+        }),
+      ),
+    ).toEqual([404, 'surgery_not_found']);
+  });
+
+  it('voids what was still pending on the cancelled visit and flags what is on a bill (#1233)', async () => {
+    const { first, second, link, complete } = await strandedSetup();
+    await ok(await complete());
+    await chargesOf(first);
+    const client = await pool.connect();
+    try {
+      await client.query("set session_replication_role = 'replica'");
+      await client.query(
+        "update charges set status = 'invoiced', invoice_id = $2 where encounter_id = $1 and source = 'procedure'",
+        [first, randomUUID()],
+      );
+    } finally {
+      await client.query("set session_replication_role = 'origin'");
+      client.release();
+    }
+    // As left by a cancel made before visits held their surgeries.
+    await cancelVisit(first);
+    await ok(await put(link, { encounterId: second }));
+    await chargesOf(second);
+    expect(await ledger(first)).toEqual([
+      { source: 'dispense', status: 'void', flag: null },
+      { source: 'procedure', status: 'invoiced', flag: 'relink_review' },
+    ]);
+    expect(await ledger(second)).toEqual(billedOnce);
+  });
+
+  it('charges the visit the booking names when two relinks are handled together (#1233)', async () => {
+    const { surgery, first, second, link, complete } = await strandedSetup();
+    await chargesOf(first);
+    await cancelVisit(first);
+    await ok(await complete());
+    await chargesOf(first);
+    await ok(await put(link, { encounterId: second }));
+    await cancelVisit(second);
+    const third = await addEncounter(hospital, surgery.patientId);
+    await ok(await put(link, { encounterId: third }));
+    await chargesOf(third);
+    expect(await ledger(third)).toEqual(billedOnce);
+    expect(await ledger(second)).toEqual([]);
+  });
+
+  it('bills once on the new visit when the events are handled after the relink (#1233)', async () => {
+    const { first, second, link, complete } = await strandedSetup();
+    await cancelVisit(first);
+    await ok(await complete());
+    await ok(await put(link, { encounterId: second }));
+    await chargesOf(second);
+    expect(await ledger(second)).toEqual(billedOnce);
+    expect(await ledger(first)).toEqual([]);
+  });
+
   it('charges the new visit and flags an invoiced charge on the old one (#906)', async () => {
     const surgery = await booked({});
     const first = await addEncounter(hospital, surgery.patientId);

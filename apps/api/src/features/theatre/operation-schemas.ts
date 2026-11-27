@@ -55,6 +55,10 @@ export const OperationRecord = Type.Object(
     encounterId: Type.Union([Type.String(), Type.Null()], {
       description: 'The visit the surgery is charged to, when linked.',
     }),
+    encounterCancelled: Type.Boolean({
+      description:
+        'The linked visit was cancelled, so nothing is billed on it; link the surgery to another.',
+    }),
     note: Type.Union([ref(OperationNote), Type.Null()]),
     addenda: Type.Array(ref(OperationAddendum)),
   },

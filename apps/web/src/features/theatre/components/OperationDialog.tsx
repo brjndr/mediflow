@@ -1,4 +1,4 @@
-import { Undo2 } from 'lucide-react';
+import { TriangleAlert, Undo2 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@/access';
@@ -98,12 +98,16 @@ function VisitSection({
   const { t } = useTranslation('theatre');
   const format = useFormatters();
   const canLink = usePermission('surgery:schedule');
-  const open = surgery.status === 'scheduled' || surgery.status === 'in_progress';
+  // A completed surgery is linked again only when its visit was cancelled.
+  const linkable =
+    surgery.status === 'scheduled' ||
+    surgery.status === 'in_progress' ||
+    (surgery.status === 'completed' && record.encounterCancelled);
   const link = useLinkEncounter(surgery.id);
   const form = useZodForm(visitFormSchema, { encounterId: '' });
   const visits = useEncounters(
     { patientId: surgery.patientId, status: 'open' },
-    { enabled: canLink && open },
+    { enabled: canLink && linkable },
   );
   const options = visits.data?.pages.flatMap((page) => page.items) ?? [];
   const save = async (values: VisitFormValues) => {
@@ -120,10 +124,17 @@ function VisitSection({
       <h3 id="op-visit-heading" className="text-base font-semibold">
         {t('operation.visit.heading')}
       </h3>
-      <p className="text-sm text-muted-foreground">
-        {record.encounterId ? t('operation.visit.linked') : t('operation.visit.none')}
-      </p>
-      {canLink && open && (
+      {record.encounterCancelled ? (
+        <p className="flex items-start gap-2 text-sm font-medium">
+          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {t('operation.visit.cancelled')}
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {record.encounterId ? t('operation.visit.linked') : t('operation.visit.none')}
+        </p>
+      )}
+      {canLink && linkable && (
         <Form form={form} id="operation-visit-form" onSubmit={save}>
           <SelectField<VisitFormValues>
             name="encounterId"

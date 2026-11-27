@@ -34,6 +34,20 @@ async function findBooking(client: pg.ClientBase, id: string, lock = false): Pro
   return row;
 }
 
+/** Whether the visit a surgery is linked to was cancelled; `for share` waits for a cancel. */
+async function onCancelledVisit(
+  client: pg.ClientBase,
+  booking: Booking,
+  lock = false,
+): Promise<boolean> {
+  if (booking.encounter_id === null) return false;
+  const { rows } = await client.query<{ status: string }>(
+    `select status from encounters where id = $1 ${lock ? 'for share' : ''}`,
+    [booking.encounter_id],
+  );
+  return rows[0]?.status === 'cancelled';
+}
+
 /** The note is written once the surgery has started, and not for one that was cancelled. */
 function requireStarted(booking: Booking): void {
   if (booking.status !== 'in_progress' && booking.status !== 'completed') {
@@ -85,6 +99,7 @@ async function record(client: pg.ClientBase, booking: Booking): Promise<Operatio
   return {
     surgeryId: booking.id,
     encounterId: booking.encounter_id,
+    encounterCancelled: await onCancelledVisit(client, booking),
     note: n
       ? {
           procedureDone: n.procedure_done,
@@ -287,7 +302,7 @@ export const operationRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'linkSurgeryEncounter',
         tags: ['theatre'],
         description:
-          'Names the visit (encounter) the surgery and its consumables are charged to. The visit must be an open one of the same patient (422 `unknown_encounter`); only a scheduled or in-progress surgery is linked (409 `invalid_state`). Charges follow the link: nothing is charged for a surgery with none. Audited. Requires surgery:schedule.',
+          'Names the visit (encounter) the surgery and its consumables are charged to. The visit must be an open one of the same patient (422 `unknown_encounter`); only a scheduled or in-progress surgery is linked, or a completed one whose linked visit was cancelled (409 `invalid_state`). Charges follow the link: nothing is charged for a surgery with none. Audited. Requires surgery:schedule.',
         params: SurgeryParams,
         body: SurgeryEncounterInput,
         response: { 200: ref(OperationRecord), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -296,7 +311,10 @@ export const operationRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request) => {
       const client = request.txClient;
       const booking = await findBooking(client, request.params.surgeryId, true);
-      if (booking.status !== 'scheduled' && booking.status !== 'in_progress') {
+      // A completed surgery left on a cancelled visit is billed nowhere: it is linked again.
+      const stranded =
+        booking.status === 'completed' && (await onCancelledVisit(client, booking, true));
+      if (booking.status !== 'scheduled' && booking.status !== 'in_progress' && !stranded) {
         throw new HttpError(
           409,
           'invalid_state',

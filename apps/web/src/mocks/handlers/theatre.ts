@@ -168,14 +168,24 @@ function periopRoute(
   return HttpResponse.json(record);
 }
 
+const onCancelledVisit = (surgery: Surgery) =>
+  mockEncounter(surgery.encounterId ?? '')?.status === 'cancelled';
+
 function operationOf(tenantId: string, surgery: Surgery): Operation {
   const key = `${tenantId}:${surgery.id}`;
   let record = operations.get(key);
   if (!record) {
-    record = { surgeryId: surgery.id, encounterId: null, note: null, addenda: [] };
+    record = {
+      surgeryId: surgery.id,
+      encounterId: null,
+      encounterCancelled: false,
+      note: null,
+      addenda: [],
+    };
     operations.set(key, record);
   }
   record.encounterId = surgery.encounterId ?? null;
+  record.encounterCancelled = onCancelledVisit(surgery);
   return record;
 }
 
@@ -465,7 +475,10 @@ export const theatreHandlers = [
       (s) => s.id === params.surgeryId && s.tenantId === access.tenantId,
     );
     if (!surgery) return error(404, 'surgery_not_found', 'No such surgery');
-    if (!live(surgery)) return error(409, 'invalid_state', 'The surgery is finished or cancelled');
+    const stranded = surgery.status === 'completed' && onCancelledVisit(surgery);
+    if (!live(surgery) && !stranded) {
+      return error(409, 'invalid_state', 'The surgery is finished or cancelled');
+    }
     const visit = mockEncounter(body.encounterId);
     if (!visit || visit.patientId !== surgery.patientId || visit.status !== 'open') {
       return error(422, 'unknown_encounter', 'No such open visit of this patient');

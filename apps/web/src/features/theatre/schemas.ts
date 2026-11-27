@@ -290,6 +290,7 @@ const noteSchema = z.object({
 export const operationSchema: z.ZodType<OperationRecord> = z.object({
   surgeryId: z.string(),
   encounterId: z.string().nullable(),
+  encounterCancelled: z.boolean(),
   note: noteSchema.nullable(),
   addenda: z.array(
     z.object({

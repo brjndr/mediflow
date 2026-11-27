@@ -1,7 +1,8 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { revokePermission, TENANT_IDS } from '@/mocks/db';
+import { mockEncounter, openMockEmergencyEncounter } from '@/mocks/handlers/clinical';
 import { SEEDED_DAY } from '@/mocks/handlers/theatre';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
@@ -149,6 +150,44 @@ describe('operation note, stock used and the visit', () => {
       within(dialog).getByRole('combobox', { name: /Open visit of this patient/ }),
     ).toBeVisible();
   });
+
+  it('links a completed surgery again when its visit was cancelled', async () => {
+    const first = openMockEmergencyEncounter(TENANT_IDS.hospital, 'pth_00001');
+    let dialog = await startAndOpen();
+    const visits = () =>
+      within(dialog).findByRole('combobox', { name: /Open visit of this patient/ });
+    const link = async (id: string) => {
+      const select = await visits();
+      await waitFor(() => expect(select.querySelector(`option[value="${id}"]`)).not.toBeNull());
+      await userEvent.selectOptions(select, id);
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Link visit' }));
+      await within(dialog).findByText(/charged to a visit/);
+    };
+    await link(first);
+    await userEvent.click(
+      within(dialog).getAllByRole('button', { name: 'Close' }).at(-1) as HTMLElement,
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await userEvent.click(rowButton(/Complete surgery/));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Surgery completed'));
+
+    // The visit is cancelled afterwards and the patient has a new one; the screen is read anew.
+    const visit = mockEncounter(first);
+    if (!visit) throw new Error('no visit');
+    visit.status = 'cancelled';
+    const next = openMockEmergencyEncounter(TENANT_IDS.hospital, 'pth_00001');
+    cleanup();
+    await openTheatre();
+    await userEvent.click(rowButton(/Operation note and stock/));
+    dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText(/linked visit was cancelled/)).toBeVisible();
+    await expectNoAxeViolations(dialog);
+    await link(next);
+    // Linked to an open visit, the finished surgery is closed again.
+    expect(
+      within(dialog).queryByRole('combobox', { name: /Open visit of this patient/ }),
+    ).not.toBeInTheDocument();
+  }, 90_000);
 
   it('is read-only without surgery:perform', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'surgery:perform');
