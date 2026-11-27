@@ -17,9 +17,9 @@ const grantsOfRole = (roleColumn: 'i.role_id' | 'm.role_id') =>
 /**
  * Withdraws the open invitations whose sender could no longer send them: no staff:invite, or an
  * invited role holding more than the sender does (#1224). `roleId` limits it to invitations into
- * that role. An invitation whose sender is no member of the hospital (a platform admin's, or one
- * whose sender's account is gone) is left alone. Runs in the hospital's transaction with its
- * role-change lock held, after the change of permissions. The caller audits the ids returned.
+ * that role. An invitation whose sender is no member of the hospital (as a platform
+ * admin is not, or the sender's account is gone) is left alone. Runs in the hospital's transaction
+ * with its role-change lock held, after the change of permissions. The caller audits the ids returned.
  */
 export async function withdrawInvitesBeyondSender(
   client: pg.ClientBase,
