@@ -376,13 +376,45 @@ export async function rememberKey(
   );
 }
 
-/** Whether any active member of the hospital holds the admin role. */
-export async function hasActiveAdmin(client: pg.ClientBase, hospitalId: string): Promise<boolean> {
+/**
+ * The permissions that manage a hospital (#1210). Never a role id: a custom role may hold them
+ * while nobody is in `admin`. `offboarding_admin_contacts` (migration 0167) names the same two.
+ */
+const MANAGING_PERMISSIONS = ['role:manage', 'staff:manage'];
+
+async function activeMemberHolds(
+  client: pg.ClientBase,
+  hospitalId: string,
+  permissions: readonly string[],
+  userId: string | null,
+): Promise<boolean> {
   const { rowCount } = await client.query(
-    "select 1 from memberships where tenant_id = $1 and role_id = 'admin' and status = 'active' limit 1",
-    [hospitalId],
+    `select 1 from memberships m
+     join role_permissions p on p.tenant_id = m.tenant_id and p.role_id = m.role_id
+     where m.tenant_id = $1 and m.status = 'active' and p.permission = any($2::text[])
+       and ($3::uuid is null or m.user_id = $3)
+     limit 1`,
+    [hospitalId, permissions, userId],
   );
   return rowCount !== 0;
+}
+
+/** Whether any active member of the hospital manages it: holds either managing permission. */
+export function hasActiveManager(client: pg.ClientBase, hospitalId: string): Promise<boolean> {
+  return activeMemberHolds(client, hospitalId, MANAGING_PERMISSIONS, null);
+}
+
+/**
+ * Whether the person may be handed the hospital's whole export: an active member holding
+ * `role:manage`. Narrower than `hasActiveManager`: someone who only manages staff accounts is not
+ * given every record of the hospital.
+ */
+export function mayReceiveExport(
+  client: pg.ClientBase,
+  hospitalId: string,
+  userId: string,
+): Promise<boolean> {
+  return activeMemberHolds(client, hospitalId, ['role:manage'], userId);
 }
 
 export async function isPlatformAdminEmail(client: pg.ClientBase, email: string): Promise<boolean> {

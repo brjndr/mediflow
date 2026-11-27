@@ -7714,7 +7714,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Invites the first admin of a hospital. Only while the hospital is active and has no active admin (409 `hospital_has_admin` after that: its admins invite their own staff, and the platform cannot put anyone into a live hospital’s admin role), and never to a platform admin’s address. An earlier open invite to the same address is withdrawn. The link is emailed by a job; the admin sets a password and an authenticator and signs in. */
+        /** @description Invites the first admin of a hospital. Only while the hospital is active and has no active member who manages it, one whose role (whatever it is called) holds `role:manage` or `staff:manage` (409 `hospital_has_admin` after that: they invite their own staff, and the platform cannot put anyone into a live hospital’s admin role), and never to a platform admin’s address. An earlier open invite to the same address is withdrawn. The link is emailed by a job; the admin sets a password and an authenticator and signs in. */
         post: operations["platformInviteHospitalAdmin"];
         delete?: never;
         options?: never;
@@ -7851,7 +7851,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Emails a signed download link of a made export, valid for seven days, to one active admin of the hospital. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`. */
+        /** @description Emails a signed download link of a made export, valid for seven days, to one active member of the hospital whose role holds `role:manage`, whatever it is called. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`. */
         post: operations["platformEmailHospitalExportLink"];
         delete?: never;
         options?: never;

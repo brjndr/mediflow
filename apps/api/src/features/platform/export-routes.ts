@@ -1,6 +1,5 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type } from '@sinclair/typebox';
-import type pg from 'pg';
 import { getStream } from '../../core/files/store.js';
 import { verifyOffboardExport } from '../../core/files/signing.js';
 import { HttpError } from '../../core/http/errors.js';
@@ -8,7 +7,7 @@ import { errors, ref } from '../../core/http/schemas.js';
 import { withPlatformTransaction } from '../../core/platform/db.js';
 import { createExport, EXPORT_JOB, type ExportJob } from './export.js';
 import { EXPORT_LINK_JOB, EXPORT_LINK_TTL_SECONDS, type ExportLinkJob } from './export-link.js';
-import { getHospital, recordPlatformAudit } from './repository.js';
+import { getHospital, mayReceiveExport, recordPlatformAudit } from './repository.js';
 import {
   ExportDownloadParams,
   ExportDownloadQuery,
@@ -60,20 +59,6 @@ function toExport(row: ExportRow): PlatformExport {
     firstDownloadedAt: iso(row.first_downloaded_at),
     lastDownloadedAt: iso(row.last_downloaded_at),
   };
-}
-
-/** Whether the person is an active admin of the hospital (the platform role reads four columns). */
-async function isActiveAdmin(
-  client: pg.ClientBase,
-  hospitalId: string,
-  userId: string,
-): Promise<boolean> {
-  const { rowCount } = await client.query(
-    `select 1 from memberships
-     where tenant_id = $1 and user_id = $2 and role_id = 'admin' and status = 'active'`,
-    [hospitalId, userId],
-  );
-  return rowCount !== 0;
 }
 
 const NOT_FOUND = () => new HttpError(404, 'export_not_found', 'No such export');
@@ -176,7 +161,7 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'platformEmailHospitalExportLink',
         tags,
         description:
-          'Emails a signed download link of a made export, valid for seven days, to one active admin of the hospital. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`.',
+          'Emails a signed download link of a made export, valid for seven days, to one active member of the hospital whose role holds `role:manage`, whatever it is called. A job makes the link and it goes only to that admin: the operator never sees it and the response carries none. Send another during the grace period when it has expired; each download is in the platform trail under that admin. 409 `export_not_ready` until the export has succeeded, `hospital_not_offboarding`, or `not_a_hospital_admin`.',
         params: ExportParams,
         body: ExportLinkBody,
         response: { 202: ref(ExportLinkSent), ...errors(400, 401, 403, 404, 409, 429) },
@@ -199,7 +184,7 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (hospital.status !== 'offboarding') {
           throw new HttpError(409, 'hospital_not_offboarding', 'The hospital is not offboarding');
         }
-        if (!(await isActiveAdmin(client, id, adminUserId))) {
+        if (!(await mayReceiveExport(client, id, adminUserId))) {
           throw new HttpError(409, 'not_a_hospital_admin', 'Not an active admin of the hospital');
         }
         await recordPlatformAudit(client, {
@@ -267,7 +252,7 @@ export const exportRoutes: FastifyPluginAsyncTypebox = async (app) => {
           [exportId],
         );
         const row = rows[0];
-        if (!row || !(await isActiveAdmin(client, row.hospital_id, adminUserId))) return null;
+        if (!row || !(await mayReceiveExport(client, row.hospital_id, adminUserId))) return null;
         return row;
       });
       if (!found) throw NOT_FOUND();

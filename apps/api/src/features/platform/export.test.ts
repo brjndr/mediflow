@@ -10,6 +10,7 @@ import {
   createUser,
   deleteTenants,
   deleteUsers,
+  grantRoleDefaults,
   resolveTestSession,
   type TestTenant,
   type TestUser,
@@ -95,6 +96,8 @@ beforeAll(async () => {
   users.push(operator, adminA, adminB);
   hospitalA = await createTenant(pool, 'Export Alpha');
   hospitalB = await createTenant(pool, 'Export Beta');
+  await grantRoleDefaults(app, hospitalA);
+  await grantRoleDefaults(app, hospitalB);
   seededA = await seedHospital(hospitalA, adminA, 'Alpha');
   await seedHospital(hospitalB, adminB, 'Beta');
 });
@@ -262,6 +265,49 @@ describe('the offboarding export', () => {
     await pool.query("update memberships set status = 'suspended' where tenant_id = $1", [
       hospitalA.id,
     ]);
+    expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
+  });
+
+  it('goes only to a holder of role:manage, whatever the role is called', async () => {
+    const [made] = (await call('GET', `/platform/hospitals/${hospitalA.id}/exports`)).json().items;
+    const link = `/platform/hospitals/${hospitalA.id}/exports/${made.id}/email-link`;
+    const member = async (roleId: string, permission: string) => {
+      await pool.query('insert into roles (tenant_id, id, name) values ($1, $2, $2)', [
+        hospitalA.id,
+        roleId,
+      ]);
+      await pool.query(
+        'insert into role_permissions (tenant_id, role_id, permission) values ($1, $2, $3)',
+        [hospitalA.id, roleId, permission],
+      );
+      const user = await createUser(pool, `Export ${roleId}`);
+      users.push(user);
+      await addMembership(pool, user, hospitalA, roleId);
+      return user;
+    };
+    const people = await member('people_lead', 'staff:manage');
+    const access = await member('access_lead', 'role:manage');
+
+    const refused = await call('POST', link, { adminUserId: people.id });
+    expect(refused.json().error.code).toBe('not_a_hospital_admin');
+
+    notifier.sent.length = 0;
+    expect((await call('POST', link, { adminUserId: access.id })).statusCode).toBe(202);
+    await queue.drain();
+    expect(notifier.sent.map((mail) => mail.to)).toEqual([access.email]);
+    const path = (notifier.sent[0]?.data as { linkPath: string }).linkPath;
+    const url = path.slice('/api'.length);
+    expect((await app.inject({ method: 'GET', url })).statusCode).toBe(200);
+
+    // Losing the permission, while still a member, ends both a queued email and the link.
+    notifier.sent.length = 0;
+    await call('POST', link, { adminUserId: access.id });
+    await pool.query(
+      "delete from role_permissions where tenant_id = $1 and role_id = 'access_lead'",
+      [hospitalA.id],
+    );
+    await queue.drain();
+    expect(notifier.sent).toHaveLength(0);
     expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
   });
 

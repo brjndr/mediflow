@@ -32,8 +32,8 @@ interface Candidate {
 }
 
 /**
- * Sends the 30 and 7 day reminders to the active admins of every offboarding hospital that is
- * due one. Idempotent: `deletion_reminders` holds a row for each person, date and reminder, written
+ * Sends the 30 and 7 day reminders to the active managers (`offboarding_admin_contacts`) of every
+ * offboarding hospital that is due one. Idempotent: `deletion_reminders` holds a row for each person, date and reminder, written
  * once the mail server took the email, so a repeated run sends nothing again and a run that stopped
  * half way sends only to those not yet written to (a crash between the send and the row can repeat
  * one email, never skip one). A failed send is thrown after the others were tried, and the queue
