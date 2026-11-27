@@ -6178,7 +6178,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description Names the visit (encounter) the surgery and its consumables are charged to. The visit must be an open one of the same patient (422 `unknown_encounter`); only a scheduled or in-progress surgery is linked (409 `invalid_state`). Charges follow the link: nothing is charged for a surgery with none. Audited. Requires surgery:schedule. */
+        /** @description Names the visit (encounter) the surgery and its consumables are charged to. The visit must be an open one of the same patient (422 `unknown_encounter`); only a scheduled or in-progress surgery is linked, or a completed one whose linked visit was cancelled (409 `invalid_state`). Charges follow the link: nothing is charged for a surgery with none. Audited. Requires surgery:schedule. */
         put: operations["linkSurgeryEncounter"];
         post?: never;
         delete?: never;
@@ -13461,6 +13461,8 @@ export interface components {
             surgeryId: string;
             /** @description The visit the surgery is charged to, when linked. */
             encounterId: string | null;
+            /** @description The linked visit was cancelled, so nothing is billed on it; link the surgery to another. */
+            encounterCancelled: boolean;
             note: components["schemas"]["OperationNote"] | null;
             addenda: components["schemas"]["OperationAddendum"][];
         };

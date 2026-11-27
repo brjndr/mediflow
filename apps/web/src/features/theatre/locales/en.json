@@ -238,6 +238,7 @@
       "heading": "Visit and charges",
       "linked": "This surgery is charged to a visit. The procedure and the stock used go to its bill.",
       "none": "No visit is linked, so nothing is charged for this surgery.",
+      "cancelled": "The linked visit was cancelled, so nothing is billed on it. Link this surgery to another open visit.",
       "label": "Open visit of this patient",
       "choose": "Choose a visit",
       "noneOpen": "No open visit",

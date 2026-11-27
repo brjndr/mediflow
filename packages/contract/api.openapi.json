@@ -16651,7 +16651,7 @@
       "OperationRecord": {
         "additionalProperties": false,
         "type": "object",
-        "required": ["surgeryId", "encounterId", "note", "addenda"],
+        "required": ["surgeryId", "encounterId", "encounterCancelled", "note", "addenda"],
         "properties": {
           "surgeryId": {
             "type": "string"
@@ -16666,6 +16666,10 @@
                 "type": "null"
               }
             ]
+          },
+          "encounterCancelled": {
+            "description": "The linked visit was cancelled, so nothing is billed on it; link the surgery to another.",
+            "type": "boolean"
           },
           "note": {
             "anyOf": [
@@ -67203,7 +67207,7 @@
       "put": {
         "operationId": "linkSurgeryEncounter",
         "tags": ["theatre"],
-        "description": "Names the visit (encounter) the surgery and its consumables are charged to. The visit must be an open one of the same patient (422 `unknown_encounter`); only a scheduled or in-progress surgery is linked (409 `invalid_state`). Charges follow the link: nothing is charged for a surgery with none. Audited. Requires surgery:schedule.",
+        "description": "Names the visit (encounter) the surgery and its consumables are charged to. The visit must be an open one of the same patient (422 `unknown_encounter`); only a scheduled or in-progress surgery is linked, or a completed one whose linked visit was cancelled (409 `invalid_state`). Charges follow the link: nothing is charged for a surgery with none. Audited. Requires surgery:schedule.",
         "requestBody": {
           "required": true,
           "content": {
