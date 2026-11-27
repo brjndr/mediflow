@@ -113,7 +113,7 @@ describe('the patient screen', () => {
     open();
 
     // After its own second try, the screen says so and waits to be asked.
-    const retry = await screen.findByRole('button', { name: 'Try again' }, { timeout: 4000 });
+    const retry = await screen.findByRole('button', { name: 'Try again' });
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load the patient');
     failing = false;
     await userEvent.click(retry);
@@ -260,13 +260,8 @@ describe('what other features add to the patient screen', () => {
     openWithVisits('?tab=no-such-tab');
     await screen.findByRole('heading', NAME);
     // Waited for a moment, in case it is a tab still loading, then the first tab opens.
-    await waitFor(
-      () =>
-        expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute(
-          'aria-selected',
-          'true',
-        ),
-      { timeout: 4000 },
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true'),
     );
     expect(within(panel()).getByText('patient1@example.test')).toBeInTheDocument();
   });

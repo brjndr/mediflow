@@ -37,48 +37,44 @@ async function chooseDepartment(name: string) {
 }
 
 describe('referrals', () => {
-  it(
-    'refers the patient to a doctor of a department, said in words and listed',
-    { timeout: 15_000 },
-    async () => {
-      await openConsultation();
-      expect(await within(panel()).findByText('No referrals.')).toBeInTheDocument();
-      await chooseDepartment('Cardiology');
-      const cardiologist = mockDoctor(HOSPITAL, CARDIOLOGIST)?.name ?? '';
-      // Only the department's doctors, or any of them.
-      const doctor = await within(panel()).findByRole('combobox', { name: 'Doctor' });
-      expect(
-        within(doctor)
-          .getAllByRole('option')
-          .map((option) => option.textContent),
-      ).toEqual(['Any doctor of the department', cardiologist]);
-      await userEvent.selectOptions(doctor, cardiologist);
-      await userEvent.selectOptions(
-        within(panel()).getByRole('combobox', { name: /^Urgency/ }),
-        'Urgent',
-      );
-      await userEvent.type(
-        within(panel()).getByRole('textbox', { name: /^Referral reason/ }),
-        'Murmur on auscultation',
-      );
-      await userEvent.click(within(panel()).getByRole('button', { name: 'Refer' }));
+  it('refers the patient to a doctor of a department, said in words and listed', async () => {
+    await openConsultation();
+    expect(await within(panel()).findByText('No referrals.')).toBeInTheDocument();
+    await chooseDepartment('Cardiology');
+    const cardiologist = mockDoctor(HOSPITAL, CARDIOLOGIST)?.name ?? '';
+    // Only the department's doctors, or any of them.
+    const doctor = await within(panel()).findByRole('combobox', { name: 'Doctor' });
+    expect(
+      within(doctor)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Any doctor of the department', cardiologist]);
+    await userEvent.selectOptions(doctor, cardiologist);
+    await userEvent.selectOptions(
+      within(panel()).getByRole('combobox', { name: /^Urgency/ }),
+      'Urgent',
+    );
+    await userEvent.type(
+      within(panel()).getByRole('textbox', { name: /^Referral reason/ }),
+      'Murmur on auscultation',
+    );
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Refer' }));
 
-      expect(await within(panel()).findByRole('status')).toHaveTextContent('Referral made.');
-      expect(await within(grid()).findByText(`Cardiology: ${cardiologist}`)).toBeInTheDocument();
-      expect(within(grid()).getByText('Urgent')).toBeInTheDocument();
-      expect(mockReferralsOf('enc_h_1')).toEqual([
-        expect.objectContaining({
-          departmentId: 'dep_h_02',
-          doctorId: CARDIOLOGIST,
-          urgency: 'urgent',
-          reason: 'Murmur on auscultation',
-        }),
-      ]);
-      // The form is ready for another.
-      expect(within(panel()).getByRole('textbox', { name: /^Referral reason/ })).toHaveValue('');
-      await expectNoAxeViolations();
-    },
-  );
+    expect(await within(panel()).findByRole('status')).toHaveTextContent('Referral made.');
+    expect(await within(grid()).findByText(`Cardiology: ${cardiologist}`)).toBeInTheDocument();
+    expect(within(grid()).getByText('Urgent')).toBeInTheDocument();
+    expect(mockReferralsOf('enc_h_1')).toEqual([
+      expect.objectContaining({
+        departmentId: 'dep_h_02',
+        doctorId: CARDIOLOGIST,
+        urgency: 'urgent',
+        reason: 'Murmur on auscultation',
+      }),
+    ]);
+    // The form is ready for another.
+    expect(within(panel()).getByRole('textbox', { name: /^Referral reason/ })).toHaveValue('');
+    await expectNoAxeViolations();
+  });
 
   it('refers to a department alone, and asks for a department and a reason first', async () => {
     const sent: string[] = [];

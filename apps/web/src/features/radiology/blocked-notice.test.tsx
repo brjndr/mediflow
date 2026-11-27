@@ -19,14 +19,14 @@ describe('the blocked image notice on the home page', () => {
   it('names the uploader’s blocked image until they dismiss it', async () => {
     blockMockImage(HOSPITAL, USER_IDS.admin, 'chest-pa.jpg');
     renderApp({ entry: '/' });
-    expect(await screen.findByText('chest-pa.jpg', {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(await screen.findByText('chest-pa.jpg')).toBeInTheDocument();
     expect(screen.getByText(/failed the virus scan and was deleted/i)).toBeInTheDocument();
     await expectNoAxeViolations();
 
     await userEvent.click(
       screen.getByRole('button', { name: /Dismiss the notice for chest-pa.jpg/ }),
     );
-    expect(await screen.findByText(NONE, {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(await screen.findByText(NONE)).toBeInTheDocument();
     // The button left the page: focus went to the status line, which says so.
     const status = screen.getByRole('status', { name: '' });
     expect(status).toHaveTextContent('Notice dismissed.');
@@ -41,7 +41,7 @@ describe('the blocked image notice on the home page', () => {
       ),
     );
     renderApp({ entry: '/' });
-    expect(await screen.findByText('chest-pa.jpg', {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(await screen.findByText('chest-pa.jpg')).toBeInTheDocument();
     expect(screen.getByText(/could not be scanned or never arrived/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Dismiss the notice for/ }));
     expect(
@@ -54,7 +54,7 @@ describe('the blocked image notice on the home page', () => {
     blockMockImage(HOSPITAL, 'user_someone_else', 'other.jpg');
     blockMockImage(TENANT_IDS.clinic, USER_IDS.admin, 'elsewhere.jpg');
     renderApp({ entry: '/' });
-    expect(await screen.findByText(NONE, {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(await screen.findByText(NONE)).toBeInTheDocument();
     expect(screen.queryByText('other.jpg')).not.toBeInTheDocument();
     expect(screen.queryByText('elsewhere.jpg')).not.toBeInTheDocument();
   });

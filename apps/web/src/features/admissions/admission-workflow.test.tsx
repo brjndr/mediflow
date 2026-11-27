@@ -42,7 +42,7 @@ describe('admitting a patient', () => {
     const grid = await screen.findByRole('table', { name: 'Admissions' });
     await waitFor(() => expect(within(grid).getAllByRole('row')).toHaveLength(2));
     expect(within(grid).getByText('Planned')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('sends the visit it was linked from, for the linked patient only (#678)', async () => {
     let sent: Record<string, unknown> = {};
@@ -59,7 +59,7 @@ describe('admitting a patient', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
     await screen.findByRole('heading', { name: 'Patient admitted' });
     expect(sent).toMatchObject({ patientId: 'pth_00010', sourceEncounterId: 'enc_opd_1' });
-  }, 20_000);
+  });
 
   it('does not admit without a bed', async () => {
     await openForm();
@@ -68,7 +68,7 @@ describe('admitting a patient', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
     expect(await screen.findByText('Choose a free bed.')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Patient admitted' })).not.toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('sends the advice, attendant, deposit in minor units and the consents given', async () => {
     let sent: Record<string, unknown> = {};
@@ -99,7 +99,7 @@ describe('admitting a patient', () => {
       depositMinor: 500050,
       consents: ['treatment'],
     });
-  }, 30_000);
+  });
 
   it('refuses a deposit that is not an amount and an attendant relation without a name', async () => {
     await openForm();
@@ -110,7 +110,7 @@ describe('admitting a patient', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
     expect(await screen.findByText(/Enter an amount/)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Patient admitted' })).not.toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('says so and cannot admit when no bed is free', async () => {
     server.use(
@@ -125,7 +125,7 @@ describe('admitting a patient', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Admit patient' }));
     expect(await screen.findByText('Choose a free bed.')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Patient admitted' })).not.toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('gives a bed to an admitted patient and moves them to another', async () => {
     await openForm();
@@ -143,7 +143,7 @@ describe('admitting a patient', () => {
     await userEvent.click(within(panel).getAllByRole('radio')[0] as HTMLElement);
     await userEvent.click(within(panel).getByRole('button', { name: 'Move patient' }));
     expect(await screen.findByText(/is now in bed/)).toBeInTheDocument();
-  }, 30_000);
+  });
 });
 
 describe('bed day price', () => {
@@ -214,7 +214,7 @@ describe('bed history', () => {
     expect(within(history).getByText(/Isolation: Needs a single room/)).toBeInTheDocument();
     expect(within(history).getAllByText(/a day, .* for the days so far/)).not.toHaveLength(0);
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 });
 
 const admitAndOpenList = async () => {
@@ -245,7 +245,7 @@ describe('discharging a patient', () => {
     expect(await screen.findByText(/is discharged\. The bed is being cleaned/)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole('region', { name: /Discharge / })).toBeNull());
     expect(await screen.findByText('No admissions match.')).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('explains an unsigned note and keeps the panel', async () => {
     const grid = await admitAndOpenList();
@@ -256,7 +256,7 @@ describe('discharging a patient', () => {
     await userEvent.click(within(panel).getByRole('button', { name: 'Discharge patient' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/still a draft/);
     expect(screen.getByRole('region', { name: /Discharge / })).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('offers no discharge without admission:discharge', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'admission:discharge');
@@ -289,5 +289,5 @@ describe('admission details', () => {
     expect(within(panel).getByText(/5,000/)).toBeInTheDocument();
     expect(within(panel).getByText('Admission to hospital')).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 });

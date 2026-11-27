@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { sessionKey, type Session } from '@/app/session';
 import { grantPermission, signIn, TENANT_IDS, USER_IDS } from '@/mocks/db';
 import { server } from '@/mocks/node';
@@ -11,7 +11,6 @@ import { renderApp } from '@/test/render';
 import { box } from './matrix-test-utils';
 
 // The whole catalog is drawn as checkboxes: slow on a small machine.
-vi.setConfig({ testTimeout: 30_000 });
 
 const openMatrix = async (roleId = 'doctor', name = 'Doctor') => {
   const app = renderApp({ entry: `/roles/${roleId}` });

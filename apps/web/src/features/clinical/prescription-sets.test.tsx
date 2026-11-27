@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   revokePermission,
   setRolePermissions,
@@ -21,7 +21,6 @@ import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 
 // A dense form under jsdom, with axe and the keyboard, is slow on a small machine.
-vi.setConfig({ testTimeout: 30_000 });
 
 const HOSPITAL = TENANT_IDS.hospital;
 const CLINIC = TENANT_IDS.clinic;

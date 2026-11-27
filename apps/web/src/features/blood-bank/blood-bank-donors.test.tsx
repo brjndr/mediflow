@@ -49,7 +49,7 @@ describe('the donor list', () => {
     expect(row).not.toHaveTextContent('9800000011');
     expect(row).toHaveTextContent('0011');
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('searches by the term in the body and filters by status', async () => {
     let body: unknown;
@@ -65,7 +65,7 @@ describe('the donor list', () => {
     expect(rowOf('DN-0002')).toBeDefined();
     expect(body).toMatchObject({ q: 'Sara' });
     expect(screen.queryByText('DN-0001')).not.toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('opens the full record on request, with the donor trace', async () => {
     await openDonors();
@@ -73,7 +73,7 @@ describe('the donor list', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Donor DN-0001' });
     expect(await within(dialog).findByText('Rohan Test-Donor')).toBeVisible();
     expect(await within(dialog).findByText(/Unit BU-0003/)).toBeVisible();
-  }, 20_000);
+  });
 
   it('does not read the full record until someone asks', async () => {
     let reads = 0;
@@ -94,7 +94,7 @@ describe('the donor list', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Donor DN-0001' });
     await within(dialog).findByText('Rohan Test-Donor');
     expect(within(dialog).queryByText('Units made from this donor')).not.toBeInTheDocument();
-  }, 20_000);
+  });
 });
 
 describe('registering a donor', () => {
@@ -114,7 +114,7 @@ describe('registering a donor', () => {
       ),
     );
     await waitFor(() => expect(rowOf('DN-0004')).toHaveTextContent('M. N.'));
-  }, 30_000);
+  });
 
   it('refuses a donor outside 18 to 65 before asking the server', async () => {
     await openDonors();
@@ -124,7 +124,7 @@ describe('registering a donor', () => {
     await userEvent.type(within(dialog).getByLabelText(/Date of birth/), '2015-01-01');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Register donor' }));
     expect(await within(dialog).findByText('A donor must be 18 to 65 years old.')).toBeVisible();
-  }, 20_000);
+  });
 
   it('says so when the server refuses the age', async () => {
     refuse('*/api/blood/donors', 'donor_age', 422);
@@ -137,7 +137,7 @@ describe('registering a donor', () => {
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
       '18 to 65 years old on the day',
     );
-  }, 20_000);
+  });
 });
 
 describe('recording a collection', () => {
@@ -160,7 +160,7 @@ describe('recording a collection', () => {
         'Unit BU-NEW1 is waiting for testing',
       ),
     );
-  }, 30_000);
+  });
 
   it('records several units from one collection and refuses a repeated number', async () => {
     await openDonors();
@@ -186,7 +186,7 @@ describe('recording a collection', () => {
         '2 units (BU-MULTI1, BU-MULTI2) are waiting for testing',
       ),
     );
-  }, 30_000);
+  });
 
   it('maps a donation that is too soon,a deferred donor and an age refusal', async () => {
     await openDonors('DN-0002');
@@ -213,7 +213,7 @@ describe('recording a collection', () => {
     await waitFor(() =>
       expect(within(dialog).getByRole('alert')).toHaveTextContent('18 to 65 years old on the day'),
     );
-  }, 40_000);
+  });
 
   it('does not offer a collection from a deferred donor', async () => {
     await openDonors('DN-0003');
@@ -235,7 +235,7 @@ describe('deferring a donor', () => {
       expect(screen.getByRole('status', { name: '' })).toHaveTextContent('Donor DN-0001 deferred'),
     );
     await waitFor(() => expect(rowOf('DN-0001')).toHaveTextContent('Deferred until'));
-  }, 30_000);
+  });
 
   it('warns that a permanent deferral is final', async () => {
     await openDonors();
@@ -246,7 +246,7 @@ describe('deferring a donor', () => {
     await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Reactive screening');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Defer donor' }));
     await waitFor(() => expect(rowOf('DN-0001')).toHaveTextContent('Deferred for good'));
-  }, 30_000);
+  });
 
   it('maps a date that is not in the future', async () => {
     refuse('*/api/blood/donors/:donorId/defer', 'invalid_period', 422);
@@ -257,7 +257,7 @@ describe('deferring a donor', () => {
     await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Low haemoglobin');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Defer donor' }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('must be in the future');
-  }, 30_000);
+  });
 });
 
 describe('editing a donor', () => {
@@ -277,7 +277,7 @@ describe('editing a donor', () => {
     await press('DN-0001', /Open record/);
     const record = await screen.findByRole('dialog', { name: 'Donor DN-0001' });
     expect(await within(record).findByText('Rohan T Donor')).toBeVisible();
-  }, 30_000);
+  });
 
   it('keeps what was typed when the save is refused as changed', async () => {
     let first = true;
@@ -302,7 +302,7 @@ describe('editing a donor', () => {
     expect(within(dialog).getByLabelText(/Full name/)).toHaveValue('Rohan Typed');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /Edit donor/ })).toBeNull());
-  }, 30_000);
+  });
 
   it('has no Edit action without bloodDonor:manage', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'bloodDonor:manage');
@@ -339,7 +339,7 @@ describe('access to donors', () => {
     expect(rowOf('DN-0001')).toHaveTextContent('C. O.');
     expect(screen.queryByText(/R\. T\.-D\./)).not.toBeInTheDocument();
     expect(within(donorGrid()).getAllByRole('row')).toHaveLength(2);
-  }, 20_000);
+  });
 });
 
 describe('the blood group tab of a patient', () => {
@@ -353,7 +353,7 @@ describe('the blood group tab of a patient', () => {
     expect(await screen.findByText('Blood group on record: O+')).toBeVisible();
     expect(screen.getByRole('list', { name: 'Earlier entries' })).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('needs a reason to change the group, and keeps the history', async () => {
     await openPatient();
@@ -369,7 +369,7 @@ describe('the blood group tab of a patient', () => {
     expect(
       within(screen.getByRole('list', { name: 'Earlier entries' })).getAllByRole('listitem'),
     ).toHaveLength(2);
-  }, 30_000);
+  });
 
   it('maps the server refusing a change without a reason', async () => {
     await openPatient();
@@ -379,7 +379,7 @@ describe('the blood group tab of a patient', () => {
     await userEvent.type(screen.getByLabelText(/Reason/), 'Re-typed');
     await userEvent.click(screen.getByRole('button', { name: 'Record blood group' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('A reason is needed');
-  }, 30_000);
+  });
 
   it('writes nothing when the same group is recorded again', async () => {
     await openPatient();
@@ -391,7 +391,7 @@ describe('the blood group tab of a patient', () => {
     expect(
       within(screen.getByRole('list', { name: 'Earlier entries' })).getAllByRole('listitem'),
     ).toHaveLength(1);
-  }, 30_000);
+  });
 
   it('takes a first group when none is on record', async () => {
     clearMockPatientBloodGroup('pth_00001');
@@ -400,26 +400,26 @@ describe('the blood group tab of a patient', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /Blood group/ }), 'AB-');
     await userEvent.click(screen.getByRole('button', { name: 'Record blood group' }));
     expect(await screen.findByText('Blood group on record: AB-')).toBeVisible();
-  }, 30_000);
+  });
 
   it('has no form without patient.bloodGroup:update', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'patient.bloodGroup:update');
     await openPatient();
     await screen.findByText('Blood group on record: O+');
     expect(screen.queryByRole('button', { name: 'Record blood group' })).not.toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('has no tab without patient.bloodGroup:read or with the module off', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'patient.bloodGroup:read');
     renderApp({ entry: '/patients/pth_00001' });
     await screen.findByRole('tablist');
     expect(screen.queryByRole('tab', { name: 'Blood group' })).not.toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('has no tab when the hospital has the module off', async () => {
     setTenantFeature(TENANT_IDS.hospital, 'bloodbank', false);
     renderApp({ entry: '/patients/pth_00001' });
     await screen.findByRole('tablist');
     expect(screen.queryByRole('tab', { name: 'Blood group' })).not.toBeInTheDocument();
-  }, 20_000);
+  });
 });

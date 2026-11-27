@@ -108,7 +108,7 @@ describe('a changed format on the patient screen', () => {
     // The one issued before the change still reads with the fields it had.
     await userEvent.click(within(certificates).getAllByRole('button', { name: /^View/ }).at(-1)!);
     expect(await screen.findByText('Viral fever')).toBeInTheDocument();
-  }, 30_000);
+  });
 });
 
 describe('who can change the formats', () => {

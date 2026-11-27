@@ -24,7 +24,7 @@ describe('care of one case', () => {
     expect(await screen.findByRole('heading', { level: 1, name: /ER-0002/ })).toBeInTheDocument();
     expect(screen.getByText('Road accident')).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('starts treatment', async () => {
     await open('er_2');
@@ -33,7 +33,7 @@ describe('care of one case', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Start treatment' })).not.toBeInTheDocument(),
     );
-  }, 20_000);
+  });
 
   it('adds observation notes, also for an unidentified patient', async () => {
     await open('er_2');
@@ -44,7 +44,7 @@ describe('care of one case', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add note' }));
     expect(await screen.findByText('BP 90/60, GCS 14')).toBeInTheDocument();
     expect(said('Note added.')).toBe(true);
-  }, 20_000);
+  });
 
   it('places orders only for a patient on record, once the encounter is prepared', async () => {
     await open('er_2');
@@ -52,14 +52,14 @@ describe('care of one case', () => {
       await screen.findByText(/Link the patient to a record to place orders/),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Prepare orders' })).not.toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('opens the orders of a patient on record', async () => {
     await open('er_1');
     await userEvent.click(await screen.findByRole('button', { name: 'Prepare orders' }));
     expect(await screen.findByRole('heading', { name: 'Lab orders' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Imaging orders' })).toBeInTheDocument();
-  }, 20_000);
+  });
 });
 
 describe('disposition', () => {
@@ -74,7 +74,7 @@ describe('disposition', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Decide disposition' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add note' })).not.toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('needs a destination to refer and the time of death for an expired patient', async () => {
     await open('er_2');
@@ -91,7 +91,7 @@ describe('disposition', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(await screen.findByText('Referred to City Heart Institute.')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('will not admit an unidentified patient, and admits one on record', async () => {
     await open('er_2');
@@ -105,7 +105,7 @@ describe('disposition', () => {
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(await screen.findByText('Link the patient to a record first.')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('admits a patient on record under a chosen doctor and points to the admissions', async () => {
     await open('er_1');
@@ -123,7 +123,7 @@ describe('disposition', () => {
     expect(
       await screen.findByRole('link', { name: 'See the admissions list' }),
     ).toBeInTheDocument();
-  }, 20_000);
+  });
 });
 
 describe('admitting without a doctor profile', () => {
@@ -136,7 +136,7 @@ describe('admitting without a doctor profile', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(await screen.findByText(/no doctor to admit under/)).toBeInTheDocument();
-  }, 20_000);
+  });
 });
 
 describe('access', () => {

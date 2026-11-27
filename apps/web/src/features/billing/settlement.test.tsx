@@ -69,7 +69,7 @@ describe('the final bill of a stay', () => {
     const grid = screen.getByRole('table', { name: 'Invoices of the stay' });
     expect(within(grid).getByText('INV-0001')).toBeVisible();
     await expectNoAxeViolations();
-  }, 40_000);
+  });
 
   it('sets the deposit against the invoice and pays back the excess', async () => {
     admit();
@@ -109,7 +109,7 @@ describe('the final bill of a stay', () => {
     await userEvent.type(screen.getByRole('textbox', { name: /^Refund reason/ }), 'Too much');
     await userEvent.click(screen.getByRole('button', { name: 'Pay back deposit' }));
     expect(await screen.findByText('More than the deposit held beyond what is due.')).toBeVisible();
-  }, 40_000);
+  });
 
   it('offers no refund without payment:refund', async () => {
     revokePermission(HOSPITAL, 'admin', 'payment:refund');
@@ -119,7 +119,7 @@ describe('the final bill of a stay', () => {
     renderApp({ entry: '/billing/stays/adm_final' });
     await waitFor(() => expect(screen.getByTestId('settle-held').textContent).toMatch(/2,000/));
     expect(screen.queryByRole('textbox', { name: /^Amount to pay back/ })).toBeNull();
-  }, 40_000);
+  });
 
   it('is not reachable with the billing switch off', async () => {
     setTenantFeature(HOSPITAL, 'billing', false);
@@ -172,7 +172,7 @@ describe('discharge and the bill', () => {
     expect(submit).not.toHaveAttribute('aria-disabled');
     await userEvent.click(within(panel).getByRole('button', { name: 'Discharge patient' }));
     expect(await screen.findByText(/is discharged\./)).toBeInTheDocument();
-  }, 40_000);
+  });
 
   it('lets someone holding dischargeBill:override override a block by confirming', async () => {
     admit();
@@ -187,7 +187,7 @@ describe('discharge and the bill', () => {
     expect(submit).not.toHaveAttribute('aria-disabled');
     await userEvent.click(submit);
     expect(await screen.findByText(/is discharged./)).toBeInTheDocument();
-  }, 40_000);
+  });
 
   it('does not let invoice:adjust alone override a block or reach the policy (#801)', async () => {
     admit();
@@ -200,7 +200,7 @@ describe('discharge and the bill', () => {
       'aria-disabled',
       'true',
     );
-  }, 40_000);
+  });
 
   it('keeps the policy screen from invoice:adjust alone (#801)', async () => {
     revokePermission(HOSPITAL, 'admin', 'dischargePolicy:manage');
@@ -208,7 +208,7 @@ describe('discharge and the bill', () => {
     await waitFor(() =>
       expect(screen.queryByRole('combobox', { name: /^When the bill/ })).toBeNull(),
     );
-  }, 40_000);
+  });
 
   it('does not look at the bill when the policy is off', async () => {
     admit();
@@ -216,5 +216,5 @@ describe('discharge and the bill', () => {
     const panel = await openPanel();
     await within(panel).findByRole('button', { name: 'Discharge patient' });
     expect(screen.queryByTestId('bill-gate')).toBeNull();
-  }, 40_000);
+  });
 });

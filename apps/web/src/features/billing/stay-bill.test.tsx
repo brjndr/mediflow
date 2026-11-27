@@ -62,7 +62,7 @@ describe('the running bill of a stay', () => {
     expect(within(grid).getByText('Services')).toBeInTheDocument();
     expect((await total('balance')).textContent).toMatch(/6,901\.00/);
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('shows bed days of two categories as a row each, at their own price', async () => {
     addMockAdmission({
@@ -98,7 +98,7 @@ describe('the running bill of a stay', () => {
     const grid = await screen.findByRole('table', { name: 'Running bill' });
     expect(await within(grid).findByText(/Bed days to date: general/)).toBeInTheDocument();
     expect(within(grid).getByText(/Bed days to date: icu/)).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('takes a deposit and shows it against the balance', async () => {
     renderApp({ entry: `/billing/stays/${admit()}` });
@@ -110,7 +110,7 @@ describe('the running bill of a stay', () => {
     expect(screen.getByTestId('balance').textContent).toMatch(/5,901\.00/);
     const list = screen.getByRole('table', { name: 'Deposits' });
     expect(await within(list).findAllByRole('row')).toHaveLength(2);
-  }, 20_000);
+  });
 
   it('shows a balance in credit in words when the deposits are more than the charges', async () => {
     addMockDeposit(HOSPITAL, admit(), 1_000_000);
@@ -128,7 +128,7 @@ describe('the running bill of a stay', () => {
     await waitFor(() =>
       expect(screen.getByTestId('estimate-summary').textContent).toMatch(/over it by ₹1,901\.00/),
     );
-  }, 20_000);
+  });
 
   it('refuses a deposit that is nothing', async () => {
     renderApp({ entry: `/billing/stays/${admit()}` });

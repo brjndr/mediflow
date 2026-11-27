@@ -56,7 +56,7 @@ describe('offboarding exports (platform)', () => {
     ).toBeInTheDocument();
     expect(within(section).queryByLabelText('Download link')).toBeNull();
     expect(document.activeElement).not.toBe(document.body);
-  }, 20_000);
+  });
 
   it('says when nobody at the hospital can receive the export', async () => {
     setMockOffboarding('hosp_city', { downloadedExport: true });

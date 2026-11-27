@@ -32,7 +32,6 @@ const HOSPITAL = TENANT_IDS.hospital;
 const CLINIC = TENANT_IDS.clinic;
 const PAGE = { name: 'Reports', level: 1 };
 const NO_ACCESS = { name: 'You do not have access to this page' };
-const SLOW = { timeout: 5000 };
 
 afterEach(() => {
   server.events.removeAllListeners();
@@ -201,47 +200,39 @@ describe('showing a report now', () => {
 });
 
 describe('exporting a report', () => {
-  it(
-    'follows the run until it is ready without blocking, then downloads it by a signed link',
-    { timeout: 15_000 },
-    async () => {
-      const start = vi.mocked(startDownload);
-      await open();
-      await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'revenue');
-      await userEvent.click(screen.getByRole('button', { name: 'Export' }));
+  it('follows the run until it is ready without blocking, then downloads it by a signed link', async () => {
+    const start = vi.mocked(startDownload);
+    await open();
+    await userEvent.selectOptions(screen.getByLabelText(/^Report/), 'revenue');
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }));
 
-      // The page stays usable while the job works.
-      expect(await screen.findByText(/^Export requested/)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Show report' })).toBeEnabled();
-      expect(
-        await screen.findByText('The export is ready. Download it from the list below.', {}, SLOW),
-      ).toBeInTheDocument();
-      // Its result is shown, and the list says it is ready.
-      expect(
-        await screen.findByRole('table', { name: 'Revenue and collections' }),
-      ).toBeInTheDocument();
-      await waitFor(() => expect(within(runs()).getAllByText('Ready')).toHaveLength(2));
+    // The page stays usable while the job works.
+    expect(await screen.findByText(/^Export requested/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show report' })).toBeEnabled();
+    expect(
+      await screen.findByText('The export is ready. Download it from the list below.'),
+    ).toBeInTheDocument();
+    // Its result is shown, and the list says it is ready.
+    expect(
+      await screen.findByRole('table', { name: 'Revenue and collections' }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(within(runs()).getAllByText('Ready')).toHaveLength(2));
 
-      await userEvent.click(
-        within(runs()).getAllByRole('button', { name: /^Download CSV/ })[0] as HTMLElement,
-      );
-      await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
-      const [url] = start.mock.calls[0] as [string];
-      expect(url).toMatch(/^\/report-files\/rep_h_\d+\?expires=\d+&signature=/);
-      expect(await screen.findByText('Download started.')).toBeInTheDocument();
-    },
-  );
+    await userEvent.click(
+      within(runs()).getAllByRole('button', { name: /^Download CSV/ })[0] as HTMLElement,
+    );
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+    const [url] = start.mock.calls[0] as [string];
+    expect(url).toMatch(/^\/report-files\/rep_h_\d+\?expires=\d+&signature=/);
+    expect(await screen.findByText('Download started.')).toBeInTheDocument();
+  });
 
-  it('says in words that an export failed, and why', { timeout: 15_000 }, async () => {
+  it('says in words that an export failed, and why', async () => {
     setMockReportFailure('timeout');
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Export' }));
     expect(
-      await screen.findByText(
-        'The export failed. It took too long. Ask again for fewer days.',
-        {},
-        SLOW,
-      ),
+      await screen.findByText('The export failed. It took too long. Ask again for fewer days.'),
     ).toBeInTheDocument();
     await waitFor(() => expect(within(runs()).getAllByText('Failed').length).toBeGreaterThan(1));
   });

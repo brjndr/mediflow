@@ -39,7 +39,7 @@ describe('housekeeping tasks', () => {
     expect(within(row).getByText('After discharge')).toBeInTheDocument();
     expect(within(row).getByText('Open')).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('is reached from the navigation', async () => {
     renderApp();
@@ -99,7 +99,7 @@ describe('ward filter', () => {
     await waitFor(() => expect(within(grid()).queryByText('GW-A-03')).not.toBeInTheDocument());
     await userEvent.selectOptions(select, 'All wards');
     await waitFor(() => expect(rowOf('GW-A-03')).toBeDefined());
-  }, 20_000);
+  });
 
   it('has no ward filter without ward:read', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'ward:read');
@@ -142,7 +142,7 @@ describe('requesting a routine cleaning', () => {
     );
     await waitFor(() => expect(rowOf(number)).toBeDefined());
     expect(within(rowOf(number)).getByText('Routine')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('finds a person past the first hundred by searching', async () => {
     const people = Array.from({ length: 150 }, (_, index) => ({
@@ -178,7 +178,7 @@ describe('requesting a routine cleaning', () => {
     await userEvent.click(await within(dialog).findByRole('option', { name: 'Person 140' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Request cleaning' }));
     await waitFor(() => expect(body.assignedTo).toBe('stf_big_140'));
-  }, 20_000);
+  });
 
   it('needs a bed before it asks', async () => {
     const dialog = await openRequest();
@@ -199,7 +199,7 @@ describe('requesting a routine cleaning', () => {
     await chooseFreeBed(dialog);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Request cleaning' }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('in use or blocked');
-  }, 20_000);
+  });
 
   it('is not offered without cleaningTask:manage', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'cleaningTask:manage');

@@ -43,7 +43,7 @@ describe('the inpatient census', () => {
     expect(screen.getByText(new RegExp(`of ${usable} usable beds occupied`))).toBeInTheDocument();
     expect(await screen.findByText('Nobody is admitted.')).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('matches the bed board: the occupied count is the board’s occupied beds', async () => {
     await openCensus();
@@ -59,7 +59,7 @@ describe('the inpatient census', () => {
     );
     const grid = screen.getByRole('table', { name: 'Beds' });
     await waitFor(() => expect(within(grid).getAllByRole('row')).toHaveLength(occupied + 1));
-  }, 20_000);
+  });
 
   it('narrows the counts to one ward', async () => {
     await openCensus();

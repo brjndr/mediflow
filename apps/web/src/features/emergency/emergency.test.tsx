@@ -79,7 +79,7 @@ describe('emergency board', () => {
     expect(within(rowOf('ER-0002')).getByText('Man in blue jacket')).toBeInTheDocument();
     expect(await screen.findByText(/1 is past the waiting target/)).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('is reached from the navigation', async () => {
     renderApp();
@@ -107,7 +107,7 @@ describe('emergency board', () => {
     );
     await waitFor(() => expect(rowOf('ER-0005')).toBeDefined());
     expect(within(rowOf('ER-0005')).getByText('Unidentified patient')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('registers a patient on record, triaged at once', async () => {
     await open();
@@ -128,15 +128,13 @@ describe('emergency board', () => {
       '3 Urgent',
     );
     await userEvent.type(screen.getByRole('combobox', { name: 'Patient' }), 'MRN-PTH-00001');
-    await userEvent.click(
-      await screen.findByRole('option', { name: /MRN-PTH-00001/ }, { timeout: 5000 }),
-    );
+    await userEvent.click(await screen.findByRole('option', { name: /MRN-PTH-00001/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent('Registered as ER-0005.'),
     );
     await waitFor(() => expect(within(rowOf('ER-0005')).getByText('3 Urgent')).toBeInTheDocument());
-  }, 30_000);
+  });
 
   it('sets a triage category and moves the patient up the board', async () => {
     await open();
@@ -149,7 +147,7 @@ describe('emergency board', () => {
     await waitFor(() =>
       expect(within(rowOf('ER-0002')).getByText('1 Immediate')).toBeInTheDocument(),
     );
-  }, 20_000);
+  });
 
   it('links an unidentified patient to a record, and not one already linked', async () => {
     await open();
@@ -160,9 +158,7 @@ describe('emergency board', () => {
       within(rowOf('ER-0002')).getByRole('button', { name: /Identify patient/ }),
     );
     await userEvent.type(await screen.findByRole('combobox', { name: /Patient/ }), 'MRN-PTH-00001');
-    await userEvent.click(
-      await screen.findByRole('option', { name: /MRN-PTH-00001/ }, { timeout: 5000 }),
-    );
+    await userEvent.click(await screen.findByRole('option', { name: /MRN-PTH-00001/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Link to record' }));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent('ER-0002 is linked to the patient'),
@@ -172,7 +168,7 @@ describe('emergency board', () => {
         within(rowOf('ER-0002')).getByRole('button', { name: /Identify patient/ }),
       ).toHaveAttribute('aria-disabled', 'true'),
     );
-  }, 30_000);
+  });
 
   it('says a case was changed by someone else first', async () => {
     await open();

@@ -62,7 +62,7 @@ describe('the discharge plan', () => {
 
     await userEvent.click(submit(panel));
     expect(await screen.findByText(/is discharged\. The bed is being cleaned/)).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('needs fewer clearances against advice and none for one who absconded', async () => {
     const panel = await openPanel();
@@ -72,7 +72,7 @@ describe('the discharge plan', () => {
     await userEvent.selectOptions(how, 'absconded');
     await waitFor(() => expect(within(panel).queryByTestId('clearance-gate')).toBeNull());
     expect(submit(panel)).not.toHaveAttribute('aria-disabled');
-  }, 30_000);
+  });
 
   it('saves the advice', async () => {
     const panel = await openPanel();
@@ -82,7 +82,7 @@ describe('the discharge plan', () => {
     );
     await userEvent.click(within(panel).getByRole('button', { name: 'Save advice' }));
     expect(await within(panel).findByText('Advice saved.')).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('does not let someone without the clearance permissions clear anything', async () => {
     for (const permission of ['Nursing', 'Pharmacy', 'Lab']) {
@@ -92,7 +92,7 @@ describe('the discharge plan', () => {
     await within(panel).findByTestId('clearance-gate');
     expect(within(panel).queryByRole('button', { name: /^Mark .* cleared$/ })).toBeNull();
     expect(submit(panel)).toHaveAttribute('aria-disabled', 'true');
-  }, 30_000);
+  });
 
   it('links to the discharge summary for someone who may read it', async () => {
     const panel = await openPanel();
@@ -101,14 +101,14 @@ describe('the discharge plan', () => {
     });
     expect(link).toHaveAttribute('href', '/admissions/adm_plan/summary');
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('shows no summary link without dischargeSummary:read', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'dischargeSummary:read');
     const panel = await openPanel();
     await within(panel).findByTestId('clearance-gate');
     expect(within(panel).queryByRole('link', { name: /discharge summary/ })).toBeNull();
-  }, 30_000);
+  });
 
   it('shows no plan and gates nothing when the API has none', async () => {
     server.use(
@@ -120,7 +120,7 @@ describe('the discharge plan', () => {
     await waitFor(() => expect(within(panel).queryByText('Checking the bill…')).toBeNull());
     expect(within(panel).queryByTestId('discharge-plan')).toBeNull();
     expect(submit(panel)).not.toHaveAttribute('aria-disabled');
-  }, 30_000);
+  });
 
   it('is out of reach for a hospital without the admissions module, and its plan is not read', async () => {
     addMockAdmission({ id: 'adm_other', status: 'admitted', version: 1 });
@@ -128,5 +128,5 @@ describe('the discharge plan', () => {
     renderApp({ entry: '/admissions' });
     await waitFor(() => expect(screen.queryByRole('table', { name: 'Admissions' })).toBeNull());
     expect(screen.queryByRole('region', { name: /Discharge / })).toBeNull();
-  }, 30_000);
+  });
 });

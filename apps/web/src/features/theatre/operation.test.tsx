@@ -17,7 +17,7 @@ async function openTheatre() {
   renderApp({ entry: '/theatre' });
   await screen.findByRole('heading', { name: 'Operation theatre', level: 1 });
   fireEvent.change(screen.getByLabelText('Day'), { target: { value: SEEDED_DAY } });
-  await waitFor(() => expect(seededRow()).toBeDefined(), { timeout: 10_000 });
+  await waitFor(() => expect(seededRow()).toBeDefined());
 }
 
 const rowButton = (name: RegExp | string) =>
@@ -148,7 +148,7 @@ describe('operation note, stock used and the visit', () => {
     expect(
       within(dialog).getByRole('combobox', { name: /Open visit of this patient/ }),
     ).toBeVisible();
-  }, 40_000);
+  });
 
   it('is read-only without surgery:perform', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'surgery:perform');
@@ -163,5 +163,5 @@ describe('operation note, stock used and the visit', () => {
     expect(
       within(dialog).queryByRole('button', { name: /^Return to stock/ }),
     ).not.toBeInTheDocument();
-  }, 40_000);
+  });
 });

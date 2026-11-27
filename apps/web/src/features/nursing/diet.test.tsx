@@ -88,7 +88,7 @@ describe('diet orders of a stay', () => {
     expect(within(grid).getByRole('row', { name: /Soft diet/ })).not.toHaveTextContent(
       'Current diet',
     );
-  }, 30_000);
+  });
 
   it('refuses an empty order', async () => {
     await open();

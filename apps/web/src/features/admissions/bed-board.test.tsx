@@ -51,7 +51,7 @@ describe('the bed board', () => {
     expect(within(rowOf('GW-A-03')).getByText('Being cleaned')).toBeInTheDocument();
     expect(within(rowOf('GW-A-04')).getByText('Blocked: Repair')).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('links an occupied bed to its patient, only with patient:read', async () => {
     const first = await openBoard();
@@ -64,7 +64,7 @@ describe('the bed board', () => {
     await openBoard();
     expect(within(rowOf('GW-A-01')).queryByRole('link')).toBeNull();
     grantPermission(TENANT_IDS.hospital, 'admin', 'patient:read');
-  }, 20_000);
+  });
 
   it('is reached from the navigation', async () => {
     renderApp();
@@ -271,5 +271,5 @@ describe('the ward map and counts', () => {
       expect(screen.queryByRole('listitem', { name: /^Bed GW-A-04,/ })).toBeNull(),
     );
     expect(screen.getByRole('listitem', { name: /^Bed GW-A-03,/ })).toBeInTheDocument();
-  }, 20_000);
+  });
 });

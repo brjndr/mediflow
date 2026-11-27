@@ -66,78 +66,70 @@ afterEach(() => {
 });
 
 describe('a counter sale', () => {
-  it(
-    'sells an over-the-counter item to a walk-in, nearest expiry first, and opens the sale',
-    { timeout: 20_000 },
-    async () => {
-      await openNewSale();
-      const name = await addItem(CETIRIZINE);
-      const units = screen.getByRole('textbox', { name: `Units of ${name}` });
-      expect(units).toHaveFocus();
-      await userEvent.clear(units);
-      await userEvent.type(units, '3');
-      expect(await screen.findByText(/^3 units from batch CTZ25A/)).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: 'Patient (optional)' })).toBeInTheDocument();
-      await expectNoAxeViolations(document.body);
+  it('sells an over-the-counter item to a walk-in, nearest expiry first, and opens the sale', async () => {
+    await openNewSale();
+    const name = await addItem(CETIRIZINE);
+    const units = screen.getByRole('textbox', { name: `Units of ${name}` });
+    expect(units).toHaveFocus();
+    await userEvent.clear(units);
+    await userEvent.type(units, '3');
+    expect(await screen.findByText(/^3 units from batch CTZ25A/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Patient (optional)' })).toBeInTheDocument();
+    await expectNoAxeViolations(document.body);
 
-      const ledger = mockStock().ledger.length;
-      await userEvent.click(screen.getByRole('button', { name: 'Record sale' }));
-      expect(
-        await screen.findByRole('heading', { name: 'Counter sale', level: 1 }),
-      ).toBeInTheDocument();
-      expect(screen.getByRole('status')).toHaveTextContent('Sale recorded.');
-      expect(screen.getByText('Walk-in, not named')).toBeInTheDocument();
-      expect(mockSales().sales).toHaveLength(1);
-      expect(mockSales().sales[0]?.totalMinor).toBe('750');
-      expect(mockStock().ledger.slice(ledger)).toMatchObject([
-        { quantity: -3, reason: 'sale', source: 'sale' },
-      ]);
-      await expectNoAxeViolations(document.body);
-    },
-  );
+    const ledger = mockStock().ledger.length;
+    await userEvent.click(screen.getByRole('button', { name: 'Record sale' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Counter sale', level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Sale recorded.');
+    expect(screen.getByText('Walk-in, not named')).toBeInTheDocument();
+    expect(mockSales().sales).toHaveLength(1);
+    expect(mockSales().sales[0]?.totalMinor).toBe('750');
+    expect(mockStock().ledger.slice(ledger)).toMatchObject([
+      { quantity: -3, reason: 'sale', source: 'sale' },
+    ]);
+    await expectNoAxeViolations(document.body);
+  });
 
-  it(
-    'sells a Schedule H1 item only to a patient against an outside prescription',
-    { timeout: 20_000 },
-    async () => {
-      await openNewSale();
-      await addItem(h1Id());
-      expect(await screen.findByText(/Sold only against a prescription\./)).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: 'Outside prescription' })).toBeInTheDocument();
-      await userEvent.click(screen.getByRole('button', { name: 'Record sale' }));
-      expect(
-        await screen.findByText(
-          'Choose the patient: an item of this sale is sold only against a prescription.',
-        ),
-      ).toBeInTheDocument();
-      expect(screen.getByRole('combobox', { name: /^Patient/ })).toHaveFocus();
-      expect(mockSales().sales).toHaveLength(0);
+  it('sells a Schedule H1 item only to a patient against an outside prescription', async () => {
+    await openNewSale();
+    await addItem(h1Id());
+    expect(await screen.findByText(/Sold only against a prescription\./)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Outside prescription' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Record sale' }));
+    expect(
+      await screen.findByText(
+        'Choose the patient: an item of this sale is sold only against a prescription.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /^Patient/ })).toHaveFocus();
+    expect(mockSales().sales).toHaveLength(0);
 
-      await userEvent.type(screen.getByRole('combobox', { name: /^Patient/ }), 'MRN-PTH-00001');
-      await userEvent.click(await screen.findByRole('option', { name: /MRN-PTH-00001/ }));
-      expect(await screen.findByRole('button', { name: 'Change patient' })).toHaveFocus();
-      await userEvent.click(screen.getByRole('button', { name: 'Record sale' }));
-      expect(screen.getByRole('textbox', { name: /^Prescriber’s name/ })).toHaveFocus();
-      expect(mockSales().sales).toHaveLength(0);
+    await userEvent.type(screen.getByRole('combobox', { name: /^Patient/ }), 'MRN-PTH-00001');
+    await userEvent.click(await screen.findByRole('option', { name: /MRN-PTH-00001/ }));
+    expect(await screen.findByRole('button', { name: 'Change patient' })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Record sale' }));
+    expect(screen.getByRole('textbox', { name: /^Prescriber’s name/ })).toHaveFocus();
+    expect(mockSales().sales).toHaveLength(0);
 
-      await userEvent.type(screen.getByRole('textbox', { name: /^Prescriber’s name/ }), 'Dr Mehta');
-      await userEvent.type(
-        screen.getByRole('textbox', { name: /^Prescriber’s registration number/ }),
-        'MCI-12345',
-      );
-      const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-      await userEvent.type(screen.getByLabelText(/^Prescription date/), yesterday);
-      await userEvent.click(screen.getByRole('button', { name: 'Record sale' }));
-      expect(
-        await screen.findByRole('heading', { name: 'Counter sale', level: 1 }),
-      ).toBeInTheDocument();
-      expect(screen.getByText(/Dr Mehta \(MCI-12345\)/)).toBeInTheDocument();
-      expect(mockSales().sales[0]).toMatchObject({
-        patientId: 'pth_00001',
-        prescriberRegistration: 'MCI-12345',
-      });
-    },
-  );
+    await userEvent.type(screen.getByRole('textbox', { name: /^Prescriber’s name/ }), 'Dr Mehta');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: /^Prescriber’s registration number/ }),
+      'MCI-12345',
+    );
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    await userEvent.type(screen.getByLabelText(/^Prescription date/), yesterday);
+    await userEvent.click(screen.getByRole('button', { name: 'Record sale' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Counter sale', level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Dr Mehta \(MCI-12345\)/)).toBeInTheDocument();
+    expect(mockSales().sales[0]).toMatchObject({
+      patientId: 'pth_00001',
+      prescriberRegistration: 'MCI-12345',
+    });
+  });
 
   it('returns units to stock, never more than were sold, and prints a receipt', async () => {
     await openNewSale();

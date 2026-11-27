@@ -42,7 +42,7 @@ describe('ambulances', () => {
     expect(within(trip).getByText('Requested')).toBeInTheDocument();
     expect(within(rowOf(fleetGrid(), 'KA01AB1234')).getByText('Available')).toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('is reached from the navigation', async () => {
     renderApp();
@@ -61,7 +61,7 @@ describe('ambulances', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Request trip' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trip requested.'));
     await waitFor(() => expect(rowOf(tripGrid(), 'Lake road')).toBeDefined());
-  }, 20_000);
+  });
 
   it('names the visit and the service a trip is charged as, and shows the charge', async () => {
     await open();
@@ -83,7 +83,7 @@ describe('ambulances', () => {
     expect(
       within(rowOf(tripGrid(), 'Main Road junction')).getByText('Not charged'),
     ).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('dispatches a trip, runs it to the end and frees the ambulance', async () => {
     await open();
@@ -116,7 +116,7 @@ describe('ambulances', () => {
     await waitFor(() =>
       expect(within(rowOf(fleetGrid(), 'KA01AB1234')).getByText('Available')).toBeInTheDocument(),
     );
-  }, 30_000);
+  });
 
   it('names a driver and a paramedic when dispatching, and shows the crew on the trip', async () => {
     await open();
@@ -152,7 +152,7 @@ describe('ambulances', () => {
         `${driver?.name} (Driver), ${medic?.name} (Paramedic)`,
       ),
     );
-  }, 30_000);
+  });
 
   it('takes an ambulance out of service and back', async () => {
     await open();
@@ -188,7 +188,7 @@ describe('ambulances', () => {
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent('Ambulance KA09ZZ0001 added.'),
     );
-  }, 20_000);
+  });
 
   it('says a trip was changed by someone else first', async () => {
     await open();

@@ -55,7 +55,7 @@ describe('screening a unit', () => {
         'reactive. The unit was discarded and its donor deferred',
       ),
     );
-  }, 20_000);
+  });
 
   it('is offered once only, and never to a unit that is not in testing', async () => {
     await open('BU-0001');
@@ -112,7 +112,7 @@ describe('cross-matching', () => {
     await expectNoAxeViolations();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Record cross-match' }));
     await waitFor(() => expect(statusLine()).toHaveTextContent('compatible, good until'));
-  }, 20_000);
+  });
 
   it('says a pair that can never match is refused', async () => {
     addMockBloodUnit({ id: 'bu_a', unitNumber: 'BU-A', bloodGroup: 'A+', component: 'red_cells' });
@@ -150,7 +150,7 @@ describe('compatible units for a patient', () => {
     expect(within(panel).getByText(/BU-0001/)).toBeVisible();
     expect(within(panel).getByText('Not cross-matched')).toBeVisible();
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('leaves the patient group out without patient.bloodGroup:read', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'patient.bloodGroup:read');
@@ -191,7 +191,7 @@ describe('reactions', () => {
       expect(statusLine()).toHaveTextContent('Reaction to unit BU-0003 recorded.'),
     );
     expect(statusLine()).not.toHaveTextContent('held');
-  }, 20_000);
+  });
 
   it('holds the other units of the collection after a severe one', async () => {
     await open('BU-0003', 'Issued');
@@ -213,7 +213,7 @@ describe('reactions', () => {
         '1 other unit from the same collection was held and discarded',
       ),
     );
-  }, 20_000);
+  });
 
   it('is not offered for a unit that was not given, nor without the permission', async () => {
     await open('BU-0001');
@@ -246,7 +246,7 @@ describe('the trace', () => {
     expect(within(dialog).getByText('No reaction recorded.')).toBeVisible();
     expect(within(dialog).getAllByText(/\(MRN-PTH-00001\)/).length).toBeGreaterThan(0);
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('leaves the donor name out when the server sends none', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'bloodDonor:read');
@@ -278,7 +278,7 @@ describe('the trace', () => {
     await userEvent.click(within(update).getByRole('button', { name: 'Add update' }));
     await waitFor(() => expect(within(dialog).getByText('Update recorded.')).toBeVisible());
     expect(await within(dialog).findByText(/raised to Moderate/)).toBeVisible();
-  }, 30_000);
+  });
 
   it('says a lowered severity was refused', async () => {
     await open('BU-0003', 'Issued');
@@ -304,7 +304,7 @@ describe('the trace', () => {
     await userEvent.type(within(update).getByRole('textbox', { name: /Update/ }), 'Same');
     await userEvent.click(within(update).getByRole('button', { name: 'Add update' }));
     expect(await within(update).findByRole('alert')).toHaveTextContent('can only be raised');
-  }, 30_000);
+  });
 
   it('is hidden without transfusionReaction:read', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'transfusionReaction:read');

@@ -251,7 +251,7 @@ describe('keyboard', () => {
     expect(within(sidebar()).getByRole('link', { name: 'Audit log' })).toHaveFocus();
     await userEvent.tab();
     expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toHaveFocus();
-  }, 20_000);
+  });
 
   it('follows a nav link with Enter', async () => {
     const { router } = renderApp();

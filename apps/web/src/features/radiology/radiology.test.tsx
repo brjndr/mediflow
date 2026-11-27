@@ -78,7 +78,7 @@ describe('the radiology worklist', () => {
     expect(await within(grid()).findByText('No imaging orders to schedule.')).toBeInTheDocument();
   });
 
-  it('schedules a study for a slot, which accepts the order', { timeout: 15_000 }, async () => {
+  it('schedules a study for a slot, which accepts the order', async () => {
     await openWorklist();
     await within(grid()).findByText(patient());
     await userEvent.click(action('Schedule'));
@@ -151,7 +151,7 @@ describe('the radiology worklist', () => {
     expect(study()).toBeUndefined();
   });
 
-  it('performs a scheduled study, and unschedules another', { timeout: 15_000 }, async () => {
+  it('performs a scheduled study, and unschedules another', async () => {
     await post(`/radiology/orders/${ORDER}/schedule`, { scheduledAt: slot() });
     await openWorklist();
     await chooseStage('Scheduled');

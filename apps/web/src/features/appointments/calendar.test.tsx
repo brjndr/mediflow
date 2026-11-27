@@ -255,7 +255,7 @@ describe('the appointment calendar', () => {
   });
 
   // Two axe passes over a whole calendar: about 5 s under coverage in CI.
-  it('has no accessibility violations in the day and the week', { timeout: 15_000 }, async () => {
+  it('has no accessibility violations in the day and the week', async () => {
     await openCalendar();
     await expectNoAxeViolations();
     await userEvent.click(screen.getByRole('button', { name: 'Day' }));
@@ -753,7 +753,7 @@ describe('the doctors of a department side by side (#331)', () => {
     await waitFor(() => expect(active().dataset.day).toBe('doc_h_01'));
   });
 
-  it('has no accessibility violations', { timeout: 15_000 }, async () => {
+  it('has no accessibility violations', async () => {
     shareDepartment();
     const { container } = renderApp({ entry: '/appointments/calendar' });
     await screen.findByRole('heading', HEADING);

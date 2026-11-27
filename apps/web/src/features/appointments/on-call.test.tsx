@@ -57,7 +57,7 @@ describe('leave on the booking screen', () => {
     await waitFor(() =>
       expect(screen.queryByText(/is on approved leave on this day/)).not.toBeInTheDocument(),
     );
-  }, 15_000);
+  });
 
   it('says nothing without roster:read', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'roster:read');
