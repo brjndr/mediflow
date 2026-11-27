@@ -29,6 +29,7 @@ export const roleListSchema: z.ZodType<RoleList> = z.object({
       builtIn: z.boolean(),
       permissionCount: z.number().int(),
       memberCount: z.number().int(),
+      version: z.number().int(),
     }),
   ),
 });
@@ -40,6 +41,7 @@ export const roleDetailSchema: z.ZodType<RoleDetail> = z.object({
   memberCount: z.number().int(),
   permissions: z.array(grantSchema),
   updatedAt: z.string(),
+  version: z.number().int(),
 });
 
 export const NAME_MAX = 80;

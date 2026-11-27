@@ -108,6 +108,44 @@ describe('custom roles', () => {
     expect(screen.queryByText('Ward clerk')).not.toBeInTheDocument();
   });
 
+  /** Opens the rename form of a new custom role and types `typed` into it. */
+  async function startRename(typed: string) {
+    await openList();
+    await addRole('Ward clerk');
+    await screen.findByText('Added Ward clerk.');
+    await userEvent.click(within(row('Ward clerk')).getByRole('button', { name: /^Rename/ }));
+    const name = screen.getByRole('textbox', { name: /^Name/ });
+    await userEvent.clear(name);
+    await userEvent.type(name, typed);
+    return name;
+  }
+  const saveElsewhere = (body: { name?: string; permissions?: [] }) =>
+    api.PUT('/roles/{roleId}', {
+      params: { path: { roleId: 'ward_clerk' } },
+      body: { ...body, expectedVersion: 1 },
+    });
+
+  it('keeps the typed name when someone else renamed the role first', async () => {
+    const name = await startRename('Ward secretary');
+    await saveElsewhere({ name: 'Ward writer' });
+
+    await userEvent.click(button('Save role'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('renamed this role to Ward writer');
+    expect(name).toHaveValue('Ward secretary');
+    await userEvent.click(button('Save role'));
+    expect(await screen.findByText('Renamed to Ward secretary.')).toBeInTheDocument();
+  });
+
+  it('renames when only the permissions were saved meanwhile', async () => {
+    await startRename('Ward secretary');
+    await saveElsewhere({ permissions: [] });
+
+    await userEvent.click(button('Save role'));
+
+    expect(await screen.findByText('Renamed to Ward secretary.')).toBeInTheDocument();
+  });
+
   it('deletes one after a confirmation', async () => {
     await openList();
     await addRole('Ward clerk');
@@ -140,7 +178,10 @@ describe('custom roles', () => {
       api.DELETE('/roles/{roleId}', { params: { path: { roleId: 'admin' } } }),
     ).rejects.toMatchObject({ serverCode: 'built_in_role' });
     await expect(
-      api.PUT('/roles/{roleId}', { params: { path: { roleId: 'doctor' } }, body: { name: 'MD' } }),
+      api.PUT('/roles/{roleId}', {
+        params: { path: { roleId: 'doctor' } },
+        body: { name: 'MD', expectedVersion: 1 },
+      }),
     ).rejects.toMatchObject({ serverCode: 'built_in_role' });
   });
 });

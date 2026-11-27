@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { fetchPolicy, sessionKey, type Session } from '@/app/session';
 import { invalidateStaffRoles } from '@/features/staff';
-import { createTenantKeys } from '@/shared/api';
+import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
   createRole,
@@ -52,14 +52,46 @@ export interface SaveRole {
   name: string;
 }
 
+/** Whether a save was refused because the role has changed since it was read. */
+export function isVersionConflict(error: unknown): boolean {
+  return isApiError(error) && error.serverCode === 'version_conflict';
+}
+
+/**
+ * Whether the hospital this screen was drawn for is still the active one. A request carries the
+ * hospital active when it is sent, so nothing is sent a second time after a switch.
+ */
+export function useStillThisHospital() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  return () => queryClient.getQueryData<Session | null>(sessionKey)?.activeTenant?.id === tenantId;
+}
+
+/**
+ * Renames a role. When it has changed since but still has the name the form opened with (its
+ * permissions were saved, say), nothing of this change is in dispute: it is sent again from the
+ * version the role has now. A name someone else changed is left to the person to decide.
+ */
+async function rename(editing: RoleSummary, name: string, stillHere: () => boolean) {
+  try {
+    return await renameRole(editing.id, name, editing.version);
+  } catch (error) {
+    if (!isVersionConflict(error)) throw error;
+    const latest = (await fetchRoles()).find((role) => role.id === editing.id);
+    if (!latest || latest.name !== editing.name || !stillHere()) throw error;
+    return renameRole(editing.id, name, latest.version);
+  }
+}
+
 /** Adds a custom role, or renames one. */
 export function useSaveRole() {
   const refresh = useRefresh();
+  const stillHere = useStillThisHospital();
   // A key identifies one new role as typed: sending the same again reuses it.
   const attempt = useRef<{ name: string; key: string }>(undefined);
   return useMutation({
     mutationFn: ({ editing, name }: SaveRole) => {
-      if (editing) return renameRole(editing.id, name);
+      if (editing) return rename(editing, name, stillHere);
       if (attempt.current?.name !== name) attempt.current = { name, key: crypto.randomUUID() };
       return createRole(name, attempt.current.key);
     },
@@ -104,10 +136,7 @@ export function useRole(roleId: string) {
   });
 }
 
-/**
- * Reads the role again just before a save, so a change someone else made meanwhile is seen.
- * The API takes no version for a role, so the check is on the grants themselves.
- */
+/** Reads the role again, for a save that was refused because someone else saved first. */
 export function useLatestRole(roleId: string) {
   const queryClient = useQueryClient();
   const tenantId = useTenant()?.id ?? '';
@@ -125,7 +154,8 @@ export function useSaveGrants(roleId: string) {
   const queryClient = useQueryClient();
   const tenantId = useTenant()?.id;
   return useMutation({
-    mutationFn: (permissions: RoleGrant[]) => saveRoleGrants(roleId, permissions),
+    mutationFn: ({ permissions, version }: { permissions: RoleGrant[]; version: number }) =>
+      saveRoleGrants(roleId, permissions, version),
     onSuccess: async (saved) => {
       if (tenantId) queryClient.setQueryData(roleKeys.detail(tenantId, roleId), saved);
       // The caller's own role may be the one changed: their policy is read again now, not at the

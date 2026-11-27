@@ -12,9 +12,10 @@ export interface RoleRow {
   updated_at: Date;
   member_count: number;
   permission_count: number;
+  version: number;
 }
 
-const ROLE_COLUMNS = `r.id, r.name, r.built_in, r.updated_at,
+const ROLE_COLUMNS = `r.id, r.name, r.built_in, r.updated_at, r.version,
   (select count(*)::int from memberships m where m.role_id = r.id and m.status = 'active') as member_count,
   (select count(*)::int from role_permissions p where p.role_id = r.id) as permission_count`;
 

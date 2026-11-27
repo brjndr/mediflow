@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mediflow API",
-    "version": "0.13.0",
+    "version": "0.14.0",
     "description": "Generated from the API route schemas by `pnpm gen:api`. Do not edit by hand."
   },
   "components": {
@@ -383,7 +383,7 @@
       },
       "RoleSummary": {
         "type": "object",
-        "required": ["id", "name", "builtIn", "permissionCount", "memberCount"],
+        "required": ["id", "name", "builtIn", "permissionCount", "memberCount", "version"],
         "properties": {
           "id": {
             "type": "string"
@@ -399,6 +399,10 @@
           },
           "memberCount": {
             "description": "Active members in the role",
+            "type": "integer"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
             "type": "integer"
           }
         }
@@ -417,7 +421,7 @@
       },
       "RoleDetail": {
         "type": "object",
-        "required": ["id", "name", "builtIn", "memberCount", "permissions", "updatedAt"],
+        "required": ["id", "name", "builtIn", "memberCount", "permissions", "updatedAt", "version"],
         "properties": {
           "id": {
             "type": "string"
@@ -439,6 +443,10 @@
           },
           "updatedAt": {
             "type": "string"
+          },
+          "version": {
+            "description": "Counts the changes. Sent back as expectedVersion.",
+            "type": "integer"
           }
         }
       },
@@ -472,6 +480,32 @@
                 }
               }
             }
+          }
+        }
+      },
+      "RoleConflict": {
+        "description": "Error body; `current` comes with version_conflict.",
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "description": "Stable machine-readable code, e.g. tenant_mismatch",
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              }
+            }
+          },
+          "current": {
+            "$ref": "#/components/schemas/RoleDetail"
           }
         }
       },
@@ -24480,14 +24514,20 @@
       "put": {
         "operationId": "updateRole",
         "tags": ["roles"],
-        "description": "Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. Audited; moves the policy version.",
+        "description": "Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). `expectedVersion` is the version the caller read: when the role has changed since, the answer is 409 version_conflict with the role as it is now in `current`, and nothing is changed. A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. Audited; moves the policy version.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["expectedVersion"],
                 "properties": {
+                  "expectedVersion": {
+                    "minimum": 1,
+                    "description": "The version of the role the change was made from",
+                    "type": "integer"
+                  },
                   "name": {
                     "minLength": 1,
                     "maxLength": 80,
@@ -24570,11 +24610,11 @@
             }
           },
           "409": {
-            "description": "Standard error body.",
+            "description": "Error body; `current` comes with version_conflict.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/RoleConflict"
                 }
               }
             }

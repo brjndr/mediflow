@@ -29,6 +29,7 @@ import {
   PermissionCatalog,
   ROLE_NAME_MAX,
   ROLE_SCHEMAS,
+  RoleConflict,
   RoleDetail,
   RoleList,
   type RoleGrantInput,
@@ -65,6 +66,7 @@ const detail = (row: RoleRow, permissions: Grant[]) => ({
   memberCount: row.member_count,
   permissions,
   updatedAt: row.updated_at.toISOString(),
+  version: row.version,
 });
 
 export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
@@ -155,6 +157,7 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
         builtIn: row.built_in,
         permissionCount: row.permission_count,
         memberCount: row.member_count,
+        version: row.version,
       })),
     }),
   );
@@ -255,13 +258,17 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updateRole',
         tags: ['roles'],
         description:
-          "Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. Audited; moves the policy version.",
+          "Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). `expectedVersion` is the version the caller read: when the role has changed since, the answer is 409 version_conflict with the role as it is now in `current`, and nothing is changed. A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. Audited; moves the policy version.",
         params: RoleParams,
         body: UpdateRoleBody,
-        response: { 200: ref(RoleDetail), ...errors(400, 401, 403, 404, 409, 429) },
+        response: {
+          200: ref(RoleDetail),
+          ...errors(400, 401, 403, 404, 429),
+          409: ref(RoleConflict),
+        },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { roleId } = request.params;
       const grants = request.body.permissions
         ? checkGrants(request.body.permissions as RoleGrantInput[])
@@ -274,6 +281,20 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const before = await beginChange(request);
       const row = await findRole(request.txClient, roleId, true);
       if (!row) throw notFound();
+      if (row.version !== request.body.expectedVersion) {
+        // Nothing has been written. Read under the lock, so this is the change that won. A role
+        // above the caller is refused as such: its grants are not handed over with the conflict.
+        const current = await grantsOf(request.txClient, roleId);
+        await ceiling(request, current);
+        return reply.status(409).send({
+          error: {
+            code: 'version_conflict',
+            message: 'The role was changed by someone else',
+            requestId: request.id,
+          },
+          current: detail(row, current),
+        });
+      }
       const renamed = name !== null && name !== row.name;
       if (renamed) {
         if (row.built_in) {
