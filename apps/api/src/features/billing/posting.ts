@@ -254,6 +254,40 @@ export async function postCharge(tx: Database, posting: Posting): Promise<string
   return id;
 }
 
+/**
+ * Held by both handlers of a dispense, so a return handled while the dispense is being charged
+ * waits and sees its charges (#1260). Billing's own key: the pharmacy's return route is not held.
+ */
+async function lockDispenseCharges(tx: Database, dispenseId: string): Promise<void> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended('billing_dispense:' || ${dispenseId}, 0))`,
+  );
+}
+
+/**
+ * Units brought back of a dispense, applied to its charges (all of them, or one): one still pending
+ * and on no draft, wholly returned, is voided; any other is flagged, for the billing desk to
+ * credit. Computed from what has been returned in all.
+ */
+async function applyDispenseReturns(
+  tx: Database,
+  dispenseId: string,
+  chargeId: string | null = null,
+): Promise<void> {
+  await tx.execute(
+    sql`update charges c set flag = 'return_review',
+          status = case when c.status = 'pending' and c.invoice_id is null
+            and not ${BILLED} and r.returned >= c.quantity then 'void' else c.status end
+        from (select dl.id as line_id, coalesce((select sum(rl.quantity)
+                from dispense_return_lines rl
+                where rl.dispense_id = dl.dispense_id and rl.batch_id = dl.batch_id), 0)
+                as returned
+              from dispense_lines dl where dl.dispense_id = ${dispenseId}) r
+        where c.source_ref = 'dispense:' || r.line_id and r.returned > 0
+          and c.status <> 'void' and (${chargeId}::uuid is null or c.id = ${chargeId}::uuid)`,
+  );
+}
+
 export function subscribeToPostings(app: FastifyInstance): void {
   // A lab, imaging or procedure order done is charged as its service. Medication orders are
   // charged when dispensed, and diet orders have no price here yet.
@@ -523,10 +557,13 @@ export function subscribeToPostings(app: FastifyInstance): void {
     }
   });
 
-  // A dispense is charged for each batch it took from, at that batch's price.
+  // A dispense is charged for each batch it took from, at that batch's price. Units already
+  // brought back (the return event handled first) are applied to each charge as it is posted, by
+  // the same rule as a later return (#1260); a repeat posts nothing and so applies nothing.
   app.events.subscribe('pharmacy.dispensed', async (message, tx) => {
     const dispenseId = idOf(message.entityId);
     if (!dispenseId) return;
+    await lockDispenseCharges(tx, dispenseId);
     const { rows } = await tx.execute<{
       id: string;
       quantity: number;
@@ -544,7 +581,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
           order by dl.id`,
     );
     for (const line of rows) {
-      await postCharge(tx, {
+      const chargeId = await postCharge(tx, {
         encounterId: line.encounter_id,
         patientId: line.patient_id,
         serviceId: null,
@@ -555,26 +592,17 @@ export function subscribeToPostings(app: FastifyInstance): void {
         unitPriceMinor: line.mrp_minor === null ? 0 : Number(line.mrp_minor),
         flag: line.mrp_minor === null ? 'no_price' : null,
       });
+      if (chargeId) await applyDispenseReturns(tx, dispenseId, chargeId);
     }
   });
 
-  // Units brought back after the charge: one still pending and on no draft, wholly returned, is
-  // voided; any other is flagged, for the billing desk to credit. Computed from what has been
-  // returned in all, so a repeat changes nothing.
+  // Units brought back of a dispense. With no charge posted yet there is nothing to do here: the
+  // posting applies the return. Computed from all that has been returned, so a repeat changes
+  // nothing.
   app.events.subscribe('pharmacy.dispense_returned', async (message, tx) => {
     const dispenseId = idOf(message.payload.dispenseId);
     if (!dispenseId) return;
-    await tx.execute(
-      sql`update charges c set flag = 'return_review',
-            status = case when c.status = 'pending' and c.invoice_id is null
-              and not ${BILLED} and r.returned >= c.quantity then 'void' else c.status end
-          from (select dl.id as line_id, coalesce((select sum(rl.quantity)
-                  from dispense_return_lines rl
-                  where rl.dispense_id = dl.dispense_id and rl.batch_id = dl.batch_id), 0)
-                  as returned
-                from dispense_lines dl where dl.dispense_id = ${dispenseId}) r
-          where c.source_ref = 'dispense:' || r.line_id and r.returned > 0
-            and c.status <> 'void'`,
-    );
+    await lockDispenseCharges(tx, dispenseId);
+    await applyDispenseReturns(tx, dispenseId);
   });
 }
