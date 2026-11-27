@@ -1242,6 +1242,23 @@ describe('posting charges from events', () => {
       priority: 'routine',
     });
 
+  /** A draft invoice whose line names the charge, which the charge itself is not held by. */
+  async function standingLine(sourceRef: string) {
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into invoices (tenant_id, encounter_id, patient_id, currency, created_by)
+       select tenant_id, encounter_id, patient_id, 'INR', $2 from charges where source_ref = $1
+       returning id`,
+      [sourceRef, admin.id],
+    );
+    await pool.query(
+      `insert into invoice_lines (tenant_id, invoice_id, line_number, charge_id, source,
+         description, quantity, unit_price_minor)
+       select tenant_id, $2, 1, id, 'service', description, 1, 100 from charges
+        where source_ref = $1`,
+      [sourceRef, rows[0]?.id],
+    );
+  }
+
   const chargesOf = async (sourceRef: string) =>
     (
       await pool.query<{
@@ -1469,6 +1486,31 @@ describe('posting charges from events', () => {
     ]);
     expect(await chargesOf(`dispense:${lines[1]}`)).toMatchObject([
       { status: 'pending', flag: 'no_price' },
+    ]);
+
+    // A pending charge that a line of an invoice not void still bills (the other half of a split
+    // pair, #1255) is only flagged when all its units come back: the desk credits it.
+    await standingLine(`dispense:${lines[1]}`);
+    const secondId = randomUUID();
+    const again = await pool.connect();
+    try {
+      await again.query("set session_replication_role = 'replica'");
+      await again.query(
+        `insert into dispense_returns (id, tenant_id, dispense_id, reason, returned_by) values ($1, $2, $3, 'Unused', $4)`,
+        [secondId, hospital.id, dispenseId, admin.id],
+      );
+      await again.query(
+        `insert into dispense_return_lines (tenant_id, return_id, dispense_id, batch_id, quantity, wasted, ledger_entry_id)
+         values ($1, $2, $3, $4, 3, false, $5)`,
+        [hospital.id, secondId, dispenseId, batches[1], randomUUID()],
+      );
+    } finally {
+      await again.query("set session_replication_role = 'origin'");
+      again.release();
+    }
+    await publish('pharmacy.dispense_returned', secondId, { returnId: secondId, dispenseId });
+    expect(await chargesOf(`dispense:${lines[1]}`)).toMatchObject([
+      { status: 'pending', flag: 'return_review' },
     ]);
   });
 });

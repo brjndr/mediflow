@@ -7,6 +7,8 @@ import { errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders, RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import {
+  billedElsewhere,
+  billsTwice,
   claimCharges,
   findCharge,
   findInvoice,
@@ -70,6 +72,8 @@ const EncounterParams = Type.Object({ encounterId: Type.String({ maxLength: 64 }
 const InvoiceParams = Type.Object({ invoiceId: Type.String({ maxLength: 64 }) });
 
 const encounterNotFound = () => new HttpError(404, 'encounter_not_found', 'No such visit');
+const chargeBilled = () =>
+  new HttpError(409, 'charge_billed', 'Another invoice that is not void bills a charge');
 const versionConflict = () =>
   new HttpError(409, 'version_conflict', 'The invoice was changed by someone else');
 
@@ -172,6 +176,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (held.length !== chargeIds.length) {
       throw new HttpError(409, 'charge_unavailable', 'A charge is not there to be billed');
     }
+    if (await billedElsewhere(client, chargeIds, invoice.id)) throw chargeBilled();
     // Lines in the order the person chose the charges.
     const byId = new Map(held.map((charge) => [charge.id, charge]));
     const ordered = chargeIds.flatMap((id) => {
@@ -493,7 +498,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'createInvoice',
         tags: ['billing'],
         description:
-          'Makes a draft invoice of a visit from some of its pending charges and lines typed in (#114). The server works out every line and the total; a client total is never read. A charge sits in one draft at a time (409 `charge_unavailable`, also for one that is not pending or not of this visit). Typed lines need invoice:adjust (403). A cancelled visit has nothing to bill (409 `encounter_cancelled`). The Idempotency-Key header is required: a repeat makes no second draft and answers with the draft as it is now. Requires invoice:create, invoice:read and charge:read with the scope `all` and the billing feature flag. Audited.',
+          'Makes a draft invoice of a visit from some of its pending charges and lines typed in (#114). The server works out every line and the total; a client total is never read. A charge sits in one draft at a time (409 `charge_unavailable`, also for one that is not pending or not of this visit). One that a line of another invoice not void still bills (a split pair credited on the side that held it) is 409 `charge_billed`. Typed lines need invoice:adjust (403). A cancelled visit has nothing to bill (409 `encounter_cancelled`). The Idempotency-Key header is required: a repeat makes no second draft and answers with the draft as it is now. Requires invoice:create, invoice:read and charge:read with the scope `all` and the billing feature flag. Audited.',
         params: EncounterParams,
         headers: RequiredIdempotencyHeaders,
         body: ref(InvoiceContent),
@@ -558,7 +563,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updateInvoice',
         tags: ['billing'],
         description:
-          'Changes what a draft is made of (#114): the charges and typed lines it now holds, with the version the edit started from (409 `version_conflict`). The charges left out go back to pending. An issued invoice is never changed (409 `invoice_not_draft`). Typed lines need invoice:adjust unless they are the lines the draft already has. Accepts an Idempotency-Key. Requires invoice:create, invoice:read and charge:read with the scope `all` and the billing feature flag. Audited.',
+          'Changes what a draft is made of (#114): the charges and typed lines it now holds, with the version the edit started from (409 `version_conflict`). The charges left out go back to pending. A charge another invoice not void still bills is 409 `charge_billed`. An issued invoice is never changed (409 `invoice_not_draft`). Typed lines need invoice:adjust unless they are the lines the draft already has. Accepts an Idempotency-Key. Requires invoice:create, invoice:read and charge:read with the scope `all` and the billing feature flag. Audited.',
         params: InvoiceParams,
         headers: IdempotencyHeaders,
         body: ref(InvoiceUpdate),
@@ -605,7 +610,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'issueInvoice',
         tags: ['billing'],
         description:
-          'Issues a draft (#114): it gets the next number of the fiscal year (April to March, gapless), its charges become invoiced, and it is never changed again. The version must be the one the person saw (409 `version_conflict`); an invoice with no lines is refused (409 `invoice_empty`); one holding a charge flagged as brought back is refused until it is taken off (409 `charge_returned`); one already issued is refused (409 `invoice_not_draft`). Emits `invoice.issued`, and `invoice.paid` for an invoice of nothing to pay. The Idempotency-Key header is required: a repeat issues nothing more and answers with the invoice as it is now. Requires invoice:issue and invoice:read with the scope `all` and the billing feature flag. Audited.',
+          'Issues a draft (#114): it gets the next number of the fiscal year (April to March, gapless), its charges become invoiced, and it is never changed again. The version must be the one the person saw (409 `version_conflict`); an invoice with no lines is refused (409 `invoice_empty`); one holding a charge flagged as brought back is refused until it is taken off (409 `charge_returned`); one already issued is refused (409 `invoice_not_draft`); one holding a charge that an invoice outside its split pair also bills is refused (409 `charge_billed`). Emits `invoice.issued`, and `invoice.paid` for an invoice of nothing to pay. The Idempotency-Key header is required: a repeat issues nothing more and answers with the invoice as it is now. Requires invoice:issue and invoice:read with the scope `all` and the billing feature flag. Audited.',
         params: InvoiceParams,
         headers: RequiredIdempotencyHeaders,
         body: ref(InvoiceIssue),
@@ -652,6 +657,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
           'A charge on the invoice was brought back or left by a changed visit',
         );
       }
+      if (await billsTwice(client, locked.id)) throw chargeBilled();
       const { number, fiscalYear } = await nextNumber(client, 'invoice');
       const nothingToPay = num(locked.total_minor) === 0;
       await issueInvoice(client, {

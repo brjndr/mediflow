@@ -1757,6 +1757,46 @@ describe('the operation note, the visit and the charges', () => {
     expect(await rows(first)).toEqual([{ quantity: 3, status: 'invoiced', flag: 'relink_review' }]);
   });
 
+  it('leaves a charge another invoice still bills for the desk on a return or a relink (#1255)', async () => {
+    const { surgery, first, link, bringBack, rows } = await usedSetup(2);
+    const second = await addEncounter(hospital, surgery.patientId);
+    // Pending and on no draft, but named by a line of an invoice not void: the other half of a
+    // split pair after the one holding the charge was credited.
+    const invoiceId = randomUUID();
+    const client = await pool.connect();
+    try {
+      await client.query("set session_replication_role = 'replica'");
+      await client.query(
+        `insert into invoices (id, tenant_id, encounter_id, patient_id, currency, created_by)
+         values ($1, $2, $3, $4, 'INR', $5)`,
+        [invoiceId, hospital.id, first, surgery.patientId, admin.id],
+      );
+      await client.query(
+        `insert into invoice_lines (tenant_id, invoice_id, line_number, charge_id, source,
+           description, quantity, unit_price_minor)
+         select tenant_id, $2, 1, id, 'service', description, 1, 100 from charges
+          where encounter_id = $1`,
+        [first, invoiceId],
+      );
+    } finally {
+      await client.query("set session_replication_role = 'origin'");
+      client.release();
+    }
+    try {
+      await bringBack(2);
+      expect(await rows(first)).toEqual([
+        { quantity: 2, status: 'pending', flag: 'return_review' },
+      ]);
+      await ok(await put(link, { encounterId: second }));
+      expect(await rows(first)).toEqual([
+        { quantity: 2, status: 'pending', flag: 'relink_review' },
+      ]);
+    } finally {
+      await pool.query('delete from invoice_lines where invoice_id = $1', [invoiceId]);
+      await pool.query('delete from invoices where id = $1', [invoiceId]);
+    }
+  });
+
   it('posts no charge for a surgery with no visit', async () => {
     const surgery = await booked({ serviceId: procedureService });
     const batch = await stockIn(5);

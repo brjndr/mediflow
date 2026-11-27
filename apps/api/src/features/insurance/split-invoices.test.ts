@@ -106,7 +106,7 @@ async function wipeAll(extra: string[] = []) {
   }
 }
 
-const allOn = { insurance: true, patients: true, billing: true };
+const allOn = { insurance: true, patients: true, billing: true, services: true };
 
 const one = async (sql: string, params: unknown[]) =>
   ((await pool.query<{ id: string }>(sql, params)).rows[0] as { id: string }).id;
@@ -138,7 +138,7 @@ async function charge(
   await pool.query(
     `insert into charges (tenant_id, encounter_id, patient_id, service_id, source, source_ref,
        description, quantity, unit_price_minor, tax_class)
-     values ($1, $2, $3, $4, 'manual', $5, 'Charge', 1, $6, $7)`,
+     values ($1, $2, $3, $4, 'service', $5, 'Charge', 1, $6, $7)`,
     [hospital.id, encounterId, patientId, service, `clm-test:${++keys}`, price, taxClass ?? null],
   );
 }
@@ -263,6 +263,9 @@ afterAll(async () => {
     }
     await wipeAll();
     await pool.query('delete from charges where tenant_id = any($1)', [tenants()]);
+    for (const table of ['package_items', 'service_prices']) {
+      await pool.query(`delete from ${table} where tenant_id = any($1)`, [tenants()]);
+    }
     await pool.query('delete from encounters where tenant_id = any($1)', [tenants()]);
     await pool.query('delete from services where tenant_id = any($1)', [tenants()]);
     await pool.query('delete from patients where tenant_id = any($1)', [tenants()]);
@@ -371,6 +374,158 @@ describe('discarding a split pair (#1240)', () => {
       404,
       'invoice_not_found',
     ]);
+  });
+});
+
+describe('charges released by crediting one half of a split pair (#1255)', () => {
+  const issue = async (id: string) => {
+    const invoice = await invoiceOf(id);
+    return ok<InvoiceBody>(await post(`/invoices/${id}/issue`, { version: invoice.version }));
+  };
+  const credit = async (invoice: InvoiceBody) =>
+    ok(
+      await post(`/invoices/${invoice.id}/credit-notes`, {
+        amountMinor: invoice.totalMinor,
+        reason: 'Wrong split',
+      }),
+      201,
+    );
+  /** A split pair whose patient invoice, the holder of the charge, was credited in full. */
+  async function released() {
+    const made = await visit([[serviceA, 10_000]]);
+    await cover(made.patientId, { copayPercent: 20 });
+    const pair = await ok<SplitBody>(await split(made.encounterId), 201);
+    await credit(await issue(pair.patientInvoiceId as string));
+    const { rows } = await pool.query<{ id: string }>(
+      'select id from charges where encounter_id = $1',
+      [made.encounterId],
+    );
+    return { ...made, pair, chargeId: rows[0]?.id as string };
+  }
+  const bill = (encounterId: string, chargeId: string) =>
+    post(`/encounters/${encounterId}/invoices`, { chargeIds: [chargeId], manualLines: [] });
+  const chargeOf = async (id: string) =>
+    (
+      await pool.query<{ status: string; invoice_id: string | null; flag: string | null }>(
+        'select status, invoice_id, flag from charges where id = $1',
+        [id],
+      )
+    ).rows[0];
+  /** Another charge of the visit, free to be billed. */
+  async function another(patientId: string, encounterId: string, taken: string) {
+    await charge(encounterId, patientId, serviceB, 500);
+    return one('select id from charges where encounter_id = $1 and id <> $2', [encounterId, taken]);
+  }
+
+  it('goes on no new draft while the other invoice is a draft, issued or paid', async () => {
+    const { encounterId, pair, chargeId } = await released();
+    expect(errorOf(await bill(encounterId, chargeId))).toEqual([409, 'charge_billed']);
+    await ok(
+      await post(`/invoices/${pair.payerInvoiceId}/split-review`, { reason: 'Kept for the payer' }),
+    );
+    const sent = await issue(pair.payerInvoiceId);
+    expect(errorOf(await bill(encounterId, chargeId))).toEqual([409, 'charge_billed']);
+    await ok(
+      await post(`/invoices/${sent.id}/payments`, {
+        amountMinor: sent.totalMinor,
+        method: 'card',
+      }),
+      201,
+    );
+    expect(errorOf(await bill(encounterId, chargeId))).toEqual([409, 'charge_billed']);
+    expect(await chargeOf(chargeId)).toMatchObject({ status: 'pending', invoice_id: null });
+    const { rowCount } = await pool.query(
+      "select 1 from invoices where encounter_id = $1 and status = 'draft'",
+      [encounterId],
+    );
+    expect(rowCount).toBe(0);
+  });
+
+  it('is not added to a draft that is changed', async () => {
+    const { patientId, encounterId, chargeId } = await released();
+    const other = await another(patientId, encounterId, chargeId);
+    const draft = await ok<InvoiceBody>(await bill(encounterId, other), 201);
+    const changed = await app.inject({
+      method: 'PATCH',
+      url: `/invoices/${draft.id}`,
+      headers: headers(),
+      payload: { version: draft.version, chargeIds: [other, chargeId], manualLines: [] },
+    });
+    expect(errorOf(changed)).toEqual([409, 'charge_billed']);
+    expect(await chargeOf(chargeId)).toMatchObject({ invoice_id: null });
+  });
+
+  it('is not split again', async () => {
+    const { encounterId } = await released();
+    expect(errorOf(await split(encounterId))).toEqual([409, 'charge_billed']);
+  });
+
+  it('is not taken over by a package applied to the visit', async () => {
+    const { encounterId, chargeId } = await released();
+    const pkg = await one(
+      `insert into services (tenant_id, code, name, category, tax_class)
+       values ($1, $2, 'Split Package', 'package', 'exempt') returning id`,
+      [hospital.id, `SPL-PKG-${++keys}`],
+    );
+    await pool.query(
+      `insert into package_items (tenant_id, package_service_id, service_id, kind)
+       values ($1, $2, $3, 'included')`,
+      [hospital.id, pkg, serviceA],
+    );
+    await ok(
+      await post(`/services/${pkg}/prices`, { amountMinor: 5000, effectiveFrom: dayFrom(0) }),
+      201,
+    );
+    await ok(await post(`/encounters/${encounterId}/packages`, { serviceId: pkg }), 201);
+    expect(await chargeOf(chargeId)).toEqual({ status: 'pending', invoice_id: null, flag: null });
+  });
+
+  it('is not issued on a draft that took it before this was refused', async () => {
+    const { encounterId, patientId, pair, chargeId } = await released();
+    const other = await another(patientId, encounterId, chargeId);
+    const draft = await ok<InvoiceBody>(await bill(encounterId, other), 201);
+    // What such a draft holds: a line naming the released charge, and the charge itself.
+    await pool.query(
+      `insert into invoice_lines (tenant_id, invoice_id, line_number, charge_id, source,
+         description, quantity, unit_price_minor)
+       values ($1, $2, 2, $3, 'service', 'Charge', 1, 10000)`,
+      [hospital.id, draft.id, chargeId],
+    );
+    await pool.query('update charges set invoice_id = $2 where id = $1', [chargeId, draft.id]);
+    const refusedFor = async (id: string) => {
+      const { version } = await invoiceOf(id);
+      expect(errorOf(await post(`/invoices/${id}/issue`, { version }))).toEqual([
+        409,
+        'charge_billed',
+      ]);
+    };
+    await refusedFor(draft.id);
+    // Nor is the payer's draft, while that other draft names the charge too.
+    await ok(await post(`/invoices/${pair.payerInvoiceId}/split-review`, { reason: 'Kept' }));
+    await refusedFor(pair.payerInvoiceId);
+    const { version } = await invoiceOf(draft.id);
+    await ok(await post(`/invoices/${draft.id}/discard`, { version, reason: 'duplicate' }));
+    await issue(pair.payerInvoiceId);
+  });
+
+  it('is billed again once the other invoice is void too', async () => {
+    const { encounterId, pair, chargeId } = await released();
+    await ok(await post(`/invoices/${pair.payerInvoiceId}/split-review`, { reason: 'Kept' }));
+    await credit(await issue(pair.payerInvoiceId));
+    const draft = await ok<InvoiceBody>(await bill(encounterId, chargeId), 201);
+    await issue(draft.id);
+  });
+
+  it('can be split again once the other draft is discarded', async () => {
+    const { encounterId, pair } = await released();
+    const { version } = await invoiceOf(pair.payerInvoiceId);
+    await ok(
+      await post(`/invoices/${pair.payerInvoiceId}/discard`, {
+        version,
+        reason: 'charges_changed',
+      }),
+    );
+    await ok(await split(encounterId), 201);
   });
 });
 
