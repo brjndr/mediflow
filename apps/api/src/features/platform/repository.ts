@@ -378,7 +378,7 @@ export async function rememberKey(
 
 /**
  * The permissions that manage a hospital (#1210). Never a role id: a custom role may hold them
- * while nobody is in `admin`. `offboarding_admin_contacts` (migration 0167) names the same two.
+ * while nobody is in `admin`. `offboarding_admin_contacts` (migration 0168) names the same two.
  */
 const MANAGING_PERMISSIONS = ['role:manage', 'staff:manage'];
 
