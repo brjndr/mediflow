@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -632,5 +632,149 @@ describe('two people saving one role', () => {
 
   it('requires the version', async () => {
     expect(errorOf(await put('hr_only', { permissions: [] }))).toEqual([400, 'validation_failed']);
+  });
+});
+
+describe('invitations a role edit leaves beyond their sender (#1211)', () => {
+  let sender: TestUser;
+  const all = (...permissions: string[]) => permissions.map((permission) => ({ permission }));
+  const SENDING = all('staff:read', 'staff:invite', 'patient:read', 'appointment:read');
+
+  beforeAll(async () => {
+    sender = await newUser('Roles Sender');
+    for (const tenant of [hospital, clinic]) {
+      await customRole(tenant, 'inviter', []);
+      await customRole(tenant, 'into_staff', ['staff:read']);
+      await customRole(tenant, 'into_patients', ['patient:read']);
+      await customRole(tenant, 'into_diary', ['appointment:read']);
+    }
+    await addMembership(pool, sender, hospital, 'inviter');
+  });
+
+  afterAll(async () => {
+    await pool.query("delete from invites where email like '%@roles-invited.test'");
+  });
+
+  /** Gives the sender's role these grants through the API, as an administrator would. */
+  const give = async (permissions: object[]) =>
+    expect((await save('inviter', admin, { permissions })).statusCode).toBe(200);
+
+  /** An open invitation, sent by this person, put straight in the table. */
+  async function invitation(tenant: TestTenant, by: TestUser, roleId: string) {
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into invites (tenant_id, email, name, role_id, invited_by, token_hash, expires_at)
+       values ($1, $2, 'Invited', $3, $4, $5, now() + interval '1 day') returning id`,
+      [tenant.id, `${randomUUID()}@roles-invited.test`, roleId, by.id, randomBytes(32)],
+    );
+    return rows[0]!.id;
+  }
+
+  const withdrawn = async (...ids: string[]) =>
+    Promise.all(
+      ids.map(
+        async (id) =>
+          (
+            await pool.query<{ revoked: boolean }>(
+              'select revoked_at is not null as revoked from invites where id = $1',
+              [id],
+            )
+          ).rows[0]?.revoked,
+      ),
+    );
+
+  const withdrawals = async (id: string) =>
+    (
+      await pool.query<{ action: string }>(
+        "select action from audit_log where tenant_id = $1 and entity = 'invite' and entity_id = $2",
+        [hospital.id, id],
+      )
+    ).rows.map((row) => row.action);
+
+  it('withdraws and audits those into a role the sender no longer covers', async () => {
+    await give(SENDING);
+    const lost = await invitation(hospital, sender, 'into_patients');
+    const kept = await invitation(hospital, sender, 'into_staff');
+    const byAdmin = await invitation(hospital, admin, 'into_patients');
+    const elsewhere = await invitation(clinic, sender, 'into_patients');
+
+    await give(all('staff:read', 'staff:invite', 'appointment:read'));
+
+    expect(await withdrawn(lost, kept, byAdmin, elsewhere)).toEqual([true, false, false, false]);
+    expect(await withdrawals(lost)).toEqual(['withdraw']);
+    expect(await withdrawals(kept)).toEqual([]);
+  });
+
+  it('counts a narrower scope as taken away', async () => {
+    await give(SENDING);
+    const diary = await invitation(hospital, sender, 'into_diary');
+
+    await give([
+      ...all('staff:read', 'staff:invite', 'patient:read'),
+      { permission: 'appointment:read', scope: 'own' },
+    ]);
+
+    expect(await withdrawn(diary)).toEqual([true]);
+  });
+
+  it('withdraws every one when the role may no longer invite', async () => {
+    await give(SENDING);
+    const sent = [
+      await invitation(hospital, sender, 'into_staff'),
+      await invitation(hospital, sender, 'inviter'),
+    ];
+    const elsewhere = await invitation(clinic, sender, 'into_staff');
+
+    await give(all('staff:read', 'patient:read'));
+
+    expect(await withdrawn(...sent, elsewhere)).toEqual([true, true, false]);
+  });
+
+  it('does not deadlock with an invitation into the role being accepted', async () => {
+    await give(SENDING);
+    const open = await invitation(hospital, sender, 'inviter');
+    const joiner = await newUser('Roles Joiner');
+    const accepting = await pool.connect();
+    try {
+      // As accepting does: the invitation first, then a membership that references its role.
+      await accepting.query('begin');
+      await accepting.query('select 1 from invites where id = $1 for update', [open]);
+      const edit = save('inviter', admin, { permissions: all('staff:read') });
+      await expect
+        .poll(async () => {
+          const { rowCount } = await pool.query(
+            `select 1 from pg_stat_activity
+             where datname = current_database() and wait_event_type = 'Lock'`,
+          );
+          return rowCount;
+        })
+        .toBeGreaterThan(0);
+      await accepting.query(
+        "insert into memberships (tenant_id, user_id, role_id) values ($1, $2, 'inviter')",
+        [hospital.id, joiner.id],
+      );
+      await accepting.query('update invites set accepted_at = now() where id = $1', [open]);
+      await accepting.query('commit');
+
+      expect((await edit).statusCode).toBe(200);
+      expect(await withdrawn(open)).toEqual([false]);
+    } finally {
+      await accepting.query('rollback');
+      accepting.release();
+    }
+  });
+
+  it('leaves them when nothing is taken away, or the edit is refused', async () => {
+    await give(SENDING);
+    const open = await invitation(hospital, sender, 'into_patients');
+
+    await save('inviter', admin, { name: 'Front office' });
+    await give([...SENDING, ...all('role:read')]);
+    const stale = await call('PUT', '/roles/inviter', admin, {
+      expectedVersion: 999,
+      permissions: [],
+    });
+
+    expect(stale.statusCode).toBe(409);
+    expect(await withdrawn(open)).toEqual([false]);
   });
 });

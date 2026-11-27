@@ -9,12 +9,12 @@ import { queueInviteEmailTracked } from '../../core/auth/emails.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { requireUserPlace } from '../../core/tenancy/limits.js';
 import { heldNow } from './caller.js';
+import { withdrawUnsendableInvites } from './invites.js';
 import {
   cutOffSessions,
   listPeople,
   lockMember,
   lockOpenInvite,
-  lockOpenInvitesSentBy,
   lockRoleChanges,
   lockManagers,
   markInviteRequeued,
@@ -276,14 +276,7 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       if (await setMemberRole(request.txClient, target.user_id, roleId)) {
         request.audit('update', 'membership', target.user_id);
-        // An invitation stands on its sender's word: what they could not send now is withdrawn.
-        const mayInvite = next.grants.some((grant) => grant.permission === INVITE);
-        for (const invite of await lockOpenInvitesSentBy(request.txClient, target.user_id)) {
-          const offered = roles.get(invite.role_id)?.grants ?? [];
-          if (mayInvite && grantsWithin(offered, next.grants)) continue;
-          await revokeInvite(request.txClient, invite.id);
-          request.audit('withdraw', 'invite', invite.id);
-        }
+        await withdrawUnsendableInvites(request, [target.user_id], next.grants);
       }
       return member({ ...target, role_id: roleId, role_name: next.name }, target.status);
     },

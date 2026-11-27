@@ -27,13 +27,18 @@ export async function listRoles(db: pg.ClientBase): Promise<RoleRow[]> {
   return rows;
 }
 
+/**
+ * One role, optionally locked. An edit takes `no key update`: accepting an invitation locks the
+ * invitation and then needs a key share of its role, which `update` (for a delete) would block
+ * while the edit waits for that invitation.
+ */
 export async function findRole(
   db: pg.ClientBase,
   id: string,
-  lock = false,
+  lock?: 'update' | 'no key update',
 ): Promise<RoleRow | null> {
   const { rows } = await db.query<RoleRow>(
-    `select ${ROLE_COLUMNS} from roles r where r.id = $1 ${lock ? 'for update of r' : ''}`,
+    `select ${ROLE_COLUMNS} from roles r where r.id = $1 ${lock ? `for ${lock} of r` : ''}`,
     [id],
   );
   return rows[0] ?? null;
@@ -119,6 +124,15 @@ export async function touchRole(db: pg.ClientBase, id: string): Promise<void> {
 
 export async function deleteRole(db: pg.ClientBase, id: string): Promise<void> {
   await db.query('delete from roles where id = $1', [id]);
+}
+
+/** Everyone with a membership in the role, whatever its status. */
+export async function memberIdsOf(db: pg.ClientBase, id: string): Promise<string[]> {
+  const { rows } = await db.query<{ user_id: string }>(
+    'select user_id from memberships where role_id = $1',
+    [id],
+  );
+  return rows.map((row) => row.user_id);
 }
 
 /** Memberships (any status) and invitations naming the role: it cannot go while there are any. */
