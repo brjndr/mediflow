@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import type pg from 'pg';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   addMembership,
   asTenantSql,
@@ -93,7 +93,7 @@ async function signIn(user: TestUser, at?: TestTenant): Promise<string> {
 
 const get = (url: string, token: string) =>
   app.inject({ method: 'GET', url, cookies: { [COOKIE]: token } });
-const send = (method: 'POST' | 'DELETE', url: string, token: string, payload?: object) =>
+const send = (method: 'POST' | 'PUT' | 'DELETE', url: string, token: string, payload?: object) =>
   app.inject({
     method,
     url,
@@ -968,7 +968,7 @@ describe('two hospitals', () => {
       'select locked_until from users',
       'select token_hash from sessions',
       "update users set name = 'Renamed'",
-      "update memberships set role_id = 'admin'",
+      'update memberships set user_id = user_id',
       'delete from memberships',
       'update sessions set active_tenant_id = null',
     ]) {
@@ -1091,5 +1091,235 @@ describe('the hospital’s limit on staff', () => {
       staffLimit: { max: number | null; used: number };
     }>();
     expect(other.staffLimit).toEqual({ max: null, used: await activeAt(clinic) });
+  });
+});
+
+describe('changing a role', () => {
+  const change = async (user: TestUser, roleId: string, token: string, expected?: string) =>
+    send('PUT', `/staff/${user.id}/role`, token, {
+      roleId,
+      expectedRoleId: expected ?? (await roleOf(user, hospital)) ?? 'nurse',
+    });
+  const roleOf = async (user: TestUser, tenant: TestTenant) =>
+    (
+      await pool.query<{ role_id: string }>(
+        'select role_id from memberships where user_id = $1 and tenant_id = $2',
+        [user.id, tenant.id],
+      )
+    ).rows[0]?.role_id;
+
+  afterEach(async () => {
+    await pool.query(
+      `update memberships set role_id = case user_id when $2 then 'nurse' else 'doctor' end
+       where tenant_id = $1 and user_id = any($3)`,
+      [hospital.id, nurse.id, [nurse.id, doctor.id]],
+    );
+  });
+
+  it('moves a member to another role, audited, and their next request uses it', async () => {
+    const nurseToken = await signIn(nurse);
+    const before = (await get('/session/policy', nurseToken)).json<{ version: string }>().version;
+    const response = await change(nurse, 'doctor', await signIn(admin));
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ id: nurse.id, roleId: 'doctor', status: 'active' });
+    expect(await roleOf(nurse, hospital)).toBe('doctor');
+    expect(await audited(hospital, 'membership', nurse.id)).toContain('update');
+    const after = (await get('/session/policy', nurseToken)).json<{ version: string }>().version;
+    expect(after).not.toBe(before);
+    // The same role again changes nothing, and writes nothing to the audit log.
+    const writes = (await audited(hospital, 'membership', nurse.id)).length;
+    expect((await change(nurse, 'doctor', await signIn(admin), 'nurse')).statusCode).toBe(200);
+    expect(await audited(hospital, 'membership', nurse.id)).toHaveLength(writes);
+  });
+
+  it('refuses a choice made from a role the member no longer has', async () => {
+    const response = await change(nurse, 'doctor', await signIn(admin), 'hr_desk');
+    expect(errorOf(response)).toEqual([409, 'role_changed']);
+    expect(await roleOf(nurse, hospital)).toBe('nurse');
+  });
+
+  it('changes a deactivated member’s role, leaving them deactivated', async () => {
+    await pool.query(
+      "update memberships set status = 'suspended' where tenant_id = $1 and user_id = $2",
+      [hospital.id, nurse.id],
+    );
+    const response = await change(nurse, 'doctor', await signIn(admin));
+    expect(response.json()).toMatchObject({ roleId: 'doctor', status: 'deactivated' });
+  });
+
+  it('lets someone change their own role while they keep what manages the hospital', async () => {
+    await pool.query("insert into roles (tenant_id, id, name) values ($1, 'hr_lead', 'HR lead')", [
+      hospital.id,
+    ]);
+    await pool.query(
+      `insert into role_permissions (tenant_id, role_id, permission) values
+         ($1, 'hr_lead', 'staff:read'), ($1, 'hr_lead', 'staff:manage')`,
+      [hospital.id],
+    );
+    try {
+      expect((await change(hr, 'hr_lead', await signIn(hr))).statusCode).toBe(200);
+    } finally {
+      await pool.query("update memberships set role_id = 'hr_desk' where user_id = $1", [hr.id]);
+      await pool.query("delete from roles where tenant_id = $1 and id = 'hr_lead'", [hospital.id]);
+    }
+  });
+
+  it('decides an invitation sent during the sender’s demotion by the new role', async () => {
+    await change(nurse, 'admin', await signIn(admin));
+    const token = await signIn(nurse, hospital);
+    const holder = await pool.connect();
+    try {
+      await holder.query('begin');
+      await holder.query("select pg_advisory_xact_lock(hashtextextended('roles:' || $1, 0))", [
+        hospital.id,
+      ]);
+      const pending = app
+        .inject({
+          method: 'POST',
+          url: '/invites',
+          cookies: { [COOKIE]: token },
+          headers: { origin: ORIGIN, 'idempotency-key': randomUUID() },
+          payload: { email: 'race@staff-invited.test', name: 'Invited', roleId: 'admin' },
+        })
+        .then((response) => response);
+      // The request has passed the guard as an administrator and now waits for the lock.
+      await expect
+        .poll(
+          async () =>
+            (
+              await pool.query(
+                "select 1 from pg_locks where locktype = 'advisory' and not granted and database = (select oid from pg_database where datname = current_database())",
+              )
+            ).rowCount,
+        )
+        .toBeGreaterThan(0);
+      await holder.query(
+        "update memberships set role_id = 'hr_desk' where tenant_id = $1 and user_id = $2",
+        [hospital.id, nurse.id],
+      );
+      await holder.query('commit');
+      expect(errorOf(await pending)).toEqual([403, 'role_not_allowed']);
+    } finally {
+      holder.release();
+    }
+  });
+
+  it('lets a custom role give a role within what it holds', async () => {
+    await pool.query("insert into roles (tenant_id, id, name) values ($1, 'viewer', 'Viewer')", [
+      hospital.id,
+    ]);
+    await pool.query(
+      "insert into role_permissions (tenant_id, role_id, permission) values ($1, 'viewer', 'staff:read')",
+      [hospital.id],
+    );
+    try {
+      // hrColleague holds hr_desk, which holds more than the viewer role.
+      const response = await change(hrColleague, 'viewer', await signIn(hr));
+      expect(response.statusCode).toBe(200);
+      expect(await roleOf(hrColleague, hospital)).toBe('viewer');
+    } finally {
+      await pool.query("update memberships set role_id = 'hr_desk' where user_id = $1", [
+        hrColleague.id,
+      ]);
+      await pool.query("delete from roles where tenant_id = $1 and id = 'viewer'", [hospital.id]);
+    }
+  });
+
+  it('refuses a role beyond the caller, and a member beyond the caller', async () => {
+    const token = await signIn(hr);
+    expect(errorOf(await change(nurse, 'admin', token))).toEqual([403, 'role_not_allowed']);
+    expect(errorOf(await change(admin, 'nurse', token))).toEqual([403, 'role_not_allowed']);
+    expect(await roleOf(nurse, hospital)).toBe('nurse');
+    expect(await roleOf(admin, hospital)).toBe('admin');
+  });
+
+  it('never takes away the caller’s own ability to manage, nor leaves nobody', async () => {
+    const lead = await createTenant(pool, 'Role Change Hospital');
+    const [one, two] = [await newUser('Change One'), await newUser('Change Two')];
+    try {
+      await pool.query(
+        "insert into roles (tenant_id, id, name) values ($1, 'role_lead', 'Role lead'), ($1, 'lead_plain', 'Plain')",
+        [lead.id],
+      );
+      await pool.query(
+        `insert into role_permissions (tenant_id, role_id, permission) values
+           ($1, 'role_lead', 'staff:read'), ($1, 'role_lead', 'staff:manage'), ($1, 'role_lead', 'role:manage'),
+           ($1, 'lead_plain', 'staff:read')`,
+        [lead.id],
+      );
+      await addMembership(pool, one, lead, 'role_lead');
+      await addMembership(pool, two, lead, 'role_lead');
+      const [tokenOne, tokenTwo] = await Promise.all([signIn(one, lead), signIn(two, lead)]);
+      expect(errorOf(await change(one, 'lead_plain', tokenOne, 'role_lead'))).toEqual([
+        409,
+        'cannot_remove_own_access',
+      ]);
+      // Two leads demoting each other at once: one wins, the other has lost the right to ask.
+      const results = await Promise.all([
+        change(two, 'lead_plain', tokenOne, 'role_lead'),
+        change(one, 'lead_plain', tokenTwo, 'role_lead'),
+      ]);
+      expect(results.map((response) => response.statusCode).sort()).toEqual([200, 403]);
+      const { rows } = await pool.query(
+        `select 1 from memberships m join role_permissions p on p.role_id = m.role_id
+         where m.tenant_id = $1 and m.status = 'active' and p.permission = 'role:manage'`,
+        [lead.id],
+      );
+      expect(rows).toHaveLength(1);
+    } finally {
+      await deleteTenants(pool, [lead]);
+    }
+  });
+
+  it('withdraws the invitations a member could no longer send', async () => {
+    const token = await signIn(admin);
+    await change(nurse, 'admin', token);
+    const nurseToken = await signIn(nurse, hospital);
+    const open = async (email: string, roleId: string) => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/invites',
+        cookies: { [COOKIE]: nurseToken },
+        headers: { origin: ORIGIN, 'idempotency-key': randomUUID() },
+        payload: { email, name: 'Invited', roleId },
+      });
+      expect(response.statusCode).toBe(201);
+      return response.json<{ id: string }>().id;
+    };
+    const high = await open('high@staff-invited.test', 'admin');
+    const low = await open('low@staff-invited.test', 'hr_desk');
+    const revoked = async (id: string) =>
+      (
+        await pool.query<{ revoked: boolean }>(
+          'select revoked_at is not null as revoked from invites where id = $1',
+          [id],
+        )
+      ).rows[0]?.revoked;
+
+    // The HR desk may still invite, into what it holds itself.
+    expect((await change(nurse, 'hr_desk', token)).statusCode).toBe(200);
+    expect([await revoked(high), await revoked(low)]).toEqual([true, false]);
+    expect(await audited(hospital, 'invite', high)).toContain('withdraw');
+    // A nurse invites nobody.
+    expect((await change(nurse, 'nurse', token)).statusCode).toBe(200);
+    expect(await revoked(low)).toBe(true);
+  });
+
+  it('answers one way for another hospital’s member and for another hospital’s role', async () => {
+    const clinicToken = await signIn(clinicAdmin);
+    expect(errorOf(await change(nurse, 'doctor', clinicToken))).toEqual([404, 'staff_not_found']);
+    expect(errorOf(await change(clinicAdminTwo, 'hr_desk', clinicToken))).toEqual([
+      404,
+      'role_not_found',
+    ]);
+    expect(errorOf(await change(nurse, 'no_such_role', await signIn(admin)))).toEqual([
+      404,
+      'role_not_found',
+    ]);
+    expect(await roleOf(nurse, hospital)).toBe('nurse');
+  });
+
+  it('is refused for someone without staff:manage', async () => {
+    expect((await change(nurse, 'doctor', await signIn(doctor, hospital))).statusCode).toBe(403);
   });
 });

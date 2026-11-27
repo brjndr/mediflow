@@ -684,6 +684,24 @@
           }
         }
       },
+      "StaffRoleChange": {
+        "description": "The role the member is to have.",
+        "type": "object",
+        "required": ["roleId", "expectedRoleId"],
+        "properties": {
+          "roleId": {
+            "minLength": 1,
+            "maxLength": 64,
+            "type": "string"
+          },
+          "expectedRoleId": {
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The role the member had when this one was chosen.",
+            "type": "string"
+          }
+        }
+      },
       "PatientSummary": {
         "description": "A patient as shown in a list: compact, no clinical data.",
         "type": "object",
@@ -25243,6 +25261,106 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StaffMember"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/staff/{userId}/role": {
+      "put": {
+        "operationId": "changeStaffRole",
+        "tags": ["staff"],
+        "description": "Moves a member to another role of the hospital. Their next request uses the new permissions (their policy version holds the role id, so open tabs refresh). Both the role they have and the role they are to have must be within what the caller holds (403 role_not_allowed). 404 role_not_found for a role that is not one of this hospital. 409 role_changed when the role they have is no longer expectedRoleId. 409 last_admin when nobody else could manage staff or roles afterwards, 409 cannot_remove_own_access when the caller would lose their own ability to manage staff or roles. Open invitations the member sent that their new role could not send are withdrawn. Giving the role someone already has changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffRoleChange"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "userId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Someone who works at the hospital, or has been invited to. For a member `id` is the user id; for an invitation it is the invitation id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffMember"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

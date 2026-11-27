@@ -151,8 +151,18 @@ export interface MemberRow {
 }
 
 /**
- * Takes the hospital's role-change lock (the same key the roles feature uses), so a role edit and
- * a deactivation are decided one after the other, then locks, in user-id order, the active
+ * Takes the hospital's role-change lock (the same key the roles feature uses) until the
+ * transaction ends: role edits, changes to members and invitations are decided one after another.
+ */
+export async function lockRoleChanges(client: pg.ClientBase): Promise<void> {
+  await client.query(
+    "select pg_advisory_xact_lock(hashtextextended('roles:' || app_tenant_id()::text, 0))",
+  );
+}
+
+/**
+ * Takes the role-change lock, so a role edit and a deactivation are decided one after the other,
+ * then locks, in user-id order, the active
  * memberships whose role holds any of these permissions. Returns each one's user id and which of
  * the permissions they hold. Whoever gets the locks first decides, and the other request then
  * counts what is really left; the fixed order keeps two such requests from waiting on each other.
@@ -161,9 +171,7 @@ export async function lockManagers(
   client: pg.ClientBase,
   permissions: readonly string[],
 ): Promise<{ userId: string; held: string[] }[]> {
-  await client.query(
-    "select pg_advisory_xact_lock(hashtextextended('roles:' || app_tenant_id()::text, 0))",
-  );
+  await lockRoleChanges(client);
   const { rows } = await client.query<{ user_id: string; held: string[] }>(
     `select m.user_id,
             array(select p.permission from role_permissions p
@@ -190,20 +198,6 @@ export async function lockMember(client: pg.ClientBase, userId: string): Promise
     [userId],
   );
   return rows[0] ?? null;
-}
-
-/**
- * Whether someone is an active member of this hospital right now. Asked again once the rows a
- * request acts on are locked: the caller passed the guard when the request arrived, and may have
- * been deactivated while it waited.
- */
-export async function isActiveMember(client: pg.ClientBase, userId: string): Promise<boolean> {
-  if (!UUID.test(userId)) return false;
-  const { rowCount } = await client.query(
-    "select 1 from memberships where user_id = $1 and status = 'active'",
-    [userId],
-  );
-  return (rowCount ?? 0) > 0;
 }
 
 /** False when the membership already had that status: nothing was written. */
@@ -259,6 +253,21 @@ export async function revokeInvitesSentBy(client: pg.ClientBase, userId: string)
   return rowCount ?? 0;
 }
 
+/** The open invitations a person sent here, locked. */
+export async function lockOpenInvitesSentBy(
+  client: pg.ClientBase,
+  userId: string,
+): Promise<{ id: string; role_id: string }[]> {
+  const { rows } = await client.query<{ id: string; role_id: string }>(
+    `select id, role_id from invites
+     where invited_by = $1 and accepted_at is null and revoked_at is null
+     order by id
+     for update`,
+    [userId],
+  );
+  return rows;
+}
+
 /** An open invitation of this hospital, locked, or null. */
 export async function lockOpenInvite(
   client: pg.ClientBase,
@@ -304,4 +313,18 @@ export async function markInviteRequeued(
      where id = $1`,
     [inviteId, attempt],
   );
+}
+
+/** Moves a membership to another role of the hospital. False when it already held that role. */
+export async function setMemberRole(
+  client: pg.ClientBase,
+  userId: string,
+  roleId: string,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `update memberships set role_id = $2, updated_at = now()
+     where user_id = $1 and role_id <> $2`,
+    [userId, roleId],
+  );
+  return (rowCount ?? 0) > 0;
 }

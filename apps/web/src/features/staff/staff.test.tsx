@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -188,6 +188,131 @@ describe('what an admin does to a member', () => {
       'This is the only person who can manage staff here.',
     );
     expect(screen.getByText('Aarav Iyer')).toBeInTheDocument();
+  });
+
+  it('changes a role after asking, offering only roles the caller may give', async () => {
+    await openList();
+    await userEvent.click(button('Change role: Aarav Iyer'));
+
+    expect(screen.getByRole('heading', { name: 'Change the role of Aarav Iyer' })).toHaveFocus();
+    await expectNoAxeViolations(document.body);
+    const select = screen.getByRole('combobox', { name: 'New role' });
+    await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(1));
+    expect(button('Change role')).toBeUnavailable();
+    await userEvent.selectOptions(select, 'Pharmacist');
+    await userEvent.click(button('Change role'));
+
+    await waitFor(() => expect(statuses()).toContain('Aarav Iyer now has the role Pharmacist.'));
+  });
+
+  it('explains a refusal to take away one’s own access', async () => {
+    server.use(
+      http.put('*/api/staff/:id/role', () =>
+        HttpResponse.json(
+          { error: { code: 'cannot_remove_own_access', message: 'x' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    await openList();
+    await userEvent.click(button('Change role: Aarav Iyer'));
+    const select = screen.getByRole('combobox', { name: 'New role' });
+    await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(1));
+    await userEvent.selectOptions(select, 'Pharmacist');
+    await userEvent.click(button('Change role'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('own ability to manage');
+  });
+
+  const choose = async () => {
+    await openList();
+    await userEvent.click(button('Change role: Aarav Iyer'));
+    const select = screen.getByRole('combobox', { name: 'New role' });
+    await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(1));
+    await userEvent.selectOptions(select, 'Pharmacist');
+    await userEvent.click(button('Change role'));
+  };
+
+  it.each([
+    ['last_admin', 409, 'only person who can manage'],
+    ['role_not_found', 404, 'no longer exists'],
+    ['role_changed', 409, 'Someone else changed their role'],
+  ])('explains the refusal %s', async (code, status, said) => {
+    server.use(
+      http.put('*/api/staff/:id/role', () =>
+        HttpResponse.json({ error: { code, message: 'x' } }, { status }),
+      ),
+    );
+    await choose();
+
+    expect(await screen.findByText(new RegExp(said))).toBeInTheDocument();
+  });
+
+  it('asks for the roles again when they could not be loaded', async () => {
+    server.use(
+      http.get(
+        '*/api/staff/roles',
+        () => HttpResponse.json({ error: { code: 'bad_request', message: 'x' } }, { status: 400 }),
+        { once: true },
+      ),
+    );
+    await openList();
+    await userEvent.click(button('Change role: Aarav Iyer'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+
+    const select = screen.getByRole('combobox', { name: 'New role' });
+    await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(1));
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it('cannot move someone whose role holds more than the caller', async () => {
+    grantPermission(TENANT_IDS.hospital, 'doctor', 'staff:read');
+    grantPermission(TENANT_IDS.hospital, 'doctor', 'staff:invite');
+    grantPermission(TENANT_IDS.hospital, 'doctor', 'staff:manage');
+    signIn(USER_IDS.doctor, TENANT_IDS.hospital);
+    await openList();
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search staff' }), 'Sample Admin');
+    await userEvent.click(await screen.findByRole('button', { name: 'Change role: Sample Admin' }));
+
+    expect(await screen.findByText(/so this is not yours to do/)).toBeInTheDocument();
+    const select = screen.getByRole('combobox', { name: 'New role' });
+    expect(within(select).queryByRole('option', { name: 'Pharmacist' })).toBeNull();
+    await userEvent.selectOptions(select, 'Doctor');
+    expect(button('Change role')).toBeUnavailable();
+  });
+
+  it('refuses taking away one’s own access', async () => {
+    await openList();
+
+    await expect(
+      api.PUT('/staff/{userId}/role', {
+        params: { path: { userId: USER_IDS.admin } },
+        body: { roleId: 'pharmacist', expectedRoleId: 'admin' },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'cannot_remove_own_access' });
+  });
+
+  it('changes one’s own role, and what is offered follows', async () => {
+    for (const permission of ['staff:read', 'staff:manage', 'role:manage']) {
+      grantPermission(TENANT_IDS.hospital, 'pharmacist', permission);
+    }
+    await openList();
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search staff' }), 'Sample Admin');
+    await userEvent.click(await screen.findByRole('button', { name: 'Change role: Sample Admin' }));
+    const select = screen.getByRole('combobox', { name: 'New role' });
+    await waitFor(() => expect(within(select).getAllByRole('option').length).toBeGreaterThan(1));
+    await userEvent.selectOptions(select, 'Pharmacist');
+    await userEvent.click(button('Change role'));
+
+    // A pharmacist here invites nobody, so no change of role is offered any more.
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Change role/ })).toBeNull());
+  });
+
+  it.each(['staff:manage', 'staff:invite'])('offers no change of role without %s', async (held) => {
+    revokePermission(TENANT_IDS.hospital, 'admin', held);
+    await openList();
+
+    expect(screen.queryByRole('button', { name: /^Change role/ })).toBeNull();
   });
 
   it('signs someone out everywhere', async () => {
@@ -782,6 +907,21 @@ describe('two hospitals', () => {
     expect(await screen.findByText('Sample Receptionist')).toBeInTheDocument();
     await waitFor(() => expect(statuses()).toContain('5 active members of staff'));
     expect(screen.queryByText('Aarav Iyer')).not.toBeInTheDocument();
+  });
+
+  it('cannot change the role of another hospital’s member, or give its role', async () => {
+    await expect(
+      api.PUT('/staff/{userId}/role', {
+        params: { path: { userId: USER_IDS.receptionist } },
+        body: { roleId: 'doctor', expectedRoleId: 'receptionist' },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'staff_not_found' });
+    await expect(
+      api.PUT('/staff/{userId}/role', {
+        params: { path: { userId: 'stf_h_01' } },
+        body: { roleId: 'receptionist', expectedRoleId: 'doctor' },
+      }),
+    ).rejects.toMatchObject({ serverCode: 'role_not_found' });
   });
 
   it('cannot act on another hospital’s staff, or invite into another hospital’s role', async () => {
