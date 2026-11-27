@@ -284,7 +284,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const { encounterId } = request.params as { encounterId: string };
       const body = request.body as ChargeCreate;
-      const encounter = await findEncounter(request.txClient, encounterId);
+      const encounter = await findEncounter(request.txClient, encounterId, 'share');
       if (!encounter) throw encounterNotFound();
       if (encounter.status === 'cancelled') {
         throw new HttpError(409, 'encounter_cancelled', 'A cancelled visit has nothing to bill');
@@ -507,7 +507,7 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       const { encounterId } = request.params as { encounterId: string };
       const body = request.body as InvoiceContent;
-      const encounter = await findEncounter(request.txClient, encounterId);
+      const encounter = await findEncounter(request.txClient, encounterId, 'share');
       if (!encounter) throw encounterNotFound();
       if (encounter.status === 'cancelled') {
         throw new HttpError(409, 'encounter_cancelled', 'A cancelled visit has nothing to bill');

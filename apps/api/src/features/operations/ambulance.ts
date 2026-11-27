@@ -361,7 +361,7 @@ export const ambulanceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (body.encounterId !== undefined) {
         const { rows: visit } = await request.txClient.query(
           `select 1 from encounters where id::text = $1 and patient_id::text = $2
-             and status <> 'cancelled'`,
+             and status <> 'cancelled' for share`,
           [body.encounterId, body.patientId ?? ''],
         );
         if (visit.length === 0) throw new HttpError(422, 'unknown_encounter', 'No such visit');

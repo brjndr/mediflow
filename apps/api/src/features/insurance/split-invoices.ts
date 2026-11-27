@@ -165,9 +165,10 @@ export const splitInvoiceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const patientId = await visitPatient(client, encounterId);
       await requirePatient(request, patientId);
       const status = (
-        await client.query<{ status: string }>('select status from encounters where id = $1', [
-          encounterId,
-        ])
+        await client.query<{ status: string }>(
+          'select status from encounters where id = $1 for share',
+          [encounterId],
+        )
       ).rows[0]?.status;
       if (status === 'cancelled') {
         throw new HttpError(409, 'encounter_cancelled', 'A cancelled visit has nothing to bill');

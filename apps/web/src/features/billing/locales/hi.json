@@ -56,7 +56,8 @@
       "no_price": "कीमत तय नहीं: जाँचें",
       "return_review": "दवा लौटाई गई: क्रेडिट करें",
       "relink_review": "दूसरी विज़िट पर बिल हुआ: क्रेडिट करें",
-      "package_covered": "पैकेज में शामिल"
+      "package_covered": "पैकेज में शामिल",
+      "visit_cancelled": "विज़िट रद्द: बिल नहीं होगा"
     },
     "noFlag": "कुछ नहीं",
     "review": {

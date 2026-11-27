@@ -192,6 +192,20 @@ describe('consents', () => {
     ]);
   });
 
+  it('refuses a cancelled visit (#1222)', async () => {
+    const encounterId = await one(
+      `insert into encounters (tenant_id, patient_id, type, status, opened_by, cancel_reason, ended_at, ended_by)
+       values ($1, $2, 'opd', 'cancelled', $3, 'Entered in error', now(), $3) returning id`,
+      [hospital.id, ids.patient, admin.id],
+    );
+    const refused = await send(
+      'POST',
+      `/patients/${ids.patient}/consents`,
+      consent({ encounterId }),
+    );
+    expect(errorOf(refused)).toEqual([409, 'encounter_cancelled']);
+  });
+
   it('signs, lists and reads one, keeping the text and signature as sent', async () => {
     const signed = await send('POST', `/patients/${ids.patient}/consents`, consent());
     expect(signed.statusCode).toBe(201);

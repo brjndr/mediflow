@@ -199,6 +199,7 @@
     "service_not_found": "A service in the list no longer exists. Remove it and try again.",
     "duplicate_policy": "This policy is already on the patient’s record.",
     "policy_not_active": "This policy is no longer active. Choose another policy.",
+    "encounter_cancelled": "This visit was cancelled, so nothing more can be asked for it.",
     "not_submitted": "This request has already been answered or withdrawn.",
     "plan_archived": "This plan is archived. Choose another plan.",
     "invalid_transition": "The claim has moved on since you opened it. Reload it and try again.",
