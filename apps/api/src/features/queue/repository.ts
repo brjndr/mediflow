@@ -89,11 +89,16 @@ export async function departmentsInScope(
   return departmentsOfCaller(client, visibility.userId);
 }
 
-// Call order. The tokens being served (and served) are in the order they were called; the others
-// a priority first, then their place in the line, the number breaking a tie.
-const ORDER_KEY = `case when t.status in ('called', 'served') then 0 else (t.priority is null)::int end,
-                   case when t.status in ('called', 'served') then t.called_at else ${LINE_AT} end,
-                   t.number, t.id`;
+// Call order. The tokens being served are in the order they were called, the served ones in the
+// reverse of it; the others a priority first, then their place in the line, the number breaking a
+// tie.
+const ORDER_PARTS = [
+  `case when t.status in ('called', 'served') then 0 else (t.priority is null)::int end`,
+  `case when t.status in ('called', 'served') then t.called_at else ${LINE_AT} end`,
+  't.number',
+  't.id',
+];
+const ORDER_KEY = ORDER_PARTS.join(', ');
 
 interface Cursor {
   p: number;
@@ -146,7 +151,10 @@ export interface Page<Row> {
   total?: number;
 }
 
-/** Today's tokens of one status, in call order. Null for a bad cursor. */
+/**
+ * Today's tokens of one status, in call order; served ones newest call first (#1212), so the
+ * patient who just left is on the first page. Null for a bad cursor.
+ */
 export async function listTokens(
   client: pg.ClientBase,
   filters: ListFilters,
@@ -176,10 +184,14 @@ export async function listTokens(
     visibility.scope,
     visibility.userId,
   ];
+  // Every part of the key turns round together, so one row comparison still finds the next page.
+  const newestFirst = filters.status === 'served';
+  const orderBy = newestFirst ? ORDER_PARTS.map((part) => `${part} desc`).join(', ') : ORDER_KEY;
   const { rows } = await client.query<TokenRow>(
     `${source}
-       and ($6::int is null or (${ORDER_KEY}) > ($6::int, $7::timestamptz, $8::int, $9::uuid))
-     order by ${ORDER_KEY}
+       and ($6::int is null
+            or (${ORDER_KEY}) ${newestFirst ? '<' : '>'} ($6::int, $7::timestamptz, $8::int, $9::uuid))
+     order by ${orderBy}
      limit $10`,
     [
       ...values,

@@ -25,9 +25,10 @@ const HEADING = { name: 'OPD queue', level: 1 };
 const NO_ACCESS = { name: 'You do not have access to this page' };
 const LIVE = 'Live: changes show within seconds.';
 
-const grid = (name: 'Now serving' | 'Waiting' | 'Skipped') => screen.getByRole('table', { name });
+const grid = (name: 'Now serving' | 'Waiting' | 'Skipped' | 'Served') =>
+  screen.getByRole('table', { name });
 /** The token numbers of a group, in the order shown. */
-const tokensIn = (name: 'Now serving' | 'Waiting' | 'Skipped') =>
+const tokensIn = (name: 'Now serving' | 'Waiting' | 'Skipped' | 'Served') =>
   within(grid(name))
     .getAllByRole('row')
     .slice(1)
@@ -124,6 +125,23 @@ describe('the queue board', () => {
     expect(mockQueueToken(`qt_${TENANT_IDS.hospital}_dep_h_01_1`)?.status).toBe('served');
     // The token for any doctor is now the doctor's.
     expect(mockQueueToken(`qt_${TENANT_IDS.hospital}_dep_h_01_4`)?.doctorId).toBe('doc_h_01');
+  });
+
+  it('lists the served on request, the latest called first', async () => {
+    // Called in an order that is neither the order issued nor the call order of the waiting.
+    for (const [number, calledAt] of [
+      [2, '2026-01-01T09:00:00.000Z'],
+      [3, '2026-01-01T11:00:00.000Z'],
+      [4, '2026-01-01T10:00:00.000Z'],
+    ] as const) {
+      const token = mockQueueToken(`qt_${TENANT_IDS.hospital}_dep_h_01_${number}`);
+      if (!token) throw new Error('No token');
+      token.status = 'served';
+      token.calledAt = calledAt;
+    }
+    await openBoard();
+    await userEvent.click(screen.getByRole('button', { name: 'Show served today' }));
+    await waitFor(() => expect(tokensIn('Served')).toEqual(['Token 3', 'Token 4', 'Token 2']));
   });
 
   it('says so when nobody is waiting', async () => {
