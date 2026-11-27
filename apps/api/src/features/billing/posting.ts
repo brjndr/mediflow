@@ -383,7 +383,10 @@ export function subscribeToPostings(app: FastifyInstance): void {
   });
 
   // Consumables and implants used in a surgery are charged for each batch taken, at that
-  // batch's price, as a dispense is (#178). With no visit linked nothing is posted.
+  // batch's price, as a dispense is (#178). With no visit linked nothing is posted. Units already
+  // brought back are not charged (#1256), whether the use is posted late (a visit linked after the
+  // return) or the return event was handled first; a line wholly returned posts nothing. A return
+  // made while this runs waits on the booking (locked by bookingOf), so its event sees the charge.
   app.events.subscribe('surgery.consumables_used', async (message, tx) => {
     const { payload } = message;
     const useId = idOf(payload.useId);
@@ -398,7 +401,9 @@ export function subscribeToPostings(app: FastifyInstance): void {
       item_name: string;
       mrp_minor: string | null;
     }>(
-      sql`select c.id, c.quantity, d.generic_name as item_name, b.mrp_minor::text as mrp_minor
+      sql`select c.id, d.generic_name as item_name, b.mrp_minor::text as mrp_minor,
+            (c.quantity - coalesce((select sum(t.quantity) from ot_consumable_returns t
+              where t.consumable_id = c.id), 0))::int as quantity
           from ot_consumables c
           join drugs d on d.tenant_id = c.tenant_id and d.id = c.drug_id
           join stock_batches b on b.tenant_id = c.tenant_id and b.id = c.batch_id
@@ -406,6 +411,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
           order by c.id`,
     );
     for (const line of rows) {
+      if (line.quantity <= 0) continue;
       await postCharge(tx, {
         encounterId: visitId,
         patientId,

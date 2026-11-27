@@ -1797,6 +1797,88 @@ describe('the operation note, the visit and the charges', () => {
     }
   });
 
+  it('does not charge units returned before the visit was linked (#1256)', async () => {
+    const surgery = await booked({});
+    const encounter = await addEncounter(hospital, surgery.patientId);
+    const part = await stockIn(10);
+    const whole = await stockIn(10);
+    await pool.query('update stock_batches set mrp_minor = 700 where id = any($1)', [
+      [part, whole],
+    ]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const use = async (batchId: string, quantity: number) => {
+      const used = await ok<Page<Consumable>>(
+        await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+          drugId,
+          locationId: place,
+          lines: [{ batchId, quantity }],
+        }),
+        201,
+      );
+      return used.items[0]?.id as string;
+    };
+    const bringBack = async (consumable: string, quantity: number) =>
+      ok(
+        await post(
+          `/theatre/surgeries/${surgery.id}/consumables/${consumable}/return`,
+          { quantity, reason: 'Unused' },
+          { key: fresh() },
+        ),
+        201,
+      );
+    const partly = await use(part, 3);
+    const wholly = await use(whole, 2);
+    await bringBack(partly, 1);
+    await bringBack(wholly, 2);
+    await chargesOf(encounter);
+
+    await ok(await put(`/theatre/surgeries/${surgery.id}/encounter`, { encounterId: encounter }));
+    await chargesOf(encounter);
+    const charges = await pool.query(
+      'select source_ref, quantity, status, flag from charges where encounter_id = $1',
+      [encounter],
+    );
+    expect(charges.rows).toEqual([
+      { source_ref: `theatre:${partly}`, quantity: 2, status: 'pending', flag: null },
+    ]);
+  });
+
+  it('does not charge a returned unit when the use is posted after the return (#1256)', async () => {
+    const surgery = await booked({});
+    const encounter = await addEncounter(hospital, surgery.patientId);
+    const batch = await stockIn(10);
+    await pool.query('update stock_batches set mrp_minor = 700 where id = $1', [batch]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    await ok(await put(`/theatre/surgeries/${surgery.id}/encounter`, { encounterId: encounter }));
+    const used = await ok<Page<Consumable>>(
+      await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+        drugId,
+        locationId: place,
+        lines: [{ batchId: batch, quantity: 3 }],
+      }),
+      201,
+    );
+    await ok(
+      await post(
+        `/theatre/surgeries/${surgery.id}/consumables/${used.items[0]?.id}/return`,
+        { quantity: 2, reason: 'Unused' },
+        { key: fresh() },
+      ),
+      201,
+    );
+    // The return event is handled before the use event.
+    await pool.query(
+      "update outbox set occurred_at = occurred_at - interval '1 hour' where entity_id = $1 and event = 'surgery.consumables_returned'",
+      [surgery.id],
+    );
+    await chargesOf(encounter);
+    const charges = await pool.query(
+      'select quantity, status, flag from charges where encounter_id = $1',
+      [encounter],
+    );
+    expect(charges.rows).toEqual([{ quantity: 1, status: 'pending', flag: null }]);
+  });
+
   it('posts no charge for a surgery with no visit', async () => {
     const surgery = await booked({ serviceId: procedureService });
     const batch = await stockIn(5);
