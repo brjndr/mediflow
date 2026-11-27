@@ -7,6 +7,7 @@ import {
   encounterSchema,
   notePageSchema,
   opdSheetSchema,
+  paperVisitSchema,
   noteSchema,
   orderPageSchema,
   orderSchema,
@@ -29,6 +30,7 @@ import type {
   Order,
   OrderCreate,
   OrderPage,
+  PaperVisit,
   Prescription,
   PrescriptionCreate,
   PrescriptionPage,
@@ -431,4 +433,55 @@ export async function cancelReferral(
     body: { reason },
   });
   return referralSchema.parse(requireData(result));
+}
+
+/** A visit kept on paper (#1202), found by one of today's tokens or by the visit itself. */
+export type PaperSubject = { tokenId: string } | { encounterId: string };
+
+export async function fetchPaperVisit(
+  subject: PaperSubject,
+  signal?: AbortSignal,
+): Promise<PaperVisit> {
+  const result =
+    'tokenId' in subject
+      ? await api.GET('/queue/tokens/{tokenId}/paper-visit', {
+          params: { path: { tokenId: subject.tokenId } },
+          signal,
+        })
+      : await api.GET('/encounters/{encounterId}/paper-visit', {
+          params: { path: { encounterId: subject.encounterId } },
+          signal,
+        });
+  return paperVisitSchema.parse(requireData(result));
+}
+
+export async function openPaperVisit(tokenId: string, idempotencyKey: string): Promise<PaperVisit> {
+  const result = await api.POST('/queue/tokens/{tokenId}/paper-visit', {
+    params: { path: { tokenId }, header: { 'idempotency-key': idempotencyKey } },
+  });
+  return paperVisitSchema.parse(requireData(result));
+}
+
+export async function closePaperVisit(
+  encounterId: string,
+  version: number,
+  idempotencyKey: string,
+): Promise<PaperVisit> {
+  const result = await api.POST('/encounters/{encounterId}/paper-visit/close', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+    body: { version },
+  });
+  return paperVisitSchema.parse(requireData(result));
+}
+
+export async function retireOwnSheet(
+  encounterId: string,
+  documentId: string,
+  body: { reason: string; expectedVersion: number },
+): Promise<PaperVisit> {
+  const result = await api.POST(
+    '/encounters/{encounterId}/paper-visit/sheets/{documentId}/retire',
+    { params: { path: { encounterId, documentId } }, body },
+  );
+  return paperVisitSchema.parse(requireData(result));
 }

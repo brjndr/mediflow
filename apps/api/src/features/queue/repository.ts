@@ -510,3 +510,12 @@ export async function todaysToken(
   );
   return rows[0] ?? null;
 }
+
+/** The number of a token of any day, for a visit opened from it. */
+export async function tokenNumberOf(client: pg.ClientBase, id: string): Promise<number | null> {
+  const { rows } = await client.query<{ number: number }>(
+    'select number from queue_tokens where id = $1',
+    [id],
+  );
+  return rows[0]?.number ?? null;
+}

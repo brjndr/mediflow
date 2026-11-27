@@ -6,6 +6,7 @@ import { useSession } from '@/app/session';
 import { useDepartmentOptions } from '@/features/departments';
 import { useDoctorOptions } from '@/features/doctors';
 import { errorMessageKey, isApiError } from '@/shared/api';
+import { Slot } from '@/registry';
 import { usePanelFocus } from '@/shared/hooks/use-panel-focus';
 import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
@@ -73,6 +74,7 @@ export default function QueueBoard() {
   );
   const box = useRef<HTMLDivElement>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
+  const [showServed, setShowServed] = useState(false);
   usePanelFocus(panel, box, statusLine);
   // A row that moved to another group (skipped, recalled) took focus with it.
   useEffect(() => {
@@ -298,6 +300,32 @@ export default function QueueBoard() {
           />
         </section>
       ))}
+      {/* Dialogs of the row actions, kept here: a row moves between the lists. */}
+      <Slot id="queue.board.dialogs" />
+
+      {/* Served tokens leave the board; asked for, for what is still done with one (#1202). */}
+      <Button
+        type="button"
+        variant="outline"
+        className="self-start"
+        aria-expanded={showServed}
+        onClick={() => setShowServed((now) => !now)}
+      >
+        {showServed ? t('served.hide') : t('served.show')}
+      </Button>
+      {showServed && (
+        <section aria-labelledby="queue-served" className="flex flex-col gap-2">
+          <h2 id="queue-served" className="text-lg font-semibold">
+            {t('groups.served')}
+          </h2>
+          <TokenGrid
+            filters={{ departmentId, doctorId, status: 'served' }}
+            enabled={enabled}
+            live={live}
+            actions={[]}
+          />
+        </section>
+      )}
     </div>
   );
 }

@@ -110,6 +110,70 @@ export const PatientDocumentRetire = Type.Object(
 );
 export type PatientDocumentRetire = Static<typeof PatientDocumentRetire>;
 
+const SheetStatus = Type.Union(
+  ['pending', 'scanning', 'clean', 'infected', 'failed', 'purged'].map((value) =>
+    Type.Literal(value as 'pending' | 'scanning' | 'clean' | 'infected' | 'failed' | 'purged'),
+  ),
+);
+
+export const PaperVisit = Type.Object(
+  {
+    patientId: Id,
+    patientName: Type.String(),
+    patientMrn: Type.String(),
+    tokenNumber: Type.Optional(
+      Type.Integer({ description: 'Of the queue token the visit is, or would be, opened from.' }),
+    ),
+    doctorName: Type.Optional(Type.String()),
+    encounter: Type.Optional(
+      Type.Object(
+        {
+          id: Id,
+          status: Type.Union([
+            Type.Literal('open'),
+            Type.Literal('closed'),
+            Type.Literal('cancelled'),
+          ]),
+          openedAt: Type.String({ format: 'date-time' }),
+          version: Type.Integer(),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+    hasSheet: Type.Boolean({
+      description:
+        'Whether an OPD sheet that is clean or being scanned, and not retired, is on the visit, whoever attached it: the visit may then be closed from here.',
+    }),
+    sheets: Type.Array(
+      Type.Object(
+        {
+          id: Id,
+          fileName: Type.String(),
+          status: SheetStatus,
+          createdAt: Type.String({ format: 'date-time' }),
+          version: Type.Integer(),
+        },
+        { additionalProperties: false },
+      ),
+      {
+        description:
+          'The sheets the caller attached to this visit and has not retired, newest first, at most 20: never anyone else’s, and no way to open them.',
+      },
+    ),
+  },
+  { $id: 'PaperVisit', additionalProperties: false },
+);
+export type PaperVisit = Static<typeof PaperVisit>;
+
+export const PaperTokenParams = Type.Object({ tokenId: Id });
+export const PaperEncounterParams = Type.Object({ encounterId: Id });
+export const PaperSheetParams = Type.Object({ encounterId: Id, documentId: Id });
+export const PaperVisitClose = Type.Object(
+  { version: Type.Integer({ minimum: 1, description: 'Of the visit, as last read.' }) },
+  { $id: 'PaperVisitClose', additionalProperties: false },
+);
+export type PaperVisitClose = Static<typeof PaperVisitClose>;
+
 export const DocumentListQuery = Type.Object({
   cursor: Type.Optional(Type.String()),
   limit: Type.Integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }),
@@ -210,6 +274,8 @@ export const DOCUMENT_SCHEMAS = [
   PatientDocumentPage,
   PatientDocumentDownload,
   PatientDocumentRetire,
+  PaperVisit,
+  PaperVisitClose,
   RetentionRule,
   RetentionRules,
   RetentionRuleSet,

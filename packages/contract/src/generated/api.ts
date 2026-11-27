@@ -3841,6 +3841,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/queue/tokens/{tokenId}/paper-visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Who one of today’s tokens is for, to be checked against the paper before a scanned OPD sheet is attached (#1202), with the token’s visit when there is one. Nothing changes. Audited. A token of another day, another hospital, outside the scope of queue:read or encounter:recordPaper, or of a patient outside the scope of patient:read or document:upload is 404 `token_not_found`; a cancelled one is 409 `token_cancelled`. 409 `already_open` when the token and its appointment each opened a visit, or the visit is outside the caller’s scope. Requires queue:read, encounter:recordPaper, document:upload and patient:read, and the documents, clinical and queue feature flags. */
+        get: operations["getTokenPaperVisit"];
+        put?: never;
+        /** @description Opens the visit of one of today’s tokens under the token’s doctor, to attach a scanned OPD sheet to it (#1202), or answers the visit already open for the token or its appointment. A token issued for no doctor is 422 `token_without_doctor`; a doctor who does not practise here, or is outside the scope of encounter:recordPaper, is 422 `unknown_doctor`. A new visit is audited and emits `encounter.opened`, as one a doctor starts. The Idempotency-Key header is required: a repeat opens nothing. A token of another day, another hospital, outside the scope of queue:read or encounter:recordPaper, or of a patient outside the scope of patient:read or document:upload is 404 `token_not_found`; a cancelled one is 409 `token_cancelled`. 409 `already_open` when the token and its appointment each opened a visit, or the visit is outside the caller’s scope. Requires queue:read, encounter:recordPaper, document:upload and patient:read, and the documents, clinical and queue feature flags. */
+        post: operations["openTokenPaperVisit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/paper-visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Who a visit is for, whether an OPD sheet is on it and the sheets the caller attached (#1202). Audited. Requires encounter:recordPaper and patient:read, and the documents and clinical feature flags. A visit of another hospital, outside the scope of encounter:recordPaper or of a patient the caller may not read is 404 `encounter_not_found`; one that is not OPD is 409 `not_opd_visit`. */
+        get: operations["getPaperVisit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/paper-visit/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Closes a visit kept on paper (#1202). Refused unless an OPD sheet that is clean or being scanned, and not retired, is on the visit (409 `opd_sheet_required`), and as an ordinary close is: 409 `invalid_transition` for one not open, `conflict` for another version, `unsigned_notes`, `managed_by_admission`, `managed_by_emergency`; and 409 `has_records` for a visit with a signed note, diagnosis, order, prescription, referral or follow-up, which is closed from the consultation. Emits `encounter.closed`. A sheet the scan blocks afterwards leaves the visit closed; its uploader is told. The Idempotency-Key header is required: a repeat changes nothing. Requires encounter:recordPaper and patient:read, and the documents and clinical feature flags. A visit of another hospital, outside the scope of encounter:recordPaper or of a patient the caller may not read is 404 `encounter_not_found`; one that is not OPD is 409 `not_opd_visit`. */
+        post: operations["closePaperVisit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/paper-visit/sheets/{documentId}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Retires an OPD sheet the caller attached to this visit by mistake, with a reason (#1202); they then attach it to the right visit. It stays on the record, as any retired document. Only the caller’s own sheet of this visit: anything else is 404 `document_not_found` (document:retire retires any document). 409 `already_retired`, `conflict`. A visit already closed stays closed. Requires encounter:recordPaper, document:upload and patient:read, and the documents and clinical feature flags. A visit of another hospital, outside the scope of encounter:recordPaper or of a patient the caller may not read is 404 `encounter_not_found`; one that is not OPD is 409 `not_opd_visit`. */
+        post: operations["retireOwnOpdSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients/{patientId}/documents": {
         parameters: {
             query?: never;
@@ -11228,6 +11297,39 @@ export interface components {
         PatientDocumentRetire: {
             reason: string;
             expectedVersion: number;
+        };
+        PaperVisit: {
+            /** Format: uuid */
+            patientId: string;
+            patientName: string;
+            patientMrn: string;
+            /** @description Of the queue token the visit is, or would be, opened from. */
+            tokenNumber?: number;
+            doctorName?: string;
+            encounter?: {
+                /** Format: uuid */
+                id: string;
+                status: "open" | "closed" | "cancelled";
+                /** Format: date-time */
+                openedAt: string;
+                version: number;
+            };
+            /** @description Whether an OPD sheet that is clean or being scanned, and not retired, is on the visit, whoever attached it: the visit may then be closed from here. */
+            hasSheet: boolean;
+            /** @description The sheets the caller attached to this visit and has not retired, newest first, at most 20: never anyone else’s, and no way to open them. */
+            sheets: {
+                /** Format: uuid */
+                id: string;
+                fileName: string;
+                status: "pending" | "scanning" | "clean" | "infected" | "failed" | "purged";
+                /** Format: date-time */
+                createdAt: string;
+                version: number;
+            }[];
+        };
+        PaperVisitClose: {
+            /** @description Of the visit, as last read. */
+            version: number;
         };
         DocumentRetentionRule: {
             /** @enum {string} */
@@ -35516,6 +35618,383 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTokenPaperVisit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperVisit"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    openTokenPaperVisit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperVisit"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPaperVisit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperVisit"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    closePaperVisit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperVisitClose"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperVisit"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    retireOwnOpdSheet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientDocumentRetire"];
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperVisit"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

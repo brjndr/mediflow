@@ -48,6 +48,7 @@ const EVERY_CLINICAL = [
   'prescription:create',
   'encounter:print',
   'opdSheet:print',
+  'encounter:recordPaper',
   // What happens next (#88).
   'referral:read',
   'referral:create',
@@ -102,6 +103,7 @@ const NURSE = [
   'order:update',
   'prescription:read',
   'encounter:print',
+  'encounter:recordPaper',
   'followUp:read',
 ];
 

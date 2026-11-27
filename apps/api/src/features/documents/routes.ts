@@ -35,6 +35,7 @@ import {
   DOCUMENT_CATEGORIES,
   type DocumentType,
 } from './schemas.js';
+import { paperVisitRoutes } from './paper-visit.js';
 import { sheetReader, sheetVisibleSql } from './sheets.js';
 
 const FEATURE = 'documents';
@@ -102,6 +103,8 @@ function decodeCursor(cursor: string): { at: string; id: string } {
 
 export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
   for (const schema of DOCUMENT_SCHEMAS) app.addSchema(schema);
+  // Inside this plugin, whose schemas it answers with.
+  await app.register(paperVisitRoutes);
 
   const userIdOf = (request: FastifyRequest): string => {
     const userId = request.session?.userId;

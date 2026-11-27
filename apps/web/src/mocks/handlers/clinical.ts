@@ -13,6 +13,7 @@ import { mockDrug } from './drugs';
 import { mockOrderableLabTest } from './lab-tests';
 import { mockPatient } from './patients';
 import { mockQueueToken } from './queue';
+import { mockVisitSheets, retireMockDocument } from './documents';
 import { mockOrderableService } from './services';
 
 type Encounter = components['schemas']['Encounter'];
@@ -30,6 +31,7 @@ type Referral = components['schemas']['Referral'];
 type ReferralPage = components['schemas']['ReferralPage'];
 type FollowUp = components['schemas']['FollowUp'];
 type FollowUpPage = components['schemas']['FollowUpPage'];
+type PaperVisit = components['schemas']['PaperVisit'];
 
 /** A follow-up as the mock keeps it: its state is read from its appointment, as the API does. */
 interface StoredFollowUp {
@@ -1630,9 +1632,176 @@ export const clinicalHandlers = [
     }
     return new HttpResponse(null, { status: 204 });
   }),
+  ...paperVisitHandlers(),
   ...referralHandlers(),
   ...followUpHandlers(),
 ];
+
+/** The visit kept on paper (#1202): who it is for, its scanned sheet, and closing it. */
+function paperVisitHandlers() {
+  /** Every route needs the permission, patient:read and the documents switch, then its own. */
+  const guard = (asked: Request, permissions: string[], features: string[]) => {
+    for (const permission of ['encounter:recordPaper', 'patient:read', ...permissions]) {
+      for (const featureFlag of [FEATURE_FLAG, 'documents', ...features]) {
+        const access = authorize(asked, { permission, featureFlag });
+        if ('denied' in access) return access;
+      }
+    }
+    return { tenantId: currentPolicy()?.tenantId ?? '' };
+  };
+  const sheetsOf = (stored: StoredEncounter) => mockVisitSheets(stored.tenantId, stored.id);
+  const answer = (stored: StoredEncounter): PaperVisit => {
+    const view = viewOf(stored);
+    const token = stored.queueTokenId ? mockQueueToken(stored.queueTokenId) : undefined;
+    const sheets = sheetsOf(stored);
+    return {
+      patientId: view.patientId,
+      patientName: view.patientName,
+      patientMrn: view.patientMrn,
+      ...(token ? { tokenNumber: token.number } : {}),
+      ...(view.attendingDoctorName ? { doctorName: view.attendingDoctorName } : {}),
+      encounter: {
+        id: stored.id,
+        status: stored.status,
+        openedAt: stored.openedAt,
+        version: stored.version,
+      },
+      hasSheet: sheets.some((one) => one.status === 'scanning' || one.status === 'clean'),
+      sheets: sheets
+        .filter((one) => one.createdBy === caller().id)
+        .map((one) => ({
+          id: one.id,
+          fileName: one.fileName,
+          status: one.status,
+          createdAt: one.createdAt,
+          version: one.version,
+        })),
+    };
+  };
+  const todays = (tenantId: string, id: string) => {
+    const token = mockQueueToken(id);
+    const patient = token && mockPatient(tenantId, token.patientId);
+    if (!token || !patient || token.tenantId !== tenantId) return null;
+    if (token.day !== todayIn(mockTenantTimezone(tenantId))) return null;
+    return { token, patient };
+  };
+  const visitOfToken = (tenantId: string, tokenId: string) =>
+    state.encounters.find(
+      (each) =>
+        each.tenantId === tenantId && each.status !== 'cancelled' && each.queueTokenId === tokenId,
+    );
+  const noToken = () => error(404, 'token_not_found', 'No such token today');
+  const forToken = (tenantId: string, id: string) => {
+    const found = todays(tenantId, id);
+    if (!found) return noToken();
+    const { token, patient } = found;
+    const stored = visitOfToken(tenantId, id);
+    if (stored) return HttpResponse.json<PaperVisit>(answer(stored));
+    const doctor = token.doctorId ? mockDoctor(tenantId, token.doctorId) : undefined;
+    return HttpResponse.json<PaperVisit>({
+      patientId: token.patientId,
+      patientName: patient.name,
+      patientMrn: patient.mrn,
+      tokenNumber: token.number,
+      ...(doctor ? { doctorName: doctor.name } : {}),
+      hasSheet: false,
+      sheets: [],
+    });
+  };
+  const visitOf = (tenantId: string, id: string) =>
+    encounterFor(tenantId, id, 'encounter:recordPaper');
+
+  return [
+    http.get('*/api/queue/tokens/:tokenId/paper-visit', ({ request: asked, params }) => {
+      const access = guard(asked, ['queue:read', 'document:upload'], ['queue']);
+      if ('denied' in access) return access.denied;
+      return forToken(access.tenantId, String(params.tokenId));
+    }),
+    http.post('*/api/queue/tokens/:tokenId/paper-visit', async ({ request: asked, params }) => {
+      const access = guard(asked, ['queue:read', 'document:upload'], ['queue']);
+      if ('denied' in access) return access.denied;
+      const { tenantId } = access;
+      const tokenId = String(params.tokenId);
+      const found = todays(tenantId, tokenId);
+      if (!found) return noToken();
+      if (!visitOfToken(tenantId, tokenId)) {
+        const { token } = found;
+        if (!token.doctorId) {
+          return error(422, 'token_without_doctor', 'The token was issued for no doctor');
+        }
+        state.encounters.push({
+          id: nextId('enc'),
+          tenantId,
+          patientId: token.patientId,
+          status: 'open',
+          queueTokenId: token.id,
+          ...(token.appointmentId ? { appointmentId: token.appointmentId } : {}),
+          doctorId: token.doctorId,
+          openedAt: now(),
+          openedByName: caller().name,
+          version: 1,
+        });
+      }
+      return forToken(tenantId, tokenId);
+    }),
+    http.get('*/api/encounters/:encounterId/paper-visit', ({ request: asked, params }) => {
+      const access = guard(asked, [], []);
+      if ('denied' in access) return access.denied;
+      const stored = visitOf(access.tenantId, String(params.encounterId));
+      return stored ? HttpResponse.json<PaperVisit>(answer(stored)) : notFound();
+    }),
+    http.post(
+      '*/api/encounters/:encounterId/paper-visit/close',
+      async ({ request: asked, params }) => {
+        const access = guard(asked, [], []);
+        if ('denied' in access) return access.denied;
+        const body = (await asked.json()) as { version?: number };
+        const stored = visitOf(access.tenantId, String(params.encounterId));
+        if (!stored) return notFound();
+        if (stored.status !== 'open') {
+          return error(409, 'invalid_transition', 'The visit does not change');
+        }
+        if (body.version !== stored.version) return error(409, 'conflict', 'It has changed');
+        const ofIt = <T extends { encounterId: string }>(rows: T[]) =>
+          rows.filter((row) => row.encounterId === stored.id);
+        const written =
+          ofIt(state.notes).some((note) => note.status === 'signed') ||
+          ofIt(state.diagnoses).some((each) => !each.retractedAt) ||
+          ofIt(state.orders).some((order) => order.status !== 'cancelled') ||
+          ofIt(state.prescriptions).length > 0;
+        if (written) return error(409, 'has_records', 'The visit has records');
+        if (!answer(stored).hasSheet) {
+          return error(409, 'opd_sheet_required', 'Attach the OPD sheet first');
+        }
+        if (state.notes.some((note) => note.encounterId === stored.id && note.status === 'draft')) {
+          return error(409, 'unsigned_notes', 'A note of the encounter is a draft');
+        }
+        stored.status = 'closed';
+        stored.endedAt = now();
+        stored.endedByName = caller().name;
+        stored.version += 1;
+        return HttpResponse.json<PaperVisit>(answer(stored));
+      },
+    ),
+    http.post(
+      '*/api/encounters/:encounterId/paper-visit/sheets/:documentId/retire',
+      async ({ request: asked, params }) => {
+        const access = guard(asked, ['document:upload'], []);
+        if ('denied' in access) return access.denied;
+        const body = (await asked.json()) as { reason: string; expectedVersion: number };
+        const stored = visitOf(access.tenantId, String(params.encounterId));
+        if (!stored) return notFound();
+        const sheet = sheetsOf(stored).find(
+          (one) => one.id === params.documentId && one.createdBy === caller().id,
+        );
+        if (!sheet) return error(404, 'document_not_found', 'No such document');
+        if (sheet.version !== body.expectedVersion) return error(409, 'conflict', 'Changed');
+        retireMockDocument(sheet.id, body.reason);
+        return HttpResponse.json<PaperVisit>(answer(stored));
+      },
+    ),
+  ];
+}
 
 /** An encounter as the mock holds it now, for tests. */
 export const mockEncounter = (id: string) => state.encounters.find((each) => each.id === id);

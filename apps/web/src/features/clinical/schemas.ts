@@ -5,6 +5,7 @@ import type {
   ClinicalNotePage,
   Credentials,
   OpdSheet,
+  PaperVisit,
   Diagnosis,
   DiagnosisCreate,
   DiagnosisKind,
@@ -51,6 +52,32 @@ const credentialsSchema: z.ZodType<Credentials> = z.object({
   qualifications: z.string().optional(),
   registrationNumber: z.string().optional(),
   registrationCouncil: z.string().optional(),
+});
+
+export const paperVisitSchema: z.ZodType<PaperVisit> = z.object({
+  patientId: z.string(),
+  patientName: z.string(),
+  patientMrn: z.string(),
+  tokenNumber: z.number().int().optional(),
+  doctorName: z.string().optional(),
+  encounter: z
+    .object({
+      id: z.string(),
+      status: z.enum(['open', 'closed', 'cancelled']),
+      openedAt: z.string(),
+      version: z.number().int(),
+    })
+    .optional(),
+  hasSheet: z.boolean(),
+  sheets: z.array(
+    z.object({
+      id: z.string(),
+      fileName: z.string(),
+      status: z.enum(['pending', 'scanning', 'clean', 'infected', 'failed', 'purged']),
+      createdAt: z.string(),
+      version: z.number().int(),
+    }),
+  ),
 });
 
 export const opdSheetSchema: z.ZodType<OpdSheet> = z.object({

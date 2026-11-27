@@ -22,12 +22,12 @@ import {
   findEncounter,
   hasDrafts,
   hasRecords,
-  insertEncounter,
   listEncounters,
   ownDoctorId,
   practisingDoctor,
   type EncounterRow,
 } from './repository.js';
+import { closeOpenVisit, openOpdVisit, refuseManagedElsewhere } from './visit.js';
 import {
   Encounter,
   EncounterCancel,
@@ -223,31 +223,8 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         : null;
       if (!doctor) throw new HttpError(422, 'unknown_doctor', 'No such doctor');
 
-      let id: string;
-      try {
-        id = await insertEncounter(
-          request.txClient,
-          { patientId: body.patientId, ...link, doctor },
-          userId,
-        );
-      } catch (error) {
-        const { code } = (error ?? {}) as { code?: unknown };
-        if (code === '23505') {
-          throw new HttpError(409, 'already_open', 'An encounter exists for it');
-        }
-        throw error;
-      }
+      const id = await openOpdVisit(request, { patientId: body.patientId, ...link, doctor });
       request.idempotentId = id;
-      request.audit('create', 'encounter', id);
-      await request.emit('encounter.opened', id, {
-        encounterId: id,
-        patientId: body.patientId,
-        type: 'opd',
-        doctorId: doctor.id,
-        departmentId: doctor.department_id,
-        ...(link.queueTokenId === null ? {} : { queueTokenId: link.queueTokenId }),
-        ...(link.appointmentId === null ? {} : { appointmentId: link.appointmentId }),
-      });
       const opened = await findEncounter(request.txClient, id, { scope: 'all', userId });
       if (!opened) throw new Error('encounter was not opened');
       return reply.status(201).send(await encounterAnswer(request.txClient, opened));
@@ -301,18 +278,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (row.version !== version) {
         throw new HttpError(409, 'conflict', 'The encounter has changed since it was read');
       }
-      // The stay of an admission ends with its discharge (BE-23), not from here.
-      const { rowCount } = await request.txClient.query(
-        'select 1 from admissions where encounter_id = $1',
-        [row.id],
-      );
-      if (rowCount) {
-        throw new HttpError(409, 'managed_by_admission', 'The admission ends this encounter');
-      }
-      // So is the emergency department's, ended by the disposition (ER-02).
-      if (row.type === 'er') {
-        throw new HttpError(409, 'managed_by_emergency', 'The disposition ends this encounter');
-      }
+      await refuseManagedElsewhere(request, row);
       await change(row);
       request.audit('update', 'encounter', row.id);
     }
@@ -348,17 +314,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (request, reply) => {
       const body = request.body as EncounterClose;
-      return changeEncounter(request, reply, body.version, async (row) => {
-        if (await hasDrafts(request.txClient, row.id)) {
-          throw new HttpError(409, 'unsigned_notes', 'A note of the encounter is a draft');
-        }
-        await endEncounter(request.txClient, row.id, 'closed', userIdOf(request), null);
-        await request.emit('encounter.closed', row.id, {
-          encounterId: row.id,
-          patientId: row.patient_id,
-          ...(row.appointment_id === null ? {} : { appointmentId: row.appointment_id }),
-        });
-      });
+      return changeEncounter(request, reply, body.version, (row) => closeOpenVisit(request, row));
     },
   );
 

@@ -23,3 +23,6 @@ export { queueCountsToday, type QueueCountsToday } from './repository.js';
 
 /** For the clinical module: what a token of today says on the paper OPD sheet (#1201). */
 export { todaysToken } from './repository.js';
+
+/** For the paper OPD sheet (#1202): the number of the token a visit was opened from. */
+export { tokenNumberOf } from './repository.js';
