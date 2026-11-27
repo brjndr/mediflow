@@ -7,7 +7,7 @@ import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
-import { withdrawUnsendableInvites } from '../staff/index.js';
+import { withdrawInvitesOutgrown, withdrawUnsendableInvites } from '../staff/index.js';
 import {
   deleteRole,
   findRole,
@@ -260,7 +260,7 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updateRole',
         tags: ['roles'],
         description:
-          "Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). `expectedVersion` is the version the caller read: when the role has changed since, the answer is 409 version_conflict with the role as it is now in `current`, and nothing is changed. A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. When the edit takes a permission or part of its scope from the role, the open invitations its members sent that the role could no longer send (no staff:invite, or an invited role holding more) are withdrawn. Audited; moves the policy version.",
+          "Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). `expectedVersion` is the version the caller read: when the role has changed since, the answer is 409 version_conflict with the role as it is now in `current`, and nothing is changed. A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. When the edit takes a permission or part of its scope from the role, the open invitations its members sent that the role could no longer send (no staff:invite, or an invited role holding more) are withdrawn. When the edit adds a permission or widens a scope, the open invitations into the role that their sender could no longer send are withdrawn too. Audited; moves the policy version.",
         params: RoleParams,
         body: UpdateRoleBody,
         response: {
@@ -322,6 +322,10 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
           await memberIdsOf(request.txClient, roleId),
           grants,
         );
+      }
+      // And one that adds can leave an invitation into the role beyond whoever sent it.
+      if (grants && !grantsWithin(grants, previous)) {
+        await withdrawInvitesOutgrown(request, roleId);
       }
       const updated = await findRole(request.txClient, roleId);
       if (!updated) throw notFound();

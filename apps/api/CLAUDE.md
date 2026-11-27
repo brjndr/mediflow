@@ -176,7 +176,7 @@ What was decided for each feature's API is in `src/features/<name>/CLAUDE.md`, w
 - Each file runs in one transaction. Start a file with `-- migrate:no-transaction` only for statements Postgres forbids in a transaction (`CREATE INDEX CONCURRENTLY`).
 - Migrations are additive: new tables, nullable columns, new indexes. Never change the meaning of an existing column.
 - Row-level security policies, the `tenant_id` convention and exclusion constraints are written here as SQL.
-- Deploys run `node dist/core/db/migrate-cli.js` as a separate step before the new version takes traffic. It applies migrations and then the default role permissions, so it needs the same environment as the API itself.
+- Deploys run `node dist/core/db/migrate-cli.js` as a separate step before the new version takes traffic. It applies migrations, then the default role permissions, then withdraws the open invitations whose sender could no longer send them (`core/auth/invite-ceiling.ts`, #1224), so it needs the same environment as the API itself.
 
 ## Logging
 

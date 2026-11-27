@@ -15,6 +15,8 @@ import {
   type TestTenant,
   type TestUser,
 } from '../../../test/helpers.js';
+import { syncRoleDefaults } from '../../core/access/sync.js';
+import { withdrawInvitesBeyondSenderEverywhere } from '../../core/auth/invite-ceiling.js';
 import { roleIdFrom } from './routes.js';
 
 /**
@@ -635,6 +637,37 @@ describe('two people saving one role', () => {
   });
 });
 
+/** An open invitation, sent by this person, put straight in the table. */
+async function invitation(tenant: TestTenant, by: TestUser, roleId: string) {
+  const { rows } = await pool.query<{ id: string }>(
+    `insert into invites (tenant_id, email, name, role_id, invited_by, token_hash, expires_at)
+     values ($1, $2, 'Invited', $3, $4, $5, now() + interval '1 day') returning id`,
+    [tenant.id, `${randomUUID()}@roles-invited.test`, roleId, by.id, randomBytes(32)],
+  );
+  return rows[0]!.id;
+}
+
+const withdrawn = async (...ids: string[]) =>
+  Promise.all(
+    ids.map(
+      async (id) =>
+        (
+          await pool.query<{ revoked: boolean }>(
+            'select revoked_at is not null as revoked from invites where id = $1',
+            [id],
+          )
+        ).rows[0]?.revoked,
+    ),
+  );
+
+const withdrawals = async (id: string) =>
+  (
+    await pool.query<{ action: string }>(
+      "select action from audit_log where tenant_id = $1 and entity = 'invite' and entity_id = $2",
+      [hospital.id, id],
+    )
+  ).rows.map((row) => row.action);
+
 describe('invitations a role edit leaves beyond their sender (#1211)', () => {
   let sender: TestUser;
   const all = (...permissions: string[]) => permissions.map((permission) => ({ permission }));
@@ -658,37 +691,6 @@ describe('invitations a role edit leaves beyond their sender (#1211)', () => {
   /** Gives the sender's role these grants through the API, as an administrator would. */
   const give = async (permissions: object[]) =>
     expect((await save('inviter', admin, { permissions })).statusCode).toBe(200);
-
-  /** An open invitation, sent by this person, put straight in the table. */
-  async function invitation(tenant: TestTenant, by: TestUser, roleId: string) {
-    const { rows } = await pool.query<{ id: string }>(
-      `insert into invites (tenant_id, email, name, role_id, invited_by, token_hash, expires_at)
-       values ($1, $2, 'Invited', $3, $4, $5, now() + interval '1 day') returning id`,
-      [tenant.id, `${randomUUID()}@roles-invited.test`, roleId, by.id, randomBytes(32)],
-    );
-    return rows[0]!.id;
-  }
-
-  const withdrawn = async (...ids: string[]) =>
-    Promise.all(
-      ids.map(
-        async (id) =>
-          (
-            await pool.query<{ revoked: boolean }>(
-              'select revoked_at is not null as revoked from invites where id = $1',
-              [id],
-            )
-          ).rows[0]?.revoked,
-      ),
-    );
-
-  const withdrawals = async (id: string) =>
-    (
-      await pool.query<{ action: string }>(
-        "select action from audit_log where tenant_id = $1 and entity = 'invite' and entity_id = $2",
-        [hospital.id, id],
-      )
-    ).rows.map((row) => row.action);
 
   it('withdraws and audits those into a role the sender no longer covers', async () => {
     await give(SENDING);
@@ -776,5 +778,109 @@ describe('invitations a role edit leaves beyond their sender (#1211)', () => {
 
     expect(stale.statusCode).toBe(409);
     expect(await withdrawn(open)).toEqual([false]);
+  });
+});
+
+describe('invitations into a role that gains permissions (#1224)', () => {
+  let sender: TestUser;
+  const all = (...permissions: string[]) => permissions.map((permission) => ({ permission }));
+
+  beforeAll(async () => {
+    sender = await newUser('Roles Gain Sender');
+    for (const tenant of [hospital, clinic]) {
+      await customRole(tenant, 'gain_inviter', ['staff:read', 'staff:invite', 'appointment:read']);
+      await customRole(tenant, 'gaining', ['staff:read']);
+      await customRole(tenant, 'steady', ['staff:read']);
+    }
+    await addMembership(pool, sender, hospital, 'gain_inviter');
+    await addMembership(pool, sender, clinic, 'gain_inviter');
+  });
+
+  afterAll(async () => {
+    await pool.query("delete from invites where email like '%@roles-invited.test'");
+  });
+
+  const give = async (permissions: object[]) =>
+    expect((await save('gaining', admin, { permissions })).statusCode).toBe(200);
+
+  it('withdraws and audits those the sender could no longer send', async () => {
+    await give(all('staff:read'));
+    const beyond = await invitation(hospital, sender, 'gaining');
+    const byAdmin = await invitation(hospital, admin, 'gaining');
+    const otherRole = await invitation(hospital, sender, 'steady');
+    const elsewhere = await invitation(clinic, sender, 'gaining');
+    // Sent by nobody who works here, as the platform's first-admin invitation is.
+    const outsider = await newUser('Roles Outsider');
+    const platform = await invitation(hospital, outsider, 'gaining');
+
+    await give(all('staff:read', 'patient:read'));
+
+    expect(await withdrawn(beyond, byAdmin, otherRole, elsewhere, platform)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(await withdrawals(beyond)).toEqual(['withdraw']);
+    expect(await withdrawals(byAdmin)).toEqual([]);
+  });
+
+  it('keeps those whose sender holds what the role gained', async () => {
+    await give(all('staff:read'));
+    const open = await invitation(hospital, sender, 'gaining');
+
+    await give(all('staff:read', 'appointment:read'));
+
+    expect(await withdrawn(open)).toEqual([false]);
+  });
+
+  it('counts a wider scope as gained', async () => {
+    await pool.query(
+      "update role_permissions set scope = 'own' where tenant_id = $1 and role_id = 'gain_inviter' and permission = 'appointment:read'",
+      [hospital.id],
+    );
+    await give([{ permission: 'appointment:read', scope: 'own' }]);
+    const open = await invitation(hospital, sender, 'gaining');
+
+    await give(all('appointment:read'));
+
+    expect(await withdrawn(open)).toEqual([true]);
+  });
+
+  it('a deploy withdraws those a new default grant leaves beyond their sender', async () => {
+    const into = (tenant: TestTenant) => invitation(tenant, sender, 'nurse');
+    await pool.query(
+      `insert into role_permissions (tenant_id, role_id, permission, scope)
+       select p.tenant_id, 'gain_inviter', p.permission, p.scope from role_permissions p
+       where p.role_id = 'nurse' and p.tenant_id = any($1::uuid[])
+       on conflict (tenant_id, role_id, permission) do update set scope = excluded.scope`,
+      [[hospital.id, clinic.id]],
+    );
+    const here = await into(hospital);
+    const there = await into(clinic);
+    const byOutsider = await invitation(hospital, await newUser('Roles Platform'), 'nurse');
+    const expired = await into(hospital);
+    await pool.query("update invites set expires_at = now() - interval '1 hour' where id = $1", [
+      expired,
+    ]);
+    await withdrawInvitesBeyondSenderEverywhere(pool);
+    expect(await withdrawn(here, there)).toEqual([false, false]);
+
+    // A later module's default, for one hospital only.
+    await syncRoleDefaults(
+      pool,
+      [{ id: 'later:read', description: 'Added later', defaults: { nurse: 'all' } }],
+      hospital.id,
+    );
+    expect(await withdrawInvitesBeyondSenderEverywhere(pool)).toBeGreaterThanOrEqual(1);
+
+    expect(await withdrawn(here, there, byOutsider, expired)).toEqual([true, false, false, false]);
+    const { rows } = await pool.query(
+      "select actor_id, request_id from audit_log where tenant_id = $1 and entity = 'invite' and entity_id = $2",
+      [hospital.id, here],
+    );
+    expect(rows).toEqual([{ actor_id: null, request_id: 'deploy.role-defaults' }]);
+    expect(await withdrawInvitesBeyondSenderEverywhere(pool)).toBe(0);
   });
 });

@@ -1,10 +1,12 @@
 // Run with `pnpm --filter api db:migrate` (development) or `node dist/core/db/migrate-cli.js`
 // (in the image, before the new version takes traffic).
 //
-// Two steps: apply pending migrations, then give built-in roles any default permissions they
-// have not been offered yet (a feature added since the last deploy). Both are safe to repeat.
+// Three steps: apply pending migrations, give built-in roles any default permissions they have
+// not been offered yet (a feature added since the last deploy), then withdraw the open
+// invitations whose sender could no longer send them. All are safe to repeat.
 import { buildApp } from '../../app.js';
 import { syncRoleDefaults } from '../access/sync.js';
+import { withdrawInvitesBeyondSenderEverywhere } from '../auth/invite-ceiling.js';
 import { loadConfig } from '../config/config.js';
 import { runMigrations } from './migrate.js';
 
@@ -21,6 +23,9 @@ try {
     await app.ready();
     const granted = await syncRoleDefaults(app.database.pool, app.permissions.all());
     process.stdout.write(`Default role permissions added: ${granted}.\n`);
+    // Every run, not only when something was added: a run that stopped before this is made good.
+    const withdrawn = await withdrawInvitesBeyondSenderEverywhere(app.database.pool);
+    process.stdout.write(`Invitations withdrawn as beyond their sender: ${withdrawn}.\n`);
   } finally {
     await app.close();
   }
