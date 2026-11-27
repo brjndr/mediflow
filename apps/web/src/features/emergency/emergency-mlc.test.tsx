@@ -61,7 +61,7 @@ describe('medico-legal case', () => {
     expect(screen.getByText('Informed, Central police station')).toBeInTheDocument();
     expect(screen.getAllByText('Medico-legal').length).toBeGreaterThan(0);
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('keeps a revision as the next one', async () => {
     await open();
@@ -77,7 +77,7 @@ describe('medico-legal case', () => {
     await userEvent.click(within(again).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(said('The medico-legal record of ER-0002 was revised.')).toBe(true));
     expect(await screen.findByText(/revision 2/)).toBeInTheDocument();
-  }, 30_000);
+  });
 });
 
 describe('printing', () => {
@@ -118,7 +118,7 @@ describe('printing', () => {
     expect(window.location.search).toBe('');
     window.dispatchEvent(new Event('afterprint'));
     await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
-  }, 30_000);
+  });
 
   it('offers no print without medicoLegal:read, and prints nothing', async () => {
     await open();
@@ -132,7 +132,7 @@ describe('printing', () => {
     expect(screen.queryByRole('button', { name: 'Print' })).not.toBeInTheDocument();
     expect(print).not.toHaveBeenCalled();
     expect(mockMlcPrints()).toHaveLength(0);
-  }, 30_000);
+  });
 });
 
 describe('restricted access', () => {
@@ -155,7 +155,7 @@ describe('restricted access', () => {
     await screen.findByRole('heading', { level: 1, name: 'Emergency' });
     await screen.findByText(/ER-0002/);
     expect(screen.queryByText('Medico-legal')).not.toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('offers no flagging without medicoLegal:manage', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'medicoLegal:manage');
@@ -212,7 +212,7 @@ describe('access reason (#677)', () => {
     expect(mockMlcReads()).toEqual([
       { tenantId: TENANT_IDS.hospital, caseId: 'er_2', reason: 'police_request' },
     ]);
-  }, 30_000);
+  });
 });
 
 describe('revision history', () => {
@@ -242,7 +242,7 @@ describe('revision history', () => {
     expect(items[1]).toHaveTextContent('Hit by a truck, head injury');
     expect(within(history).queryByRole('button', { name: 'Revise' })).not.toBeInTheDocument();
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('offers no history without medicoLegal:read', async () => {
     await open();
@@ -254,5 +254,5 @@ describe('revision history', () => {
     renderApp({ entry: '/emergency/er_2' });
     await screen.findByRole('heading', { name: 'Observation notes' });
     expect(screen.queryByRole('button', { name: 'History' })).not.toBeInTheDocument();
-  }, 30_000);
+  });
 });

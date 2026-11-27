@@ -18,7 +18,7 @@ async function openTheatre() {
   renderApp({ entry: '/theatre' });
   await screen.findByRole('heading', { name: 'Operation theatre', level: 1 });
   fireEvent.change(screen.getByLabelText('Day'), { target: { value: SEEDED_DAY } });
-  await waitFor(() => expect(seededRow()).toBeDefined(), { timeout: 10_000 });
+  await waitFor(() => expect(seededRow()).toBeDefined());
 }
 
 describe('recovery notes and orders', () => {
@@ -77,7 +77,7 @@ describe('recovery notes and orders', () => {
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByText('No recovery notes have been written yet.');
     expect(within(dialog).queryByRole('button', { name: 'Add note' })).not.toBeInTheDocument();
-  }, 40_000);
+  });
 
   it('offers no row action without theatre:read', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'theatre:read');

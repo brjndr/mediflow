@@ -61,7 +61,7 @@ describe('blood bank', () => {
     const stock = screen.getByRole('region', { name: 'In stock now' });
     await waitFor(() => expect(within(stock).getByText('1 available')).toBeInTheDocument());
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('is reached from the navigation', async () => {
     renderApp();

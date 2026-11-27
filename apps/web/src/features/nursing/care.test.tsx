@@ -78,7 +78,7 @@ describe('fluid balance', () => {
     );
     expect(within(totals).getByRole('row', { name: /Whole day/ })).toHaveTextContent('+700 ml');
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('adds an entry for the day it is taken and counts it', async () => {
     await open();
@@ -96,7 +96,7 @@ describe('fluid balance', () => {
     await waitFor(() =>
       expect(within(totals).getByRole('row', { name: /Whole day/ })).toHaveTextContent('-250 ml'),
     );
-  }, 30_000);
+  });
 
   it('refuses an amount that is not a whole number of millilitres', async () => {
     await open();
@@ -134,7 +134,7 @@ describe('fluid balance', () => {
     await waitFor(() =>
       expect(within(totals).getByRole('row', { name: /Whole day/ })).toHaveTextContent('90 ml'),
     );
-  }, 40_000);
+  });
 
   it('is unreachable without the permission or with the module off', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'fluidBalance:read');
@@ -190,7 +190,7 @@ describe('care plans', () => {
     expect(await plan.findByText('Completed')).toBeInTheDocument();
     expect(plan.queryByRole('button', { name: 'Add task' })).not.toBeInTheDocument();
     expect(plan.queryByRole('button', { name: /Mark done/ })).not.toBeInTheDocument();
-  }, 40_000);
+  });
 
   it('refuses a plan with no problem', async () => {
     await open();

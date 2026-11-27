@@ -89,66 +89,62 @@ describe('the laboratory worklist', () => {
     await expectNoAxeViolations(document.body);
   });
 
-  it(
-    'collects a sample after the patient is checked, and prints its label',
-    { timeout: 15_000 },
-    async () => {
-      await openWorklist();
-      await userEvent.click(
-        within(grid()).getByRole('button', {
-          name: `Collect sample: ${first()}, Complete blood count`,
-        }),
-      );
-      const panel = await screen.findByRole('region', {
-        name: 'Collect sample: Complete blood count',
-      });
-      expect(within(panel).getByRole('heading', { level: 2 })).toHaveFocus();
-      expect(within(panel).getByText(first())).toBeInTheDocument();
-      expect(
-        within(panel).getByText(mockPatient(HOSPITAL, 'pth_00001')?.mrn ?? ''),
-      ).toBeInTheDocument();
-      expect(within(panel).getByText('Date of birth')).toBeInTheDocument();
-      await expectNoAxeViolations(document.body);
+  it('collects a sample after the patient is checked, and prints its label', async () => {
+    await openWorklist();
+    await userEvent.click(
+      within(grid()).getByRole('button', {
+        name: `Collect sample: ${first()}, Complete blood count`,
+      }),
+    );
+    const panel = await screen.findByRole('region', {
+      name: 'Collect sample: Complete blood count',
+    });
+    expect(within(panel).getByRole('heading', { level: 2 })).toHaveFocus();
+    expect(within(panel).getByText(first())).toBeInTheDocument();
+    expect(
+      within(panel).getByText(mockPatient(HOSPITAL, 'pth_00001')?.mrn ?? ''),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText('Date of birth')).toBeInTheDocument();
+    await expectNoAxeViolations(document.body);
 
-      await userEvent.click(within(panel).getByRole('button', { name: 'Mark as collected' }));
-      const [sample] = mockSamplesOf('ord_h_lab_1');
-      expect(sample?.accessionId).toMatch(ACCESSION);
-      expect(await within(panel).findByRole('status')).toHaveTextContent(
-        `Collected as ${sample?.accessionId}.`,
-      );
-      expect(mockOrdersOf('enc_h_1').find((each) => each.id === 'ord_h_lab_1')?.status).toBe(
-        'accepted',
-      );
-      // Collected, it leaves the orders to collect; the panel stays to print the label, on the
-      // button that was pressed.
-      await waitFor(() => expect(within(grid()).queryByText('Complete blood count')).toBeNull());
-      expect(within(panel).getByRole('button', { name: 'Print label' })).toHaveFocus();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Mark as collected' }));
+    const [sample] = mockSamplesOf('ord_h_lab_1');
+    expect(sample?.accessionId).toMatch(ACCESSION);
+    expect(await within(panel).findByRole('status')).toHaveTextContent(
+      `Collected as ${sample?.accessionId}.`,
+    );
+    expect(mockOrdersOf('enc_h_1').find((each) => each.id === 'ord_h_lab_1')?.status).toBe(
+      'accepted',
+    );
+    // Collected, it leaves the orders to collect; the panel stays to print the label, on the
+    // button that was pressed.
+    await waitFor(() => expect(within(grid()).queryByText('Complete blood count')).toBeNull());
+    expect(within(panel).getByRole('button', { name: 'Print label' })).toHaveFocus();
 
-      await userEvent.click(within(panel).getByRole('button', { name: 'Print label' }));
-      await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
-      expect(mockLabelPrints()).toEqual([
-        { tenantId: HOSPITAL, sampleId: sample?.id, userId: USER_IDS.admin },
-      ]);
-      const sheet = document.querySelector<HTMLElement>('[data-print-sheet]');
-      expect(sheet).toHaveTextContent(sample?.accessionId ?? '');
-      expect(sheet).toHaveTextContent(first());
-      expect(
-        within(sheet as HTMLElement).getByRole('img', {
-          name: `Barcode of ${sample?.accessionId}`,
-        }),
-      ).toBeInTheDocument();
-      window.dispatchEvent(new Event('afterprint'));
-      await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
+    await userEvent.click(within(panel).getByRole('button', { name: 'Print label' }));
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+    expect(mockLabelPrints()).toEqual([
+      { tenantId: HOSPITAL, sampleId: sample?.id, userId: USER_IDS.admin },
+    ]);
+    const sheet = document.querySelector<HTMLElement>('[data-print-sheet]');
+    expect(sheet).toHaveTextContent(sample?.accessionId ?? '');
+    expect(sheet).toHaveTextContent(first());
+    expect(
+      within(sheet as HTMLElement).getByRole('img', {
+        name: `Barcode of ${sample?.accessionId}`,
+      }),
+    ).toBeInTheDocument();
+    window.dispatchEvent(new Event('afterprint'));
+    await waitFor(() => expect(document.querySelector('[data-print-sheet]')).toBeNull());
 
-      // The row it was opened from left the list: focus goes to the status line.
-      await userEvent.click(within(panel).getByRole('button', { name: 'Close' }));
-      expect(screen.getByText('1 order')).toHaveFocus();
-      await chooseStage('Collected');
-      expect(
-        await within(grid()).findByText(`${sample?.accessionId}, collected`),
-      ).toBeInTheDocument();
-    },
-  );
+    // The row it was opened from left the list: focus goes to the status line.
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }));
+    expect(screen.getByText('1 order')).toHaveFocus();
+    await chooseStage('Collected');
+    expect(
+      await within(grid()).findByText(`${sample?.accessionId}, collected`),
+    ).toBeInTheDocument();
+  });
 
   it('says so when someone else collected the sample meanwhile', async () => {
     await openWorklist();
@@ -266,71 +262,67 @@ describe('the laboratory worklist', () => {
     expect(mockSamplesOf('ord_h_lab_2')[0]?.status).toBe('collected');
   });
 
-  it(
-    'rejects a sample with a reason, and the order is collected again as a new sample',
-    { timeout: 15_000 },
-    async () => {
-      const collected = await post('/lab/orders/ord_h_lab_2/samples');
-      renderApp({ entry: '/lab' });
-      await screen.findByRole('heading', LIST);
-      await chooseStage('Collected');
-      await within(grid()).findByText(second());
-      await userEvent.click(
-        within(grid()).getByRole('button', { name: `Reject: ${second()}, Haemoglobin` }),
-      );
-      const panel = await screen.findByRole('region', {
-        name: `Reject sample ${String(collected?.accessionId)}`,
-      });
+  it('rejects a sample with a reason, and the order is collected again as a new sample', async () => {
+    const collected = await post('/lab/orders/ord_h_lab_2/samples');
+    renderApp({ entry: '/lab' });
+    await screen.findByRole('heading', LIST);
+    await chooseStage('Collected');
+    await within(grid()).findByText(second());
+    await userEvent.click(
+      within(grid()).getByRole('button', { name: `Reject: ${second()}, Haemoglobin` }),
+    );
+    const panel = await screen.findByRole('region', {
+      name: `Reject sample ${String(collected?.accessionId)}`,
+    });
 
-      // Nothing chosen, then Other without a note.
-      await userEvent.click(within(panel).getByRole('button', { name: 'Reject sample' }));
-      expect(await within(panel).findByText('Choose a reason.')).toBeInTheDocument();
-      await userEvent.selectOptions(
-        within(panel).getByRole('combobox', { name: /^Reason/ }),
-        'Other',
-      );
-      await userEvent.click(within(panel).getByRole('button', { name: 'Reject sample' }));
-      expect(await within(panel).findByText('Say why the sample is rejected.')).toBeInTheDocument();
-      expect(mockSamplesOf('ord_h_lab_2')[0]?.status).toBe('collected');
+    // Nothing chosen, then Other without a note.
+    await userEvent.click(within(panel).getByRole('button', { name: 'Reject sample' }));
+    expect(await within(panel).findByText('Choose a reason.')).toBeInTheDocument();
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: /^Reason/ }),
+      'Other',
+    );
+    await userEvent.click(within(panel).getByRole('button', { name: 'Reject sample' }));
+    expect(await within(panel).findByText('Say why the sample is rejected.')).toBeInTheDocument();
+    expect(mockSamplesOf('ord_h_lab_2')[0]?.status).toBe('collected');
 
-      await userEvent.selectOptions(
-        within(panel).getByRole('combobox', { name: /^Reason/ }),
-        'Haemolysed',
-      );
-      await userEvent.click(within(panel).getByRole('button', { name: 'Reject sample' }));
-      expect(
-        await screen.findByText(
-          new RegExp(`^Sample ${String(collected?.accessionId)} rejected. The order is back`),
-        ),
-      ).toHaveFocus();
-      expect(mockSamplesOf('ord_h_lab_2')[0]).toMatchObject({
-        status: 'rejected',
-        rejectReason: 'haemolysed',
-      });
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: /^Reason/ }),
+      'Haemolysed',
+    );
+    await userEvent.click(within(panel).getByRole('button', { name: 'Reject sample' }));
+    expect(
+      await screen.findByText(
+        new RegExp(`^Sample ${String(collected?.accessionId)} rejected. The order is back`),
+      ),
+    ).toHaveFocus();
+    expect(mockSamplesOf('ord_h_lab_2')[0]).toMatchObject({
+      status: 'rejected',
+      rejectReason: 'haemolysed',
+    });
 
-      await chooseStage('To collect');
-      expect(
-        await within(grid()).findByText(
-          `${String(collected?.accessionId)} rejected: Haemolysed. Collect again`,
-        ),
-      ).toBeInTheDocument();
-      await userEvent.click(
-        within(grid()).getByRole('button', { name: `Collect sample: ${second()}, Haemoglobin` }),
-      );
-      const again = await screen.findByRole('region', { name: 'Collect sample: Haemoglobin' });
-      expect(
-        within(again).getByText(
-          `Collect again: sample ${String(collected?.accessionId)} was rejected (Haemolysed).`,
-        ),
-      ).toBeInTheDocument();
-      await userEvent.click(within(again).getByRole('button', { name: 'Mark as collected' }));
-      await within(again).findByText(/^Collected as /);
-      const samples = mockSamplesOf('ord_h_lab_2');
-      expect(samples).toHaveLength(2);
-      expect(samples[1]?.accessionId).not.toBe(samples[0]?.accessionId);
-      expect(samples[1]?.status).toBe('collected');
-    },
-  );
+    await chooseStage('To collect');
+    expect(
+      await within(grid()).findByText(
+        `${String(collected?.accessionId)} rejected: Haemolysed. Collect again`,
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      within(grid()).getByRole('button', { name: `Collect sample: ${second()}, Haemoglobin` }),
+    );
+    const again = await screen.findByRole('region', { name: 'Collect sample: Haemoglobin' });
+    expect(
+      within(again).getByText(
+        `Collect again: sample ${String(collected?.accessionId)} was rejected (Haemolysed).`,
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(within(again).getByRole('button', { name: 'Mark as collected' }));
+    await within(again).findByText(/^Collected as /);
+    const samples = mockSamplesOf('ord_h_lab_2');
+    expect(samples).toHaveLength(2);
+    expect(samples[1]?.accessionId).not.toBe(samples[0]?.accessionId);
+    expect(samples[1]?.status).toBe('collected');
+  });
 });
 
 describe('who reaches the laboratory', () => {

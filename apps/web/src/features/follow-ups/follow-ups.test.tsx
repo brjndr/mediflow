@@ -65,38 +65,34 @@ async function openConsultation() {
 }
 
 describe('setting a follow-up from the consultation', () => {
-  it(
-    'asks the patient back in two weeks to the consultation’s doctor, said in words',
-    { timeout: 15_000 },
-    async () => {
-      await openConsultation();
-      expect(within(panel()).getByText('No follow-up set.')).toBeInTheDocument();
-      await userEvent.click(within(panel()).getByRole('button', { name: 'In 14 days' }));
-      expect(within(panel()).getByLabelText(/^Come back on/)).toHaveValue(shiftDay(today(), 14));
-      await userEvent.type(
-        within(panel()).getByRole('textbox', { name: /^Message for the desk/ }),
-        'With the X-ray',
-      );
-      await userEvent.click(within(panel()).getByRole('button', { name: 'Set follow-up' }));
+  it('asks the patient back in two weeks to the consultation’s doctor, said in words', async () => {
+    await openConsultation();
+    expect(within(panel()).getByText('No follow-up set.')).toBeInTheDocument();
+    await userEvent.click(within(panel()).getByRole('button', { name: 'In 14 days' }));
+    expect(within(panel()).getByLabelText(/^Come back on/)).toHaveValue(shiftDay(today(), 14));
+    await userEvent.type(
+      within(panel()).getByRole('textbox', { name: /^Message for the desk/ }),
+      'With the X-ray',
+    );
+    await userEvent.click(within(panel()).getByRole('button', { name: 'Set follow-up' }));
 
-      expect(await within(panel()).findByRole('status')).toHaveTextContent('Follow-up set.');
-      const doctor = mockDoctor(HOSPITAL, 'doc_h_01')?.name ?? '';
-      expect(
-        await within(panel()).findByText(new RegExp(`^Come back on .+ to ${doctor}$`)),
-      ).toBeInTheDocument();
-      expect(within(panel()).getByText('To book')).toBeInTheDocument();
-      expect(within(panel()).getByText('With the X-ray')).toBeInTheDocument();
-      expect(mockFollowUps().find((each) => each.encounterId === 'enc_h_1')).toMatchObject({
-        dueOn: shiftDay(today(), 14),
-        doctorId: 'doc_h_01',
-        note: 'With the X-ray',
-        state: 'due',
-      });
-      // One at a time: no second form.
-      expect(within(panel()).queryByRole('heading', { name: 'Set a follow-up' })).toBeNull();
-      await expectNoAxeViolations();
-    },
-  );
+    expect(await within(panel()).findByRole('status')).toHaveTextContent('Follow-up set.');
+    const doctor = mockDoctor(HOSPITAL, 'doc_h_01')?.name ?? '';
+    expect(
+      await within(panel()).findByText(new RegExp(`^Come back on .+ to ${doctor}$`)),
+    ).toBeInTheDocument();
+    expect(within(panel()).getByText('To book')).toBeInTheDocument();
+    expect(within(panel()).getByText('With the X-ray')).toBeInTheDocument();
+    expect(mockFollowUps().find((each) => each.encounterId === 'enc_h_1')).toMatchObject({
+      dueOn: shiftDay(today(), 14),
+      doctorId: 'doc_h_01',
+      note: 'With the X-ray',
+      state: 'due',
+    });
+    // One at a time: no second form.
+    expect(within(panel()).queryByRole('heading', { name: 'Set a follow-up' })).toBeNull();
+    await expectNoAxeViolations();
+  });
 
   it('refuses a day in the past or more than a year ahead on the form', async () => {
     const sent: string[] = [];

@@ -53,7 +53,7 @@ describe('bed reservations', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'The reservation on bed GW-A-05 is cancelled.',
     );
-  }, 20_000);
+  });
 
   it('asks for the patient', async () => {
     await openBoard();
@@ -68,7 +68,7 @@ describe('bed reservations', () => {
     await waitFor(() => expect(within(rowOf('GW-A-05')).getByText(/Held for/)).toBeInTheDocument());
     await reserve('GW-A-06', 'MRN-PTH-00010');
     expect(await screen.findByText('That patient already has a bed held.')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('does not offer the held bed to another patient when admitting', async () => {
     const board = renderApp({ entry: '/beds' });
@@ -83,7 +83,7 @@ describe('bed reservations', () => {
     const beds = await screen.findAllByRole('radio');
     expect(beds.some((bed) => /GW-A-05/.test(bed.closest('label')?.textContent ?? ''))).toBe(false);
     expect(beds.some((bed) => /GW-A-06/.test(bed.closest('label')?.textContent ?? ''))).toBe(true);
-  }, 20_000);
+  });
 
   it('is not offered without bed:reserve', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'bed:reserve');

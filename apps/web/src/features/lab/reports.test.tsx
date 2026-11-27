@@ -127,7 +127,7 @@ describe('results in the consultation', () => {
     const hb = mockResultsOf(released[0]?.sampleId ?? '').find((each) => each.testCode === 'HB');
     expect(hb?.acknowledgedByName).toBe('Sample Doctor');
     // The whole consultation is drawn and checked by axe: slow on a busy machine.
-  }, 15_000);
+  });
 
   it('says so when another doctor acknowledged it meanwhile', async () => {
     const results = releaseMockResults(HOSPITAL, 'ord_h_lab_1', { HB: '5', ...COUNT_IN_RANGE });

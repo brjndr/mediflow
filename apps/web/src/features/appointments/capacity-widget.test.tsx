@@ -48,31 +48,27 @@ const HOSPITAL: Answer = {
 };
 
 describe('OPD capacity widget', () => {
-  it(
-    'shows the booked share as a ring with waiting, in consult and free, and passes axe',
-    { timeout: 15_000 },
-    async () => {
-      capacity({ [TENANT_IDS.hospital]: HOSPITAL });
-      signIn(USER_IDS.admin);
-      renderApp();
-      await home();
-      const region = await screen.findByRole('region', { name: TITLE });
-      expect(
-        await within(region).findByRole('img', { name: 'Slots booked: 72%' }),
-      ).toBeInTheDocument();
-      expect(within(region).getByText('36 of 50 slots booked.')).toBeInTheDocument();
-      const figure = (label: string) =>
-        within(region).getByText(label).closest('p')?.querySelector('strong')?.textContent;
-      expect(figure('Waiting')).toBe('7');
-      expect(figure('In consult')).toBe('3');
-      expect(figure('Free slots')).toBe('9');
-      expect(within(region).getByRole('link', { name: 'Open appointments' })).toHaveAttribute(
-        'href',
-        '/appointments',
-      );
-      await expectNoAxeViolations(region);
-    },
-  );
+  it('shows the booked share as a ring with waiting, in consult and free, and passes axe', async () => {
+    capacity({ [TENANT_IDS.hospital]: HOSPITAL });
+    signIn(USER_IDS.admin);
+    renderApp();
+    await home();
+    const region = await screen.findByRole('region', { name: TITLE });
+    expect(
+      await within(region).findByRole('img', { name: 'Slots booked: 72%' }),
+    ).toBeInTheDocument();
+    expect(within(region).getByText('36 of 50 slots booked.')).toBeInTheDocument();
+    const figure = (label: string) =>
+      within(region).getByText(label).closest('p')?.querySelector('strong')?.textContent;
+    expect(figure('Waiting')).toBe('7');
+    expect(figure('In consult')).toBe('3');
+    expect(figure('Free slots')).toBe('9');
+    expect(within(region).getByRole('link', { name: 'Open appointments' })).toHaveAttribute(
+      'href',
+      '/appointments',
+    );
+    await expectNoAxeViolations(region);
+  });
 
   it('says nobody works today instead of showing 0%', async () => {
     capacity({ [TENANT_IDS.hospital]: { day: '2026-11-24', slots: 0, booked: 0, free: 0 } });

@@ -53,7 +53,7 @@ describe('purchase orders', () => {
     expect(within(orders).getByText('PO-000003')).toBeInTheDocument();
   });
 
-  it('drafts an order, then submits it for approval', { timeout: 30_000 }, async () => {
+  it('drafts an order, then submits it for approval', async () => {
     await open('/purchasing/orders/new', 'New purchase order');
     await screen.findByRole('option', { name: 'Medline Surgical Supplies' });
     // Nothing added: the lines say so and the item search takes focus.
@@ -164,85 +164,79 @@ describe('purchase orders', () => {
 });
 
 describe('goods receipts', () => {
-  it(
-    'receives a batch into stock through the ledger, then sends some back',
-    { timeout: 30_000 },
-    async () => {
-      const ledger = mockStock().ledger.length;
-      await open('/purchasing/orders/po_h_approved', 'Purchase order PO-000003');
-      await userEvent.click(screen.getByRole('button', { name: 'Receive goods' }));
-      const panel = await screen.findByRole('region', { name: 'Receive goods against PO-000003' });
-      expect(within(panel).getByRole('heading', { level: 2 })).toHaveFocus();
+  it('receives a batch into stock through the ledger, then sends some back', async () => {
+    const ledger = mockStock().ledger.length;
+    await open('/purchasing/orders/po_h_approved', 'Purchase order PO-000003');
+    await userEvent.click(screen.getByRole('button', { name: 'Receive goods' }));
+    const panel = await screen.findByRole('region', { name: 'Receive goods against PO-000003' });
+    expect(within(panel).getByRole('heading', { level: 2 })).toHaveFocus();
 
-      // Each row starts with what its line still waits for: a batch number and expiry are needed.
-      await userEvent.click(within(panel).getByRole('button', { name: 'Receive goods' }));
-      const numbers = within(panel).getAllByLabelText(/^Batch number of/);
-      await waitFor(() => expect(numbers[0]).toHaveFocus());
-      await expectNoAxeViolations(document.body);
+    // Each row starts with what its line still waits for: a batch number and expiry are needed.
+    await userEvent.click(within(panel).getByRole('button', { name: 'Receive goods' }));
+    const numbers = within(panel).getAllByLabelText(/^Batch number of/);
+    await waitFor(() => expect(numbers[0]).toHaveFocus());
+    await expectNoAxeViolations(document.body);
 
-      await userEvent.type(numbers[0] as HTMLElement, 'RX-101');
-      await userEvent.type(
-        within(panel).getAllByLabelText(/^Expiry date of/)[0] as HTMLElement,
-        '2030-06-30',
-      );
-      // The second item did not come.
-      await userEvent.clear(within(panel).getAllByLabelText(/^Units of/)[1] as HTMLElement);
-      await userEvent.type(within(panel).getByLabelText(/^Supplier’s invoice/), 'SPD/77');
-      await userEvent.click(within(panel).getByRole('button', { name: 'Receive goods' }));
+    await userEvent.type(numbers[0] as HTMLElement, 'RX-101');
+    await userEvent.type(
+      within(panel).getAllByLabelText(/^Expiry date of/)[0] as HTMLElement,
+      '2030-06-30',
+    );
+    // The second item did not come.
+    await userEvent.clear(within(panel).getAllByLabelText(/^Units of/)[1] as HTMLElement);
+    await userEvent.type(within(panel).getByLabelText(/^Supplier’s invoice/), 'SPD/77');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Receive goods' }));
 
-      await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(
-          'GRN-000001 received. The batches are in stock.',
-        ),
-      );
-      expect(orderOf('po_h_approved')?.status).toBe('partly_received');
-      expect(mockStock().ledger).toHaveLength(ledger + 1);
-      expect(mockStock().ledger.at(-1)).toMatchObject({
-        quantity: 200,
-        reason: 'receipt',
-        source: 'receipt',
-        batchNumber: 'RX-101',
-        actorName: 'Sample Admin',
-      });
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'GRN-000001 received. The batches are in stock.',
+      ),
+    );
+    expect(orderOf('po_h_approved')?.status).toBe('partly_received');
+    expect(mockStock().ledger).toHaveLength(ledger + 1);
+    expect(mockStock().ledger.at(-1)).toMatchObject({
+      quantity: 200,
+      reason: 'receipt',
+      source: 'receipt',
+      batchNumber: 'RX-101',
+      actorName: 'Sample Admin',
+    });
 
-      // The receipt, and units of it sent back to the supplier.
-      await userEvent.click(
-        await within(grid('Goods received')).findByRole('button', { name: /^Open/ }),
-      );
-      await screen.findByRole('heading', { name: 'Goods receipt GRN-000001', level: 1 });
-      // The supplier is in the hospital's state: the receipt's tax divides into CGST and SGST.
-      const receipt = mockPurchasing().receipts[0];
-      expect(receipt).toMatchObject({ supply: 'intra_state' });
-      expect((receipt?.cgstMinor ?? 0) + (receipt?.sgstMinor ?? 0)).toBe(receipt?.taxMinor);
-      expect(receipt?.totalWithTaxMinor).toBe(
-        (receipt?.totalMinor ?? 0) + (receipt?.taxMinor ?? 0),
-      );
-      expect(screen.getByText('CGST')).toBeInTheDocument();
-      expect(screen.getByText('SGST')).toBeInTheDocument();
-      expect(screen.queryByText('IGST')).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole('button', { name: 'Return to supplier' }));
-      const back = await screen.findByRole('region', {
-        name: 'Return to Sunrise Pharma Distributors',
-      });
-      await userEvent.type(within(back).getByLabelText(/^Units of .*RX-101/), '250');
-      await userEvent.click(within(back).getByRole('button', { name: 'Return to supplier' }));
-      expect(
-        await within(back).findByText('More than the receipt brought in and kept.'),
-      ).toBeInTheDocument();
-      const units = within(back).getByLabelText(/^Units of .*RX-101/);
-      await userEvent.clear(units);
-      await userEvent.type(units, '20');
-      await userEvent.click(within(back).getByRole('button', { name: 'Return to supplier' }));
-      await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent('PRN-000001 recorded.'),
-      );
-      expect(mockStock().ledger.at(-1)).toMatchObject({
-        quantity: -20,
-        reason: 'purchase_return',
-      });
-      expect(mockPurchasing().receipts[0]?.lines[0]?.returnedQuantity).toBe(20);
-    },
-  );
+    // The receipt, and units of it sent back to the supplier.
+    await userEvent.click(
+      await within(grid('Goods received')).findByRole('button', { name: /^Open/ }),
+    );
+    await screen.findByRole('heading', { name: 'Goods receipt GRN-000001', level: 1 });
+    // The supplier is in the hospital's state: the receipt's tax divides into CGST and SGST.
+    const receipt = mockPurchasing().receipts[0];
+    expect(receipt).toMatchObject({ supply: 'intra_state' });
+    expect((receipt?.cgstMinor ?? 0) + (receipt?.sgstMinor ?? 0)).toBe(receipt?.taxMinor);
+    expect(receipt?.totalWithTaxMinor).toBe((receipt?.totalMinor ?? 0) + (receipt?.taxMinor ?? 0));
+    expect(screen.getByText('CGST')).toBeInTheDocument();
+    expect(screen.getByText('SGST')).toBeInTheDocument();
+    expect(screen.queryByText('IGST')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Return to supplier' }));
+    const back = await screen.findByRole('region', {
+      name: 'Return to Sunrise Pharma Distributors',
+    });
+    await userEvent.type(within(back).getByLabelText(/^Units of .*RX-101/), '250');
+    await userEvent.click(within(back).getByRole('button', { name: 'Return to supplier' }));
+    expect(
+      await within(back).findByText('More than the receipt brought in and kept.'),
+    ).toBeInTheDocument();
+    const units = within(back).getByLabelText(/^Units of .*RX-101/);
+    await userEvent.clear(units);
+    await userEvent.type(units, '20');
+    await userEvent.click(within(back).getByRole('button', { name: 'Return to supplier' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('PRN-000001 recorded.'),
+    );
+    expect(mockStock().ledger.at(-1)).toMatchObject({
+      quantity: -20,
+      reason: 'purchase_return',
+    });
+    expect(mockPurchasing().receipts[0]?.lines[0]?.returnedQuantity).toBe(20);
+  });
 
   it('refuses an expired batch on the form', async () => {
     await open('/purchasing/orders/po_h_approved', 'Purchase order PO-000003');
@@ -265,33 +259,29 @@ describe('goods receipts', () => {
 });
 
 describe('changing a draft that someone else saved meanwhile', () => {
-  it(
-    'keeps what was typed, takes what they saved in the other fields, and saves again',
-    { timeout: 30_000 },
-    async () => {
-      await open('/purchasing/orders/po_h_draft/edit', 'Edit purchase order PO-000001');
-      const units = screen.getAllByLabelText(/^Units of/)[0] as HTMLElement;
-      await userEvent.clear(units);
-      await userEvent.type(units, '350');
-      // Someone else saves the draft with a note before this person does.
-      const order = orderOf('po_h_draft');
-      if (!order) throw new Error('no draft');
-      order.note = 'Urgent before month end';
-      order.version += 1;
+  it('keeps what was typed, takes what they saved in the other fields, and saves again', async () => {
+    await open('/purchasing/orders/po_h_draft/edit', 'Edit purchase order PO-000001');
+    const units = screen.getAllByLabelText(/^Units of/)[0] as HTMLElement;
+    await userEvent.clear(units);
+    await userEvent.type(units, '350');
+    // Someone else saves the draft with a note before this person does.
+    const order = orderOf('po_h_draft');
+    if (!order) throw new Error('no draft');
+    order.note = 'Urgent before month end';
+    order.version += 1;
 
-      await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-      expect(await screen.findByText(/Someone saved this order meanwhile/)).toBeInTheDocument();
-      await waitFor(() =>
-        expect(screen.getByLabelText(/^Note/)).toHaveValue('Urgent before month end'),
-      );
-      expect(screen.getAllByLabelText(/^Units of/)[0]).toHaveValue('350');
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(/Someone saved this order meanwhile/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Note/)).toHaveValue('Urgent before month end'),
+    );
+    expect(screen.getAllByLabelText(/^Units of/)[0]).toHaveValue('350');
 
-      await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-      await screen.findByRole('heading', { name: 'Purchase order PO-000001', level: 1 });
-      expect(orderOf('po_h_draft')).toMatchObject({ note: 'Urgent before month end', version: 3 });
-      expect(orderOf('po_h_draft')?.lines[0]?.quantity).toBe(350);
-    },
-  );
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByRole('heading', { name: 'Purchase order PO-000001', level: 1 });
+    expect(orderOf('po_h_draft')).toMatchObject({ note: 'Urgent before month end', version: 3 });
+    expect(orderOf('po_h_draft')?.lines[0]?.quantity).toBe(350);
+  });
 });
 
 describe('receiving, checked', () => {

@@ -30,7 +30,7 @@ async function mergeAndOpenHistory() {
 const undoButton = (scope: HTMLElement) =>
   within(scope).getByRole('button', { name: /Undo merge/ });
 
-describe('undoing a merge (#870)', { timeout: 30_000 }, () => {
+describe('undoing a merge (#870)', () => {
   it('undoes a merge with a reason and shows the result', async () => {
     const sent: Array<{ body: Record<string, unknown>; key: string | null }> = [];
     server.use(

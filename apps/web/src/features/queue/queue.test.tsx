@@ -307,7 +307,7 @@ describe('live updates', () => {
     token.status = 'skipped';
     token.version += 1;
 
-    await screen.findByText(LIVE, undefined, { timeout: 4_000 });
+    await screen.findByText(LIVE);
     await waitFor(() => expect(tokensIn('Waiting')).toHaveLength(5));
   });
 

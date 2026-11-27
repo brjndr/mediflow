@@ -32,7 +32,7 @@ describe('the doctor rounds list', () => {
     expect(
       await screen.findByRole('heading', { name: /Progress notes: Ravi Kumar/, level: 1 }),
     ).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('is unreachable without the permission or with the module off', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'progressNote:read');
@@ -83,7 +83,7 @@ describe('progress notes', () => {
     expect(versions[0]).toHaveTextContent('Version 2');
     expect(versions[0]).toHaveTextContent('Afebrile, discharge planned.');
     expect(versions[1]).toHaveTextContent('Afebrile, eating well.');
-  }, 40_000);
+  });
 
   it('refuses an empty note', async () => {
     await open();
@@ -109,7 +109,7 @@ describe('progress notes', () => {
       'true',
     );
     await expectNoAxeViolations();
-  }, 30_000);
+  });
 
   it('hides the form without the write permission', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'progressNote:write');

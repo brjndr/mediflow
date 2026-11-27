@@ -80,126 +80,108 @@ describe('the queue', () => {
 });
 
 describe('dispensing', () => {
-  it(
-    'gives the line in full from the batches nearest expiry, never an expired one',
-    { timeout: 20_000 },
-    async () => {
-      await openPrescription();
-      expect(screen.getByRole('combobox', { name: 'Dispense from' })).toHaveValue('loc_h_pharmacy');
-      expect(screen.getByText('Penicillin')).toBeInTheDocument();
-      const panel = await openPanel();
-      expect(within(panel).getByRole('heading', { level: 2 })).toHaveFocus();
-      // Nearest expiry first: the 4 of PCM24A, then 2 of PCM25B; the expired batch is not offered.
-      expect(batchField(panel, 'PCM24A')).toHaveValue('4');
-      expect(batchField(panel, 'PCM25B')).toHaveValue('2');
-      expect(within(panel).queryByRole('textbox', { name: /PCM23X/ })).toBeNull();
-      await expectNoAxeViolations(document.body);
+  it('gives the line in full from the batches nearest expiry, never an expired one', async () => {
+    await openPrescription();
+    expect(screen.getByRole('combobox', { name: 'Dispense from' })).toHaveValue('loc_h_pharmacy');
+    expect(screen.getByText('Penicillin')).toBeInTheDocument();
+    const panel = await openPanel();
+    expect(within(panel).getByRole('heading', { level: 2 })).toHaveFocus();
+    // Nearest expiry first: the 4 of PCM24A, then 2 of PCM25B; the expired batch is not offered.
+    expect(batchField(panel, 'PCM24A')).toHaveValue('4');
+    expect(batchField(panel, 'PCM25B')).toHaveValue('2');
+    expect(within(panel).queryByRole('textbox', { name: /PCM23X/ })).toBeNull();
+    await expectNoAxeViolations(document.body);
 
-      const ledger = mockStock().ledger.length;
-      await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
-      await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(
-          `6 units of ${PARACETAMOL} dispensed.`,
-        ),
-      );
-      expect(screen.getByRole('status')).toHaveFocus();
-      expect(mockDispenses().dispenses).toHaveLength(1);
-      expect(mockDispenses().dispenses[0]?.batches.map((each) => each.quantity)).toEqual([4, 2]);
-      expect(mockStock().ledger.slice(ledger)).toMatchObject([
-        { quantity: -4, reason: 'dispense', source: 'dispense' },
-        { quantity: -2, reason: 'dispense', source: 'dispense' },
-      ]);
-      expect(mockOrdersOf('enc_h_1').find((each) => each.id === 'ord_h_1')?.status).toBe(
-        'completed',
-      );
-      // Each batch it took from is charged to the visit at that batch's price (#538).
-      expect(
-        mockCharges().filter(
-          (each) => each.id.startsWith('chg_ev_') && each.encounterId === 'enc_h_1',
-        ),
-      ).toMatchObject([
-        { quantity: 4, status: 'pending' },
-        { quantity: 2, status: 'pending' },
-      ]);
-      const rows = within(grid('Medicines')).getAllByRole('row');
-      expect(rows.some((row) => /Paracetamol.*Dispensed/.test(row.textContent ?? ''))).toBe(true);
-      expect(
-        within(grid('Medicines')).getByRole('button', { name: `Dispense: ${PARACETAMOL}` }),
-      ).toHaveAttribute('aria-disabled', 'true');
-    },
-  );
+    const ledger = mockStock().ledger.length;
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(`6 units of ${PARACETAMOL} dispensed.`),
+    );
+    expect(screen.getByRole('status')).toHaveFocus();
+    expect(mockDispenses().dispenses).toHaveLength(1);
+    expect(mockDispenses().dispenses[0]?.batches.map((each) => each.quantity)).toEqual([4, 2]);
+    expect(mockStock().ledger.slice(ledger)).toMatchObject([
+      { quantity: -4, reason: 'dispense', source: 'dispense' },
+      { quantity: -2, reason: 'dispense', source: 'dispense' },
+    ]);
+    expect(mockOrdersOf('enc_h_1').find((each) => each.id === 'ord_h_1')?.status).toBe('completed');
+    // Each batch it took from is charged to the visit at that batch's price (#538).
+    expect(
+      mockCharges().filter(
+        (each) => each.id.startsWith('chg_ev_') && each.encounterId === 'enc_h_1',
+      ),
+    ).toMatchObject([
+      { quantity: 4, status: 'pending' },
+      { quantity: 2, status: 'pending' },
+    ]);
+    const rows = within(grid('Medicines')).getAllByRole('row');
+    expect(rows.some((row) => /Paracetamol.*Dispensed/.test(row.textContent ?? ''))).toBe(true);
+    expect(
+      within(grid('Medicines')).getByRole('button', { name: `Dispense: ${PARACETAMOL}` }),
+    ).toHaveAttribute('aria-disabled', 'true');
+  });
 
-  it(
-    'warns of a matching allergy and asks once before dispensing',
-    { timeout: 20_000 },
-    async () => {
-      editMockAllergies(HOSPITAL, 'pth_00001', [{ substance: 'Paracetamol', severity: 'severe' }]);
-      await openPrescription();
-      const panel = await openPanel();
-      expect(
-        within(panel).getByText(
-          `${PARACETAMOL} matches the patient’s recorded allergy: Paracetamol.`,
-        ),
-      ).toBeInTheDocument();
-      await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
-      const ask = await within(panel).findByRole('heading', {
-        name: 'Dispense with this allergy warning?',
-      });
-      expect(ask).toHaveFocus();
-      await userEvent.click(within(panel).getByRole('button', { name: 'Review' }));
-      expect(mockDispenses().dispenses).toHaveLength(0);
-      await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
-      await userEvent.click(await within(panel).findByRole('button', { name: 'Dispense anyway' }));
-      await waitFor(() => expect(mockDispenses().dispenses).toHaveLength(1));
-    },
-  );
+  it('warns of a matching allergy and asks once before dispensing', async () => {
+    editMockAllergies(HOSPITAL, 'pth_00001', [{ substance: 'Paracetamol', severity: 'severe' }]);
+    await openPrescription();
+    const panel = await openPanel();
+    expect(
+      within(panel).getByText(
+        `${PARACETAMOL} matches the patient’s recorded allergy: Paracetamol.`,
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
+    const ask = await within(panel).findByRole('heading', {
+      name: 'Dispense with this allergy warning?',
+    });
+    expect(ask).toHaveFocus();
+    await userEvent.click(within(panel).getByRole('button', { name: 'Review' }));
+    expect(mockDispenses().dispenses).toHaveLength(0);
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
+    await userEvent.click(await within(panel).findByRole('button', { name: 'Dispense anyway' }));
+    await waitFor(() => expect(mockDispenses().dispenses).toHaveLength(1));
+  });
 
-  it(
-    'gives a generic substitute in part with a reason, then completes the line',
-    { timeout: 20_000 },
-    async () => {
-      await openPrescription();
-      const panel = await openPanel();
-      await userEvent.selectOptions(
-        within(panel).getByRole('combobox', { name: /^Give/ }),
-        within(panel).getByRole('option', { name: /ParaMed\), generic substitute/ }),
-      );
-      expect(batchField(panel, 'PMD25C')).toHaveValue('6');
-      await userEvent.clear(batchField(panel, 'PMD25C'));
-      await userEvent.type(batchField(panel, 'PMD25C'), '2');
-      await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
-      expect(await within(panel).findByText('Say why a substitute is given.')).toBeInTheDocument();
-      expect(within(panel).getByRole('textbox', { name: /^Why a substitute/ })).toHaveFocus();
-      await userEvent.type(
-        within(panel).getByRole('textbox', { name: /^Why a substitute/ }),
-        'ParaCare short',
-      );
-      await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
-      await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(/2 units of Paracetamol .*ParaMed/),
-      );
-      expect(mockDispenses().dispenses[0]).toMatchObject({
-        drugId: 'drg_h_2574',
-        prescribedDrugId: 'drg_h_2573',
-        substitutionReason: 'ParaCare short',
-      });
-      expect(screen.getByText('Generic substitute: ParaCare short')).toBeInTheDocument();
+  it('gives a generic substitute in part with a reason, then completes the line', async () => {
+    await openPrescription();
+    const panel = await openPanel();
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: /^Give/ }),
+      within(panel).getByRole('option', { name: /ParaMed\), generic substitute/ }),
+    );
+    expect(batchField(panel, 'PMD25C')).toHaveValue('6');
+    await userEvent.clear(batchField(panel, 'PMD25C'));
+    await userEvent.type(batchField(panel, 'PMD25C'), '2');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
+    expect(await within(panel).findByText('Say why a substitute is given.')).toBeInTheDocument();
+    expect(within(panel).getByRole('textbox', { name: /^Why a substitute/ })).toHaveFocus();
+    await userEvent.type(
+      within(panel).getByRole('textbox', { name: /^Why a substitute/ }),
+      'ParaCare short',
+    );
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(/2 units of Paracetamol .*ParaMed/),
+    );
+    expect(mockDispenses().dispenses[0]).toMatchObject({
+      drugId: 'drg_h_2574',
+      prescribedDrugId: 'drg_h_2573',
+      substitutionReason: 'ParaCare short',
+    });
+    expect(screen.getByText('Generic substitute: ParaCare short')).toBeInTheDocument();
 
-      await userEvent.click(
-        await within(grid('Medicines')).findByRole('button', {
-          name: `Mark complete: ${PARACETAMOL}`,
-        }),
-      );
-      await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(`${PARACETAMOL} marked complete`),
-      );
-      expect(mockOrdersOf('enc_h_1').find((each) => each.id === 'ord_h_1')?.status).toBe(
-        'completed',
-      );
-    },
-  );
+    await userEvent.click(
+      await within(grid('Medicines')).findByRole('button', {
+        name: `Mark complete: ${PARACETAMOL}`,
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(`${PARACETAMOL} marked complete`),
+    );
+    expect(mockOrdersOf('enc_h_1').find((each) => each.id === 'ord_h_1')?.status).toBe('completed');
+  });
 
-  it('refuses nothing to give and more than is left', { timeout: 20_000 }, async () => {
+  it('refuses nothing to give and more than is left', async () => {
     await openPrescription();
     const panel = await openPanel();
     await userEvent.clear(batchField(panel, 'PCM24A'));
@@ -220,25 +202,21 @@ describe('dispensing', () => {
     expect(mockDispenses().dispenses).toHaveLength(0);
   });
 
-  it(
-    'says a refusal in the panel and sends nothing more after it',
-    { timeout: 20_000 },
-    async () => {
-      await openPrescription();
-      const panel = await openPanel();
-      // Another counter moves the line on behind the screen.
-      moveMockOrder('ord_h_1', 'accepted');
-      await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
-      const alert = await within(panel).findByRole('alert');
-      expect(alert).toHaveTextContent('This line changed meanwhile');
-      expect(alert).toHaveFocus();
-      expect(within(panel).queryByRole('button', { name: 'Dispense' })).toBeNull();
-      expect(mockDispenses().dispenses).toHaveLength(0);
-      await userEvent.click(within(panel).getByRole('button', { name: 'Close' }));
-    },
-  );
+  it('says a refusal in the panel and sends nothing more after it', async () => {
+    await openPrescription();
+    const panel = await openPanel();
+    // Another counter moves the line on behind the screen.
+    moveMockOrder('ord_h_1', 'accepted');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));
+    const alert = await within(panel).findByRole('alert');
+    expect(alert).toHaveTextContent('This line changed meanwhile');
+    expect(alert).toHaveFocus();
+    expect(within(panel).queryByRole('button', { name: 'Dispense' })).toBeNull();
+    expect(mockDispenses().dispenses).toHaveLength(0);
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }));
+  });
 
-  it('records the slip as printed, then prints it', { timeout: 20_000 }, async () => {
+  it('records the slip as printed, then prints it', async () => {
     await openPrescription();
     const panel = await openPanel('Cetirizine 10 mg (CetiCare)');
     await userEvent.click(within(panel).getByRole('button', { name: 'Dispense' }));

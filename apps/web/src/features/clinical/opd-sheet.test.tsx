@@ -20,15 +20,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('printing the OPD sheet of a token', { timeout: 20000 }, () => {
+describe('printing the OPD sheet of a token', () => {
   it('records the print, then prints the patient, token and blank spaces', async () => {
     renderApp({ entry: '/queue' });
-    const [button] = await screen.findAllByRole('button', { name: NAME }, { timeout: 8000 });
+    const [button] = await screen.findAllByRole('button', { name: NAME });
     expect(mockPrints()).toHaveLength(0);
     await expectNoAxeViolations();
     await userEvent.click(button!);
 
-    await waitFor(() => expect(window.print).toHaveBeenCalled(), { timeout: 8000 });
+    await waitFor(() => expect(window.print).toHaveBeenCalled());
     expect(mockPrints()).toEqual([expect.objectContaining({ entity: 'queue_token' })]);
     const sheet = within(document.body);
     expect(sheet.getByText('OPD sheet')).toBeInTheDocument();
@@ -39,9 +39,9 @@ describe('printing the OPD sheet of a token', { timeout: 20000 }, () => {
     revokePermission(HOSPITAL, 'admin', 'vitals:read');
     revokePermission(HOSPITAL, 'admin', 'allergy:read');
     renderApp({ entry: '/queue' });
-    const [button] = await screen.findAllByRole('button', { name: NAME }, { timeout: 8000 });
+    const [button] = await screen.findAllByRole('button', { name: NAME });
     await userEvent.click(button!);
-    await waitFor(() => expect(window.print).toHaveBeenCalled(), { timeout: 8000 });
+    await waitFor(() => expect(window.print).toHaveBeenCalled());
     expect(within(document.body).getByText('Blood pressure')).toBeInTheDocument();
     expect(within(document.body).getByText('Allergies')).toBeInTheDocument();
   });
@@ -54,9 +54,9 @@ describe('printing the OPD sheet of a token', { timeout: 20000 }, () => {
       ),
     );
     renderApp({ entry: '/queue' });
-    const [button] = await screen.findAllByRole('button', { name: NAME }, { timeout: 8000 });
+    const [button] = await screen.findAllByRole('button', { name: NAME });
     await userEvent.click(button!);
-    await waitFor(() => expect(window.print).toHaveBeenCalled(), { timeout: 15000 });
+    await waitFor(() => expect(window.print).toHaveBeenCalled());
     expect(within(document.body).getByText(/Allergies could not be read/)).toBeInTheDocument();
   });
 
@@ -70,24 +70,24 @@ describe('printing the OPD sheet of a token', { timeout: 20000 }, () => {
       ),
     );
     renderApp({ entry: '/queue' });
-    const [button] = await screen.findAllByRole('button', { name: NAME }, { timeout: 8000 });
+    const [button] = await screen.findAllByRole('button', { name: NAME });
     await userEvent.click(button!);
-    expect(await screen.findByRole('alert', {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(window.print).not.toHaveBeenCalled();
   });
 
   it('is not offered without opdSheet:print', async () => {
     revokePermission(HOSPITAL, 'admin', 'opdSheet:print');
     renderApp({ entry: '/queue' });
-    await screen.findByRole('heading', { level: 1 }, { timeout: 8000 });
-    await screen.findAllByRole('row', {}, { timeout: 8000 });
+    await screen.findByRole('heading', { level: 1 });
+    await screen.findAllByRole('row');
     expect(screen.queryByRole('button', { name: NAME })).toBeNull();
   });
 
   it('is gone with the clinical module off', async () => {
     setTenantFeature(HOSPITAL, 'clinical', false);
     renderApp({ entry: '/queue' });
-    await screen.findAllByRole('row', {}, { timeout: 8000 });
+    await screen.findAllByRole('row');
     expect(screen.queryByRole('button', { name: NAME })).toBeNull();
   });
 });

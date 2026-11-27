@@ -31,34 +31,30 @@ async function open(path: string, heading: string) {
 }
 
 describe('the stock', () => {
-  it(
-    'lists each item with its batches by place, the low ones and those expiring',
-    { timeout: 20_000 },
-    async () => {
-      await open('/inventory', 'Stock');
-      expect(
-        await within(grid('Stock')).findByText(/SB001A, expires .*, Main store: 15/),
-      ).toBeInTheDocument();
-      expect(
-        within(grid('Stock')).getByText(/SB003A, expiring .*, Main store: 300/),
-      ).toBeInTheDocument();
-      expect(within(grid('Stock')).getAllByText('Low').length).toBeGreaterThan(0);
-      expect(screen.getByRole('navigation', { name: 'Inventory' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Stock' })).toHaveAttribute('aria-current', 'page');
-      await expectNoAxeViolations(document.body);
+  it('lists each item with its batches by place, the low ones and those expiring', async () => {
+    await open('/inventory', 'Stock');
+    expect(
+      await within(grid('Stock')).findByText(/SB001A, expires .*, Main store: 15/),
+    ).toBeInTheDocument();
+    expect(
+      within(grid('Stock')).getByText(/SB003A, expiring .*, Main store: 300/),
+    ).toBeInTheDocument();
+    expect(within(grid('Stock')).getAllByText('Low').length).toBeGreaterThan(0);
+    expect(screen.getByRole('navigation', { name: 'Inventory' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Stock' })).toHaveAttribute('aria-current', 'page');
+    await expectNoAxeViolations(document.body);
 
-      // The alert narrows the list on the server.
-      await userEvent.click(await screen.findByRole('button', { name: /items? expiring$/ }));
-      expect(screen.getByRole('button', { name: /items? expiring$/ })).toHaveAttribute(
-        'aria-pressed',
-        'true',
-      );
-      expect(await screen.findByText('1 item.')).toBeInTheDocument();
-      expect(within(grid('Stock')).getByText(/SB003A/)).toBeInTheDocument();
-    },
-  );
+    // The alert narrows the list on the server.
+    await userEvent.click(await screen.findByRole('button', { name: /items? expiring$/ }));
+    expect(screen.getByRole('button', { name: /items? expiring$/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(await screen.findByText('1 item.')).toBeInTheDocument();
+    expect(within(grid('Stock')).getByText(/SB003A/)).toBeInTheDocument();
+  });
 
-  it('shows the stock of one place', { timeout: 20_000 }, async () => {
+  it('shows the stock of one place', async () => {
     await open('/inventory', 'Stock');
     await within(grid('Stock')).findByText(/SB001A/);
     await userEvent.selectOptions(
@@ -120,138 +116,126 @@ describe('adjustments', () => {
     ).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it(
-    'writes off an expired batch: all its units out, waiting for approval',
-    { timeout: 20_000 },
-    async () => {
-      // The pharmacy counter holds 20 units of an expired paracetamol batch, PCM23X.
-      await open('/inventory', 'Stock');
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Show' }), 'Expired');
-      const writeOff = await within(grid('Stock')).findByRole('button', {
-        name: /^Write off expired: Paracetamol 500 mg.*ParaCare/,
-      });
-      await userEvent.click(writeOff);
-      const panel = await screen.findByRole('region', { name: 'New stock adjustment' });
-      expect(within(panel).getByRole('combobox', { name: /^Place/ })).toHaveValue('loc_h_pharmacy');
-      expect(within(panel).getByRole('combobox', { name: /^Reason/ })).toHaveValue('expired');
-      await waitFor(() =>
-        expect(within(panel).getByRole('combobox', { name: /^Batch/ })).toHaveValue('bat_h_rx3'),
-      );
-      expect(within(panel).getByLabelText(/^Units/)).toHaveValue('20');
-      await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
-      await waitFor(() => expect(mockStock().adjustments.at(-1)?.status).toBe('pending'));
-      expect(mockStock().adjustments.at(-1)).toMatchObject({
-        batchId: 'bat_h_rx3',
-        quantity: -20,
-        reason: 'expired',
-      });
-    },
-  );
+  it('writes off an expired batch: all its units out, waiting for approval', async () => {
+    // The pharmacy counter holds 20 units of an expired paracetamol batch, PCM23X.
+    await open('/inventory', 'Stock');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Show' }), 'Expired');
+    const writeOff = await within(grid('Stock')).findByRole('button', {
+      name: /^Write off expired: Paracetamol 500 mg.*ParaCare/,
+    });
+    await userEvent.click(writeOff);
+    const panel = await screen.findByRole('region', { name: 'New stock adjustment' });
+    expect(within(panel).getByRole('combobox', { name: /^Place/ })).toHaveValue('loc_h_pharmacy');
+    expect(within(panel).getByRole('combobox', { name: /^Reason/ })).toHaveValue('expired');
+    await waitFor(() =>
+      expect(within(panel).getByRole('combobox', { name: /^Batch/ })).toHaveValue('bat_h_rx3'),
+    );
+    expect(within(panel).getByLabelText(/^Units/)).toHaveValue('20');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
+    await waitFor(() => expect(mockStock().adjustments.at(-1)?.status).toBe('pending'));
+    expect(mockStock().adjustments.at(-1)).toMatchObject({
+      batchId: 'bat_h_rx3',
+      quantity: -20,
+      reason: 'expired',
+    });
+  });
 
-  it(
-    'asks for opening stock of a new batch, which waits for approval',
-    { timeout: 20_000 },
-    async () => {
-      signIn(USER_IDS.storeKeeper, HOSPITAL);
-      await open('/inventory/adjustments', 'Stock adjustments');
-      await userEvent.click(screen.getByRole('button', { name: 'New adjustment' }));
-      const panel = await screen.findByRole('region', { name: 'New stock adjustment' });
-      expect(within(panel).getByRole('heading', { level: 2 })).toHaveFocus();
+  it('asks for opening stock of a new batch, which waits for approval', async () => {
+    signIn(USER_IDS.storeKeeper, HOSPITAL);
+    await open('/inventory/adjustments', 'Stock adjustments');
+    await userEvent.click(screen.getByRole('button', { name: 'New adjustment' }));
+    const panel = await screen.findByRole('region', { name: 'New stock adjustment' });
+    expect(within(panel).getByRole('heading', { level: 2 })).toHaveFocus();
 
-      // Nothing chosen: each field says what it needs, and focus goes to the first.
-      await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
-      expect(await within(panel).findByText('Choose an item.')).toBeInTheDocument();
-      expect(within(panel).getByRole('combobox', { name: 'Item' })).toHaveFocus();
-      await expectNoAxeViolations(document.body);
+    // Nothing chosen: each field says what it needs, and focus goes to the first.
+    await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
+    expect(await within(panel).findByText('Choose an item.')).toBeInTheDocument();
+    expect(within(panel).getByRole('combobox', { name: 'Item' })).toHaveFocus();
+    await expectNoAxeViolations(document.body);
 
-      await userEvent.selectOptions(
-        within(panel).getByRole('combobox', { name: /^Place/ }),
-        'Main store',
-      );
-      await userEvent.type(within(panel).getByRole('combobox', { name: 'Item' }), 'gloves');
-      await userEvent.click(
-        await within(panel).findByRole('option', { name: /^Examination gloves/ }),
-      );
-      expect(within(panel).getByRole('button', { name: 'Change' })).toHaveFocus();
-      await userEvent.selectOptions(
-        within(panel).getByRole('combobox', { name: /^Reason/ }),
-        'Opening stock',
-      );
-      expect(within(panel).getByText('This reason brings stock in.')).toBeInTheDocument();
-      await userEvent.selectOptions(
-        within(panel).getByRole('combobox', { name: /^Batch/ }),
-        'A new batch',
-      );
-      await userEvent.type(within(panel).getByLabelText(/^Batch number/), 'GL-77');
-      await userEvent.type(within(panel).getByLabelText(/^Expiry date/), '2028-03-31');
-      await userEvent.type(within(panel).getByLabelText(/^Maximum retail price/), '12,50');
-      await userEvent.type(within(panel).getByLabelText(/^Units/), '200');
-      await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
-      // A comma is grouping, never a decimal point.
-      expect(await within(panel).findByText('Enter an amount such as 125.50.')).toBeInTheDocument();
-      await userEvent.clear(within(panel).getByLabelText(/^Maximum retail price/));
-      await userEvent.type(within(panel).getByLabelText(/^Maximum retail price/), '12.50');
-      await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: /^Place/ }),
+      'Main store',
+    );
+    await userEvent.type(within(panel).getByRole('combobox', { name: 'Item' }), 'gloves');
+    await userEvent.click(
+      await within(panel).findByRole('option', { name: /^Examination gloves/ }),
+    );
+    expect(within(panel).getByRole('button', { name: 'Change' })).toHaveFocus();
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: /^Reason/ }),
+      'Opening stock',
+    );
+    expect(within(panel).getByText('This reason brings stock in.')).toBeInTheDocument();
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: /^Batch/ }),
+      'A new batch',
+    );
+    await userEvent.type(within(panel).getByLabelText(/^Batch number/), 'GL-77');
+    await userEvent.type(within(panel).getByLabelText(/^Expiry date/), '2028-03-31');
+    await userEvent.type(within(panel).getByLabelText(/^Maximum retail price/), '12,50');
+    await userEvent.type(within(panel).getByLabelText(/^Units/), '200');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
+    // A comma is grouping, never a decimal point.
+    expect(await within(panel).findByText('Enter an amount such as 125.50.')).toBeInTheDocument();
+    await userEvent.clear(within(panel).getByLabelText(/^Maximum retail price/));
+    await userEvent.type(within(panel).getByLabelText(/^Maximum retail price/), '12.50');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
 
-      await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(
-          /Asked for 200 units of Examination gloves.* at Main store\. It waits for approval\./,
-        ),
-      );
-      expect(screen.queryByRole('region', { name: 'New stock adjustment' })).toBeNull();
-      const asked = mockStock().adjustments.at(-1);
-      expect(asked).toMatchObject({
-        batchNumber: 'GL-77',
-        expiryDate: '2028-03-31',
-        mrpMinor: 1250,
-        quantity: 200,
-        reason: 'opening',
-        status: 'pending',
-        requestedByName: 'Sample Store Keeper',
-      });
-      expect(
-        await within(grid('Stock adjustments')).findByText(/New batch GL-77/),
-      ).toBeInTheDocument();
-    },
-  );
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        /Asked for 200 units of Examination gloves.* at Main store\. It waits for approval\./,
+      ),
+    );
+    expect(screen.queryByRole('region', { name: 'New stock adjustment' })).toBeNull();
+    const asked = mockStock().adjustments.at(-1);
+    expect(asked).toMatchObject({
+      batchNumber: 'GL-77',
+      expiryDate: '2028-03-31',
+      mrpMinor: 1250,
+      quantity: 200,
+      reason: 'opening',
+      status: 'pending',
+      requestedByName: 'Sample Store Keeper',
+    });
+    expect(
+      await within(grid('Stock adjustments')).findByText(/New batch GL-77/),
+    ).toBeInTheDocument();
+  });
 
-  it(
-    'takes stock out of a batch, and says when there is not that much',
-    { timeout: 20_000 },
-    async () => {
-      await open('/inventory/adjustments', 'Stock adjustments');
-      await userEvent.click(screen.getByRole('button', { name: 'New adjustment' }));
-      const panel = await screen.findByRole('region', { name: 'New stock adjustment' });
-      await userEvent.selectOptions(
-        within(panel).getByRole('combobox', { name: /^Place/ }),
-        'Pharmacy counter',
-      );
-      // The brand of the first items, all of which have stock.
-      const brand = mockStock().ledger[0]?.item.brandName ?? '';
-      await userEvent.type(within(panel).getByRole('combobox', { name: 'Item' }), brand);
-      const found = await within(panel).findByRole('listbox');
-      await userEvent.click(within(found).getAllByRole('option')[0] as HTMLElement);
-      await userEvent.selectOptions(
-        within(panel).getByRole('combobox', { name: /^Reason/ }),
-        'Damaged',
-      );
-      expect(within(panel).getByText('This reason takes stock out.')).toBeInTheDocument();
-      const batch = within(panel).getByRole('combobox', { name: /^Batch/ });
-      await waitFor(() => expect(within(batch).getAllByRole('option').length).toBeGreaterThan(1));
-      // A new batch is offered for opening stock only.
-      expect(within(batch).queryByRole('option', { name: 'A new batch' })).toBeNull();
-      await userEvent.selectOptions(
-        batch,
-        within(batch).getAllByRole('option')[1] as HTMLOptionElement,
-      );
-      await userEvent.type(within(panel).getByLabelText(/^Units/), '999999');
-      await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
-      const alert = await within(panel).findByRole('alert');
-      expect(alert).toHaveTextContent('The batch has fewer units at that place than that.');
-      // Announced; focus stays on the button, to send again once the number is changed.
-      expect(within(panel).getByRole('button', { name: 'Ask for approval' })).toHaveFocus();
-    },
-  );
+  it('takes stock out of a batch, and says when there is not that much', async () => {
+    await open('/inventory/adjustments', 'Stock adjustments');
+    await userEvent.click(screen.getByRole('button', { name: 'New adjustment' }));
+    const panel = await screen.findByRole('region', { name: 'New stock adjustment' });
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: /^Place/ }),
+      'Pharmacy counter',
+    );
+    // The brand of the first items, all of which have stock.
+    const brand = mockStock().ledger[0]?.item.brandName ?? '';
+    await userEvent.type(within(panel).getByRole('combobox', { name: 'Item' }), brand);
+    const found = await within(panel).findByRole('listbox');
+    await userEvent.click(within(found).getAllByRole('option')[0] as HTMLElement);
+    await userEvent.selectOptions(
+      within(panel).getByRole('combobox', { name: /^Reason/ }),
+      'Damaged',
+    );
+    expect(within(panel).getByText('This reason takes stock out.')).toBeInTheDocument();
+    const batch = within(panel).getByRole('combobox', { name: /^Batch/ });
+    await waitFor(() => expect(within(batch).getAllByRole('option').length).toBeGreaterThan(1));
+    // A new batch is offered for opening stock only.
+    expect(within(batch).queryByRole('option', { name: 'A new batch' })).toBeNull();
+    await userEvent.selectOptions(
+      batch,
+      within(batch).getAllByRole('option')[1] as HTMLOptionElement,
+    );
+    await userEvent.type(within(panel).getByLabelText(/^Units/), '999999');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Ask for approval' }));
+    const alert = await within(panel).findByRole('alert');
+    expect(alert).toHaveTextContent('The batch has fewer units at that place than that.');
+    // Announced; focus stays on the button, to send again once the number is changed.
+    expect(within(panel).getByRole('button', { name: 'Ask for approval' })).toHaveFocus();
+  });
 
   it('rejects one with a note saying why', async () => {
     await open('/inventory/adjustments', 'Stock adjustments');

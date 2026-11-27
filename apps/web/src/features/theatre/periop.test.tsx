@@ -17,7 +17,7 @@ const openDialog = async () => {
   renderApp({ entry: '/theatre' });
   await screen.findByRole('heading', { name: 'Operation theatre', level: 1 });
   fireEvent.change(screen.getByLabelText('Day'), { target: { value: SEEDED_DAY } });
-  await waitFor(() => expect(seededRow()).toBeDefined(), { timeout: 10_000 });
+  await waitFor(() => expect(seededRow()).toBeDefined());
   await userEvent.click(
     within(seededRow() as HTMLElement).getByRole('button', { name: /Checklist and anaesthesia/ }),
   );
@@ -50,7 +50,7 @@ describe('pre-operative checklist and anaesthesia record', () => {
     await waitFor(() =>
       expect(mark('Known allergies checked')).not.toHaveAttribute('aria-disabled'),
     );
-  }, 40_000);
+  });
 
   it('records fitness and asks for a choice first', async () => {
     const dialog = await openDialog();
@@ -64,7 +64,7 @@ describe('pre-operative checklist and anaesthesia record', () => {
     await waitFor(() =>
       expect(within(dialog).getByText(/Assessed as Fit with conditions by/)).toBeInTheDocument(),
     );
-  }, 30_000);
+  });
 
   it('saves an anaesthesia draft, signs it once and then shows it read-only', async () => {
     const dialog = await openDialog();
@@ -87,7 +87,7 @@ describe('pre-operative checklist and anaesthesia record', () => {
     expect(await within(dialog).findByText('Bupivacaine 15 mg')).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Sign record' })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Save draft' })).not.toBeInTheDocument();
-  }, 40_000);
+  });
 
   it('shows the record read-only without surgery:perform', async () => {
     revokePermission(TENANT_IDS.hospital, 'admin', 'surgery:perform');
@@ -100,5 +100,5 @@ describe('pre-operative checklist and anaesthesia record', () => {
       within(dialog).queryByRole('button', { name: 'Save assessment' }),
     ).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Save draft' })).not.toBeInTheDocument();
-  }, 30_000);
+  });
 });

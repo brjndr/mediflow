@@ -109,7 +109,7 @@ describe('starting a consultation', () => {
     dropMockQueueStreams(HOSPITAL);
     await userEvent.click(start);
 
-    await screen.findByRole('heading', CONSULTATION, { timeout: 10_000 });
+    await screen.findByRole('heading', CONSULTATION);
     const encounterPath = app.router.state.location.pathname;
     expect(encounterPath).toMatch(/^\/encounters\/enc_mock_\d+$/);
     await waitFor(() => expect(opens).toHaveLength(1));
@@ -124,7 +124,7 @@ describe('starting a consultation', () => {
 
     expect(mockEncounter(encounterPath.split('/').at(-1) ?? '')?.queueTokenId).toBe(CALLED_TOKEN);
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('opens the encounter from today’s appointment, and finds it again the next time', async () => {
     const opens = watchOpens();
@@ -200,44 +200,38 @@ describe('the consultation', () => {
     await expectNoAxeViolations();
   });
 
-  it(
-    'keeps a draft on the server as it is written, never in browser storage, then signs it',
-    { timeout: 15_000 },
-    async () => {
-      await openConsultation();
-      const editor = await writeDraft('Improving on fluids.');
-      // The new draft's heading took focus when it opened; the editor has it now.
-      expect(editor).toHaveFocus();
+  it('keeps a draft on the server as it is written, never in browser storage, then signs it', async () => {
+    await openConsultation();
+    const editor = await writeDraft('Improving on fluids.');
+    // The new draft's heading took focus when it opened; the editor has it now.
+    expect(editor).toHaveFocus();
 
-      // Leaving the editor saves at once.
-      await userEvent.tab();
-      await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual(['Improving on fluids.']));
-      expect(await screen.findByText(/^Draft saved at /)).toBeInTheDocument();
-      expect(window.localStorage).toHaveLength(0);
-      expect(window.sessionStorage).toHaveLength(0);
+    // Leaving the editor saves at once.
+    await userEvent.tab();
+    await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual(['Improving on fluids.']));
+    expect(await screen.findByText(/^Draft saved at /)).toBeInTheDocument();
+    expect(window.localStorage).toHaveLength(0);
+    expect(window.sessionStorage).toHaveLength(0);
 
-      // More typing is saved over the same draft, after a pause.
-      await userEvent.click(editor);
-      await userEvent.keyboard(' Review tomorrow.');
-      // What the editor holds, wherever jsdom put the cursor.
-      const typed = editorText(editor);
-      expect(typed).toContain('Review tomorrow.');
-      await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual([typed]), {
-        timeout: 4000,
-      });
-      expect(mockNotesOf('enc_h_1').filter((note) => note.status === 'draft')).toHaveLength(1);
+    // More typing is saved over the same draft, after a pause.
+    await userEvent.click(editor);
+    await userEvent.keyboard(' Review tomorrow.');
+    // What the editor holds, wherever jsdom put the cursor.
+    const typed = editorText(editor);
+    expect(typed).toContain('Review tomorrow.');
+    await waitFor(() => expect(noteText('enc_h_1', 'draft')).toEqual([typed]));
+    expect(mockNotesOf('enc_h_1').filter((note) => note.status === 'draft')).toHaveLength(1);
 
-      await userEvent.click(screen.getByRole('button', { name: 'Sign note' }));
-      const status = await screen.findByText('Note signed.');
-      expect(status).toHaveAttribute('role', 'status');
-      await waitFor(() => expect(status).toHaveFocus());
-      expect(noteText('enc_h_1', 'draft')).toEqual([]);
-      expect(noteText('enc_h_1', 'signed')).toContain(typed);
-      expect(await screen.findByText(/Review tomorrow\./)).toBeInTheDocument();
-      expect(window.localStorage).toHaveLength(0);
-      expect(window.sessionStorage).toHaveLength(0);
-    },
-  );
+    await userEvent.click(screen.getByRole('button', { name: 'Sign note' }));
+    const status = await screen.findByText('Note signed.');
+    expect(status).toHaveAttribute('role', 'status');
+    await waitFor(() => expect(status).toHaveFocus());
+    expect(noteText('enc_h_1', 'draft')).toEqual([]);
+    expect(noteText('enc_h_1', 'signed')).toContain(typed);
+    expect(await screen.findByText(/Review tomorrow\./)).toBeInTheDocument();
+    expect(window.localStorage).toHaveLength(0);
+    expect(window.sessionStorage).toHaveLength(0);
+  });
 
   it('pauses saving when the draft was saved from another window, and keeps the text chosen', async () => {
     await openConsultation();

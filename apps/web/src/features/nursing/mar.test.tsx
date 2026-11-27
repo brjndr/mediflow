@@ -96,7 +96,7 @@ describe('the medication chart', () => {
     const history = await screen.findByRole('table', HISTORY);
     expect(await within(history).findByText('500 mg oral')).toBeInTheDocument();
     expect(within(await screen.findByRole('table', SCHEDULE)).getAllByText('Given').length).toBe(1);
-  }, 30_000);
+  });
 
   it('asks for a reason when a dose is withheld', async () => {
     const row = await firstRow();
@@ -113,7 +113,7 @@ describe('the medication chart', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Dose charted.'));
     const history = await screen.findByRole('table', HISTORY);
     expect(await within(history).findByText('Withheld: Nil by mouth')).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('asks for a reason when the dose differs from the order', async () => {
     const row = await firstRow();
@@ -127,7 +127,7 @@ describe('the medication chart', () => {
     expect(
       await within(dialog).findByText('The dose is not the ordered one. Say why.'),
     ).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('warns about an allergy and wants it confirmed', async () => {
     // The sample patient pth_00001 has a penicillin allergy on record.
@@ -154,7 +154,7 @@ describe('the medication chart', () => {
     await userEvent.click(within(dialog).getByRole('checkbox', { name: /checked the allergy/ }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Chart dose' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Dose charted.'));
-  }, 30_000);
+  });
 
   it('never edits an entry: amending adds a new one and keeps the old', async () => {
     const grid = await openChart();
@@ -194,7 +194,7 @@ describe('the medication chart', () => {
     expect(
       within(history).getByText(/Refused by the patient: Charted by mistake/),
     ).toBeInTheDocument();
-  }, 40_000);
+  });
 
   it('lists an as-needed order without a time', async () => {
     addMockMarOrder({
@@ -231,7 +231,7 @@ describe('the medication chart', () => {
     expect(
       await within(dialog).findByText('Confirm that you have checked the allergy.'),
     ).toBeInTheDocument();
-  }, 30_000);
+  });
 
   it('shows the orders of this hospital only', async () => {
     addMockMarOrder({

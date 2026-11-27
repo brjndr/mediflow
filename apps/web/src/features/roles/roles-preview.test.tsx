@@ -7,8 +7,6 @@ import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { box } from './matrix-test-utils';
 
-vi.setConfig({ testTimeout: 30_000 });
-
 const openMatrix = async () => {
   const app = renderApp({ entry: '/roles/doctor' });
   await screen.findByRole('heading', { name: 'Permissions of Doctor', level: 1 });

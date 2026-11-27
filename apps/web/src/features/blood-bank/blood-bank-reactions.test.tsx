@@ -49,7 +49,7 @@ describe('the reactions list', () => {
 
     await userEvent.click(within(grid()).getByRole('button', { name: /Open trace/ }));
     expect(await screen.findByRole('dialog', { name: 'Trace of unit BU-0003' })).toBeVisible();
-  }, 30_000);
+  });
 
   it('says so when nothing was reported', async () => {
     await openReactions();

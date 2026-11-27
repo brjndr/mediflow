@@ -97,7 +97,7 @@ describe('refunding a payment', () => {
     // 180.00 is still held by the payment.
     await waitFor(() => expect(amountField()).toHaveValue('180.00'));
     await expectNoAxeViolations(document.body);
-  }, 20000);
+  });
 
   it('lets the invoice take a credit note for the money refunded', async () => {
     await openPaid();

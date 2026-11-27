@@ -36,7 +36,7 @@ const open = async () => {
   renderApp({ entry: '/theatre' });
   await screen.findByRole('heading', HEADING);
   fireEvent.change(screen.getByLabelText('Day'), { target: { value: SEEDED_DAY } });
-  await waitFor(() => expect(seededRow()).toBeDefined(), { timeout: 10_000 });
+  await waitFor(() => expect(seededRow()).toBeDefined());
 };
 
 const fillBooking = async (theatre: string, surgeon: string, start = '09:30', end = '11:00') => {
@@ -53,22 +53,18 @@ describe('operation theatre', () => {
   it('lists the day of surgeries and the theatres', async () => {
     await open();
     // The row can be redrawn when the theatres' names arrive, so look it up again on each try.
-    await waitFor(
-      () => {
-        const row = seededRow() as HTMLElement;
-        expect(within(row).getByText('Appendicectomy')).toBeInTheDocument();
-        expect(within(row).getByText('Theatre 1')).toBeInTheDocument();
-        expect(within(row).getByText('Scheduled')).toBeInTheDocument();
-      },
-      { timeout: 10_000 },
-    );
+    await waitFor(() => {
+      const row = seededRow() as HTMLElement;
+      expect(within(row).getByText('Appendicectomy')).toBeInTheDocument();
+      expect(within(row).getByText('Theatre 1')).toBeInTheDocument();
+      expect(within(row).getByText('Scheduled')).toBeInTheDocument();
+    });
     // The theatres load on their own query, so wait for them on a loaded machine.
-    await waitFor(
-      () => expect(within(rowOf(roomGrid(), 'Theatre 2')).getByText('In use')).toBeInTheDocument(),
-      { timeout: 10_000 },
+    await waitFor(() =>
+      expect(within(rowOf(roomGrid(), 'Theatre 2')).getByText('In use')).toBeInTheDocument(),
     );
     await expectNoAxeViolations();
-  }, 20_000);
+  });
 
   it('is reached from the navigation', async () => {
     renderApp();
@@ -106,7 +102,7 @@ describe('operation theatre', () => {
     await waitFor(() =>
       expect(within(surgeryGrid()).getByText('Hernia repair')).toBeInTheDocument(),
     );
-  }, 40_000);
+  });
 
   it('checks the end is after the start before asking the server', async () => {
     await open();
@@ -115,7 +111,7 @@ describe('operation theatre', () => {
     fireEvent.change(screen.getByLabelText(/^Ends/), { target: { value: '10:00' } });
     await userEvent.click(screen.getByRole('button', { name: 'Book surgery' }));
     expect(await screen.findByText('The end must be after the start.')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('starts and completes a surgery, then offers nothing more', async () => {
     await open();
@@ -138,7 +134,7 @@ describe('operation theatre', () => {
     await waitFor(() =>
       expect(within(seededRow() as HTMLElement).getByText('Completed')).toBeInTheDocument(),
     );
-  }, 30_000);
+  });
 
   it('cancels a surgery with a reason and frees the time', async () => {
     await open();
@@ -151,7 +147,7 @@ describe('operation theatre', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel surgery' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Surgery cancelled.'));
     await waitFor(() => expect(seededRow()).toBeUndefined());
-  }, 30_000);
+  });
 
   it('adds a theatre and refuses a name that exists', async () => {
     await open();
@@ -164,7 +160,7 @@ describe('operation theatre', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Theatre Theatre 3'));
     await waitFor(() => expect(rowOf(roomGrid(), 'Theatre 3')).toBeDefined());
-  }, 30_000);
+  });
 
   it('says a surgery was changed by someone else first', async () => {
     await open();

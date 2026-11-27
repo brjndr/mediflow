@@ -19,8 +19,6 @@ import type { ImportColumn } from './types';
 
 const HEADING = { name: 'Import centre', level: 1 };
 const NO_ACCESS = { name: 'You do not have access to this page' };
-/** A job's progress is read on a timer: long enough for a few reads. */
-const JOB = { timeout: 8_000 };
 
 const SERVICES = [
   'Code,Name,Category,Tax class,Price',
@@ -143,17 +141,17 @@ describe('importing', () => {
     await screen.findByRole('heading', { name: 'Import of Services and prices' });
     expect(router.state.location.pathname).toMatch(/^\/imports\/imp_/);
     expect(
-      await screen.findByText('Every row can be written. Nothing has been written yet.', {}, JOB),
+      await screen.findByText('Every row can be written. Nothing has been written yet.'),
     ).toBeInTheDocument();
 
     await userEvent.click(button('Write the records'));
-    expect(await screen.findByText('2 records were written.', {}, JOB)).toBeInTheDocument();
+    expect(await screen.findByText('2 records were written.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Write the records' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('link', { name: 'Back to the import centre' }));
     expect(await screen.findByRole('heading', HEADING)).toBeInTheDocument();
     expect(await listed('Services and prices')).toBeInTheDocument();
-  }, 20_000);
+  });
 
   it('shows the report of a file with problems, by line and field, and writes nothing', async () => {
     await openNew();
@@ -170,9 +168,7 @@ describe('importing', () => {
     await screen.findByText('4 rows read from the file.');
     await userEvent.click(button('Send and check'));
 
-    expect(
-      await screen.findByText(/4 problems were found\. Correct the file/, {}, JOB),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/4 problems were found\. Correct the file/)).toBeInTheDocument();
     const report = await screen.findByRole('table', { name: 'Problems found in the file' });
     expect(report).toHaveTextContent('Generic name');
     expect(report).toHaveTextContent('Required, and empty.');
@@ -185,7 +181,7 @@ describe('importing', () => {
 
     await userEvent.click(button('Give up this batch'));
     expect(await screen.findByText('This batch was given up. Nothing was written.')).toBeVisible();
-  }, 20_000);
+  });
 
   it('asks for each required field, and for each column once', async () => {
     await openNew();
@@ -249,9 +245,7 @@ describe('importing', () => {
     await screen.findByText('7 rows read from the file.');
     await userEvent.click(button('Send and check'));
 
-    expect(
-      await screen.findByText(/6 problems were found. Correct the file/, {}, JOB),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/6 problems were found. Correct the file/)).toBeInTheDocument();
     const report = await screen.findByRole('table', { name: 'Problems found in the file' });
     for (const text of [
       'no item in use',
@@ -266,7 +260,7 @@ describe('importing', () => {
     expect(screen.queryByRole('button', { name: 'Write the records' })).not.toBeInTheDocument();
     await userEvent.click(button('Give up this batch'));
     await screen.findByText('This batch was given up. Nothing was written.');
-  }, 40_000);
+  });
 
   it('loads a clean file of opening stock', async () => {
     const opened = mockStock().ledger.find((entry) => entry.reason === 'opening');
@@ -291,9 +285,9 @@ describe('importing', () => {
     );
     await screen.findByText('1 row read from the file.');
     await userEvent.click(button('Send and check'));
-    await userEvent.click(await screen.findByRole('button', { name: 'Write the records' }, JOB));
-    expect(await screen.findByText('1 record was written.', {}, JOB)).toBeInTheDocument();
-  }, 40_000);
+    await userEvent.click(await screen.findByRole('button', { name: 'Write the records' }));
+    expect(await screen.findByText('1 record was written.')).toBeInTheDocument();
+  });
 
   it('warns before a file of patients is sent', async () => {
     await openNew();
