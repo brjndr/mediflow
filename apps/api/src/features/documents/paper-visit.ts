@@ -4,8 +4,6 @@ import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
-import { hasAdmissionFrom } from '../admissions/index.js';
-import { hasStandingBilling } from '../billing/index.js';
 import {
   cancelPaperVisit,
   closePaperVisit,
@@ -15,10 +13,8 @@ import {
   openPaperVisit,
   type PaperVisitRecord,
 } from '../clinical/index.js';
-import { hasAmbulanceTripOn } from '../operations/index.js';
 import { patientInScope } from '../patients/index.js';
 import { todaysToken, tokenNumberOf } from '../queue/index.js';
-import { hasSurgeryOn } from '../theatre/index.js';
 import {
   PaperEncounterParams,
   PaperSheetParams,
@@ -114,27 +110,6 @@ async function visitOf(request: FastifyRequest, encounterId: string) {
   return visit;
 }
 
-/**
- * Whether a file (not retired, whatever its category or uploader), a consent, billing, a surgery,
- * an ambulance trip or an admission raised from it is on the visit. A file the scan blocked is
- * gone, so it does not count.
- */
-async function holdsSomething(request: FastifyRequest, encounterId: string): Promise<boolean> {
-  const { rowCount } = await request.txClient.query(
-    `select 1 from patient_documents
-     where encounter_id = $1 and retired_at is null and status in ('pending', 'scanning', 'clean')
-     union all
-     select 1 from patient_consents where encounter_id = $1
-     limit 1`,
-    [encounterId],
-  );
-  if ((rowCount ?? 0) > 0) return true;
-  for (const held of [hasStandingBilling, hasSurgeryOn, hasAmbulanceTripOn, hasAdmissionFrom]) {
-    if (await held(request.txClient, encounterId)) return true;
-  }
-  return false;
-}
-
 /** A visit as answered, with the caller's own sheets on it. Everything read is audited. */
 async function visitAnswer(
   request: FastifyRequest,
@@ -168,7 +143,7 @@ async function visitAnswer(
     visit.type === 'opd' &&
     visit.openedFromPaper &&
     (await isUnwrittenVisit(request, visit.id)) &&
-    !(await holdsSomething(request, visit.id));
+    !(await request.server.visitHolds.standing(request.txClient, visit.id));
   request.audit('read', 'encounter', visit.id);
   for (const sheet of sheets) request.audit('read', 'patient_document', sheet.id);
   return {
@@ -341,7 +316,7 @@ export const paperVisitRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['documents'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Cancels a visit opened from paper by mistake, such as under the wrong token (#1214), with a reason. Only a visit this paper flow opened (409 `not_paper_visit`; any other needs encounter:update) and only while it is empty: 409 `unsigned_notes` for a draft note; `has_records` for a signed note, diagnosis, order, prescription, referral or follow-up; `visit_not_empty` for a file of any kind that is not retired (one blocked by the scan does not count), a consent naming the visit, a charge or invoice not void, a surgery or ambulance trip not cancelled, or an admission raised from it. Retire a wrong sheet first. 409 `invalid_transition` for one not open, `conflict` for another version. The token or appointment may then open another visit. Emits `encounter.cancelled`. The Idempotency-Key header is required: a repeat changes nothing. Requires encounter:recordPaper and patient:read, and the documents and clinical feature flags.' +
+          'Cancels a visit opened from paper by mistake, such as under the wrong token (#1214), with a reason. Only a visit this paper flow opened (409 `not_paper_visit`; any other needs encounter:update) and only while it is empty: 409 `unsigned_notes` for a draft note; `has_records` for a signed note, diagnosis, order, prescription, referral or follow-up; `visit_not_empty` for a file of any kind that is not retired (one blocked by the scan does not count), a consent naming the visit, a charge or invoice not void, a surgery or ambulance trip not cancelled, or an admission raised from it that is not cancelled. Retire a wrong sheet first. 409 `invalid_transition` for one not open, `conflict` for another version. The token or appointment may then open another visit. Emits `encounter.cancelled`. The Idempotency-Key header is required: a repeat changes nothing. Requires encounter:recordPaper and patient:read, and the documents and clinical feature flags.' +
           VISIT_REFUSALS,
         params: PaperEncounterParams,
         body: ref(PaperVisitCancel),
@@ -355,17 +330,7 @@ export const paperVisitRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const body = request.body as PaperVisitCancel;
       const reason = tidyWithin(body.reason, 200);
       if (!reason) throw new HttpError(400, 'validation_failed', 'A reason is needed');
-      // Asked with the visit locked: an upload waits for the cancel, or is seen by it.
-      await cancelPaperVisit(
-        request,
-        { id: before.id, version: body.version, reason },
-        PAPER,
-        async () => {
-          if (await holdsSomething(request, before.id)) {
-            throw new HttpError(409, 'visit_not_empty', 'Something is on the visit');
-          }
-        },
-      );
+      await cancelPaperVisit(request, { id: before.id, version: body.version, reason }, PAPER);
       return visitAnswer(request, await visitOf(request, encounterId));
     },
   );

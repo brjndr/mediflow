@@ -70,14 +70,14 @@ export async function closeOpenVisit(request: FastifyRequest, row: EncounterRow)
 }
 
 /**
- * Cancels an open encounter whose row is locked, unless a note of it is a draft or anything of it
- * is on the record. `requireEmpty` runs after those and throws for what else stands in the way.
+ * Cancels an open encounter whose row is locked, unless a note of it is a draft, anything of it
+ * is on the record, or another module holds something on it (`visitHolds`: billing, a file or a
+ * consent, a booking; #1223).
  */
 export async function cancelOpenVisit(
   request: FastifyRequest,
   row: EncounterRow,
   reason: string,
-  requireEmpty?: () => Promise<void>,
 ): Promise<void> {
   // Drafts too: a cancelled encounter's draft could never be signed.
   if (await hasDrafts(request.txClient, row.id)) {
@@ -86,7 +86,9 @@ export async function cancelOpenVisit(
   if (await hasRecords(request.txClient, row.id)) {
     throw new HttpError(409, 'has_records', 'The encounter has records');
   }
-  await requireEmpty?.();
+  if (await request.server.visitHolds.standing(request.txClient, row.id)) {
+    throw new HttpError(409, 'visit_not_empty', 'Something is on the visit');
+  }
   await endEncounter(request.txClient, row.id, 'cancelled', userIdOf(request), reason);
   await request.emit('encounter.cancelled', row.id, {
     encounterId: row.id,

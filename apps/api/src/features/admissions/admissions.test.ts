@@ -828,6 +828,22 @@ describe('cancelling an admission made by mistake', () => {
     expect(again.admission.status).toBe('admitted');
   });
 
+  it('refuses while an invoice stands on the stay, until it is void (#1232)', async () => {
+    await reset();
+    const detail = await admitted(patient(0), { bedId: bed(0) });
+    const { rows } = await pool.query<{ id: string }>(
+      'insert into invoices (tenant_id, encounter_id, patient_id, currency, created_by) ' +
+        "select tenant_id, id, patient_id, 'INR', gen_random_uuid() from encounters " +
+        'where id = $1 returning id',
+      [detail.admission.encounterId],
+    );
+    expect(errorOf(await cancel(detail))).toEqual([409, 'invoice_stands']);
+    expect(await bedStatus(bed(0))).toBe('occupied');
+    expect(await allEvents()).not.toContain('encounter.cancelled');
+    await pool.query('delete from invoices where id = $1', [rows[0]!.id]);
+    expect((await ok<Detail>(await cancel(detail))).admission.status).toBe('cancelled');
+  });
+
   it('cancels an admission that never had a bed', async () => {
     await reset();
     const detail = await admitted(patient(0));

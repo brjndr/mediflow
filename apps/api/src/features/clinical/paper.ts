@@ -168,19 +168,17 @@ export async function isUnwrittenVisit(request: FastifyRequest, id: string): Pro
 
 /**
  * Cancels a visit opened from paper by mistake (#1214), such as under the wrong token, while it
- * is empty. `requireEmpty` runs once the row is locked and throws when another module holds
- * something on it. A visit opened any other way is cancelled with encounter:update only.
+ * is empty. A visit opened any other way is cancelled with encounter:update only.
  */
 export async function cancelPaperVisit(
   request: FastifyRequest,
   asked: { id: string; version: number; reason: string },
   permission: Permission,
-  requireEmpty: () => Promise<void>,
 ): Promise<void> {
   const row = await lockOpenPaperVisit(request, asked, permission);
   if (!row.opened_from_paper) {
     throw new HttpError(409, 'not_paper_visit', 'The visit was not opened from paper');
   }
-  await cancelOpenVisit(request, row, asked.reason, requireEmpty);
+  await cancelOpenVisit(request, row, asked.reason);
   request.audit('update', 'encounter', row.id);
 }

@@ -27,10 +27,11 @@ export const theatreFeature: FastifyPluginAsync = async (app) => {
   await app.register(periopRoutes);
   await app.register(operationRoutes);
   await app.register(recoveryRoutes);
+  app.visitHolds.register('theatre', hasSurgeryOn);
 };
 
-/** For the paper visit (#1214): a visit with a surgery not cancelled is not empty. */
-export async function hasSurgeryOn(client: pg.ClientBase, encounterId: string): Promise<boolean> {
+/** A visit with a surgery not cancelled is not cancelled (#1214, #1223). */
+async function hasSurgeryOn(client: pg.ClientBase, encounterId: string): Promise<boolean> {
   const { rowCount } = await client.query(
     "select 1 from ot_bookings where encounter_id = $1 and status <> 'cancelled' limit 1",
     [encounterId],

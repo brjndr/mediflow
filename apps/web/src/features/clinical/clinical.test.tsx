@@ -340,6 +340,23 @@ describe('the consultation', () => {
     expect(await screen.findByText(/Something is already recorded/)).toBeInTheDocument();
     expect(mockEncounter('enc_h_1')?.status).toBe('open');
   });
+
+  it('says why a visit with a charge, a file or a booking is not cancelled', async () => {
+    server.use(
+      http.post('*/api/encounters/:encounterId/cancel', () =>
+        HttpResponse.json(
+          { error: { code: 'visit_not_empty', message: 'no', requestId: 'r' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    await openConsultation();
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel consultation' }));
+    await userEvent.type(screen.getByRole('textbox', { name: /^Reason/ }), 'Wrong patient');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel consultation' }));
+    expect(await screen.findByText(/Something still stands on this visit/)).toBeInTheDocument();
+    await expectNoAxeViolations();
+  });
 });
 
 describe('access to the consultation', () => {

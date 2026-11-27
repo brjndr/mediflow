@@ -22,6 +22,7 @@ export const admissionsFeature: FastifyPluginAsync = async (app) => {
   await app.register(dischargePlanRoutes);
   await app.register(dischargeSummaryRoutes);
   await app.register(admissionSettingsRoutes);
+  app.visitHolds.register('admissions', hasAdmissionFrom);
 };
 
 /** For nursing (BE-24): the stay a ward record belongs to, within the caller's scope. */
@@ -30,13 +31,10 @@ export { admittedStays, stayInScope, type AdmittedStay, type Stay } from './stay
 /** For emergency (ER-02, #172): admitting a patient from the department. */
 export { admitFromEmergency } from './from-emergency.js';
 
-/** For the paper visit (#1214): a visit an admission was raised from is not empty. */
-export async function hasAdmissionFrom(
-  client: pg.ClientBase,
-  encounterId: string,
-): Promise<boolean> {
+/** A visit that an admission not cancelled was raised from is not cancelled (#1214, #1223). */
+async function hasAdmissionFrom(client: pg.ClientBase, encounterId: string): Promise<boolean> {
   const { rowCount } = await client.query(
-    'select 1 from admissions where source_encounter_id = $1 limit 1',
+    "select 1 from admissions where source_encounter_id = $1 and status <> 'cancelled' limit 1",
     [encounterId],
   );
   return (rowCount ?? 0) > 0;

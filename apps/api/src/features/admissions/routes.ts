@@ -702,7 +702,7 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['admissions'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Cancels an admission made by mistake, with a reason: the stay’s inpatient encounter is cancelled, the bed it held (if any) is set available again and the admission is final. Only while nothing of the stay is on the record: a signed note, a diagnosis that stands, an order not cancelled or a prescription is 409 `has_records` (discharge the patient instead), and a draft note is 409 `unsigned_notes`. Emits `encounter.cancelled`, `bed.released` (reason `cancelled`) and `admission.cancelled` through the outbox, never the reason. Requires admission:cancel and admission:read.' +
+          'Cancels an admission made by mistake, with a reason: the stay’s inpatient encounter is cancelled, the bed it held (if any) is set available again and the admission is final. Only while nothing of the stay is on the record: a signed note, a diagnosis that stands, an order not cancelled or a prescription is 409 `has_records` (discharge the patient instead), and a draft note is 409 `unsigned_notes`. An invoice of the stay that is not void, a draft included, is 409 `invoice_stands` (discharge instead). Emits `encounter.cancelled`, `bed.released` (reason `cancelled`) and `admission.cancelled` through the outbox, never the reason. Requires admission:cancel and admission:read.' +
           CHANGE_RULES,
         params: AdmissionParams,
         body: AdmissionCancel,
@@ -730,6 +730,11 @@ export const admissionRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
         if (cancelled === 'not_open') {
           throw new HttpError(409, 'encounter_not_open', 'The stay’s encounter is not open');
+        }
+        // Asked with the visit locked (above); a refusal rolls the cancel back (#1232). Only the
+        // desk's invoices: bed days post by themselves and cannot be cleared.
+        if (await app.visitHolds.standing(client, row.encounter_id, 'invoices')) {
+          throw new HttpError(409, 'invoice_stands', 'An invoice stands on the stay');
         }
         // The admission is held; the ward is taken after it, as everywhere.
         const current = await openAssignment(client, row.id);

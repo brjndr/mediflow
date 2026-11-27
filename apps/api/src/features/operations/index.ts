@@ -40,13 +40,11 @@ export const operationsFeature: FastifyPluginAsync = async (app) => {
   subscribeToReleasedBeds(app);
   app.jobs.work(BLOOD_EXPIRY_JOB, () => expireBloodUnitsEverywhere(app.database.pool));
   app.jobs.schedule(BLOOD_EXPIRY_JOB, '*/15 * * * *');
+  app.visitHolds.register('ambulance', hasAmbulanceTripOn);
 };
 
-/** For the paper visit (#1214): a visit with a trip not cancelled is not empty. */
-export async function hasAmbulanceTripOn(
-  client: pg.ClientBase,
-  encounterId: string,
-): Promise<boolean> {
+/** A visit with a trip not cancelled is not cancelled (#1214, #1223). */
+async function hasAmbulanceTripOn(client: pg.ClientBase, encounterId: string): Promise<boolean> {
   const { rowCount } = await client.query(
     "select 1 from ambulance_trips where encounter_id = $1 and status <> 'cancelled' limit 1",
     [encounterId],
