@@ -1017,6 +1017,14 @@ export const clinicalHandlers = [
       ) {
         return error(409, 'has_records', 'Something is on the record');
       }
+      // The mock knows of files only; the API asks about billing and bookings too (#1223).
+      const files = mockVisitSheets(found.tenantId, found.id);
+      if (
+        action === 'cancel' &&
+        files.some((one) => ['pending', 'scanning', 'clean'].includes(one.status))
+      ) {
+        return error(409, 'visit_not_empty', 'Something is on the visit');
+      }
       found.status = action === 'close' ? 'closed' : 'cancelled';
       found.endedAt = now();
       found.endedByName = caller().name;

@@ -91,6 +91,7 @@
     "refused": {
       "unsignedNotes": "A note is still a draft. Sign or discard every draft first.",
       "hasRecords": "Something is already recorded in this consultation: close it instead.",
+      "notEmpty": "Something still stands on this visit, such as a charge or invoice, a file, a consent or a booking: close the visit instead, or retire or cancel it first.",
       "conflict": "This consultation was changed by someone else. It has been read again: try again.",
       "notOpen": "This consultation is no longer open."
     }

@@ -12,6 +12,7 @@ import type { Encounter } from '../types';
 const REFUSED: Record<string, string> = {
   unsigned_notes: 'encounter.refused.unsignedNotes',
   has_records: 'encounter.refused.hasRecords',
+  visit_not_empty: 'encounter.refused.notEmpty',
   conflict: 'encounter.refused.conflict',
   invalid_transition: 'encounter.refused.notOpen',
 };
@@ -19,7 +20,8 @@ const REFUSED: Record<string, string> = {
 /**
  * Closing the consultation, and cancelling an encounter opened by mistake, for
  * `encounter:update` while it is open. The server refuses closing while a note is a draft, and
- * cancelling once anything is on the record; the screen says which.
+ * cancelling once anything is on the record or something else stands on the visit (a charge, a
+ * file, a booking); the screen says which.
  */
 export function EncounterActions({ encounter }: { encounter: Encounter }) {
   const { t } = useTranslation('clinical');

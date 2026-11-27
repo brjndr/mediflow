@@ -2063,4 +2063,106 @@ describe('cancelling a visit opened from paper (#1214)', () => {
     }
     expect((await seen(visit.encounter.id)).encounter.status).toBe('open');
   });
+
+  // The ordinary cancel asks the same of a visit, however it was opened (#1223).
+  const unchecked = async (sql: string, values: unknown[]) => {
+    // What the row points at (rooms, ambulances, beds) is not part of this test.
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local session_replication_role = replica');
+      await client.query(sql, values);
+      await client.query('commit');
+    } finally {
+      client.release();
+    }
+  };
+  const ordinaryCancel = (id: string) =>
+    post('/encounters/' + id + '/cancel', { version: 1, reason: 'Opened by mistake' });
+
+  it('refuses the ordinary cancel while billing or a file stands on the visit', async () => {
+    const { id } = await open({ patientId: patients.asha });
+    await unchecked(
+      'insert into charges (tenant_id, encounter_id, patient_id, service_id, source, ' +
+        'source_ref, description, quantity, unit_price_minor) ' +
+        "values ($1, $2, $3, $4, 'manual', $5, 'Consultation', 1, 100)",
+      [hospital.id, id, patients.asha, catalog.procedure, randomUUID()],
+    );
+    expect(errorOf(await ordinaryCancel(id))).toEqual([409, 'visit_not_empty']);
+    await pool.query("update charges set status = 'void' where encounter_id = $1", [id]);
+    await unchecked(
+      'insert into invoices (tenant_id, encounter_id, patient_id, currency, created_by) ' +
+        "values ($1, $2, $3, 'INR', $4)",
+      [hospital.id, id, patients.asha, nurse.id],
+    );
+    expect(errorOf(await ordinaryCancel(id))).toEqual([409, 'visit_not_empty']);
+    await pool.query('delete from invoices where encounter_id = $1', [id]);
+    const file = await attach(id, 'clean');
+    expect(errorOf(await ordinaryCancel(id))).toEqual([409, 'visit_not_empty']);
+    await pool.query(
+      "update patient_documents set retired_at = now(), retired_by = $2, retired_reason = 'x' " +
+        'where id = $1',
+      [file, nurse.id],
+    );
+    await ok(ordinaryCancel(id), 200);
+    // No file of any kind lands on a cancelled visit.
+    const late = await post(
+      '/patients/' + patients.asha + '/documents',
+      {
+        category: 'other',
+        title: 'Letter',
+        fileName: 'letter.jpg',
+        contentType: 'image/jpeg',
+        size: 10,
+        encounterId: id,
+      },
+      asNurse(randomUUID()),
+    );
+    expect(errorOf(late)).toEqual([409, 'encounter_cancelled']);
+  });
+
+  it('refuses the ordinary cancel while a booking stands on the visit', async () => {
+    const { id } = await open({ patientId: patients.asha });
+    const bookings = [
+      {
+        table: 'ot_bookings',
+        add:
+          'insert into ot_bookings (tenant_id, encounter_id, patient_id, room_id, surgeon_id, ' +
+          'procedure, starts_at, ends_at, created_by) values ($1, $2, $3, gen_random_uuid(), ' +
+          "gen_random_uuid(), 'Dressing', now(), now() + interval '1 hour', $4)",
+        end: "update ot_bookings set status = 'cancelled', cancelled_at = now() ",
+        column: 'encounter_id',
+      },
+      {
+        table: 'ambulance_trips',
+        add:
+          'insert into ambulance_trips (tenant_id, encounter_id, patient_id, pickup, ' +
+          "destination, requested_by) values ($1, $2, $3, 'Home', 'Hospital', $4)",
+        end: "update ambulance_trips set status = 'cancelled', finished_at = now() ",
+        column: 'encounter_id',
+      },
+      {
+        table: 'admissions',
+        add:
+          'insert into admissions (tenant_id, source_encounter_id, patient_id, encounter_id, ' +
+          'admitting_doctor_id, department_id, admission_type, admitted_by) values ($1, $2, $3, ' +
+          "gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 'planned', $4)",
+        end: "update admissions set status = 'cancelled', cancelled_at = now(), cancelled_by = admitted_by, cancel_reason = 'x' ",
+        column: 'source_encounter_id',
+      },
+    ];
+    for (const booking of bookings) {
+      await unchecked(booking.add, [hospital.id, id, patients.asha, nurse.id]);
+      expect([booking.table, errorOf(await ordinaryCancel(id))]).toEqual([
+        booking.table,
+        [409, 'visit_not_empty'],
+      ]);
+      await unchecked(booking.end + 'where ' + booking.column + ' = $1', [id]);
+    }
+    await ok(ordinaryCancel(id), 200);
+    // Rows no module made: taken away before the hospitals are.
+    for (const { table, column } of bookings) {
+      await unchecked('delete from ' + table + ' where ' + column + ' = $1', [id]);
+    }
+  });
 });

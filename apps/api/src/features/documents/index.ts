@@ -23,6 +23,7 @@ import {
 } from './records-permissions.js';
 import { recordsDeskRoutes } from './records-desk.js';
 import { documentRoutes } from './routes.js';
+import { hasFileOrConsent } from './visit-hold.js';
 import { insertAuditEntries } from '../../core/audit/plugin.js';
 
 /**
@@ -96,6 +97,7 @@ export const documentsFeature: FastifyPluginAsync = async (app) => {
       return back.rowCount ?? 0;
     },
   );
+  app.visitHolds.register('documents', hasFileOrConsent);
   await app.register(documentRoutes);
   await app.register(documentFileRoutes);
   await app.register(correctionRoutes);

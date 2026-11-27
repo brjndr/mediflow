@@ -324,7 +324,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['clinical'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Cancels an encounter opened by mistake, with a reason. Only while nothing of it is on the record and no note of it is a draft (409 `unsigned_notes`): a signed note, a diagnosis that stands, an order not cancelled or a prescription is 409 `has_records` (close it instead). Its token or appointment may then open another. Emits `encounter.cancelled` through the outbox.' +
+          'Cancels an encounter opened by mistake, with a reason. Only while nothing of it is on the record and no note of it is a draft (409 `unsigned_notes`): a signed note, a diagnosis that stands, an order not cancelled or a prescription is 409 `has_records` (close it instead). 409 `visit_not_empty` while something else stands on the visit: a charge or invoice not void, a file neither retired nor blocked by the scan, a consent naming the visit, a surgery or ambulance trip not cancelled, or an admission raised from it that is not cancelled (close the visit instead, or retire or cancel what stands first). Its token or appointment may then open another. Emits `encounter.cancelled` through the outbox.' +
           CHANGE,
         params: EncounterParams,
         body: ref(EncounterCancel),

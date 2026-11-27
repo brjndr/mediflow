@@ -92,6 +92,18 @@ export async function hasStandingBilling(
   return (rowCount ?? 0) > 0;
 }
 
+/** Whether an invoice of the visit, a draft included, is not void (#1232). */
+export async function hasStandingInvoice(
+  client: pg.ClientBase,
+  encounterId: string,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    "select 1 from invoices where encounter_id = $1 and status <> 'void' limit 1",
+    [encounterId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 export async function findCharge(client: pg.ClientBase, id: string): Promise<ChargeRow | null> {
   if (!isUuid(id)) return null;
   const { rows } = await client.query<ChargeRow>(

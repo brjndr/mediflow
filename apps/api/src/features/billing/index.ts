@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { BED_CHARGE_JOB, postBedDaysEverywhere } from './bed-days.js';
 import { BILLING_PERMISSIONS } from './permissions.js';
 import { subscribeToPostings } from './posting.js';
+import { hasStandingBilling, hasStandingInvoice } from './repository.js';
 import { billingRoutes } from './routes.js';
 import { billDischargeGate } from './stay-routes.js';
 
@@ -20,9 +21,9 @@ export const billingFeature: FastifyPluginAsync = async (app) => {
   await app.register(billingRoutes);
   subscribeToPostings(app);
   app.dischargeGates.register('billing', billDischargeGate);
+  // A visit is not cancelled while billing stands on it (#1223); an admission asks for invoices.
+  app.visitHolds.register('billing', hasStandingBilling);
+  app.visitHolds.register('invoices', hasStandingInvoice);
   app.jobs.work(BED_CHARGE_JOB, () => postBedDaysEverywhere(app.database.pool));
   app.jobs.schedule(BED_CHARGE_JOB, '10 * * * *');
 };
-
-/** For the paper visit (#1214): one with a charge or invoice standing on it is not empty. */
-export { hasStandingBilling } from './repository.js';

@@ -162,7 +162,7 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'requestPatientDocumentUpload',
         tags: ['documents'],
         headers: RequiredIdempotencyHeaders,
-        description: `Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid ${UPLOAD_TTL_SECONDS / 60} minutes) to PUT the file to with the same Content-Type. At most ${DOCUMENT_MAX_BYTES} bytes (422 \`file_too_large\`); one of ${DOCUMENT_TYPES.join(', ')} (422 \`file_type_not_allowed\`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. \`encounterId\`, when sent, must be an encounter of this patient (422 \`encounter_mismatch\`); an \`opd_sheet\` needs one (422 \`encounter_required\`) that is not cancelled (409 \`encounter_cancelled\`). 409 \`patient_merged\` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag.`,
+        description: `Asks to attach a file to a patient's record (#194). Nothing is stored yet: the answer holds a signed address (valid ${UPLOAD_TTL_SECONDS / 60} minutes) to PUT the file to with the same Content-Type. At most ${DOCUMENT_MAX_BYTES} bytes (422 \`file_too_large\`); one of ${DOCUMENT_TYPES.join(', ')} (422 \`file_type_not_allowed\`); the file received is checked against both and against its first bytes, then held until the malware scan clears it. \`encounterId\`, when sent, must be an encounter of this patient (422 \`encounter_mismatch\`); a cancelled visit takes no file (409 \`encounter_cancelled\`); an \`opd_sheet\` needs one (422 \`encounter_required\`). 409 \`patient_merged\` for a record that was merged into another. The retention date comes from the category's rule at the time of the request. Requires document:upload and the documents feature flag.`,
         params: PatientParams,
         body: ref(PatientDocumentCreate),
         response: { 201: ref(PatientDocumentUpload), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -209,7 +209,7 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(422, 'encounter_required', 'An OPD sheet belongs to a visit');
       }
       if (body.encounterId) {
-        // Shared lock: a visit is not cancelled while a file is put on it (#1214).
+        // Shared lock: a visit is not cancelled while a file is put on it (#1214, #1223).
         const { rows: visits } = await request.txClient.query<{ status: string }>(
           'select status from encounters where id = $1 and patient_id = $2 for share',
           [body.encounterId, request.params.patientId],
@@ -218,7 +218,7 @@ export const documentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (!named) {
           throw new HttpError(422, 'encounter_mismatch', 'The encounter is not this patient’s');
         }
-        if (body.category === 'opd_sheet' && named.status === 'cancelled') {
+        if (named.status === 'cancelled') {
           throw new HttpError(409, 'encounter_cancelled', 'The visit was cancelled');
         }
       }
