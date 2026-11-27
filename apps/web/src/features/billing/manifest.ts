@@ -125,8 +125,10 @@ export const billingFeature: FeatureManifest = {
   permissions: [
     'charge:read',
     'charge:create',
+    'charge:void',
     'invoice:read',
     'invoice:create',
+    'invoice:discard',
     'invoice:issue',
     'invoice:print',
     'invoice:adjust',

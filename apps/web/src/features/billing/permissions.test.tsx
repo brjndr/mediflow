@@ -25,8 +25,10 @@ const AROUND = ['patient:read', 'encounter:read', 'service:read'];
 const ADMIN = [
   'charge:read',
   'charge:create',
+  'charge:void',
   'invoice:read',
   'invoice:create',
+  'invoice:discard',
   'invoice:issue',
   'invoice:print',
   'invoice:adjust',
@@ -41,6 +43,7 @@ const RECEPTIONIST = [
   'charge:create',
   'invoice:read',
   'invoice:create',
+  'invoice:discard',
   'invoice:issue',
   'invoice:print',
   'payment:read',

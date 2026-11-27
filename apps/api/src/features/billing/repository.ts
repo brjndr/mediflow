@@ -72,6 +72,8 @@ export interface ChargeRow {
   invoice_id: string | null;
   flag: string | null;
   tax_class: string | null;
+  voided_at: Date | null;
+  void_reason: string | null;
   posted_at: Date;
   at_exact: string;
   total: number;
@@ -109,7 +111,7 @@ export async function findCharge(client: pg.ClientBase, id: string): Promise<Cha
   const { rows } = await client.query<ChargeRow>(
     `select c.id, c.tenant_id, c.encounter_id, c.source, c.description, c.quantity,
        c.unit_price_minor::text, c.total_minor::text, c.status, c.invoice_id, c.flag, c.tax_class,
-       c.posted_at,
+       c.voided_at, c.void_reason, c.posted_at,
        ${EXACT('c.posted_at')} as at_exact, 1 as total
      from charges c where c.id = $1`,
     [id],
@@ -126,7 +128,7 @@ export async function listCharges(
   const { rows } = await client.query<ChargeRow>(
     `select c.id, c.tenant_id, c.encounter_id, c.source, c.description, c.quantity,
        c.unit_price_minor::text, c.total_minor::text, c.status, c.invoice_id, c.flag, c.tax_class,
-       c.posted_at,
+       c.voided_at, c.void_reason, c.posted_at,
        ${EXACT('c.posted_at')} as at_exact, count(*) over ()::int as total
      from charges c
      where c.encounter_id = $1 and ($2::text is null or c.status = $2)
@@ -176,6 +178,9 @@ export interface InvoiceRow {
   payer_name: string | null;
   split_group: string | null;
   split_review: string | null;
+  discarded_at: Date | null;
+  discard_reason: string | null;
+  discarded_by_name: string | null;
   bill_discount_bp: number | null;
   bill_discount_amount_minor: string | null;
   bill_discount_reason: string | null;
@@ -209,6 +214,8 @@ const INVOICE_SELECT = `
     i.discount_minor::text, i.discount_status, i.discount_applied_by, i.discount_approved_at,
     i.bill_discount_bp, i.bill_discount_amount_minor::text, i.bill_discount_reason,
     i.payer_id, py.name as payer_name, i.split_group, i.split_review,
+    i.discarded_at, i.discard_reason,
+    (select u.name from users u where u.id = i.discarded_by) as discarded_by_name,
     coalesce((select json_agg(json_build_object('id', l.id, 'chargeId', l.charge_id,
         'source', l.source, 'description', l.description, 'quantity', l.quantity,
         'unitPriceMinor', l.unit_price_minor, 'totalMinor', l.total_minor,
@@ -721,6 +728,34 @@ export async function releaseCharges(client: pg.ClientBase, invoiceId: string): 
     `update charges set status = 'pending', invoice_id = null
      where invoice_id = $1 and status = 'invoiced'`,
     [invoiceId],
+  );
+}
+
+/**
+ * Discards drafts (#1240): their charges go back to pending and they become void with no number,
+ * keeping their lines. The caller holds the invoices' row locks.
+ */
+export async function discardDrafts(
+  client: pg.ClientBase,
+  invoiceIds: string[],
+  by: string,
+  reason: string,
+): Promise<void> {
+  // In id order, as a draft takes them.
+  await client.query(
+    `select 1 from charges where invoice_id = any($1::uuid[]) order by id for update`,
+    [invoiceIds],
+  );
+  await client.query(
+    `update charges set invoice_id = null
+     where invoice_id = any($1::uuid[]) and status = 'pending'`,
+    [invoiceIds],
+  );
+  await client.query(
+    `update invoices set status = 'void', discarded_at = now(), discarded_by = $2,
+       discard_reason = $3, split_review = null, split_review_at = null, version = version + 1
+     where id = any($1::uuid[]) and status = 'draft'`,
+    [invoiceIds, by, reason],
   );
 }
 

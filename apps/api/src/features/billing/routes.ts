@@ -64,6 +64,7 @@ import { discountRoutes } from './discount-routes.js';
 import { taxRoutes } from './tax-routes.js';
 import { packageRoutes } from './package-routes.js';
 import { stayRoutes } from './stay-routes.js';
+import { voidRoutes } from './void-routes.js';
 
 const EncounterParams = Type.Object({ encounterId: Type.String({ maxLength: 64 }) });
 const InvoiceParams = Type.Object({ invoiceId: Type.String({ maxLength: 64 }) });
@@ -679,4 +680,5 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
   await app.register(packageRoutes);
   await app.register(discountRoutes);
   await app.register(stayRoutes);
+  await app.register(voidRoutes);
 };

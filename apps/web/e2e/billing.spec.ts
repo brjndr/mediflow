@@ -270,3 +270,53 @@ test('open the cash register and settle it with the keyboard alone', async ({ pa
   await expect(page.getByTestId('difference')).toContainText('Short by');
   await expectNoSidewaysScroll(page);
 });
+
+test('void a charge and discard a draft with the keyboard alone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await goTo(page, 'Consultations');
+  await page.getByRole('main').getByRole('link').first().click();
+  const create = page.getByRole('link', { name: 'Create invoice' });
+  await reach(page, create);
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('invoice-total')).toContainText('901.00');
+
+  const dialog = page.getByRole('alertdialog');
+  const voidOne = page.getByRole('button', { name: 'Void charge: Complete blood count' });
+  await reach(page, voidOne);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  const reason = dialog.getByRole('combobox', { name: /^Reason/ });
+  await reach(page, reason);
+  expect(await focusVisible(page)).toBe(true);
+  await reason.selectOption('duplicate');
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+  await reach(page, dialog.getByRole('button', { name: 'Void charge' }));
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Complete blood count voided.' }),
+  ).toBeFocused();
+  await expect(page.getByTestId('invoice-total')).toContainText('551.00');
+
+  const save = page.getByRole('button', { name: 'Save draft' });
+  await reach(page, save);
+  await page.keyboard.press('Enter');
+  const discard = page.getByRole('button', { name: 'Discard draft' });
+  await expect(discard).toBeVisible();
+  await reach(page, discard);
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('combobox', { name: /^Reason/ }).selectOption('made_in_error');
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+  await reach(page, dialog.getByRole('button', { name: 'Discard draft' }));
+  expect(await focusVisible(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('status').filter({ hasText: /^This draft was discarded on / }),
+  ).toBeFocused();
+  await expect(discard).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+  await expectNoAxeViolations(page);
+});

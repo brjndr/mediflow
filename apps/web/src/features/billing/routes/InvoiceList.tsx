@@ -7,7 +7,7 @@ import { DataGrid, type GridColumn } from '@/shared/ui/data-grid';
 import { StatusBadge } from '@/shared/ui/status-badge';
 import { useFormatters } from '@/tenancy';
 import { INVOICE_PAGE_SIZES, useInvoices } from '../hooks/use-billing';
-import { INVOICE_TONE } from '../lib/status-tone';
+import { INVOICE_TONE, invoiceState } from '../lib/status-tone';
 import type { Invoice } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { SearchInput } from '@/shared/ui/search-input';
@@ -47,7 +47,8 @@ export default function InvoiceList() {
       {
         id: 'number',
         header: t('list.columns.number'),
-        value: (row) => row.number ?? t('list.draftNumber'),
+        value: (row) =>
+          row.number ?? t(row.discardedAt ? 'list.discardedNumber' : 'list.draftNumber'),
         hideable: false,
         render: (row, text) => (
           <Link to={`/billing/invoices/${row.id}`} className={textLink}>
@@ -80,8 +81,8 @@ export default function InvoiceList() {
       {
         id: 'status',
         header: t('list.columns.status'),
-        value: (row) => t(`status.${row.status}`),
-        render: (row, text) => <StatusBadge tone={INVOICE_TONE[row.status]} label={text} />,
+        value: (row) => t(`status.${invoiceState(row)}`),
+        render: (row, text) => <StatusBadge tone={INVOICE_TONE[invoiceState(row)]} label={text} />,
       },
     ],
     [t, format],
@@ -148,7 +149,7 @@ export default function InvoiceList() {
             <option value="">{t('list.allStatuses')}</option>
             {STATUSES.map((each) => (
               <option key={each} value={each}>
-                {t(`status.${each}`)}
+                {each === 'void' ? t('list.voidFilter') : t(`status.${each}`)}
               </option>
             ))}
           </select>

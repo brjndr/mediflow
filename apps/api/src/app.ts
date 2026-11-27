@@ -33,6 +33,7 @@ import { platformPlugin } from './core/platform/plugin.js';
 import { idempotencyPlugin, idempotencyStorePlugin } from './core/idempotency/plugin.js';
 import { dischargeGatesPlugin } from './core/discharge-gate/registry.js';
 import { visitHoldsPlugin } from './core/visit-hold/registry.js';
+import { splitHoldsPlugin } from './core/invoice-hold/registry.js';
 import { importKindsPlugin } from './core/imports/registry.js';
 import { patientMergePlugin } from './core/patient-merge/registry.js';
 import type { LiveBus } from './core/live/bus.js';
@@ -206,6 +207,8 @@ export async function buildApp(config: Config, options: AppOptions = {}): Promis
   // And for what must hold before a patient is discharged (#790).
   await app.register(dischargeGatesPlugin);
   await app.register(visitHoldsPlugin);
+  // And for what depends on a split pair of invoices, so it is not discarded (#1240).
+  await app.register(splitHoldsPlugin);
 
   // Features: one line each.
   await app.register(healthFeature);

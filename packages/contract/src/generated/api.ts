@@ -7223,6 +7223,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/charges/{chargeId}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Voids a pending charge that is on no draft (#1240), with a reason from a fixed list. It stays in the ledger, void, with who voided it, when and why, and is never billed; the event that posted it does not post it again. A charge that is invoiced or already void is 409 `charge_not_pending`; one on a draft is 409 `charge_on_draft`. A package charge that covers other charges is voided only with `confirmCovered: true` (409 `covers_charges` otherwise); the covered charges stay void. Emits `charge.voided`. The Idempotency-Key header is required: a repeat voids nothing more and answers with the charge as it is now. Requires charge:void and charge:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["voidCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invoices/{invoiceId}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Discards a draft invoice (#1240), with a reason from a fixed list and the version the person saw (409 `version_conflict`). It becomes `void` with no number, with who discarded it, when and why; its lines are kept as history and its charges go back to pending. Only a draft is discarded (409 `invoice_not_draft`). Discarding one invoice of a split pair discards both drafts together: refused when the other is already issued (409 `split_issued`) or a claim to the payer stands on the visit (409 `claim_depends`); a pair whose other invoice was voided by a credit note discards the draft left. Emits `invoice.discarded` for each. The Idempotency-Key header is required: a repeat discards nothing more and answers with the invoice as it is now. Requires invoice:discard and invoice:read with the scope `all` and the billing feature flag. Audited. */
+        post: operations["discardInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/purchasing/suppliers": {
         parameters: {
             query?: never;
@@ -14266,6 +14300,13 @@ export interface components {
              * @enum {string}
              */
             taxClass?: "exempt" | "reduced" | "standard" | "higher";
+            /**
+             * Format: date-time
+             * @description When it was voided by hand.
+             */
+            voidedAt?: string;
+            /** @enum {string} */
+            voidReason?: "entered_in_error" | "duplicate" | "not_performed" | "not_chargeable" | "other";
             /** Format: date-time */
             postedAt: string;
         };
@@ -14284,6 +14325,19 @@ export interface components {
         /** @description Why the desk takes the review flag off a charge. */
         ChargeReview: {
             reason: string;
+        };
+        /** @description Why a pending charge is voided. */
+        ChargeVoid: {
+            /** @enum {string} */
+            reason: "entered_in_error" | "duplicate" | "not_performed" | "not_chargeable" | "other";
+            /** @description Needed to void a package charge that covers other charges: they stay void, so their work is not billed. */
+            confirmCovered?: boolean;
+        };
+        /** @description The version of the draft the person saw, and why it is discarded. */
+        InvoiceDiscard: {
+            version: number;
+            /** @enum {string} */
+            reason: "made_in_error" | "duplicate" | "charges_changed" | "not_needed" | "other";
         };
         /** @description Why the desk takes the split review flag off an invoice. */
         SplitReview: {
@@ -14363,6 +14417,14 @@ export interface components {
              * @enum {string}
              */
             splitReview?: "sibling_void";
+            /**
+             * Format: date-time
+             * @description Set on a void invoice that was a draft discarded (#1240): it never had a number.
+             */
+            discardedAt?: string;
+            /** @enum {string} */
+            discardReason?: "made_in_error" | "duplicate" | "charges_changed" | "not_needed" | "other";
+            discardedByName?: string;
             /** @description Payments less refunds. */
             paidMinor: number;
             /** @description The credit notes against the invoice. */
@@ -55024,6 +55086,172 @@ export interface operations {
             };
             /** @description Standard error body. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    voidCharge: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                chargeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChargeVoid"];
+            };
+        };
+        responses: {
+            /** @description Billable work posted to a visit. Priced when it was posted; never changes afterwards. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Charge"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    discardInvoice: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`). */
+                "idempotency-key": string;
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceDiscard"];
+            };
+        };
+        responses: {
+            /** @description A bill of one visit. A draft can be changed; once issued it never is. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

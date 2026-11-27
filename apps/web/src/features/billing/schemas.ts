@@ -28,6 +28,38 @@ const SOURCES = ['service', 'order', 'dispense', 'bed', 'procedure', 'manual', '
 export const TAX_CLASSES = ['exempt', 'reduced', 'standard', 'higher'] as const;
 export const RATE_MAX_BP = 10000;
 
+/** Why a charge is voided, and why a draft is discarded (#1240): the API's fixed lists. */
+export const VOID_REASONS = [
+  'entered_in_error',
+  'duplicate',
+  'not_performed',
+  'not_chargeable',
+  'other',
+] as const;
+export const DISCARD_REASONS = [
+  'made_in_error',
+  'duplicate',
+  'charges_changed',
+  'not_needed',
+  'other',
+] as const;
+
+/** A reason chosen from a list that starts with nothing chosen. */
+const chosen = <const Reasons extends readonly [string, ...string[]]>(reasons: Reasons) =>
+  z.string().min(1, 'validation.required').pipe(z.enum(reasons));
+
+export const voidChargeSchema = z.object({
+  reason: chosen(VOID_REASONS),
+  /** The second tick a package that covers other charges asks for. */
+  confirmCovered: z.boolean(),
+});
+export type VoidChargeInput = z.input<typeof voidChargeSchema>;
+export type VoidChargeValues = z.output<typeof voidChargeSchema>;
+
+export const discardDraftSchema = z.object({ reason: chosen(DISCARD_REASONS) });
+export type DiscardDraftInput = z.input<typeof discardDraftSchema>;
+export type DiscardDraftValues = z.output<typeof discardDraftSchema>;
+
 // Responses are validated where they enter the app, so screens can trust their shape.
 
 export const chargeSchema: z.ZodType<Charge> = z.object({
@@ -52,6 +84,8 @@ export const chargeSchema: z.ZodType<Charge> = z.object({
     ])
     .optional(),
   taxClass: z.enum(TAX_CLASSES).optional(),
+  voidedAt: z.string().optional(),
+  voidReason: z.enum(VOID_REASONS).optional(),
   postedAt: z.string(),
 });
 
@@ -89,6 +123,9 @@ export const invoiceSchema: z.ZodType<Invoice> = z.object({
   patientMrn: z.string(),
   number: z.string().optional(),
   status: z.enum(['draft', 'issued', 'paid', 'void']),
+  discardedAt: z.string().optional(),
+  discardReason: z.enum(DISCARD_REASONS).optional(),
+  discardedByName: z.string().optional(),
   lines: z.array(
     z.object({
       id: z.string(),

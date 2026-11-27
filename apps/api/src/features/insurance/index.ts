@@ -5,7 +5,7 @@ import { creditRoutes } from './credit.js';
 import { CLAIM_FILE_SCHEMAS, claimFileRoutes } from './claim-files.js';
 import { claimExportRoutes, CLAIM_EXPORT_SCHEMAS } from './claim-export.js';
 import { registerClaimMerge } from './claim-merge.js';
-import { claimRoutes } from './claims.js';
+import { claimRoutes, claimStands } from './claims.js';
 import { coverageRoutes } from './coverage.js';
 import { mastersRoutes } from './masters.js';
 import { INSURANCE_PERMISSIONS } from './permissions.js';
@@ -41,4 +41,6 @@ export const insuranceFeature: FastifyPluginAsync = async (app) => {
   await app.register(creditRoutes);
   registerClaimMerge(app);
   subscribeToPayerReceipts(app);
+  // A split pair is not discarded while a claim to its payer stands on the visit (#1240).
+  app.splitHolds.register('claims', claimStands);
 };

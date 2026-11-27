@@ -19170,6 +19170,15 @@
             "enum": ["exempt", "reduced", "standard", "higher"],
             "description": "The tax class the work was posted with; none for a dispensed medicine, whose price holds the tax."
           },
+          "voidedAt": {
+            "format": "date-time",
+            "description": "When it was voided by hand.",
+            "type": "string"
+          },
+          "voidReason": {
+            "type": "string",
+            "enum": ["entered_in_error", "duplicate", "not_performed", "not_chargeable", "other"]
+          },
           "postedAt": {
             "format": "date-time",
             "type": "string"
@@ -19232,6 +19241,38 @@
             "maxLength": 500,
             "pattern": "^(?:[\\u200C\\u200D]|(?<=\\p{Emoji})[\\uFE0E\\uFE0F]|(?!\\p{Default_Ignorable_Code_Point})[^\\u0000-\\u001F\\u007F-\\u009F\\u2800\\uFFF9-\\uFFFB])*$",
             "type": "string"
+          }
+        }
+      },
+      "ChargeVoid": {
+        "additionalProperties": false,
+        "description": "Why a pending charge is voided.",
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": ["entered_in_error", "duplicate", "not_performed", "not_chargeable", "other"]
+          },
+          "confirmCovered": {
+            "description": "Needed to void a package charge that covers other charges: they stay void, so their work is not billed.",
+            "type": "boolean"
+          }
+        }
+      },
+      "InvoiceDiscard": {
+        "additionalProperties": false,
+        "description": "The version of the draft the person saw, and why it is discarded.",
+        "type": "object",
+        "required": ["version", "reason"],
+        "properties": {
+          "version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["made_in_error", "duplicate", "charges_changed", "not_needed", "other"]
           }
         }
       },
@@ -19456,6 +19497,18 @@
             "description": "The other invoice of the split pair was voided (#1033): the desk decides what to do with this one, and a draft is not issued until it takes the flag off.",
             "type": "string",
             "enum": ["sibling_void"]
+          },
+          "discardedAt": {
+            "format": "date-time",
+            "description": "Set on a void invoice that was a draft discarded (#1240): it never had a number.",
+            "type": "string"
+          },
+          "discardReason": {
+            "type": "string",
+            "enum": ["made_in_error", "duplicate", "charges_changed", "not_needed", "other"]
+          },
+          "discardedByName": {
+            "type": "string"
           },
           "paidMinor": {
             "minimum": 0,
@@ -75346,6 +75399,228 @@
             }
           },
           "422": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/charges/{chargeId}/void": {
+      "post": {
+        "operationId": "voidCharge",
+        "tags": ["billing"],
+        "description": "Voids a pending charge that is on no draft (#1240), with a reason from a fixed list. It stays in the ledger, void, with who voided it, when and why, and is never billed; the event that posted it does not post it again. A charge that is invoiced or already void is 409 `charge_not_pending`; one on a draft is 409 `charge_on_draft`. A package charge that covers other charges is voided only with `confirmCovered: true` (409 `covers_charges` otherwise); the covered charges stay void. Emits `charge.voided`. The Idempotency-Key header is required: a repeat voids nothing more and answers with the charge as it is now. Requires charge:void and charge:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChargeVoid"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "chargeId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Billable work posted to a visit. Priced when it was posted; never changes afterwards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Charge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{invoiceId}/discard": {
+      "post": {
+        "operationId": "discardInvoice",
+        "tags": ["billing"],
+        "description": "Discards a draft invoice (#1240), with a reason from a fixed list and the version the person saw (409 `version_conflict`). It becomes `void` with no number, with who discarded it, when and why; its lines are kept as history and its charges go back to pending. Only a draft is discarded (409 `invoice_not_draft`). Discarding one invoice of a split pair discards both drafts together: refused when the other is already issued (409 `split_issued`) or a claim to the payer stands on the visit (409 `claim_depends`); a pair whose other invoice was voided by a credit note discards the draft left. Emits `invoice.discarded` for each. The Idempotency-Key header is required: a repeat discards nothing more and answers with the invoice as it is now. Requires invoice:discard and invoice:read with the scope `all` and the billing feature flag. Audited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceDiscard"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "minLength": 8,
+              "maxLength": 128,
+              "type": "string"
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "description": "A unique value (such as a UUID) chosen by the client, required: a request without one is refused (400). Repeating the request with the same key returns the first result instead of doing the work again; the same key with a different request is refused (422 `idempotency_key_reuse`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A bill of one visit. A draft can be changed; once issued it never is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Standard error body.",
             "content": {
               "application/json": {

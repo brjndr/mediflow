@@ -20,6 +20,8 @@ import type {
   Charge,
   CollectedOnDate,
   ChargeCreate,
+  ChargeVoid,
+  InvoiceDiscard,
   CreditNote,
   CreditNoteCreate,
   DiscountSettings,
@@ -79,6 +81,32 @@ export async function resolveChargeReview(chargeId: string, reason: string): Pro
     body: { reason },
   });
   return chargeSchema.parse(requireData(result));
+}
+
+/** Voids a pending charge on no draft, with a reason (#1240). */
+export async function voidCharge(
+  chargeId: string,
+  body: ChargeVoid,
+  idempotencyKey: string,
+): Promise<Charge> {
+  const result = await api.POST('/charges/{chargeId}/void', {
+    params: { path: { chargeId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return chargeSchema.parse(requireData(result));
+}
+
+/** Discards a draft at the version it was read at (#1240). */
+export async function discardInvoice(
+  invoiceId: string,
+  body: InvoiceDiscard,
+  idempotencyKey: string,
+): Promise<Invoice> {
+  const result = await api.POST('/invoices/{invoiceId}/discard', {
+    params: { path: { invoiceId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return invoiceSchema.parse(requireData(result));
 }
 
 /** The visit's invoices, newest first, drafts included. */

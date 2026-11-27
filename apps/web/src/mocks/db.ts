@@ -251,6 +251,8 @@ const ADMIN: PermissionGrantDto[] = [
   { permission: 'invoice:issue' },
   { permission: 'invoice:print' },
   { permission: 'invoice:adjust' },
+  { permission: 'charge:void' },
+  { permission: 'invoice:discard' },
   { permission: 'dischargePolicy:manage' },
   { permission: 'dischargeBill:override' },
   // Payments (#111).

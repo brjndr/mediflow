@@ -11,7 +11,7 @@ import { billDischargeGate } from './stay-routes.js';
  * radiology and pharmacy modules; invoices assembled from charges, issued with a number of the
  * fiscal year and never changed after; payments, refunds and credit notes; cash register
  * sessions and the day-end settlement. Behind the `billing` module flag. Publishes
- * `charge.posted`, `invoice.issued`, `invoice.paid`, `payment.refunded`, `invoice.credited` and
+ * `charge.posted`, `charge.voided`, `invoice.discarded`, `invoice.issued`, `invoice.paid`, `payment.refunded`, `invoice.credited` and
  * `register.closed`; subscribes to `order.completed`, `pharmacy.dispensed` and
  * `pharmacy.dispense_returned`, `surgery.completed`, `surgery.consumables_used`, `surgery.consumables_returned` and `surgery.encounter_changed`. No other module writes a charge or an invoice.
  */
