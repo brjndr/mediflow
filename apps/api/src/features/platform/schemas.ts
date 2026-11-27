@@ -274,6 +274,14 @@ export const ExportLinkSent = Type.Object(
   },
 );
 
+export const ExportRecipient = Type.Object(
+  { hasRecipient: Type.Boolean() },
+  {
+    $id: 'ExportRecipient',
+    description: 'Whether anybody at the hospital could receive its export. Nobody is named.',
+  },
+);
+
 export const ExportDownloadParams = Type.Object({ exportId: Type.String({ format: 'uuid' }) });
 export const ExportDownloadQuery = Type.Object({
   admin: Type.String({ format: 'uuid' }),
@@ -328,6 +336,7 @@ export const PLATFORM_SCHEMAS = [
   PlatformExport,
   PlatformExportList,
   ExportLinkSent,
+  ExportRecipient,
   PlatformModule,
   PlatformModuleList,
   PlatformHospital,

@@ -1,7 +1,10 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { setMockMfa, signIn, USER_IDS } from '@/mocks/db';
+import { setMockNoExportRecipient } from '@/mocks/handlers/platform';
+import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 import { fetchHospital, suspendHospital } from './api';
@@ -171,6 +174,61 @@ describe('suspending, reactivating and offboarding a hospital (platform)', () =>
 
     expect(await within(dialog()).findByText('Enter a whole number from 1 to 3650.')).toBeVisible();
     expect((await fetchHospital('hosp_city')).status).toBe('active');
+  });
+
+  it('warns before offboarding when nobody can receive the export, and still allows it', async () => {
+    asPlatformAdmin();
+    setMockNoExportRecipient('hosp_city');
+    const user = userEvent.setup();
+    renderApp({ entry: '/platform/hospitals/hosp_city' });
+    await user.click(await screen.findByRole('button', { name: 'Offboard' }));
+
+    expect(await within(dialog()).findByRole('alert')).toHaveTextContent(
+      /nobody at this hospital can receive its export/,
+    );
+    await expectNoAxeViolations();
+
+    await user.type(within(dialog()).getByLabelText(/Type city-general/), 'city-general');
+    await user.click(within(dialog()).getByRole('button', { name: 'Offboard hospital' }));
+    await screen.findByText('Offboarding has started.');
+    expect((await fetchHospital('hosp_city')).status).toBe('offboarding');
+  });
+
+  it('shows no warning when somebody can receive the export', async () => {
+    asPlatformAdmin();
+    const user = userEvent.setup();
+    renderApp({ entry: '/platform/hospitals/hosp_city' });
+    await user.click(await screen.findByRole('button', { name: 'Offboard' }));
+    const confirm = within(dialog()).getByRole('button', { name: 'Offboard hospital' });
+    await waitFor(() => expect(confirm).not.toHaveAttribute('aria-disabled'));
+    expect(within(dialog()).queryByRole('alert')).toBeNull();
+  });
+
+  it('asks again each time the question is opened', async () => {
+    asPlatformAdmin();
+    const user = userEvent.setup();
+    renderApp({ entry: '/platform/hospitals/hosp_city' });
+    await user.click(await screen.findByRole('button', { name: 'Offboard' }));
+    const confirm = () => within(dialog()).getByRole('button', { name: 'Offboard hospital' });
+    await waitFor(() => expect(confirm()).not.toHaveAttribute('aria-disabled'));
+    await user.click(within(dialog()).getByRole('button', { name: 'Cancel' }));
+
+    setMockNoExportRecipient('hosp_city');
+    await user.click(screen.getByRole('button', { name: 'Offboard' }));
+    expect(await within(dialog()).findByRole('alert')).toHaveTextContent(/nobody at this hospital/);
+  });
+
+  it('says so when it cannot check who can receive the export', async () => {
+    asPlatformAdmin();
+    server.use(
+      http.get('*/api/platform/hospitals/:id/export-recipient', () =>
+        HttpResponse.json({ error: { code: 'forbidden', message: 'no' } }, { status: 403 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderApp({ entry: '/platform/hospitals/hosp_city' });
+    await user.click(await screen.findByRole('button', { name: 'Offboard' }));
+    expect(await within(dialog()).findByRole('alert')).toHaveTextContent(/could not be checked/);
   });
 
   it('is out of reach for hospital staff', async () => {

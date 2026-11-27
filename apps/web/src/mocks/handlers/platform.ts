@@ -107,6 +107,8 @@ let invited = 0;
 /** The latest deletion request and the exports of each hospital, by hospital id. */
 let deletions = new Map<string, Deletion>();
 let exportsOf = new Map<string, HospitalExport[]>();
+/** Hospitals where nobody may receive the export although they have staff, set by tests. */
+let noRecipient = new Set<string>();
 /** A reason that blocks a deletion (legal_hold, medico_legal_open), set by tests. */
 let blockers = new Map<string, string>();
 let deletionCount = 0;
@@ -114,6 +116,7 @@ onMockReset(() => {
   deletions = new Map();
   exportsOf = new Map();
   blockers = new Map();
+  noRecipient = new Set();
   deletionCount = 0;
   hospitals = seed();
   created = 0;
@@ -218,6 +221,10 @@ export function setMockOffboarding(
 }
 
 /** Test set-up: a request that another platform admin made, waiting for approval. */
+export function setMockNoExportRecipient(id: string): void {
+  noRecipient.add(id);
+}
+
 export function setMockDeletionBy(id: string, requestedBy: string): void {
   deletions.set(id, {
     id: `deletion_${++deletionCount}`,
@@ -517,6 +524,17 @@ export const platformHandlers = [
       h.status = 'offboarding';
       h.offboardingRequestedAt = new Date().toISOString();
       h.deleteAfter = new Date(Date.now() + days * 86_400_000).toISOString();
+    });
+  }),
+
+  // As in the invite route, a hospital with staff has someone who manages it.
+  http.get('*/api/platform/hospitals/:id/export-recipient', ({ params }) => {
+    const denied = platformOnly();
+    if (denied) return denied;
+    const hospital = hospitals.find((h) => h.id === String(params.id));
+    if (!hospital) return error(404, 'not_found', 'No such hospital');
+    return HttpResponse.json({
+      hasRecipient: hospital.memberCount > 0 && !noRecipient.has(hospital.id),
     });
   }),
 

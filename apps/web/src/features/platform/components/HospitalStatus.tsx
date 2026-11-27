@@ -1,3 +1,4 @@
+import { TriangleAlert } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessageKey, isApiError } from '@/shared/api';
@@ -7,6 +8,7 @@ import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { Form, TextField, useZodForm } from '@/shared/ui/form';
 import { useFormatters } from '@/tenancy/use-formatters';
 import {
+  useExportRecipient,
   useOffboardHospital,
   useReactivateHospital,
   useSuspendHospital,
@@ -21,8 +23,9 @@ const OFFBOARD_FORM = 'offboard-form';
 /**
  * The hospital's status, and what may be done to it: suspend, reactivate, offboard. Each asks
  * first, saying what happens. Nothing here deletes data: the API closes the hospital, signs its
- * staff out, withdraws open invites and, for an offboarding, marks the date after which the data
- * may be deleted (the export and the deletion are not built).
+ * staff out, withdraws open invites and, for an offboarding, starts the export and marks the date
+ * after which the data may be deleted. Offboarding warns when nobody at the hospital could
+ * receive that export.
  */
 export function HospitalStatus({ hospital }: { hospital: Hospital }) {
   const { t } = useTranslation();
@@ -33,6 +36,10 @@ export function HospitalStatus({ hospital }: { hospital: Hospital }) {
   const [asking, setAsking] = useState<Asking>(null);
   const [message, setMessage] = useState('');
   const [refused, setRefused] = useState('');
+  const recipient = useExportRecipient(hospital.id, asking === 'offboard');
+  // The answer is waited for, so nobody confirms before a warning could show.
+  // `isFetching`, not `isPending`: reopening the question still holds the last answer.
+  const checking = asking === 'offboard' && recipient.isFetching;
   const statusLine = useRef<HTMLParagraphElement>(null);
   const form = useZodForm(offboardSchema(hospital.slug), {
     slug: '',
@@ -80,7 +87,7 @@ export function HospitalStatus({ hospital }: { hospital: Hospital }) {
   };
 
   const runOffboard = (values: { days: string }) => {
-    if (busy) return;
+    if (busy || checking) return;
     offboard.mutate(Number(values.days), {
       onSuccess: () => {
         form.reset();
@@ -187,8 +194,17 @@ export function HospitalStatus({ hospital }: { hospital: Hospital }) {
         confirmLabel={t('platform.status.offboard.confirm')}
         confirmForm={OFFBOARD_FORM}
         destructive
-        pending={busy}
+        pending={busy || checking}
       >
+        <p role="status" className="text-sm text-muted-foreground">
+          {checking ? t('platform.status.offboard.recipient.checking') : ''}
+        </p>
+        {!checking && recipient.data === false && (
+          <Warning text={t('platform.status.offboard.recipient.none')} />
+        )}
+        {!checking && recipient.isError && (
+          <Warning text={t('platform.status.offboard.recipient.unknown')} />
+        )}
         <Form form={form} id={OFFBOARD_FORM} onSubmit={runOffboard} className="gap-3">
           <TextField
             name="slug"
@@ -209,6 +225,15 @@ export function HospitalStatus({ hospital }: { hospital: Hospital }) {
         {refused !== '' && asking === 'offboard' && <Refusal text={refused} />}
       </ConfirmDialog>
     </section>
+  );
+}
+
+function Warning({ text }: { text: string }) {
+  return (
+    <p role="alert" className="flex gap-2 rounded-md border border-destructive p-3 text-sm">
+      <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-destructive" />
+      <span>{text}</span>
+    </p>
   );
 }
 

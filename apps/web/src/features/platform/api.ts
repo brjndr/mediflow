@@ -2,6 +2,7 @@ import { api, isApiError, requireData } from '@/shared/api';
 import {
   auditPageSchema,
   exportLinkSentSchema,
+  exportRecipientSchema,
   hospitalDeletionSchema,
   hospitalExportSchema,
   hospitalExportListSchema,
@@ -165,6 +166,15 @@ export async function fetchHospitalExports(
     signal,
   });
   return hospitalExportListSchema.parse(requireData(result)).items;
+}
+
+/** Whether anybody at the hospital could receive its export, asked before offboarding it. */
+export async function fetchExportRecipient(id: string, signal?: AbortSignal): Promise<boolean> {
+  const result = await api.GET('/platform/hospitals/{id}/export-recipient', {
+    params: { path: { id } },
+    signal,
+  });
+  return exportRecipientSchema.parse(requireData(result)).hasRecipient;
 }
 
 /** Asks for another export of an offboarding hospital. Refused while one is queued or running. */

@@ -287,6 +287,8 @@ export const exportLinkSentSchema: z.ZodType<ExportLinkSent> = z.object({
   expiresInDays: z.number(),
 });
 
+export const exportRecipientSchema = z.object({ hasRecipient: z.boolean() });
+
 /** The admin the link is made for: a user id, as the API gives it. */
 export const exportLinkRequestSchema = z.object({
   adminUserId: z.string().trim().uuid('validation.invalid_format'),

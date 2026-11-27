@@ -473,6 +473,22 @@ export function hasExportRecipient(client: pg.ClientBase, hospitalId: string): P
   return exportRecipientExists(client, hospitalId, null);
 }
 
+/**
+ * The same question before the offboarding (#1234), for the warning: would anybody be able to
+ * receive the export if the hospital were offboarded now? `has_export_recipient` (migration 0169)
+ * holds the conditions of `exportRecipientExists`; a change to one changes both.
+ */
+export async function wouldHaveExportRecipient(
+  client: pg.ClientBase,
+  hospitalId: string,
+): Promise<boolean> {
+  const { rows } = await client.query<{ found: boolean }>(
+    'select has_export_recipient($1) as found',
+    [hospitalId],
+  );
+  return rows[0]?.found === true;
+}
+
 export async function isPlatformAdminEmail(client: pg.ClientBase, email: string): Promise<boolean> {
   const { rows } = await client.query<{ found: boolean }>(
     'select is_platform_admin_email($1) as found',

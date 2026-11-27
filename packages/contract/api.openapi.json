@@ -22239,6 +22239,16 @@
           }
         }
       },
+      "ExportRecipient": {
+        "description": "Whether anybody at the hospital could receive its export. Nobody is named.",
+        "type": "object",
+        "required": ["hasRecipient"],
+        "properties": {
+          "hasRecipient": {
+            "type": "boolean"
+          }
+        }
+      },
       "PlatformModule": {
         "type": "object",
         "required": ["id", "kind"],
@@ -79457,6 +79467,76 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlatformExportList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Standard error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platform/hospitals/{id}/export-recipient": {
+      "get": {
+        "operationId": "platformGetHospitalExportRecipient",
+        "tags": ["platform"],
+        "description": "Whether anybody at the hospital, in any status, could receive its export: an active member whose role holds both `role:manage` and `patient:read`. Read before offboarding, to warn when nobody can (the export would then wait for an operator). Offboarding is not refused.",
+        "parameters": [
+          {
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether anybody at the hospital could receive its export. Nobody is named.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportRecipient"
                 }
               }
             }
