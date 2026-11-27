@@ -1,5 +1,6 @@
 import type { FastifyRequest } from 'fastify';
 import { grantsWithin } from '../../core/access/policy.js';
+import { withdrawInvitesBeyondSender } from '../../core/auth/invite-ceiling.js';
 import { lockOpenInvitesSentBy, revokeInvite, roleGrants } from './repository.js';
 
 const INVITE = 'staff:invite';
@@ -23,5 +24,19 @@ export async function withdrawUnsendableInvites(
     if (mayInvite && grantsWithin(roles.get(invite.role_id)?.grants ?? [], held)) continue;
     await revokeInvite(request.txClient, invite.id);
     request.audit('withdraw', 'invite', invite.id);
+  }
+}
+
+/**
+ * The other side of the same rule (#1224): after a role gained permissions, withdraws, and
+ * audits, the open invitations into it that their sender could no longer send. Call it after the
+ * change, with the hospital's role-change lock held.
+ */
+export async function withdrawInvitesOutgrown(
+  request: FastifyRequest,
+  roleId: string,
+): Promise<void> {
+  for (const id of await withdrawInvitesBeyondSender(request.txClient, roleId)) {
+    request.audit('withdraw', 'invite', id);
   }
 }
