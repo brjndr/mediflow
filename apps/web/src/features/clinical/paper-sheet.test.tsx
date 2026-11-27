@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   grantPermission,
   revokePermission,
@@ -32,6 +32,10 @@ async function openDialog(token = 'Attach OPD sheet, token 1') {
 }
 
 describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
+  afterEach(() => {
+    server.events.removeAllListeners();
+  });
+
   it('names the patient and token, attaches the file and closes the visit', async () => {
     const dialog = await openDialog();
     const submit = within(dialog).getByRole('button', { name: /^Attach to .+, token 1$/ });
@@ -47,6 +51,67 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     // Nothing of the file or the patient is kept in the browser.
     expect(window.localStorage).toHaveLength(0);
     expect(window.sessionStorage).toHaveLength(0);
+  });
+
+  /** The reads of paper visits from here on, each of them audited by the server. */
+  function countReads() {
+    const reads: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'GET' && request.url.endsWith('/paper-visit')) reads.push(request.url);
+    });
+    return reads;
+  }
+
+  it('shows what a change answered with, without reading the visit again', async () => {
+    const reads = countReads();
+    const dialog = await openDialog();
+    expect(reads).toHaveLength(1);
+
+    await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
+    expect(await within(dialog).findByText(/The sheet was attached/, {}, SLOW)).toBeVisible();
+    // The upload answers with a document, not the visit: one read shows the new sheet.
+    await waitFor(() => expect(reads).toHaveLength(2), SLOW);
+
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
+    expect(await within(dialog).findByText('The visit is closed.', {}, SLOW)).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: 'Close visit' })).toBeNull();
+
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Wrong sheet: retire sheet.jpg' }),
+    );
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: /Why it is retired/ }),
+      'Wrong visit',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Retire sheet' }));
+    expect(await within(dialog).findByText(/The sheet was retired/, {}, SLOW)).toBeVisible();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Wrong sheet: retire sheet.jpg' }),
+    ).toBeNull();
+    // The token asked about stays named.
+    expect(dialog).toHaveTextContent(/Token\s*1/);
+    expect(reads).toHaveLength(2);
+  });
+
+  it('reads the visit again after a refused change', async () => {
+    server.use(
+      http.post('*/api/encounters/:encounterId/paper-visit/close', () =>
+        HttpResponse.json(
+          { error: { code: 'conflict', message: 'no', requestId: 'r' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    const reads = countReads();
+    const dialog = await openDialog();
+    await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
+    await within(dialog).findByText(/The sheet was attached/, {}, SLOW);
+    await waitFor(() => expect(reads).toHaveLength(2), SLOW);
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Close visit' }, SLOW));
+    expect(await within(dialog).findByRole('alert', {}, SLOW)).toBeVisible();
+    await waitFor(() => expect(reads).toHaveLength(3), SLOW);
   });
 
   it('retires a wrong sheet with a reason, after which the visit cannot be closed', async () => {

@@ -42,17 +42,39 @@ export function usePaperVisit(subject: PaperSubject) {
         : false,
   });
 
-  /** Written only for the session it was asked in. */
-  const keep = (visit: PaperVisit) => {
+  /**
+   * Shows the visit a change answered with, in place of reading it again: every read is audited
+   * (#1213). Written only for the session it was asked in.
+   */
+  const keep = async (visit: PaperVisit) => {
+    const before = stillHere();
+    if (!before) return;
+    // A read already on its way (the scan poll) must not put the older visit back.
+    await queryClient.cancelQueries({ queryKey: keyOf(before) });
     const tenant = stillHere();
-    if (tenant) queryClient.setQueryData(keyOf(tenant), visit);
+    if (!tenant) return;
+    queryClient.setQueryData<PaperVisit>(keyOf(tenant), (shown) => {
+      // A dialog already gone took its entry with it: the patient is not put back in the cache.
+      if (!shown) return undefined;
+      // A change answers with the visit's own token, which a visit opened from an appointment
+      // does not have: the token asked about stays on screen.
+      return 'tokenId' in subject && shown.tokenNumber !== undefined
+        ? { ...visit, tokenNumber: shown.tokenNumber }
+        : visit;
+    });
   };
-  /** The visit's screen and lists show what changed. */
-  const refresh = () => {
+  /**
+   * The visit's screen and lists show what changed. `kept` leaves the paper visit as it is, after
+   * an answer that already held it.
+   */
+  const refresh = ({ kept = false } = {}) => {
     const tenant = stillHere();
     if (!tenant) return;
     return Promise.all([
-      queryClient.invalidateQueries({ queryKey: clinicalKeys.all(tenant) }),
+      queryClient.invalidateQueries({
+        queryKey: clinicalKeys.all(tenant),
+        predicate: (each) => !kept || each.queryKey.at(-1) !== 'paper',
+      }),
       refreshDocuments(),
     ]);
   };
@@ -62,7 +84,7 @@ export function usePaperVisit(subject: PaperSubject) {
     mutationFn: (tokenId: string) => openPaperVisit(tokenId, openKey.keyFor(tokenId)),
     onSuccess: (visit) => {
       openKey.clear();
-      keep(visit);
+      return keep(visit);
     },
   });
   const close = useMutation({
@@ -71,9 +93,10 @@ export function usePaperVisit(subject: PaperSubject) {
       closePaperVisit(id, version, closeKey.keyFor({ id, version })),
     onSuccess: (visit) => {
       closeKey.clear();
-      keep(visit);
+      return keep(visit);
     },
-    onSettled: () => refresh(),
+    // A refusal holds no visit: what is shown may be out of date, so it is read again.
+    onSettled: (visit) => refresh({ kept: visit !== undefined }),
   });
   const retire = useMutation({
     gcTime: 0,
@@ -83,7 +106,7 @@ export function usePaperVisit(subject: PaperSubject) {
         expectedVersion: sheet.version,
       }),
     onSuccess: keep,
-    onSettled: () => refresh(),
+    onSettled: (visit) => refresh({ kept: visit !== undefined }),
   });
 
   return { query, open, close, retire, refresh };
