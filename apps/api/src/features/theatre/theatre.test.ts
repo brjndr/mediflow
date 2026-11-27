@@ -1659,6 +1659,79 @@ describe('the operation note, the visit and the charges', () => {
     expect(foreign.rowCount).toBe(0);
   });
 
+  /** A started surgery with units of one batch used and charged on a new visit. */
+  async function usedSetup(quantity: number) {
+    const surgery = await booked({});
+    const first = await addEncounter(hospital, surgery.patientId);
+    const batch = await stockIn(10);
+    await pool.query('update stock_batches set mrp_minor = 700 where id = $1', [batch]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const link = `/theatre/surgeries/${surgery.id}/encounter`;
+    await ok(await put(link, { encounterId: first }));
+    const used = await ok<Page<Consumable>>(
+      await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+        drugId,
+        locationId: place,
+        lines: [{ batchId: batch, quantity }],
+      }),
+      201,
+    );
+    await chargesOf(first);
+    const url = `/theatre/surgeries/${surgery.id}/consumables/${used.items[0]?.id}/return`;
+    const bringBack = async (units: number) =>
+      ok(await post(url, { quantity: units, reason: 'Unused' }, { key: fresh() }), 201);
+    const rows = async (encounterId: string) => {
+      await chargesOf(encounterId);
+      const found = await pool.query(
+        'select quantity, status, flag from charges where encounter_id = $1',
+        [encounterId],
+      );
+      return found.rows;
+    };
+    return { surgery, first, link, bringBack, rows };
+  }
+
+  it('keeps the charge for a unit still used when more come back after a relink (#1243)', async () => {
+    const { surgery, link, bringBack, rows } = await usedSetup(4);
+    const second = await addEncounter(hospital, surgery.patientId);
+    const third = await addEncounter(hospital, surgery.patientId);
+    await bringBack(1);
+    await ok(await put(link, { encounterId: second }));
+    expect(await rows(second)).toEqual([{ quantity: 3, status: 'pending', flag: null }]);
+    // Moved again: the earlier return is not taken off twice.
+    await ok(await put(link, { encounterId: third }));
+    expect(await rows(third)).toEqual([{ quantity: 3, status: 'pending', flag: null }]);
+    // One unit is still in use after this return: the charge is flagged, not voided.
+    await bringBack(2);
+    expect(await rows(third)).toEqual([{ quantity: 3, status: 'pending', flag: 'return_review' }]);
+    await bringBack(1);
+    expect(await rows(third)).toEqual([{ quantity: 3, status: 'void', flag: 'return_review' }]);
+  });
+
+  it('leaves alone a carried charge that already excludes a return (#1243)', async () => {
+    const { surgery, first, link, bringBack, rows } = await usedSetup(3);
+    const second = await addEncounter(hospital, surgery.patientId);
+    const client = await pool.connect();
+    try {
+      await client.query("set session_replication_role = 'replica'");
+      await client.query(
+        "update charges set status = 'invoiced', invoice_id = $2 where encounter_id = $1",
+        [first, randomUUID()],
+      );
+    } finally {
+      await client.query("set session_replication_role = 'origin'");
+      client.release();
+    }
+    // The return and the relink are both made before either event is handled.
+    await bringBack(1);
+    await ok(await put(link, { encounterId: second }));
+    expect(await rows(second)).toEqual([{ quantity: 2, status: 'pending', flag: null }]);
+    // A later return leaves the old charge waiting for its credit, so it is never carried again.
+    await bringBack(1);
+    expect(await rows(second)).toEqual([{ quantity: 2, status: 'pending', flag: 'return_review' }]);
+    expect(await rows(first)).toEqual([{ quantity: 3, status: 'invoiced', flag: 'relink_review' }]);
+  });
+
   it('posts no charge for a surgery with no visit', async () => {
     const surgery = await booked({ serviceId: procedureService });
     const batch = await stockIn(5);

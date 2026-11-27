@@ -411,21 +411,26 @@ export function subscribeToPostings(app: FastifyInstance): void {
     }
   });
 
-  // Units of a surgery's consumables brought back (#892): the charge of that recording, still
-  // pending and on no draft, wholly returned, is voided; any other is flagged for the billing desk
-  // to credit. Computed from all that has been returned, so a repeat changes nothing.
+  // Units of a surgery's consumables brought back (#892). What is still in use is the recorded
+  // quantity less all returns, and each charge for more than that is dealt with: still pending, on
+  // no draft and with nothing left in use, it is voided; any other is flagged for the billing desk
+  // to credit. A charge carried by a relink already excludes what came back before it (#1243), and
+  // one waiting for its credit after a relink keeps that flag, so it is never carried again.
+  // Computed from all that has been returned, so a repeat changes nothing.
   app.events.subscribe('surgery.consumables_returned', async (message, tx) => {
     const consumableId = idOf(message.payload.consumableId);
     if (!consumableId) return;
     await tx.execute(
-      sql`update charges c set flag = 'return_review',
+      sql`update charges c set
+            flag = case when c.flag = 'relink_review' then c.flag else 'return_review' end,
             status = case when c.status = 'pending' and c.invoice_id is null
-              and r.returned >= c.quantity then 'void' else c.status end
-          from (select coalesce(sum(quantity), 0) as returned from ot_consumable_returns
-                where consumable_id = ${consumableId}) r
+              and r.in_use <= 0 then 'void' else c.status end
+          from (select o.quantity - coalesce((select sum(t.quantity) from ot_consumable_returns t
+                  where t.consumable_id = o.id), 0) as in_use
+                from ot_consumables o where o.id = ${consumableId}) r
           where (c.source_ref = 'theatre:' || ${consumableId}::text
               or c.source_ref like 'theatre:' || ${consumableId}::text || ':%')
-            and r.returned > 0 and c.status <> 'void'`,
+            and c.quantity > r.in_use and c.status <> 'void'`,
     );
   });
 
@@ -452,14 +457,16 @@ export function subscribeToPostings(app: FastifyInstance): void {
     const { rows } = await tx.execute<{
       id: string;
       description: string;
-      quantity: number;
+      in_use: number;
       unit_price_minor: string;
       flag: 'no_price' | null;
       source_ref: string;
       movable: boolean;
       dropped: boolean;
     }>(
-      sql`select c.id, c.description, c.quantity, c.unit_price_minor::text, c.flag, c.source_ref,
+      sql`select c.id, c.description, c.unit_price_minor::text, c.flag, c.source_ref,
+            (o.quantity - coalesce((select sum(t.quantity) from ot_consumable_returns t
+              where t.consumable_id = o.id), 0))::int as in_use,
             (c.status = 'pending' and c.invoice_id is null) as movable,
             (c.status = 'void') as dropped
           from charges c join ot_consumables o on c.source_ref = 'theatre:' || o.id::text
@@ -479,14 +486,10 @@ export function subscribeToPostings(app: FastifyInstance): void {
             : sql`update charges set flag = 'relink_review' where id = ${charge.id}`,
         );
       }
-      // What came back to stock before the move is not charged again.
+      // What came back to stock before the move is not charged again. Counted from the recorded
+      // quantity, as a charge carried before already excludes the earlier returns (#1243).
+      if (charge.in_use <= 0) continue;
       const base = charge.source_ref.split(':').slice(0, 2).join(':');
-      const { rows: back } = await tx.execute<{ returned: number }>(
-        sql`select coalesce(sum(quantity), 0)::int as returned from ot_consumable_returns
-            where consumable_id = ${base.slice('theatre:'.length)}`,
-      );
-      const quantity = charge.quantity - (back[0]?.returned ?? 0);
-      if (quantity <= 0) continue;
       await postCharge(tx, {
         encounterId: target,
         patientId,
@@ -494,7 +497,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
         source: 'dispense',
         sourceRef: `${base}:${message.eventId}`,
         description: charge.description,
-        quantity,
+        quantity: charge.in_use,
         unitPriceMinor: Number(charge.unit_price_minor),
         flag:
           charge.flag === 'no_price' || (charge.dropped && Number(charge.unit_price_minor) === 0)
