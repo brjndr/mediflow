@@ -1513,6 +1513,156 @@ describe('posting charges from events', () => {
       { status: 'pending', flag: 'return_review' },
     ]);
   });
+
+  /** A dispense of two batches (4 and 3 units); the lines are in the order they are charged. */
+  async function seedDispense() {
+    const dispenseId = randomUUID();
+    const batches = [randomUUID(), randomUUID()];
+    const lines = [randomUUID(), randomUUID()].sort();
+    await asReplica(async (client) => {
+      await client.query(
+        `insert into dispenses (id, tenant_id, order_id, prescription_id, encounter_id, patient_id,
+           location_id, prescribed_drug_id, drug_id, item_name, schedule, controlled, quantity, dispensed_by)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $8, 'Paracetamol 500 mg', 'none', false, 7, $9)`,
+        [
+          dispenseId,
+          hospital.id,
+          randomUUID(),
+          randomUUID(),
+          encounters.other,
+          patients.asha,
+          randomUUID(),
+          randomUUID(),
+          admin.id,
+        ],
+      );
+      for (const [index, batchId] of batches.entries()) {
+        await client.query(
+          `insert into stock_batches (id, tenant_id, drug_id, batch_number, expiry_date, mrp_minor, created_by)
+           values ($1, $2, $3, $4, current_date + 300, 250, $5)`,
+          [batchId, hospital.id, randomUUID(), randomUUID().slice(0, 20), admin.id],
+        );
+        await client.query(
+          `insert into dispense_lines (id, tenant_id, dispense_id, drug_id, batch_id, quantity, ledger_entry_id)
+           values ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            lines[index],
+            hospital.id,
+            dispenseId,
+            randomUUID(),
+            batchId,
+            index === 0 ? 4 : 3,
+            randomUUID(),
+          ],
+        );
+      }
+    });
+    const dispensed = () =>
+      publish('pharmacy.dispensed', dispenseId, {
+        dispenseId,
+        encounterId: encounters.other,
+        patientId: patients.asha,
+      });
+    /** Commits a return of the units of each batch, and delivers its event. */
+    const bringBack = async (units: number[]) => {
+      const returnId = randomUUID();
+      await asReplica(async (client) => {
+        await client.query(
+          `insert into dispense_returns (id, tenant_id, dispense_id, reason, returned_by)
+           values ($1, $2, $3, 'Unused', $4)`,
+          [returnId, hospital.id, dispenseId, admin.id],
+        );
+        for (const [index, quantity] of units.entries()) {
+          if (quantity === 0) continue;
+          await client.query(
+            `insert into dispense_return_lines (tenant_id, return_id, dispense_id, batch_id, quantity, wasted, ledger_entry_id)
+             values ($1, $2, $3, $4, $5, false, $6)`,
+            [hospital.id, returnId, dispenseId, batches[index], quantity, randomUUID()],
+          );
+        }
+      });
+      await publish('pharmacy.dispense_returned', returnId, { returnId, dispenseId });
+    };
+    const charges = async () => [
+      ...(await chargesOf(`dispense:${lines[0]}`)),
+      ...(await chargesOf(`dispense:${lines[1]}`)),
+    ];
+    return { lines, dispensed, bringBack, charges };
+  }
+
+  /** The pharmacy's own tables are not under test here: their foreign keys are set aside. */
+  async function asReplica(work: (client: pg.PoolClient) => Promise<void>) {
+    const client = await pool.connect();
+    try {
+      await client.query("set session_replication_role = 'replica'");
+      await work(client);
+    } finally {
+      await client.query("set session_replication_role = 'origin'");
+      client.release();
+    }
+  }
+
+  it('does not bill in full units that came back before the dispense was charged (#1260)', async () => {
+    const { lines, dispensed, bringBack, charges } = await seedDispense();
+    // All of the first line and one unit of the second come back; the dispense event is late.
+    await bringBack([4, 1]);
+    expect(await charges()).toEqual([]);
+    await dispensed();
+    expect(await charges()).toMatchObject([
+      { status: 'void', flag: 'return_review' },
+      { status: 'pending', flag: 'return_review' },
+    ]);
+    // A repeat posts nothing, and does not flag again what the desk has reviewed.
+    await pool.query('update charges set flag = null where source_ref = $1', [
+      `dispense:${lines[1]}`,
+    ]);
+    await dispensed();
+    expect(await charges()).toMatchObject([
+      { status: 'void', flag: 'return_review' },
+      { status: 'pending', flag: null },
+    ]);
+  });
+
+  it('sees a return handled while the dispense is being charged (#1260)', async () => {
+    const { lines, dispensed, bringBack, charges } = await seedDispense();
+    const waiting = async (count: number) => {
+      for (let tries = 0; tries < 120; tries += 1) {
+        const { rows } = await pool.query(
+          "select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
+        );
+        if (rows.length >= count) return true;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      return false;
+    };
+    // An uncommitted charge for the second line holds the posting half way: the first line is
+    // posted and nothing is committed.
+    const blocker = await pool.connect();
+    let posting: Promise<void> | undefined;
+    let returning: Promise<void> | undefined;
+    try {
+      await blocker.query('begin');
+      await blocker.query(
+        `insert into charges (tenant_id, encounter_id, patient_id, source, source_ref,
+           description, quantity, unit_price_minor)
+         values ($1, $2, $3, 'dispense', $4, 'Held', 1, 0)`,
+        [hospital.id, encounters.other, patients.asha, `dispense:${lines[1]}`],
+      );
+      posting = dispensed();
+      expect(await waiting(1)).toBe(true);
+      returning = bringBack([4, 0]);
+      // The return's handler waits for the posting: it could not see the charge yet.
+      expect(await waiting(2)).toBe(true);
+    } finally {
+      await blocker.query('rollback');
+      blocker.release();
+      await Promise.all([posting, returning]);
+    }
+    expect(await charges()).toMatchObject([
+      { status: 'void', flag: 'return_review' },
+      { status: 'pending', flag: null },
+    ]);
+  }, 20_000);
 });
 
 describe('charging a service by hand (#115)', () => {
