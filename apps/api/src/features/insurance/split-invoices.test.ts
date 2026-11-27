@@ -508,6 +508,19 @@ describe('charges released by crediting one half of a split pair (#1255)', () =>
     await issue(pair.payerInvoiceId);
   });
 
+  it('holds the other draft while a charge it bills is flagged for the desk', async () => {
+    const { pair, chargeId } = await released();
+    await pool.query("update charges set flag = 'return_review' where id = $1", [chargeId]);
+    await ok(await post(`/invoices/${pair.payerInvoiceId}/split-review`, { reason: 'Kept' }));
+    const { version } = await invoiceOf(pair.payerInvoiceId);
+    expect(errorOf(await post(`/invoices/${pair.payerInvoiceId}/issue`, { version }))).toEqual([
+      409,
+      'charge_returned',
+    ]);
+    await ok(await post(`/charges/${chargeId}/review`, { reason: 'Credit raised' }));
+    await issue(pair.payerInvoiceId);
+  });
+
   it('is billed again once the other invoice is void too', async () => {
     const { encounterId, pair, chargeId } = await released();
     await ok(await post(`/invoices/${pair.payerInvoiceId}/split-review`, { reason: 'Kept' }));

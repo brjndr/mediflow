@@ -646,8 +646,12 @@ export const billingRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if ((rows[0]?.lines ?? 0) === 0) {
         throw new HttpError(409, 'invoice_empty', 'An invoice with no lines is not issued');
       }
+      // Read through the lines: one half of a split pair bills charges the other holds, or
+      // that no invoice holds once the other was credited (#1255).
       const returned = await client.query(
-        "select 1 from charges where invoice_id = $1 and flag in ('return_review', 'relink_review')",
+        `select 1 from invoice_lines l
+           join charges c on c.tenant_id = l.tenant_id and c.id = l.charge_id
+          where l.invoice_id = $1 and c.flag in ('return_review', 'relink_review')`,
         [locked.id],
       );
       if ((returned.rowCount ?? 0) > 0) {
