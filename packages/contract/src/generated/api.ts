@@ -5387,7 +5387,7 @@ export interface paths {
         /** @description How a visit's charge ledger divides between the patient and the payer of the patient's active policy (IN-03, #183), worked out by the server: each charge at the payer's agreed rate, the plan's covered services, the limit per service, the patient's co-pay share and the sum insured. For every line payerMinor + patientMinor = ratedMinor, and ledgerMinor + rateAdjustmentMinor = payerMinor + patientMinor in total. Needs policy:read, charge:read and the insurance feature flag. 404 when the patient has no active policy. Audited. */
         get: operations["getCoverageSplit"];
         put?: never;
-        /** @description Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited. */
+        /** @description Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. A cancelled visit is 409 `encounter_cancelled`. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited. */
         post: operations["saveCoverageSplit"];
         delete?: never;
         options?: never;
@@ -5472,7 +5472,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Prepares a claim for a visit: the payer share of the visit's coverage split as it is now, the patient's active policy and the packet of documents (by name). One claim in play per visit (409 `claim_exists`); nothing to claim is 422 `nothing_to_claim`; no active policy is 404 `no_active_policy`. Needs claim:manage. Audited. */
+        /** @description Prepares a claim for a visit: the payer share of the visit's coverage split as it is now, the patient's active policy and the packet of documents (by name). One claim in play per visit (409 `claim_exists`); nothing to claim is 422 `nothing_to_claim`; no active policy is 404 `no_active_policy`; a cancelled visit is 409 `encounter_cancelled`. Needs claim:manage. Audited. */
         post: operations["createClaim"];
         delete?: never;
         options?: never;
@@ -5610,7 +5610,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Bills the whole of a visit to a corporate credit account: the visit charge ledger (void charges left out), due after the account terms. One credit bill per visit (409 `credit_bill_exists`); nothing to bill is 422 `nothing_to_bill`; over the limit is 422 `credit_limit_exceeded`. Needs receivable:manage. Audited. */
+        /** @description Bills the whole of a visit to a corporate credit account: the visit charge ledger (void charges left out), due after the account terms. One credit bill per visit (409 `credit_bill_exists`); nothing to bill is 422 `nothing_to_bill`; over the limit is 422 `credit_limit_exceeded`; a cancelled visit is 409 `encounter_cancelled`. Needs receivable:manage. Audited. */
         post: operations["createCreditBill"];
         delete?: never;
         options?: never;
@@ -44356,6 +44356,15 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

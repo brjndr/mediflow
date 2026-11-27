@@ -39,6 +39,20 @@ export async function visitPatient(client: pg.ClientBase, encounterId: string): 
   return found.patient_id;
 }
 
+/**
+ * For a route that adds to a visit already found: holds it (shared), so it is not cancelled
+ * meanwhile, and refuses a cancelled one with 409 `encounter_cancelled` (#1222).
+ */
+export async function holdLiveVisit(client: pg.ClientBase, encounterId: string): Promise<void> {
+  const { rows } = await client.query<{ status: string }>(
+    'select status from encounters where id = $1 for share',
+    [encounterId],
+  );
+  if (rows[0]?.status === 'cancelled') {
+    throw new HttpError(409, 'encounter_cancelled', 'A cancelled visit has nothing to bill');
+  }
+}
+
 interface PolicyTerms {
   id: string;
   payer_id: string;
@@ -255,9 +269,9 @@ export const splitRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['insurance'],
         headers: SplitSaveHeaders,
         description:
-          'Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited.',
+          'Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. A cancelled visit is 409 `encounter_cancelled`. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited.',
         params: EncounterParams,
-        response: { 200: ref(CoverageSplit), ...errors(401, 403, 404, 429) },
+        response: { 200: ref(CoverageSplit), ...errors(401, 403, 404, 409, 429) },
       },
     },
     async (request) => {
@@ -265,6 +279,7 @@ export const splitRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const encounterId = request.params.encounterId;
       const patientId = await visitPatient(client, encounterId);
       await requirePatient(request, patientId);
+      await holdLiveVisit(client, encounterId);
       const { split } = await computeSplit(client, encounterId, patientId);
       await client.query(
         `insert into coverage_splits (encounter_id, policy_id, ledger_minor, payer_minor,

@@ -18,7 +18,7 @@ import {
   type ClaimStatus,
 } from './claim-schemas.js';
 import { EncounterParams } from './schemas.js';
-import { computeSplit, visitPatient } from './split.js';
+import { computeSplit, visitPatient, holdLiveVisit } from './split.js';
 import { isCode, isUuid, requirePatient, tidy, userIdOf } from './util.js';
 
 const FEATURE = 'insurance';
@@ -306,7 +306,7 @@ export const claimRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['insurance'],
         headers: RequiredIdempotencyHeaders,
         description:
-          "Prepares a claim for a visit: the payer share of the visit's coverage split as it is now, the patient's active policy and the packet of documents (by name). One claim in play per visit (409 `claim_exists`); nothing to claim is 422 `nothing_to_claim`; no active policy is 404 `no_active_policy`. Needs claim:manage. Audited.",
+          "Prepares a claim for a visit: the payer share of the visit's coverage split as it is now, the patient's active policy and the packet of documents (by name). One claim in play per visit (409 `claim_exists`); nothing to claim is 422 `nothing_to_claim`; no active policy is 404 `no_active_policy`; a cancelled visit is 409 `encounter_cancelled`. Needs claim:manage. Audited.",
         params: EncounterParams,
         body: ClaimCreate,
         response: { 201: ref(ClaimDetail), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -317,6 +317,7 @@ export const claimRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const encounterId = request.params.encounterId;
       const patientId = await visitPatient(client, encounterId);
       await requirePatient(request, patientId);
+      await holdLiveVisit(client, encounterId);
       const visit = await computeSplit(client, encounterId, patientId);
       if (visit.split.payerMinor <= 0) {
         throw new HttpError(422, 'nothing_to_claim', 'The payer owes nothing');

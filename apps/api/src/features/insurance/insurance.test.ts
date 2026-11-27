@@ -764,6 +764,15 @@ describe('pre-authorizations', () => {
         ),
       ),
     ).toEqual([409, 'encounter_cancelled']);
+    const visit = `/encounters/${rows[0]?.id}`;
+    expect(errorOf(await post(`${visit}/coverage-split`, {}, { key: fresh() }))).toEqual([
+      409,
+      'encounter_cancelled',
+    ]);
+    expect(errorOf(await post(`${visit}/claims`, { documents: [] }, { key: fresh() }))).toEqual([
+      409,
+      'encounter_cancelled',
+    ]);
   });
 
   it('asks, shows what the visit has been charged, and records the answer once', async () => {
