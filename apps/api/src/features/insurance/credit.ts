@@ -21,7 +21,7 @@ import {
   StatementQuery,
 } from './credit-schemas.js';
 import { EncounterParams } from './schemas.js';
-import { visitPatient } from './split.js';
+import { visitPatient, holdLiveVisit } from './split.js';
 import { isCode, isUuid, requirePatient, tidy, userIdOf } from './util.js';
 
 const FEATURE = 'insurance';
@@ -452,7 +452,7 @@ export const creditRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['insurance'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Bills the whole of a visit to a corporate credit account: the visit charge ledger (void charges left out), due after the account terms. One credit bill per visit (409 `credit_bill_exists`); nothing to bill is 422 `nothing_to_bill`; over the limit is 422 `credit_limit_exceeded`. Needs receivable:manage. Audited.',
+          'Bills the whole of a visit to a corporate credit account: the visit charge ledger (void charges left out), due after the account terms. One credit bill per visit (409 `credit_bill_exists`); nothing to bill is 422 `nothing_to_bill`; over the limit is 422 `credit_limit_exceeded`; a cancelled visit is 409 `encounter_cancelled`. Needs receivable:manage. Audited.',
         params: EncounterParams,
         body: CreditBillCreate,
         response: { 201: ref(CreditBill), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -464,6 +464,7 @@ export const creditRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const payerId = request.body.payerId;
       const patientId = await visitPatient(client, encounterId);
       await requirePatient(request, patientId);
+      await holdLiveVisit(client, encounterId);
       const account = await lockedAccount(client, payerId);
       const total = Number(
         (

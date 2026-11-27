@@ -749,6 +749,32 @@ describe('pre-authorizations', () => {
     ...more,
   });
 
+  it('refuses a request for a cancelled visit (#1222)', async () => {
+    const held = await setup();
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into encounters (tenant_id, patient_id, type, status, opened_by, cancel_reason, ended_at, ended_by)
+       values ($1, $2, 'opd', 'cancelled', $3, 'Entered in error', now(), $3) returning id`,
+      [hospital.id, patientId, admin.id],
+    );
+    expect(
+      errorOf(
+        await post(
+          `/patients/${patientId}/pre-auths`,
+          request(held.id, { encounterId: rows[0]?.id }),
+        ),
+      ),
+    ).toEqual([409, 'encounter_cancelled']);
+    const visit = `/encounters/${rows[0]?.id}`;
+    expect(errorOf(await post(`${visit}/coverage-split`, {}, { key: fresh() }))).toEqual([
+      409,
+      'encounter_cancelled',
+    ]);
+    expect(errorOf(await post(`${visit}/claims`, { documents: [] }, { key: fresh() }))).toEqual([
+      409,
+      'encounter_cancelled',
+    ]);
+  });
+
   it('asks, shows what the visit has been charged, and records the answer once', async () => {
     const held = await setup();
     const asked = await ok<PreAuth>(

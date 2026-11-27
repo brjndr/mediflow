@@ -890,7 +890,8 @@ export const recordsDeskRoutes: FastifyPluginAsyncTypebox = async (app) => {
         );
         if (service.rowCount === 0) throw new HttpError(422, 'unknown_service', 'No such service');
         const visit = await request.txClient.query(
-          `select 1 from encounters where id = $1 and patient_id = $2 and status <> 'cancelled'`,
+          `select 1 from encounters where id = $1 and patient_id = $2 and status <> 'cancelled'
+           for share`,
           [body.feeEncounterId, current.patient_id],
         );
         if (visit.rowCount === 0) {

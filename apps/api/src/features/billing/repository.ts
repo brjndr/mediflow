@@ -45,13 +45,15 @@ export interface EncounterRow {
   status: string;
 }
 
+/** `share` holds the visit, so it is not cancelled while something is added to it. */
 export async function findEncounter(
   client: pg.ClientBase,
   id: string,
+  lock?: 'share',
 ): Promise<EncounterRow | null> {
   if (!isUuid(id)) return null;
   const { rows } = await client.query<EncounterRow>(
-    'select id, patient_id, status from encounters where id = $1',
+    `select id, patient_id, status from encounters where id = $1 ${lock ? 'for share' : ''}`,
     [id],
   );
   return rows[0] ?? null;

@@ -7,7 +7,7 @@ import { errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { taxRatesOf, type TaxClass } from '../billing/tax.js';
 import { EncounterParams } from './schemas.js';
-import { computeSplit, visitPatient } from './split.js';
+import { computeSplit, visitPatient, holdLiveVisit } from './split.js';
 import { isCode, requirePatient, userIdOf } from './util.js';
 
 const FEATURE = 'insurance';
@@ -164,14 +164,7 @@ export const splitInvoiceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const encounterId = request.params.encounterId;
       const patientId = await visitPatient(client, encounterId);
       await requirePatient(request, patientId);
-      const status = (
-        await client.query<{ status: string }>('select status from encounters where id = $1', [
-          encounterId,
-        ])
-      ).rows[0]?.status;
-      if (status === 'cancelled') {
-        throw new HttpError(409, 'encounter_cancelled', 'A cancelled visit has nothing to bill');
-      }
+      await holdLiveVisit(client, encounterId);
       // The ledger is held while it is divided, so no draft takes a charge in between.
       const held = await client.query<{
         id: string;

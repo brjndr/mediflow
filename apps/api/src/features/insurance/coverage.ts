@@ -358,7 +358,7 @@ export const coverageRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['insurance'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Asks the payer to pre-authorize a treatment against one of the patient’s policies, in status `submitted`. The policy must be active (409 `policy_not_active`); a visit, when named, is the patient’s own (404 `encounter_not_found`). The enclosed documents are named; the files are on the patient’s record. Audited. Requires preauth:manage.',
+          'Asks the payer to pre-authorize a treatment against one of the patient’s policies, in status `submitted`. The policy must be active (409 `policy_not_active`); a visit, when named, is the patient’s own (404 `encounter_not_found`) and not cancelled (409 `encounter_cancelled`). The enclosed documents are named; the files are on the patient’s record. Audited. Requires preauth:manage.',
         params: PatientParams,
         body: PreAuthCreate,
         response: { 201: ref(PreAuth), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -377,14 +377,19 @@ export const coverageRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'policy_not_active', 'The policy is not active');
       }
       if (body.encounterId !== undefined) {
+        // Held, so it is not cancelled while the request is added to it (#1222).
         const visit = isUuid(body.encounterId)
-          ? await client.query('select 1 from encounters where id = $1 and patient_id = $2', [
-              body.encounterId,
-              request.params.patientId,
-            ])
+          ? await client.query<{ status: string }>(
+              'select status from encounters where id = $1 and patient_id = $2 for share',
+              [body.encounterId, request.params.patientId],
+            )
           : { rows: [] };
-        if (visit.rows.length === 0) {
+        const status = visit.rows[0]?.status;
+        if (status === undefined) {
           throw new HttpError(404, 'encounter_not_found', 'No such visit');
+        }
+        if (status === 'cancelled') {
+          throw new HttpError(409, 'encounter_cancelled', 'The visit was cancelled');
         }
       }
       const { rows } = await client.query<{ id: string }>(

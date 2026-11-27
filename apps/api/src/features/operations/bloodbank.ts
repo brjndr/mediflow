@@ -354,7 +354,7 @@ export const bloodBankRoutes: FastifyPluginAsyncTypebox = async (app) => {
         }
         const { rows: visit } = await client.query(
           `select 1 from encounters where id::text = $1 and patient_id::text = $2
-             and status <> 'cancelled'`,
+             and status <> 'cancelled' for share`,
           [body.encounterId, patientId ?? ''],
         );
         if (visit.length === 0) throw new HttpError(422, 'unknown_encounter', 'No such visit');
