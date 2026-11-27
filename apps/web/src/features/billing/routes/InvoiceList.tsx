@@ -181,7 +181,9 @@ export default function InvoiceList() {
         columns={columns}
         rows={rows}
         rowId={(row) => row.id}
-        rowLabel={(row) => row.number ?? t('list.draftNumber')}
+        rowLabel={(row) =>
+          row.number ?? t(row.discardedAt ? 'list.discardedNumber' : 'list.draftNumber')
+        }
         status={invoices.isPending ? 'loading' : invoices.isError ? 'error' : 'ready'}
         errorMessage={invoices.isError ? tCommon(errorMessageKey(invoices.error)) : undefined}
         onRetry={() => void invoices.refetch()}

@@ -34,7 +34,7 @@ export const voidRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'voidCharge',
         tags: ['billing'],
         description:
-          'Voids a pending charge that is on no draft (#1240), with a reason from a fixed list. It stays in the ledger, void, with who voided it, when and why, and is never billed; the event that posted it does not post it again. A charge that is invoiced or already void is 409 `charge_not_pending`; one on a draft is 409 `charge_on_draft`. A package charge that covers other charges is voided only with `confirmCovered: true` (409 `covers_charges` otherwise); the covered charges stay void. Emits `charge.voided`. The Idempotency-Key header is required: a repeat voids nothing more and answers with the charge as it is now. Requires charge:void and charge:read with the scope `all` and the billing feature flag. Audited.',
+          'Voids a pending charge that is on no draft (#1240), with a reason from a fixed list. It stays in the ledger, void, with who voided it, when and why, and is never billed; the event that posted it does not post it again. A charge that is invoiced or already void is 409 `charge_not_pending`; one on a draft is 409 `charge_on_draft`; one that the other invoice of a split pair still bills after its holder was credited is 409 `charge_billed` (or `charge_on_draft`). A package charge that covers other charges is voided only with `confirmCovered: true` (409 `covers_charges` otherwise); the covered charges stay void. Emits `charge.voided`. The Idempotency-Key header is required: a repeat voids nothing more and answers with the charge as it is now. Requires charge:void and charge:read with the scope `all` and the billing feature flag. Audited.',
         params: Type.Object({ chargeId: Type.String({ maxLength: 64 }) }),
         headers: RequiredIdempotencyHeaders,
         body: ref(ChargeVoid),
@@ -51,6 +51,7 @@ export const voidRoutes: FastifyPluginAsyncTypebox = async (app) => {
       };
       if (request.replayOf !== null) {
         if (!request.idempotentId) throw chargeNotFound();
+        request.audit('read', 'charge', request.idempotentId);
         return answer(request.idempotentId);
       }
       const { chargeId } = request.params as { chargeId: string };
@@ -86,6 +87,20 @@ export const voidRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(409, 'charge_not_pending', 'Only a pending charge is voided');
       }
       if (charge.invoice_id !== null) {
+        throw new HttpError(409, 'charge_on_draft', 'Take the charge off its draft first');
+      }
+      // A split pair holds each charge on one invoice while both bill it: after the one holding
+      // it is credited in full, the other may still (lines are written with the charge locked).
+      const { rows: billed } = await client.query<{ draft: boolean }>(
+        `select i.status = 'draft' as draft from invoice_lines l
+           join invoices i on i.tenant_id = l.tenant_id and i.id = l.invoice_id
+          where l.charge_id = $1 and i.status <> 'void'`,
+        [charge.id],
+      );
+      if (billed.some((line) => !line.draft)) {
+        throw new HttpError(409, 'charge_billed', 'An issued invoice bills this charge');
+      }
+      if (billed.length > 0) {
         throw new HttpError(409, 'charge_on_draft', 'Take the charge off its draft first');
       }
       const covered = await client.query(

@@ -102,7 +102,8 @@
       "onDraft": "To void a charge on a saved draft, leave it off the bill and save the draft first.",
       "refused": {
         "charge_not_pending": "This charge was billed or voided meanwhile.",
-        "charge_on_draft": "This charge is on a saved draft. Leave it off the bill, save the draft, then void it."
+        "charge_on_draft": "This charge is on a saved draft. Leave it off the bill, save the draft, then void it.",
+        "charge_billed": "This charge is billed on an issued invoice. Credit that invoice in full first."
       }
     }
   },
@@ -667,7 +668,7 @@
       "version_conflict": "Someone else changed this draft. It has been read again: check it and try again.",
       "invoice_not_draft": "This invoice was issued or discarded meanwhile.",
       "split_issued": "The other invoice of this split pair is issued. Credit it in full first, then discard this draft.",
-      "claim_depends": "An insurance claim on this visit depends on this split. Cancel the claim or write it off first."
+      "claim_depends": "An insurance claim on this visit depends on this split. It can be discarded once the claim is cancelled or written off."
     }
   }
 }

@@ -126,6 +126,7 @@ export const invoiceSchema: z.ZodType<Invoice> = z.object({
   discardedAt: z.string().optional(),
   discardReason: z.enum(DISCARD_REASONS).optional(),
   discardedByName: z.string().optional(),
+  splitGroup: z.string().optional(),
   lines: z.array(
     z.object({
       id: z.string(),

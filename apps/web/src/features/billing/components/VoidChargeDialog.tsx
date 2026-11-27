@@ -14,7 +14,7 @@ import type { Charge } from '../types';
 
 const FORM = 'void-charge-form';
 const EMPTY: VoidChargeInput = { reason: '', confirmCovered: false };
-const REFUSED = new Set(['charge_not_pending', 'charge_on_draft']);
+const REFUSED = new Set(['charge_not_pending', 'charge_on_draft', 'charge_billed']);
 
 /**
  * Asks why a pending charge is voided (#1240), from a fixed list. A package that covers other
@@ -46,7 +46,9 @@ export function VoidChargeDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Not while sending: the answer belongs to this charge's dialog.
   const close = () => {
+    if (voiding.isPending) return;
     setCovers(false);
     onClose();
   };
@@ -68,7 +70,8 @@ export function VoidChargeDialog({
         ...(covers ? { confirmCovered: true } : {}),
       });
       onVoided(charge.description);
-      close();
+      setCovers(false);
+      onClose();
     } catch (error) {
       if (isApiError(error) && error.serverCode === 'covers_charges') setCovers(true);
     }

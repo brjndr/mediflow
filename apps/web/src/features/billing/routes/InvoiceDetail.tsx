@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router';
 import { Can, usePermission } from '@/access';
@@ -71,6 +71,7 @@ function Body({ invoice }: { invoice: Invoice }) {
   const canCreate = usePermission('invoice:create');
   const canReadEncounter = usePermission('encounter:read');
   const draft = invoice.status === 'draft';
+  const [discarding, setDiscarding] = useState(false);
   // A discarded draft took no money and no credit.
   const money = !draft && !invoice.discardedAt;
 
@@ -109,9 +110,13 @@ function Body({ invoice }: { invoice: Invoice }) {
               <PrintInvoiceButton invoiceId={invoice.id} />
             </Can>
           )}
-          {draft && (
+          {(draft || discarding) && (
             <Can permission="invoice:discard">
-              <DiscardDraftButton invoice={invoice} />
+              <DiscardDraftButton
+                invoice={invoice}
+                open={discarding}
+                onOpenChange={setDiscarding}
+              />
             </Can>
           )}
           {canReadEncounter && (
@@ -129,7 +134,7 @@ function Body({ invoice }: { invoice: Invoice }) {
         />
       ) : (
         <>
-          <Issued invoice={invoice} />
+          <Issued invoice={invoice} discarding={discarding} />
           {money && <PaymentPanel invoice={invoice} />}
           {money && <CreditNotePanel invoice={invoice} />}
         </>
@@ -139,15 +144,16 @@ function Body({ invoice }: { invoice: Invoice }) {
 }
 
 /** An invoice that can no longer be changed: its lines and total. */
-function Issued({ invoice }: { invoice: Invoice }) {
+function Issued({ invoice, discarding }: { invoice: Invoice; discarding: boolean }) {
   const { t } = useTranslation('billing');
   const format = useFormatters();
   const status = useRef<HTMLParagraphElement>(null);
   // The builder's buttons, or "Discard draft", are gone once the invoice is issued or discarded:
-  // focus moves to what happened.
-  useLayoutEffect(() => {
+  // focus moves to what happened, after the discard dialog has closed (its effect runs first).
+  const draft = invoice.status === 'draft';
+  useEffect(() => {
     focusIfLost(status.current);
-  }, [invoice.discardedAt]);
+  }, [draft, discarding]);
   const columns = useMemo<GridColumn<InvoiceLine>[]>(
     () => [
       {

@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
   grantPermission,
@@ -12,6 +13,7 @@ import {
 } from '@/mocks/db';
 import { mockCharges, mockInvoices, setMockPackage } from '@/mocks/handlers/billing';
 import { mockServiceNamed } from '@/mocks/handlers/services';
+import { server } from '@/mocks/node';
 import { expectNoAxeViolations } from '@/test/axe';
 import { renderApp } from '@/test/render';
 
@@ -115,6 +117,37 @@ describe('voiding a charge', () => {
     expect(screen.queryByRole('button', { name: VOID })).not.toBeInTheDocument();
   });
 
+  it.each([
+    ['charge_not_pending', /^This charge was billed or voided meanwhile/],
+    ['charge_on_draft', /^This charge is on a saved draft/],
+    ['charge_billed', /^This charge is billed on an issued invoice/],
+  ])('says why the server refused: %s', async (code, words) => {
+    server.use(
+      http.post('*/api/charges/:chargeId/void', () =>
+        HttpResponse.json({ error: { code, message: 'x' } }, { status: 409 }),
+      ),
+    );
+    await openBuilder();
+    await userEvent.click(within(charges()).getByRole('button', { name: VOID }));
+    await userEvent.selectOptions(within(dialog()).getByLabelText(/^Reason/), 'Charged twice');
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Void charge' }));
+    expect(await within(dialog()).findByText(words)).toBeInTheDocument();
+  });
+
+  it('does not void a charge of another hospital', async () => {
+    grantPermission(CLINIC, 'receptionist', 'charge:void');
+    signIn(USER_IDS.receptionist);
+    renderApp({ entry: '/billing/invoices' });
+    await screen.findByRole('heading', { level: 1 });
+    const response = await fetch(`/api/charges/${bloodCount()?.id ?? ''}/void`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'other-hospital' },
+      body: JSON.stringify({ reason: 'duplicate' }),
+    });
+    expect(response.status).toBe(404);
+    expect(bloodCount()?.status).toBe('pending');
+  });
+
   it('does not apply to a charge on a saved draft, and says what to do', async () => {
     await openDraft();
     expect(within(charges()).getByRole('button', { name: VOID })).toHaveAttribute(
@@ -161,15 +194,55 @@ describe('discarding a draft', () => {
     app.unmount();
   });
 
-  it('is offered to a custom role that may only read and discard', async () => {
-    await openDraft();
+  it('is offered to a custom role that may only read and discard, which keeps its place', async () => {
+    const app = await openDraft();
     const draftId = mockInvoices().at(-1)?.id ?? '';
+    app.unmount();
     setRolePermissions(HOSPITAL, 'admin', [
       { permission: 'invoice:read' },
       { permission: 'invoice:discard' },
     ]);
     renderApp({ entry: `/billing/invoices/${draftId}` });
-    expect(await screen.findAllByRole('button', { name: 'Discard draft' })).not.toHaveLength(0);
+    const open = await screen.findByRole('button', { name: 'Discard draft' });
+    expect(screen.getByText(/^This draft can be changed by someone/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save draft' })).not.toBeInTheDocument();
+    await userEvent.click(open);
+    await userEvent.selectOptions(within(dialog()).getByLabelText(/^Reason/), 'Made by mistake');
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Discard draft' }));
+    const said = await screen.findByText(/^This draft was discarded on /);
+    await waitFor(() => expect(said).toHaveFocus());
+  });
+
+  it.each([
+    ['split_issued', /^The other invoice of this split pair is issued/],
+    ['claim_depends', /^An insurance claim on this visit depends on this split/],
+    ['version_conflict', /^Someone else changed this draft/],
+    ['invoice_not_draft', /^This invoice was issued or discarded meanwhile/],
+  ])('says why the server refused: %s', async (code, words) => {
+    await openDraft();
+    server.use(
+      http.post('*/api/invoices/:invoiceId/discard', () =>
+        HttpResponse.json({ error: { code, message: 'x' } }, { status: 409 }),
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+    await userEvent.selectOptions(within(dialog()).getByLabelText(/^Reason/), 'No longer needed');
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Discard draft' }));
+    expect(await within(dialog()).findByRole('alert')).toHaveTextContent(words);
+  });
+
+  it('says that both drafts of a split pair go', async () => {
+    const app = await openDraft();
+    const draft = mockInvoices().at(-1);
+    app.unmount();
+    server.use(
+      http.get('*/api/invoices/:invoiceId', () =>
+        HttpResponse.json({ ...draft, splitGroup: 'split_1' }),
+      ),
+    );
+    renderApp({ entry: `/billing/invoices/${draft?.id ?? ''}` });
+    await userEvent.click(await screen.findByRole('button', { name: 'Discard draft' }));
+    expect(within(dialog()).getByText(/^This is one of a split pair/)).toBeInTheDocument();
   });
 
   it('has no way in with billing off', async () => {
