@@ -306,7 +306,8 @@ export const operationRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const encounterId = request.body.encounterId.toLowerCase();
       const { rows } = isUuid(encounterId)
         ? await client.query(
-            `select 1 from encounters where id = $1 and patient_id = $2 and status = 'open'`,
+            `select 1 from encounters where id = $1 and patient_id = $2 and status = 'open'
+             for share`,
             [encounterId, booking.patient_id],
           )
         : { rows: [] };

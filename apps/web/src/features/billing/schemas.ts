@@ -42,7 +42,14 @@ export const chargeSchema: z.ZodType<Charge> = z.object({
   status: z.enum(['pending', 'invoiced', 'void']),
   invoiceId: z.string().optional(),
   flag: z
-    .enum(['service_archived', 'no_price', 'return_review', 'package_covered', 'relink_review'])
+    .enum([
+      'service_archived',
+      'no_price',
+      'return_review',
+      'package_covered',
+      'relink_review',
+      'visit_cancelled',
+    ])
     .optional(),
   taxClass: z.enum(TAX_CLASSES).optional(),
   postedAt: z.string(),

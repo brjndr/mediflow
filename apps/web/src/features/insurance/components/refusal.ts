@@ -9,6 +9,7 @@ const KNOWN = [
   'service_not_found',
   'duplicate_policy',
   'policy_not_active',
+  'encounter_cancelled',
   'not_submitted',
   'plan_archived',
   'invalid_transition',

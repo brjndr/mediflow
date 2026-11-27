@@ -9,7 +9,8 @@ import { endEncounter, hasDrafts, hasRecords } from './repository.js';
 
 /**
  * Whether an encounter can be named as the visit an admission came from (#678): one of this
- * patient's that is not itself inpatient and not cancelled.
+ * patient's that is not itself inpatient and not cancelled. The visit is held (shared) until the
+ * transaction ends, so it is not cancelled while the admission is raised from it (#1222).
  */
 export async function admissionSource(
   client: pg.ClientBase,
@@ -18,7 +19,8 @@ export async function admissionSource(
 ): Promise<boolean> {
   const { rows } = await client.query(
     `select 1 from encounters
-     where id::text = $1 and patient_id::text = $2 and type <> 'ipd' and status <> 'cancelled'`,
+     where id::text = $1 and patient_id::text = $2 and type <> 'ipd' and status <> 'cancelled'
+     for share`,
     [encounterId, patientId],
   );
   return rows.length > 0;

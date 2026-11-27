@@ -63,7 +63,8 @@
       "no_price": "No price set: check it",
       "return_review": "Medicine brought back: credit it",
       "relink_review": "Billed on another visit: credit it",
-      "package_covered": "Covered by a package"
+      "package_covered": "Covered by a package",
+      "visit_cancelled": "Visit cancelled: not billed"
     },
     "noFlag": "None",
     "review": {

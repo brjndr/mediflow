@@ -572,7 +572,7 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['consents'],
         headers: RequiredIdempotencyHeaders,
         description:
-          'Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). An optional `encounterId` must be an encounter of the patient (422 `encounter_mismatch`); the records desk reads it. A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign.',
+          'Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). An optional `encounterId` must be an encounter of the patient (422 `encounter_mismatch`) that is not cancelled (409 `encounter_cancelled`); the records desk reads it. A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign.',
         params: PatientParams,
         body: ref(ConsentCreate),
         response: { 201: ref(ConsentDetail), ...errors(400, 401, 403, 404, 409, 422, 429) },
@@ -617,12 +617,16 @@ export const consentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(422, 'template_not_found', 'That is not a consent template version');
       }
       if (body.encounterId) {
-        const { rowCount } = await request.txClient.query(
-          'select 1 from encounters where id = $1 and patient_id = $2',
+        // Held, so it is not cancelled while the consent is added to it (#1222).
+        const { rows: visit } = await request.txClient.query<{ status: string }>(
+          'select status from encounters where id = $1 and patient_id = $2 for share',
           [body.encounterId, patientId],
         );
-        if (rowCount !== 1) {
+        if (!visit[0]) {
           throw new HttpError(422, 'encounter_mismatch', 'The encounter is not this patient’s');
+        }
+        if (visit[0].status === 'cancelled') {
+          throw new HttpError(409, 'encounter_cancelled', 'The visit was cancelled');
         }
       }
       const { rows } = await request.txClient.query<{ id: string }>(

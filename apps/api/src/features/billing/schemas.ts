@@ -42,10 +42,17 @@ export const Charge = Type.Object(
     ),
     flag: Type.Optional(
       StringEnum(
-        ['service_archived', 'no_price', 'return_review', 'package_covered', 'relink_review'],
+        [
+          'service_archived',
+          'no_price',
+          'return_review',
+          'package_covered',
+          'relink_review',
+          'visit_cancelled',
+        ],
         {
           description:
-            'For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, left on the old visit when a surgery was linked to another (relink_review), or (on a void charge) already paid for by a package on the visit.',
+            'For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, left on the old visit when a surgery was linked to another (relink_review), or (on a void charge) already paid for by a package on the visit, or reported for a visit already cancelled (visit_cancelled).',
         },
       ),
     ),

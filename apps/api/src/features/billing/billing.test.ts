@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   addMembership,
   as,
@@ -1319,6 +1319,25 @@ describe('posting charges from events', () => {
     expect(await chargesOf(`record_request:${free}`)).toEqual([]);
   });
 
+  it('keeps work reported for a cancelled visit, void, and never bills it (#1222)', async () => {
+    const visit = await addEncounter(hospital, patients.asha, admin);
+    await pool.query(
+      "update encounters set status = 'cancelled', cancel_reason = 'Entered in error', ended_at = now(), ended_by = $2 where id = $1",
+      [visit, admin.id],
+    );
+    const orderId = randomUUID();
+    await completed(orderId, service, visit);
+    await completed(orderId, service, visit);
+    expect(await chargesOf(`order:${orderId}`)).toEqual([
+      {
+        unit_price_minor: '45000',
+        description: 'Chest X-ray',
+        flag: 'visit_cancelled',
+        status: 'void',
+      },
+    ]);
+  });
+
   it('charges a completed ambulance trip once, at the list price, and nothing before or without a service', async () => {
     const tripId = randomUUID();
     const base = { patientId: patients.asha, encounterId: encounters.other, serviceId: service };
@@ -1595,6 +1614,60 @@ describe('charging a service by hand (#115)', () => {
       201,
     );
     expect(own.unitPriceMinor).toBe(2_000);
+  });
+});
+
+describe('a visit being cancelled at the same moment (#1222)', () => {
+  /** Sends the request while a cancel of the visit is written and not yet committed. */
+  async function duringCancel(request: (visit: string) => PromiseLike<Reply>) {
+    const visit = await addEncounter(hospital, patients.asha, admin);
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(
+        "update encounters set status = 'cancelled', cancel_reason = 'Entered in error', ended_at = now(), ended_by = $2 where id = $1",
+        [visit, admin.id],
+      );
+      const reply = Promise.resolve(request(visit));
+      await vi.waitFor(async () => {
+        const { rowCount } = await pool.query(
+          "select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
+        );
+        expect(rowCount).toBeGreaterThan(0);
+      });
+      await client.query('commit');
+      return await reply;
+    } finally {
+      client.release();
+    }
+  }
+
+  it('refuses a charge typed in', async () => {
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into services (tenant_id, code, name, category, tax_class)
+       values ($1, 'RACE-1', 'Dressing', 'procedure', 'exempt') returning id`,
+      [hospital.id],
+    );
+    await pool.query(
+      `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
+       select $1, $2, id, 500, current_date - 10 from price_lists where tenant_id = $1 and standard`,
+      [hospital.id, rows[0]?.id],
+    );
+    const reply = await duringCancel((visit) =>
+      post(`/encounters/${visit}/charges`, { serviceId: rows[0]?.id, quantity: 1 }),
+    );
+    expect(errorOf(reply)).toEqual([409, 'encounter_cancelled']);
+  });
+
+  it('refuses a draft invoice', async () => {
+    const reply = await duringCancel((visit) =>
+      post(
+        `/encounters/${visit}/invoices`,
+        { chargeIds: [], manualLines: [{ description: 'x', quantity: 1, unitPriceMinor: 1 }] },
+        { user: admin },
+      ),
+    );
+    expect(errorOf(reply)).toEqual([409, 'encounter_cancelled']);
   });
 });
 

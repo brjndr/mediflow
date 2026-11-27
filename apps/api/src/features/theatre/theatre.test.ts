@@ -1441,6 +1441,37 @@ describe('the operation note, the visit and the charges', () => {
     await pool.query('delete from invoices where id = $1', [draft.rows[0]?.id]);
   });
 
+  it('keeps stock of a cancelled visit void, and charges it on the visit linked next (#1222)', async () => {
+    const surgery = await booked({});
+    const first = await addEncounter(hospital, surgery.patientId);
+    const second = await addEncounter(hospital, surgery.patientId);
+    const batch = await stockIn(5);
+    await pool.query('update stock_batches set mrp_minor = 700 where id = $1', [batch]);
+    await ok(await post(`/theatre/surgeries/${surgery.id}/start`, { version: 1 }));
+    const link = `/theatre/surgeries/${surgery.id}/encounter`;
+    await ok(await put(link, { encounterId: first }));
+    await pool.query(
+      "update encounters set status = 'cancelled', cancel_reason = 'Entered in error', ended_at = now(), ended_by = $2 where id = $1",
+      [first, admin.id],
+    );
+    await ok(
+      await post(`/theatre/surgeries/${surgery.id}/consumables`, {
+        drugId,
+        locationId: place,
+        lines: [{ batchId: batch, quantity: 2 }],
+      }),
+      201,
+    );
+    await chargesOf(first);
+    const old = () =>
+      pool.query('select status, flag from charges where encounter_id = $1', [first]);
+    expect((await old()).rows).toEqual([{ status: 'void', flag: 'visit_cancelled' }]);
+    expect(errorOf(await put(link, { encounterId: first }))).toEqual([422, 'unknown_encounter']);
+    await ok(await put(link, { encounterId: second }));
+    expect((await chargesOf(second)).map((row) => row.quantity)).toEqual([2]);
+    expect((await old()).rows).toEqual([{ status: 'void', flag: 'visit_cancelled' }]);
+  });
+
   it('charges the new visit and flags an invoiced charge on the old one (#906)', async () => {
     const surgery = await booked({});
     const first = await addEncounter(hospital, surgery.patientId);

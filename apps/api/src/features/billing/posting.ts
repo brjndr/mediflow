@@ -120,14 +120,20 @@ export async function postCharge(tx: Database, posting: Posting): Promise<string
     unit = service.amountMinor ?? 0;
     flag = service.amountMinor === null ? 'no_price' : service.archived ? 'service_archived' : null;
   }
-  // Work for a service a package on this visit already includes is not billed again: it is
-  // posted void, pointing at the package charge, so the ledger keeps it.
   let status = 'pending';
   let coveredBy: string | null = null;
-  if (posting.serviceId !== null && posting.source !== 'package') {
-    // Serialises with a package being applied to the visit (which locks it for update), so one
-    // of the two always sees the other and the work is never billed on top of the package.
-    await tx.execute(sql`select id from encounters where id = ${posting.encounterId} for share`);
+  // Serialises with the visit being cancelled and with a package being applied to it (both lock
+  // it for update), so one of the two always sees the other.
+  const { rows: visit } = await tx.execute<{ status: string }>(
+    sql`select status from encounters where id = ${posting.encounterId} for share`,
+  );
+  // A cancelled visit is never billed (#1222): work reported for one is kept, void.
+  if (visit[0]?.status === 'cancelled') {
+    status = 'void';
+    flag = 'visit_cancelled';
+  } else if (posting.serviceId !== null && posting.source !== 'package') {
+    // Work for a service a package on this visit already includes is not billed again: it is
+    // posted void, pointing at the package charge, so the ledger keeps it.
     coveredBy = await coveringPackage(tx, posting.encounterId, posting.serviceId);
     if (coveredBy) {
       status = 'void';
@@ -341,7 +347,8 @@ export function subscribeToPostings(app: FastifyInstance): void {
   // A surgery linked to another visit (#900). A charge never changes its visit, so those of its
   // consumables still pending and on no invoice are voided; all are posted on the new visit
   // (source_ref `theatre:<row>:<event id>`, once for each event). A charge on an invoice or a
-  // draft stays on the old visit, flagged `relink_review` for the billing desk to credit.
+  // draft stays on the old visit, flagged `relink_review` for the billing desk to credit. One
+  // posted void because that visit was cancelled stays as it is and is charged on the new visit.
   app.events.subscribe('surgery.encounter_changed', async (message, tx) => {
     const surgeryId = idOf(message.entityId);
     const from = idOf(message.payload.fromEncounterId);
@@ -356,23 +363,28 @@ export function subscribeToPostings(app: FastifyInstance): void {
       flag: 'no_price' | null;
       source_ref: string;
       movable: boolean;
+      dropped: boolean;
     }>(
       sql`select c.id, c.description, c.quantity, c.unit_price_minor::text, c.flag, c.source_ref,
-            (c.status = 'pending' and c.invoice_id is null) as movable
+            (c.status = 'pending' and c.invoice_id is null) as movable,
+            (c.status = 'void') as dropped
           from charges c join ot_consumables o on c.source_ref = 'theatre:' || o.id::text
             or c.source_ref like 'theatre:' || o.id::text || ':%'
-          where o.booking_id = ${surgeryId} and c.encounter_id = ${from} and c.status <> 'void'
+          where o.booking_id = ${surgeryId} and c.encounter_id = ${from}
+            and (c.status <> 'void' or c.flag = 'visit_cancelled')
             and c.flag is distinct from 'relink_review'
           order by c.id`,
     );
     for (const charge of rows) {
       // Either way the new visit is charged; an old charge that cannot be voided stays, flagged
       // for the billing desk to credit, so the work is billed once on the right visit.
-      await tx.execute(
-        charge.movable
-          ? sql`update charges set status = 'void' where id = ${charge.id}`
-          : sql`update charges set flag = 'relink_review' where id = ${charge.id}`,
-      );
+      if (!charge.dropped) {
+        await tx.execute(
+          charge.movable
+            ? sql`update charges set status = 'void' where id = ${charge.id}`
+            : sql`update charges set flag = 'relink_review' where id = ${charge.id}`,
+        );
+      }
       // What came back to stock before the move is not charged again.
       const base = charge.source_ref.split(':').slice(0, 2).join(':');
       const { rows: back } = await tx.execute<{ returned: number }>(
@@ -390,7 +402,10 @@ export function subscribeToPostings(app: FastifyInstance): void {
         description: charge.description,
         quantity,
         unitPriceMinor: Number(charge.unit_price_minor),
-        flag: charge.flag === 'no_price' ? 'no_price' : null,
+        flag:
+          charge.flag === 'no_price' || (charge.dropped && Number(charge.unit_price_minor) === 0)
+            ? 'no_price'
+            : null,
       });
     }
   });

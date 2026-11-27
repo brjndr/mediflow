@@ -4262,7 +4262,7 @@ export interface paths {
         /** @description Signed consents of one patient, newest first, one cursor page at a time, including those of records merged into it (MR-02, #566). The text and signature are in the single read. Each consent listed is audited as read. Requires consent:read. */
         get: operations["listConsents"];
         put?: never;
-        /** @description Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). An optional `encounterId` must be an encounter of the patient (422 `encounter_mismatch`); the records desk reads it. A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign. */
+        /** @description Records a signed consent (MR-02, #566): the text as filled in from a saved version of a consent template (422 `template_not_found` otherwise; 422 `placeholders_unfilled` while it still holds a `{{placeholder}}`), who signed and how. A drawn signature needs path data and a typed one has none (422 `signature_invalid`). An optional `encounterId` must be an encounter of the patient (422 `encounter_mismatch`) that is not cancelled (409 `encounter_cancelled`); the records desk reads it. A signed consent is never changed or removed: there is no update or delete. 409 `patient_merged` for a merged record. Requires consent:sign. */
         post: operations["signConsent"];
         delete?: never;
         options?: never;
@@ -5318,7 +5318,7 @@ export interface paths {
         /** @description The patient’s pre-authorization requests, newest first. `billedMinor` is worked out from the visit’s charge ledger. Audited as a read of each. Requires preauth:read and a patient the caller may read. */
         get: operations["listPatientPreAuths"];
         put?: never;
-        /** @description Asks the payer to pre-authorize a treatment against one of the patient’s policies, in status `submitted`. The policy must be active (409 `policy_not_active`); a visit, when named, is the patient’s own (404 `encounter_not_found`). The enclosed documents are named; the files are on the patient’s record. Audited. Requires preauth:manage. */
+        /** @description Asks the payer to pre-authorize a treatment against one of the patient’s policies, in status `submitted`. The policy must be active (409 `policy_not_active`); a visit, when named, is the patient’s own (404 `encounter_not_found`) and not cancelled (409 `encounter_cancelled`). The enclosed documents are named; the files are on the patient’s record. Audited. Requires preauth:manage. */
         post: operations["createPreAuth"];
         delete?: never;
         options?: never;
@@ -5387,7 +5387,7 @@ export interface paths {
         /** @description How a visit's charge ledger divides between the patient and the payer of the patient's active policy (IN-03, #183), worked out by the server: each charge at the payer's agreed rate, the plan's covered services, the limit per service, the patient's co-pay share and the sum insured. For every line payerMinor + patientMinor = ratedMinor, and ledgerMinor + rateAdjustmentMinor = payerMinor + patientMinor in total. Needs policy:read, charge:read and the insurance feature flag. 404 when the patient has no active policy. Audited. */
         get: operations["getCoverageSplit"];
         put?: never;
-        /** @description Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited. */
+        /** @description Keeps the split as it is now, as the one the patient and payer bills are made from. A later change to the ledger makes the saved split stale (stale: true) until it is saved again. A cancelled visit is 409 `encounter_cancelled`. Needs policy:manage and charge:read. Idempotent by Idempotency-Key. Audited. */
         post: operations["saveCoverageSplit"];
         delete?: never;
         options?: never;
@@ -5472,7 +5472,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Prepares a claim for a visit: the payer share of the visit's coverage split as it is now, the patient's active policy and the packet of documents (by name). One claim in play per visit (409 `claim_exists`); nothing to claim is 422 `nothing_to_claim`; no active policy is 404 `no_active_policy`. Needs claim:manage. Audited. */
+        /** @description Prepares a claim for a visit: the payer share of the visit's coverage split as it is now, the patient's active policy and the packet of documents (by name). One claim in play per visit (409 `claim_exists`); nothing to claim is 422 `nothing_to_claim`; no active policy is 404 `no_active_policy`; a cancelled visit is 409 `encounter_cancelled`. Needs claim:manage. Audited. */
         post: operations["createClaim"];
         delete?: never;
         options?: never;
@@ -5610,7 +5610,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Bills the whole of a visit to a corporate credit account: the visit charge ledger (void charges left out), due after the account terms. One credit bill per visit (409 `credit_bill_exists`); nothing to bill is 422 `nothing_to_bill`; over the limit is 422 `credit_limit_exceeded`. Needs receivable:manage. Audited. */
+        /** @description Bills the whole of a visit to a corporate credit account: the visit charge ledger (void charges left out), due after the account terms. One credit bill per visit (409 `credit_bill_exists`); nothing to bill is 422 `nothing_to_bill`; over the limit is 422 `credit_limit_exceeded`; a cancelled visit is 409 `encounter_cancelled`. Needs receivable:manage. Audited. */
         post: operations["createCreditBill"];
         delete?: never;
         options?: never;
@@ -14238,10 +14238,10 @@ export interface components {
             /** @description The draft invoice holding the charge, when one does. */
             invoiceId?: string;
             /**
-             * @description For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, left on the old visit when a surgery was linked to another (relink_review), or (on a void charge) already paid for by a package on the visit.
+             * @description For the billing desk: priced at the last price of an archived service, posted with no price, brought back after dispensing, left on the old visit when a surgery was linked to another (relink_review), or (on a void charge) already paid for by a package on the visit, or reported for a visit already cancelled (visit_cancelled).
              * @enum {string}
              */
-            flag?: "service_archived" | "no_price" | "return_review" | "package_covered" | "relink_review";
+            flag?: "service_archived" | "no_price" | "return_review" | "package_covered" | "relink_review" | "visit_cancelled";
             /**
              * @description The tax class the work was posted with; none for a dispensed medicine, whose price holds the tax.
              * @enum {string}
@@ -44356,6 +44356,15 @@ export interface operations {
             };
             /** @description Standard error body. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
