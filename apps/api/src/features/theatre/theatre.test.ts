@@ -1593,6 +1593,21 @@ describe('the operation note, the visit and the charges', () => {
     expect(await ledger(second)).toEqual(billedOnce);
   });
 
+  it('charges the visit the booking names when two relinks are handled together (#1233)', async () => {
+    const { surgery, first, second, link, complete } = await strandedSetup();
+    await chargesOf(first);
+    await cancelVisit(first);
+    await ok(await complete());
+    await chargesOf(first);
+    await ok(await put(link, { encounterId: second }));
+    await cancelVisit(second);
+    const third = await addEncounter(hospital, surgery.patientId);
+    await ok(await put(link, { encounterId: third }));
+    await chargesOf(third);
+    expect(await ledger(third)).toEqual(billedOnce);
+    expect(await ledger(second)).toEqual([]);
+  });
+
   it('bills once on the new visit when the events are handled after the relink (#1233)', async () => {
     const { first, second, link, complete } = await strandedSetup();
     await cancelVisit(first);

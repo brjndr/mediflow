@@ -103,15 +103,21 @@ export async function coveringPackage(
 }
 
 /**
- * The visit a surgery is charged to now, held until the charge is posted: an event that carries
- * an earlier link and is handled after a relink charges the new visit (#1233). The link route
- * locks the booking for update, so one of the two always sees the other.
+ * The visit a surgery is charged to now and the day it was completed (hospital clock), held until
+ * the charges are posted: an event that carries an earlier link and is handled after a relink
+ * charges the booking's visit (#1233). The link route locks the booking for update, so one of the
+ * two always sees the other.
  */
-async function linkedVisit(tx: Database, surgeryId: string): Promise<string | null> {
-  const { rows } = await tx.execute<{ encounter_id: string | null }>(
-    sql`select encounter_id from ot_bookings where id = ${surgeryId} for share`,
+async function bookingOf(
+  tx: Database,
+  surgeryId: string,
+): Promise<{ visitId: string | null; doneOn: string | null }> {
+  const { rows } = await tx.execute<{ encounter_id: string | null; done_on: string | null }>(
+    sql`select b.encounter_id, (b.completed_at at time zone t.timezone)::date::text as done_on
+        from ot_bookings b join tenants t on t.id = b.tenant_id
+        where b.id = ${surgeryId} for share of b`,
   );
-  return rows[0]?.encounter_id ?? null;
+  return { visitId: rows[0]?.encounter_id ?? null, doneOn: rows[0]?.done_on ?? null };
 }
 
 /**
@@ -123,7 +129,14 @@ async function linkedVisit(tx: Database, surgeryId: string): Promise<string | nu
  */
 async function moveProcedureCharge(
   tx: Database,
-  move: { surgeryId: string; from: string; to: string; patientId: string; eventId: string },
+  move: {
+    surgeryId: string;
+    from: string;
+    to: string;
+    patientId: string;
+    eventId: string;
+    doneOn: string | null;
+  },
 ): Promise<void> {
   const base = `surgery:${move.surgeryId}`;
   const { rows } = await tx.execute<{
@@ -132,14 +145,10 @@ async function moveProcedureCharge(
     package_charge_id: string | null;
     movable: boolean;
     dropped: boolean;
-    done_on: string | null;
   }>(
     sql`select c.id, c.service_id, c.package_charge_id,
           (c.status = 'pending' and c.invoice_id is null) as movable,
-          (c.status = 'void') as dropped,
-          (select (b.completed_at at time zone t.timezone)::date::text
-             from ot_bookings b join tenants t on t.id = b.tenant_id
-             where b.id = ${move.surgeryId}) as done_on
+          (c.status = 'void') as dropped
         from charges c
         where (c.source_ref = ${base} or c.source_ref like ${`${base}:%`})
           and c.encounter_id = ${move.from}
@@ -169,7 +178,7 @@ async function moveProcedureCharge(
       quantity: 1,
       unitPriceMinor: 0,
       flag: null,
-      ...(charge.done_on ? { priceDate: charge.done_on } : {}),
+      ...(move.doneOn ? { priceDate: move.doneOn } : {}),
     });
   }
 }
@@ -349,8 +358,10 @@ export function subscribeToPostings(app: FastifyInstance): void {
     const patientId = idOf(payload.patientId);
     const serviceId = idOf(payload.serviceId);
     if (!surgeryId || !encounterId || !patientId || !serviceId) return;
+    const booking = await bookingOf(tx, surgeryId);
     await postCharge(tx, {
-      encounterId: (await linkedVisit(tx, surgeryId)) ?? encounterId,
+      encounterId: booking.visitId ?? encounterId,
+      ...(booking.doneOn ? { priceDate: booking.doneOn } : {}),
       patientId,
       serviceId,
       source: 'procedure',
@@ -371,7 +382,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
     const patientId = idOf(payload.patientId);
     if (!useId || !encounterId || !patientId) return;
     const surgeryId = idOf(message.entityId);
-    const visitId = (surgeryId && (await linkedVisit(tx, surgeryId))) || encounterId;
+    const visitId = (surgeryId && (await bookingOf(tx, surgeryId)).visitId) || encounterId;
     const { rows } = await tx.execute<{
       id: string;
       quantity: number;
@@ -430,8 +441,14 @@ export function subscribeToPostings(app: FastifyInstance): void {
     const to = idOf(message.payload.encounterId);
     const patientId = idOf(message.payload.patientId);
     if (!surgeryId || !from || !to || !patientId || from === to) return;
+    // Events can be handled out of order: what is moved goes to the visit the booking names now,
+    // and nothing is moved off that visit.
+    const booking = await bookingOf(tx, surgeryId);
+    const target = booking.visitId ?? to;
+    if (target === from) return;
     const { eventId } = message;
-    await moveProcedureCharge(tx, { surgeryId, from, to, patientId, eventId });
+    const { doneOn } = booking;
+    await moveProcedureCharge(tx, { surgeryId, from, to: target, patientId, eventId, doneOn });
     const { rows } = await tx.execute<{
       id: string;
       description: string;
@@ -471,7 +488,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
       const quantity = charge.quantity - (back[0]?.returned ?? 0);
       if (quantity <= 0) continue;
       await postCharge(tx, {
-        encounterId: to,
+        encounterId: target,
         patientId,
         serviceId: null,
         source: 'dispense',
