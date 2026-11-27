@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MemoryQueue } from '../../core/jobs/queue.js';
 import {
   addMembership,
@@ -539,6 +539,64 @@ describe('charges released by crediting one half of a split pair (#1255)', () =>
       }),
     );
     await ok(await split(encounterId), 201);
+  });
+});
+
+describe('a charge posted while a split is made (#1259)', () => {
+  const lockWaiters = async () =>
+    (
+      await pool.query(
+        "select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
+      )
+    ).rowCount ?? 0;
+
+  it('waits for the split, which bills only the charges it holds', async () => {
+    const { patientId, encounterId } = await visit([[serviceA, 10_000]]);
+    await cover(patientId, { copayPercent: 20 });
+    await pool.query(
+      `insert into service_prices (tenant_id, service_id, price_list_id, amount_minor, effective_from)
+       select $1, $2, id, 500, current_date - 10 from price_lists where tenant_id = $1 and standard`,
+      [hospital.id, serviceB],
+    );
+    // The split stops between taking its charges and working out the shares.
+    const gate = await pool.connect();
+    let splitting: Promise<Response>;
+    let posting: Promise<Response>;
+    try {
+      await gate.query('begin');
+      await gate.query('lock table payer_plan_services in access exclusive mode');
+      splitting = Promise.resolve(split(encounterId));
+      await vi.waitFor(async () => expect(await lockWaiters()).toBe(1), 10_000);
+      let posted = false;
+      posting = Promise.resolve(
+        post(`/encounters/${encounterId}/charges`, { serviceId: serviceB, quantity: 1 }),
+      ).finally(() => (posted = true));
+      // The charge either waits behind the split or, were the visit not held, is posted now.
+      await vi.waitFor(
+        async () => expect(posted || (await lockWaiters()) === 2).toBe(true),
+        10_000,
+      );
+      // A row that only refers to the visit is not held up, so no draft change deadlocks on it.
+      await gate.query('select 1 from encounters where id = $1 for key share nowait', [
+        encounterId,
+      ]);
+    } finally {
+      await gate.query('rollback');
+      gate.release();
+    }
+
+    const body = await ok<SplitBody>(await splitting, 201);
+    const added = await ok<{ id: string }>(await posting, 201);
+    expect(body.payerMinor + body.patientMinor).toBe(10_000);
+    for (const id of [body.payerInvoiceId, body.patientInvoiceId as string]) {
+      const { lines } = await invoiceOf(id);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.chargeId).not.toBe(added.id);
+    }
+    const { rows } = await pool.query('select status, invoice_id from charges where id = $1', [
+      added.id,
+    ]);
+    expect(rows).toEqual([{ status: 'pending', invoice_id: null }]);
   });
 });
 

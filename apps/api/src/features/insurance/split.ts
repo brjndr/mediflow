@@ -41,11 +41,17 @@ export async function visitPatient(client: pg.ClientBase, encounterId: string): 
 
 /**
  * For a route that adds to a visit already found: holds it (shared), so it is not cancelled
- * meanwhile, and refuses a cancelled one with 409 `encounter_cancelled` (#1222).
+ * meanwhile, and refuses a cancelled one with 409 `encounter_cancelled` (#1222). A route that
+ * divides the whole ledger holds it `no key update`, which also keeps a new charge out until it
+ * commits (#1259) and, unlike `update`, lets rows that only refer to the visit be written.
  */
-export async function holdLiveVisit(client: pg.ClientBase, encounterId: string): Promise<void> {
+export async function holdLiveVisit(
+  client: pg.ClientBase,
+  encounterId: string,
+  lock: 'share' | 'no key update' = 'share',
+): Promise<void> {
   const { rows } = await client.query<{ status: string }>(
-    'select status from encounters where id = $1 for share',
+    `select status from encounters where id = $1 for ${lock}`,
     [encounterId],
   );
   if (rows[0]?.status === 'cancelled') {
