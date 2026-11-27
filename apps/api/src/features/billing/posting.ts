@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { sql } from 'drizzle-orm';
 import type { Database } from '../../core/db/client.js';
+import { billedByALine } from './repository.js';
 import type { TaxClass } from './tax.js';
 
 /**
@@ -16,6 +17,12 @@ import type { TaxClass } from './tax.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const idOf = (value: unknown): string | null =>
   typeof value === 'string' && UUID.test(value) ? value.toLowerCase() : null;
+
+/**
+ * The charge `c` is named by a line of an invoice not void (#1255): one such is never voided or
+ * taken as free by an event, even pending and held by no invoice.
+ */
+const BILLED = sql.raw(billedByALine('c'));
 
 export interface Posting {
   encounterId: string;
@@ -147,7 +154,7 @@ async function moveProcedureCharge(
     dropped: boolean;
   }>(
     sql`select c.id, c.service_id, c.package_charge_id,
-          (c.status = 'pending' and c.invoice_id is null) as movable,
+          (c.status = 'pending' and c.invoice_id is null and not ${BILLED}) as movable,
           (c.status = 'void') as dropped
         from charges c
         where (c.source_ref = ${base} or c.source_ref like ${`${base}:%`})
@@ -165,8 +172,9 @@ async function moveProcedureCharge(
       );
     } else if (charge.package_charge_id) {
       await tx.execute(
-        sql`update charges set flag = 'relink_review' where id = ${charge.package_charge_id}
-              and status <> 'void' and not (status = 'pending' and invoice_id is null)`,
+        sql`update charges c set flag = 'relink_review' where c.id = ${charge.package_charge_id}
+              and c.status <> 'void'
+              and not (c.status = 'pending' and c.invoice_id is null and not ${BILLED})`,
       );
     }
     await postCharge(tx, {
@@ -425,7 +433,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
       sql`update charges c set
             flag = case when c.flag = 'relink_review' then c.flag else 'return_review' end,
             status = case when c.status = 'pending' and c.invoice_id is null
-              and r.in_use <= 0 then 'void' else c.status end
+              and not ${BILLED} and r.in_use <= 0 then 'void' else c.status end
           from (select o.quantity - coalesce((select sum(t.quantity) from ot_consumable_returns t
                   where t.consumable_id = o.id), 0) as in_use
                 from ot_consumables o where o.id = ${consumableId}) r
@@ -468,7 +476,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
       sql`select c.id, c.description, c.unit_price_minor::text, c.flag, c.source_ref,
             (o.quantity - coalesce((select sum(t.quantity) from ot_consumable_returns t
               where t.consumable_id = o.id), 0))::int as in_use,
-            (c.status = 'pending' and c.invoice_id is null) as movable,
+            (c.status = 'pending' and c.invoice_id is null and not ${BILLED}) as movable,
             (c.status = 'void') as dropped
           from charges c join ot_consumables o on c.source_ref = 'theatre:' || o.id::text
             or c.source_ref like 'theatre:' || o.id::text || ':%'
@@ -553,7 +561,7 @@ export function subscribeToPostings(app: FastifyInstance): void {
     await tx.execute(
       sql`update charges c set flag = 'return_review',
             status = case when c.status = 'pending' and c.invoice_id is null
-              and r.returned >= c.quantity then 'void' else c.status end
+              and not ${BILLED} and r.returned >= c.quantity then 'void' else c.status end
           from (select dl.id as line_id, coalesce((select sum(rl.quantity)
                   from dispense_return_lines rl
                   where rl.dispense_id = dl.dispense_id and rl.batch_id = dl.batch_id), 0)

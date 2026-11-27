@@ -487,6 +487,56 @@ export async function claimCharges(
   return usable.length === chargeIds.length ? usable : [];
 }
 
+/**
+ * SQL for "a line of an invoice not void names the charge `alias`" (#1255). A charge is held by one
+ * invoice, but a split pair bills it on both: after the one holding it is credited in full, it is
+ * pending and held by none while the other still bills it, and it goes on no other bill.
+ */
+export const billedByALine = (alias: string) =>
+  `exists (select 1 from invoice_lines bl
+     join invoices bi on bi.tenant_id = bl.tenant_id and bi.id = bl.invoice_id
+     where bl.tenant_id = ${alias}.tenant_id and bl.charge_id = ${alias}.id
+       and bi.status <> 'void')`;
+
+/**
+ * Whether another invoice that is not void bills any of these charges. Asked with the charges
+ * locked, as lines are only written that way.
+ */
+export async function billedElsewhere(
+  client: pg.ClientBase,
+  chargeIds: string[],
+  invoiceId: string | null = null,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from invoice_lines l
+       join invoices i on i.tenant_id = l.tenant_id and i.id = l.invoice_id
+     where l.charge_id = any($1::uuid[]) and i.status <> 'void'
+       and l.invoice_id is distinct from $2::uuid
+     limit 1`,
+    [chargeIds, invoiceId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Whether an invoice outside this one's split pair also bills one of its charges, which only a
+ * draft made before that was refused can do (#1255).
+ */
+export async function billsTwice(client: pg.ClientBase, invoiceId: string): Promise<boolean> {
+  const { rowCount } = await client.query(
+    `select 1 from invoices mine
+       join invoice_lines l on l.tenant_id = mine.tenant_id and l.invoice_id = mine.id
+       join invoice_lines o on o.tenant_id = l.tenant_id and o.charge_id = l.charge_id
+         and o.invoice_id <> mine.id
+       join invoices other on other.tenant_id = o.tenant_id and other.id = o.invoice_id
+     where mine.id = $1 and other.status <> 'void'
+       and (mine.split_group is null or other.split_group is distinct from mine.split_group)
+     limit 1`,
+    [invoiceId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 /** Lets go of the charges the draft held that are no longer on it, and takes the chosen ones. */
 export async function holdCharges(
   client: pg.ClientBase,

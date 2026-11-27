@@ -5,6 +5,7 @@ import type pg from 'pg';
 import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { billedElsewhere } from '../billing/index.js';
 import { taxRatesOf, type TaxClass } from '../billing/tax.js';
 import { EncounterParams } from './schemas.js';
 import { computeSplit, visitPatient, holdLiveVisit } from './split.js';
@@ -141,7 +142,7 @@ export const splitInvoiceRoutes: FastifyPluginAsyncTypebox = async (app) => {
         tags: ['insurance'],
         headers: RequiredIdempotencyHeaders,
         description:
-          "Bills an insured visit as two drafts (#977): the payer's share to the payer of the patient's active policy and the patient's share, each line priced as the coverage split works it out now (never a client figure), with a line for each charge that has a share. The charges of the visit go to the patient's invoice (to the payer's when the patient owes nothing), so each is billed once, and neither draft is edited (409 `split_invoice_locked`): they are issued, paid and credited as they are. Every charge of the visit must be pending and free (409 `charges_not_pending`); the payer owing nothing is 422 `nothing_to_bill`; no active policy is 404 `no_active_policy`; a visit with a live payer invoice is 409 `split_exists` until that is void; a hospital without billing is 403 `feature_disabled`. The Idempotency-Key header is required: a repeat bills nothing more. Needs invoice:create, invoice:read, charge:read and policy:read with the scope `all`, and the insurance and billing feature flags. Audited.",
+          "Bills an insured visit as two drafts (#977): the payer's share to the payer of the patient's active policy and the patient's share, each line priced as the coverage split works it out now (never a client figure), with a line for each charge that has a share. The charges of the visit go to the patient's invoice (to the payer's when the patient owes nothing), so each is billed once, and neither draft is edited (409 `split_invoice_locked`): they are issued, paid and credited as they are. Every charge of the visit must be pending and free (409 `charges_not_pending`) and billed by no invoice that is not void (409 `charge_billed`: credit or discard the other half of an earlier pair first); the payer owing nothing is 422 `nothing_to_bill`; no active policy is 404 `no_active_policy`; a visit with a live payer invoice is 409 `split_exists` until that is void; a hospital without billing is 403 `feature_disabled`. The Idempotency-Key header is required: a repeat bills nothing more. Needs invoice:create, invoice:read, charge:read and policy:read with the scope `all`, and the insurance and billing feature flags. Audited.",
         params: EncounterParams,
         response: { 201: ref(SplitInvoices), ...errors(400, 401, 403, 404, 409, 422, 429) },
       },
@@ -181,6 +182,19 @@ export const splitInvoiceRoutes: FastifyPluginAsyncTypebox = async (app) => {
           409,
           'charges_not_pending',
           'Every charge of the visit must be waiting to be billed',
+        );
+      }
+      // A charge released by crediting one half of an earlier pair is still billed by the other.
+      if (
+        await billedElsewhere(
+          client,
+          held.rows.map((row) => row.id),
+        )
+      ) {
+        throw new HttpError(
+          409,
+          'charge_billed',
+          'Another invoice that is not void bills a charge',
         );
       }
       const visit = await computeSplit(client, encounterId, patientId);

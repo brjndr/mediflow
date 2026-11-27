@@ -6,7 +6,7 @@ import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { RequiredIdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { postCharge, priceOf } from './posting.js';
-import { findCharge, findEncounter, isUuid } from './repository.js';
+import { billedByALine, findCharge, findEncounter, isUuid } from './repository.js';
 import {
   Charge,
   PackageApply,
@@ -165,7 +165,7 @@ export const packageRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'applyPackage',
         tags: ['billing'],
         description:
-          'Applies a package to a visit (#117): one pending charge of source package at the package’s price in effect today (never sent by the client). The visit’s pending charges for the services it includes, and any posted for them afterwards, are voided with the flag package_covered, so the package replaces them; a charge already on a draft is left for the desk to take off. An unknown service is 404 service_not_found, one that is not a package 409 not_a_package, an archived one 409 service_archived, one with no price in effect 409 no_price, one with nothing included 409 package_empty, one already applied to the visit 409 package_applied, a cancelled visit 409 encounter_cancelled. The Idempotency-Key header is required. Emits charge.posted. Requires charge:create and charge:read with the scope all and the billing feature flag. Audited.',
+          'Applies a package to a visit (#117): one pending charge of source package at the package’s price in effect today (never sent by the client). The visit’s pending charges for the services it includes, and any posted for them afterwards, are voided with the flag package_covered, so the package replaces them; a charge already on a draft, or billed by an invoice not void, is left for the desk to take off. An unknown service is 404 service_not_found, one that is not a package 409 not_a_package, an archived one 409 service_archived, one with no price in effect 409 no_price, one with nothing included 409 package_empty, one already applied to the visit 409 package_applied, a cancelled visit 409 encounter_cancelled. The Idempotency-Key header is required. Emits charge.posted. Requires charge:create and charge:read with the scope all and the billing feature flag. Audited.',
         params: EncounterParams,
         headers: RequiredIdempotencyHeaders,
         body: ref(PackageApply),
@@ -239,9 +239,9 @@ export const packageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       if (!posted) throw notFound();
       await request.txClient.query(
-        `update charges set status = 'void', flag = 'package_covered', package_charge_id = $3
+        `update charges c set status = 'void', flag = 'package_covered', package_charge_id = $3
           where encounter_id = $1 and status = 'pending' and invoice_id is null
-            and source <> 'package'
+            and source <> 'package' and not ${billedByALine('c')}
             and service_id in (select service_id from package_items
                                 where package_service_id = $2 and kind = 'included')`,
         [encounter.id, packageId, posted],

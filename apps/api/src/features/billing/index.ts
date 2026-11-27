@@ -6,6 +6,9 @@ import { hasStandingBilling, hasStandingInvoice } from './repository.js';
 import { billingRoutes } from './routes.js';
 import { billDischargeGate } from './stay-routes.js';
 
+/** Whether an invoice not void bills any of these charges, asked with them locked (#1255). */
+export { billedElsewhere } from './repository.js';
+
 /**
  * Billing (#114): the charge ledger, posted from the events of the clinical, laboratory,
  * radiology and pharmacy modules; invoices assembled from charges, issued with a number of the

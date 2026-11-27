@@ -50,6 +50,21 @@ async function openDraft() {
   return app;
 }
 
+describe('a charge another invoice still bills (#1255)', () => {
+  it('says what to do when the server refuses it on a bill', async () => {
+    server.use(
+      http.post('*/api/encounters/:encounterId/invoices', () =>
+        HttpResponse.json({ error: { code: 'charge_billed', message: 'x' } }, { status: 409 }),
+      ),
+    );
+    await openBuilder();
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    expect(
+      await screen.findByText(/^Another invoice of this visit still bills/),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('voiding a charge', () => {
   it('asks for a reason, voids it and keeps the keyboard’s place', async () => {
     await openBuilder();

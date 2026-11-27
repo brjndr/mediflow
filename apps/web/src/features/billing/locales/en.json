@@ -177,6 +177,7 @@
     "saved": "Draft saved.",
     "refused": {
       "chargeUnavailable": "A charge on this bill was billed or taken by another draft meanwhile. The list has been read again: check it and try again.",
+      "chargeBilled": "Another invoice of this visit still bills one of these charges. Leave it off, or first credit that invoice in full (discard it if it is a draft).",
       "notDraft": "This invoice was issued or discarded meanwhile and can no longer be changed.",
       "conflict": "Someone else changed this draft. It has been read again; your choices are kept, so check them and try again.",
       "empty": "Put at least one line on the bill.",

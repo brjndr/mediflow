@@ -35,6 +35,7 @@ type KeyedLine = ManualLine & { key: string };
 /** Refusals the desk can act on, by the server's code. Anything else is the common message. */
 const REFUSED: Record<string, string> = {
   charge_unavailable: 'builder.refused.chargeUnavailable',
+  charge_billed: 'builder.refused.chargeBilled',
   invoice_not_draft: 'builder.refused.notDraft',
   version_conflict: 'builder.refused.conflict',
   conflict: 'builder.refused.conflict',
