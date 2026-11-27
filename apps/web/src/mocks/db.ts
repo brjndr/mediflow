@@ -543,7 +543,7 @@ export const USER_IDS = {
   pharmacist: 'user_pharmacist',
 } as const;
 
-const users: Record<string, MockUser> = {
+const initialUsers: Record<string, MockUser> = {
   [USER_IDS.admin]: {
     id: USER_IDS.admin,
     email: 'admin@sample-hospital.test',
@@ -592,6 +592,14 @@ const users: Record<string, MockUser> = {
     memberships: [{ tenantId: TENANT_IDS.clinic, roleId: 'billing_clerk' }],
   },
 };
+
+let users = structuredClone(initialUsers);
+
+/** Moves a sample account to another role of a hospital, as its next policy shows. */
+export function setMockMembershipRole(userId: string, tenantId: string, roleId: string): void {
+  const membership = users[userId]?.memberships.find((m) => m.tenantId === tenantId);
+  if (membership) membership.roleId = roleId;
+}
 
 /** The mock "server-side session": who is signed in and which hospital is active. */
 interface MockSessionState {
@@ -692,6 +700,7 @@ export function onMockReset(listener: () => void): void {
 export function resetMockDb(): void {
   tenants = structuredClone(initialTenants);
   roles = structuredClone(initialRoles);
+  users = structuredClone(initialUsers);
   revision = 1;
   failedLogins = new Map();
   lockedEmails = new Set();

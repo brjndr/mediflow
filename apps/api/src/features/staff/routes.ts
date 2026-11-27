@@ -7,6 +7,8 @@ import { HttpError } from '../../core/http/errors.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { requireUserPlace } from '../../core/tenancy/limits.js';
+import { heldNow } from './caller.js';
+import { lockRoleChanges } from './repository.js';
 
 export const Invite = Type.Object(
   {
@@ -48,6 +50,9 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (!EMAIL.test(email.trim()) || name.trim() === '') {
         throw new HttpError(400, 'validation_failed', 'A name and one valid email are required');
       }
+      // A change to the sender's role in flight is decided first: it would otherwise miss this
+      // invitation when it withdraws the ones they may no longer send.
+      await lockRoleChanges(request.txClient);
       // Row-level security limits this to the active hospital's own roles.
       const role = await request.txClient.query('select 1 from roles where id = $1', [roleId]);
       if (role.rowCount === 0) throw new HttpError(400, 'unknown_role', 'No such role here');
@@ -63,8 +68,7 @@ export const staffRoutes: FastifyPluginAsyncTypebox = async (app) => {
                              and accepted_at is null and revoked_at is null)`,
         [roleId, email],
       );
-      const policy = await request.access.policy();
-      if (!policy || !grantsWithin(wanted.rows, policy.permissions)) {
+      if (!grantsWithin(wanted.rows, await heldNow(request, 'staff:invite'))) {
         throw new HttpError(403, 'role_not_allowed', 'That role holds more than you do');
       }
       // Last, once the request is otherwise allowed: it holds the hospital's lock until commit.

@@ -2,13 +2,20 @@ import { CircleAlert, CircleCheck, Clock } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { Can } from '@/access';
+import { Can, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import { errorMessageKey, isApiError } from '@/shared/api';
 import { focusIfLost } from '@/shared/lib/focus';
 import { actionLink, Button } from '@/shared/ui/button';
 import { DataGrid, type GridAction, type GridColumn } from '@/shared/ui/data-grid';
-import { useResendInvite, useStaff, useStaffAction, type StaffAction } from '../hooks/use-staff';
+import {
+  useChangeStaffRole,
+  useResendInvite,
+  useStaff,
+  useStaffAction,
+  useStaffRoles,
+  type StaffAction,
+} from '../hooks/use-staff';
 import { STAFF_STATUSES } from '../schemas';
 import type { InviteDelivery, StaffMember, StaffStatus } from '../types';
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '@/shared/hooks/use-debounced-value';
@@ -23,8 +30,12 @@ function refusal(error: unknown) {
   if (!isApiError(error)) return null;
   if (error.serverCode === 'cannot_deactivate_self') return 'errors.self' as const;
   if (error.serverCode === 'last_admin') return 'errors.lastAdmin' as const;
-  if (error.serverCode === 'unknown_role') return 'errors.unknownRole' as const;
+  if (error.serverCode === 'unknown_role' || error.serverCode === 'role_not_found') {
+    return 'errors.unknownRole' as const;
+  }
+  if (error.serverCode === 'role_changed') return 'errors.roleChanged' as const;
   if (error.serverCode === 'role_not_allowed') return 'errors.aboveYou' as const;
+  if (error.serverCode === 'cannot_remove_own_access') return 'errors.ownAccess' as const;
   if (error.serverCode === 'rate_limited') return 'errors.busy' as const;
   if (error.serverCode === 'invite_not_found') return 'errors.inviteGone' as const;
   return null;
@@ -73,44 +84,136 @@ function ConfirmDeactivate({
   );
 }
 
+/** Asks which role, and confirms: it changes what the person may do from their next request. */
+function ChangeRole({
+  member,
+  pending,
+  onConfirm,
+  onCancel,
+}: {
+  member: StaffMember;
+  pending: boolean;
+  onConfirm: (role: { id: string; name: string }) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation('staff');
+  const heading = useRef<HTMLHeadingElement>(null);
+  const roles = useStaffRoles();
+  const current = member.roleId;
+  const [picked, setPicked] = useState(current);
+  useEffect(() => heading.current?.focus(), []);
+  const chosen = roles.data?.find((option) => option.id === picked);
+  const unchanged = picked === current;
+  const listed = roles.data?.some((option) => option.id === current) ?? false;
+  // Their role is not one the caller may give, so it holds more: the server would refuse.
+  const above = roles.data !== undefined && !listed;
+  const refused = pending || unchanged || !chosen || above;
+  // "Try again" goes while the roles are asked for again: the keyboard goes back to the heading.
+  useEffect(() => focusIfLost(heading.current), [roles.status]);
+  return (
+    <section aria-labelledby="staff-role" className="flex flex-col gap-3 rounded-lg border p-4">
+      <h2 id="staff-role" ref={heading} tabIndex={-1} className="text-lg font-semibold">
+        {t('role.heading', { name: member.name })}
+      </h2>
+      <p className="text-sm text-muted-foreground">{t('role.body')}</p>
+      <label className="flex max-w-sm flex-col gap-1 text-sm font-medium">
+        {t('role.label')}
+        <select
+          value={picked}
+          aria-disabled={roles.isPending || undefined}
+          onChange={(event) => setPicked(event.target.value)}
+          className={control}
+        >
+          {/* The current role may be above the caller's own: it is then shown, not offered. */}
+          {!listed && <option value={current}>{member.roleName}</option>}
+          {roles.data?.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p role="status" className="text-sm text-muted-foreground">
+        {roles.isPending ? t('role.loading') : above ? t('errors.aboveYou') : ''}
+      </p>
+      <p role="alert" className="text-sm text-destructive">
+        {roles.isError ? t('role.failed') : ''}
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {roles.isError && (
+          <Button variant="outline" onClick={() => void roles.refetch()}>
+            {t('role.retry')}
+          </Button>
+        )}
+        <Button
+          aria-disabled={refused || undefined}
+          onClick={() => {
+            if (!refused && chosen) onConfirm(chosen);
+          }}
+        >
+          {t('role.yes')}
+        </Button>
+        <Button variant="outline" aria-disabled={pending || undefined} onClick={onCancel}>
+          {t('role.no')}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 // Default export: route modules are loaded by the manifest with a dynamic import.
 export default function StaffList() {
   const { t } = useTranslation('staff');
   // Error messages come from the API client and live in core `common`.
   const { t: tCommon } = useTranslation();
   const ownId = useSession()?.user.id;
+  // The roles to choose from are those the caller may invite into, so both are needed.
+  const mayOfferRoles = usePermission(INVITE);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StaffStatus>('active');
   const [confirming, setConfirming] = useState<StaffMember | null>(null);
+  const [changing, setChanging] = useState<StaffMember | null>(null);
   // What was just done, said once in a status line.
   const [done, setDone] = useState<string | null>(null);
   const statusLine = useRef<HTMLParagraphElement>(null);
   // The question closes and its buttons go: the keyboard moves to where the answer is said.
   const closeQuestion = () => {
     setConfirming(null);
+    setChanging(null);
     statusLine.current?.focus();
   };
   const q = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const staff = useStaff({ q, status });
   const action = useStaffAction();
   const resend = useResendInvite();
+  const changeRole = useChangeStaffRole();
 
   const rows = useMemo(() => staff.data?.pages.flatMap((page) => page.items) ?? [], [staff.data]);
   const total = staff.data?.pages[0]?.total;
-  const busy = action.isPending || resend.isPending;
+  const busy = action.isPending || resend.isPending || changeRole.isPending;
 
   const clear = () => {
     action.reset();
     resend.reset();
+    changeRole.reset();
     setDone(null);
   };
 
   const run = (kind: StaffAction, member: StaffMember) => {
     clear();
-    if (confirming) closeQuestion();
+    if (confirming || changing) closeQuestion();
     action.mutate(
       { action: kind, member },
       { onSuccess: () => setDone(t(`done.${kind}`, { name: member.name })) },
+    );
+  };
+
+  const submitRole = (member: StaffMember, role: { id: string; name: string }) => {
+    clear();
+    closeQuestion();
+    changeRole.mutate(
+      { member, roleId: role.id },
+      { onSuccess: () => setDone(t('done.changeRole', { name: member.name, role: role.name })) },
     );
   };
 
@@ -160,6 +263,21 @@ export default function StaffList() {
             disabled: (row) => busy || row.status !== 'active',
             onSelect: (row) => run('revokeSessions', row),
           },
+          ...(mayOfferRoles
+            ? ([
+                {
+                  id: 'changeRole',
+                  label: t('actions.changeRole'),
+                  requires: MANAGE,
+                  disabled: (row) => busy || row.status !== 'active',
+                  onSelect: (row) => {
+                    clear();
+                    setConfirming(null);
+                    setChanging(row);
+                  },
+                },
+              ] satisfies GridAction<StaffMember>[])
+            : []),
           {
             id: 'deactivate',
             label: t('actions.deactivate'),
@@ -168,6 +286,7 @@ export default function StaffList() {
             disabled: (row) => busy || row.status !== 'active' || row.id === ownId,
             onSelect: (row) => {
               clear();
+              setChanging(null);
               setConfirming(row);
             },
           },
@@ -210,7 +329,7 @@ export default function StaffList() {
     status === 'invited' && !staff.isPlaceholderData
       ? rows.filter((row) => row.delivery === 'failed').length
       : 0;
-  const failure = action.error ?? resend.error;
+  const failure = action.error ?? resend.error ?? changeRole.error;
   const refused = refusal(failure);
   // A row's action disables its button, or moves the row to another list: the keyboard goes to
   // the line that says how it went.
@@ -248,6 +367,7 @@ export default function StaffList() {
             onChange={(event) => {
               clear();
               setConfirming(null);
+              setChanging(null);
               setStatus(STAFF_STATUSES.find((s) => s === event.target.value) ?? 'active');
             }}
             className={control}
@@ -268,6 +388,18 @@ export default function StaffList() {
             member={confirming}
             pending={busy}
             onConfirm={() => run('deactivate', confirming)}
+            onCancel={closeQuestion}
+          />
+        </Can>
+      )}
+
+      {changing && (
+        <Can permission={MANAGE}>
+          <ChangeRole
+            key={changing.id}
+            member={changing}
+            pending={busy}
+            onConfirm={(role) => submitRole(changing, role)}
             onCancel={closeQuestion}
           />
         </Can>

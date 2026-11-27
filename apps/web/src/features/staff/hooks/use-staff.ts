@@ -5,10 +5,11 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-
-import { createTenantKeys } from '@/shared/api';
+import { sessionKey, useSession } from '@/app/session';
+import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
+  changeStaffRole,
   deactivateStaff,
   fetchStaff,
   fetchStaffRoles,
@@ -23,6 +24,9 @@ import type { InviteRequest, StaffMember } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's staff never show in another. */
 export const staffKeys = createTenantKeys('staff');
+
+// The role list counts each role's members. Named here: the roles feature imports this one.
+const roleManagementKeys = createTenantKeys('roles');
 
 const rolesKey = (tenantId: string) => [...staffKeys.all(tenantId), 'roles'] as const;
 
@@ -92,6 +96,35 @@ export function useStaffAction() {
       else if (action === 'withdraw') await withdrawInvite(member.id);
       else await revokeStaffSessions(member.id);
       return { action, member };
+    },
+    onSettled: refresh,
+  });
+}
+
+/** Moves a member to another role. Every list is asked for again, so the role shown is fresh. */
+export function useChangeStaffRole() {
+  const refresh = useRefreshLists();
+  const queryClient = useQueryClient();
+  const tenantId = useTenant()?.id;
+  const ownId = useSession()?.user.id;
+  return useMutation({
+    mutationFn: ({ member, roleId }: { member: StaffMember; roleId: string }) =>
+      changeStaffRole(member.id, roleId, member.roleId),
+    onSuccess: async (changed) => {
+      if (!tenantId) return;
+      void queryClient.invalidateQueries({ queryKey: roleManagementKeys.lists(tenantId) });
+      // One's own role: the session and the roles on offer are read again now.
+      if (changed.id !== ownId) return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: sessionKey }),
+        invalidateStaffRoles(queryClient, tenantId),
+      ]);
+    },
+    onError: (error) => {
+      // The role chosen is gone: the choices are out of date.
+      if (tenantId && isApiError(error) && error.serverCode === 'role_not_found') {
+        void invalidateStaffRoles(queryClient, tenantId);
+      }
     },
     onSettled: refresh,
   });
