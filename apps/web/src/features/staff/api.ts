@@ -43,10 +43,14 @@ export async function deactivateStaff(userId: string): Promise<StaffMember> {
   return staffMemberSchema.parse(requireData(result));
 }
 
-export async function changeStaffRole(userId: string, roleId: string): Promise<StaffMember> {
+export async function changeStaffRole(
+  userId: string,
+  roleId: string,
+  expectedRoleId: string,
+): Promise<StaffMember> {
   const result = await api.PUT('/staff/{userId}/role', {
     params: { path: { userId } },
-    body: { roleId },
+    body: { roleId, expectedRoleId },
   });
   return staffMemberSchema.parse(requireData(result));
 }

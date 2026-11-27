@@ -151,8 +151,18 @@ export interface MemberRow {
 }
 
 /**
- * Takes the hospital's role-change lock (the same key the roles feature uses), so a role edit and
- * a deactivation are decided one after the other, then locks, in user-id order, the active
+ * Takes the hospital's role-change lock (the same key the roles feature uses) until the
+ * transaction ends: role edits, changes to members and invitations are decided one after another.
+ */
+export async function lockRoleChanges(client: pg.ClientBase): Promise<void> {
+  await client.query(
+    "select pg_advisory_xact_lock(hashtextextended('roles:' || app_tenant_id()::text, 0))",
+  );
+}
+
+/**
+ * Takes the role-change lock, so a role edit and a deactivation are decided one after the other,
+ * then locks, in user-id order, the active
  * memberships whose role holds any of these permissions. Returns each one's user id and which of
  * the permissions they hold. Whoever gets the locks first decides, and the other request then
  * counts what is really left; the fixed order keeps two such requests from waiting on each other.
@@ -161,9 +171,7 @@ export async function lockManagers(
   client: pg.ClientBase,
   permissions: readonly string[],
 ): Promise<{ userId: string; held: string[] }[]> {
-  await client.query(
-    "select pg_advisory_xact_lock(hashtextextended('roles:' || app_tenant_id()::text, 0))",
-  );
+  await lockRoleChanges(client);
   const { rows } = await client.query<{ user_id: string; held: string[] }>(
     `select m.user_id,
             array(select p.permission from role_permissions p

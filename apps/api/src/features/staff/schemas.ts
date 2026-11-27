@@ -75,7 +75,14 @@ export const StaffListQuery = Type.Object({
 });
 
 export const StaffRoleChange = Type.Object(
-  { roleId: Type.String({ minLength: 1, maxLength: 64 }) },
+  {
+    roleId: Type.String({ minLength: 1, maxLength: 64 }),
+    expectedRoleId: Type.String({
+      minLength: 1,
+      maxLength: 64,
+      description: 'The role the member had when this one was chosen.',
+    }),
+  },
   { $id: 'StaffRoleChange', description: 'The role the member is to have.' },
 );
 

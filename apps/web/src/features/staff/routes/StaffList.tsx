@@ -30,10 +30,12 @@ function refusal(error: unknown) {
   if (!isApiError(error)) return null;
   if (error.serverCode === 'cannot_deactivate_self') return 'errors.self' as const;
   if (error.serverCode === 'last_admin') return 'errors.lastAdmin' as const;
-  if (error.serverCode === 'unknown_role') return 'errors.unknownRole' as const;
+  if (error.serverCode === 'unknown_role' || error.serverCode === 'role_not_found') {
+    return 'errors.unknownRole' as const;
+  }
+  if (error.serverCode === 'role_changed') return 'errors.roleChanged' as const;
   if (error.serverCode === 'role_not_allowed') return 'errors.aboveYou' as const;
   if (error.serverCode === 'cannot_remove_own_access') return 'errors.ownAccess' as const;
-  if (error.serverCode === 'role_not_found') return 'errors.roleGone' as const;
   if (error.serverCode === 'rate_limited') return 'errors.busy' as const;
   if (error.serverCode === 'invite_not_found') return 'errors.inviteGone' as const;
   return null;
@@ -102,7 +104,12 @@ function ChangeRole({
   useEffect(() => heading.current?.focus(), []);
   const chosen = roles.data?.find((option) => option.id === picked);
   const unchanged = picked === current;
-  const listed = roles.data?.some((option) => option.id === current);
+  const listed = roles.data?.some((option) => option.id === current) ?? false;
+  // Their role is not one the caller may give, so it holds more: the server would refuse.
+  const above = roles.data !== undefined && !listed;
+  const refused = pending || unchanged || !chosen || above;
+  // "Try again" goes while the roles are asked for again: the keyboard goes back to the heading.
+  useEffect(() => focusIfLost(heading.current), [roles.status]);
   return (
     <section aria-labelledby="staff-role" className="flex flex-col gap-3 rounded-lg border p-4">
       <h2 id="staff-role" ref={heading} tabIndex={-1} className="text-lg font-semibold">
@@ -126,14 +133,22 @@ function ChangeRole({
           ))}
         </select>
       </label>
-      <p role={roles.isError ? 'alert' : 'status'} className="text-sm text-muted-foreground">
-        {roles.isPending ? t('role.loading') : roles.isError ? t('role.failed') : ''}
+      <p role="status" className="text-sm text-muted-foreground">
+        {roles.isPending ? t('role.loading') : above ? t('errors.aboveYou') : ''}
+      </p>
+      <p role="alert" className="text-sm text-destructive">
+        {roles.isError ? t('role.failed') : ''}
       </p>
       <div className="flex flex-wrap gap-3">
+        {roles.isError && (
+          <Button variant="outline" onClick={() => void roles.refetch()}>
+            {t('role.retry')}
+          </Button>
+        )}
         <Button
-          aria-disabled={pending || unchanged || !chosen || undefined}
+          aria-disabled={refused || undefined}
           onClick={() => {
-            if (!pending && !unchanged && chosen) onConfirm(chosen);
+            if (!refused && chosen) onConfirm(chosen);
           }}
         >
           {t('role.yes')}
@@ -186,7 +201,7 @@ export default function StaffList() {
 
   const run = (kind: StaffAction, member: StaffMember) => {
     clear();
-    if (confirming) closeQuestion();
+    if (confirming || changing) closeQuestion();
     action.mutate(
       { action: kind, member },
       { onSuccess: () => setDone(t(`done.${kind}`, { name: member.name })) },

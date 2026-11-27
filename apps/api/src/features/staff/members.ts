@@ -2,18 +2,20 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { Type, type Static } from '@sinclair/typebox';
 import type { FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { grantsWithin, loadPolicy } from '../../core/access/policy.js';
+import { grantsWithin } from '../../core/access/policy.js';
 import { HttpError } from '../../core/http/errors.js';
 import { DEFAULT_PAGE_SIZE, errors, ref } from '../../core/http/schemas.js';
 import { queueInviteEmailTracked } from '../../core/auth/emails.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
 import { requireUserPlace } from '../../core/tenancy/limits.js';
+import { heldNow } from './caller.js';
 import {
   cutOffSessions,
   listPeople,
   lockMember,
   lockOpenInvite,
   lockOpenInvitesSentBy,
+  lockRoleChanges,
   lockManagers,
   markInviteRequeued,
   revokeInvite,
@@ -83,33 +85,18 @@ async function heldBy(request: FastifyRequest) {
 }
 
 /**
- * What the caller holds, read again once the rows a request acts on are locked. The policy loaded
- * for the guard may predate a deactivation, a change of role or a role edit made while this
- * request waited; someone who may no longer manage staff changes nothing.
- */
-async function managerNow(request: FastifyRequest) {
-  const policy = await loadPolicy(
-    request.txClient,
-    request.tenant?.id ?? '',
-    request.session?.userId ?? '',
-  );
-  if (!policy?.permissions.some((grant) => grant.permission === MANAGE)) throw gone();
-  return policy.permissions;
-}
-
-/**
  * The member, locked, once the caller is known to be allowed to act on them: their role holds
- * nothing the caller's does not.
+ * nothing the caller's does not. The role-change lock comes first, so the member's role cannot
+ * move while this waits for their row.
  */
-async function memberWithin(request: FastifyRequest, userId: string): Promise<MemberRow> {
+async function memberWithin(request: FastifyRequest, userId: string) {
+  await lockRoleChanges(request.txClient);
   const target = await lockMember(request.txClient, userId);
   if (!target) throw notFound();
-  const held = await managerNow(request);
+  const held = await heldNow(request, MANAGE);
   const roles = await roleGrants(request.txClient);
-  if (!grantsWithin(roles.get(target.role_id)?.grants ?? [], held)) {
-    throw notAllowed();
-  }
-  return target;
+  if (!grantsWithin(roles.get(target.role_id)?.grants ?? [], held)) throw notAllowed();
+  return { target, held, roles };
 }
 
 export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
@@ -198,7 +185,7 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       // Whoever got these locks first has decided. A caller who was deactivated meanwhile is no
       // longer among them, and deactivates nobody.
       if (!staffManagers.some((row) => row.userId === request.session?.userId)) throw gone();
-      const target = await memberWithin(request, userId);
+      const { target } = await memberWithin(request, userId);
       for (const permission of [MANAGE, ROLE_MANAGE]) {
         const holders = managers.filter((row) => row.held.includes(permission));
         if (holders.length === 1 && holders[0]?.userId === target.user_id) {
@@ -233,7 +220,7 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request) => {
-      const target = await memberWithin(request, request.params.userId);
+      const { target } = await memberWithin(request, request.params.userId);
       // Only a suspended membership takes a place; doing it twice changes nothing.
       if (target.status !== 'active') await requireUserPlace(request.txClient);
       if (await setMemberStatus(request.txClient, target.user_id, 'active')) {
@@ -251,24 +238,27 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'changeStaffRole',
         tags: ['staff'],
         description:
-          'Moves a member to another role of the hospital. Their next request uses the new permissions (their policy version holds the role id, so open tabs refresh). Both the role they have and the role they are to have must be within what the caller holds (403 role_not_allowed). 404 role_not_found for a role that is not one of this hospital. 409 last_admin when nobody else could manage staff or roles afterwards, 409 cannot_remove_own_access when the caller would lose their own ability to manage staff or roles. Open invitations the member sent that their new role could not send are withdrawn. Giving the role someone already has changes nothing.' +
+          'Moves a member to another role of the hospital. Their next request uses the new permissions (their policy version holds the role id, so open tabs refresh). Both the role they have and the role they are to have must be within what the caller holds (403 role_not_allowed). 404 role_not_found for a role that is not one of this hospital. 409 role_changed when the role they have is no longer expectedRoleId. 409 last_admin when nobody else could manage staff or roles afterwards, 409 cannot_remove_own_access when the caller would lose their own ability to manage staff or roles. Open invitations the member sent that their new role could not send are withdrawn. Giving the role someone already has changes nothing.' +
           OTHER_HOSPITAL,
         params: UserParams,
         body: ref(StaffRoleChange),
-        response: { 200: ref(StaffMember), ...errors(401, 403, 404, 409, 422, 429) },
+        response: { 200: ref(StaffMember), ...errors(400, 401, 403, 404, 409, 429) },
       },
     },
     async (request) => {
       const { userId } = request.params;
-      const { roleId } = request.body as Static<typeof StaffRoleChange>;
+      const { roleId, expectedRoleId } = request.body as Static<typeof StaffRoleChange>;
       // Same order as deactivating: the role-change lock, then the managers by user id, then the member.
       const managers = await lockManagers(request.txClient, [MANAGE, ROLE_MANAGE]);
       const caller = request.session?.userId ?? '';
-      const target = await memberWithin(request, userId);
-      const roles = await roleGrants(request.txClient);
+      const { target, held, roles } = await memberWithin(request, userId);
       const next = roles.get(roleId);
       if (!next) throw new HttpError(404, 'role_not_found', 'No such role');
-      if (!grantsWithin(next.grants, await managerNow(request))) throw notAllowed();
+      if (!grantsWithin(next.grants, held)) throw notAllowed();
+      // Chosen against a role they no longer have: someone else moved them meanwhile.
+      if (![expectedRoleId, roleId].includes(target.role_id)) {
+        throw new HttpError(409, 'role_changed', 'Their role was changed by someone else');
+      }
       const kept = new Set(next.grants.map((grant) => grant.permission));
       for (const permission of [MANAGE, ROLE_MANAGE]) {
         const holders = managers.filter((row) => row.held.includes(permission));
@@ -315,7 +305,7 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request) => {
-      const target = await memberWithin(request, request.params.userId);
+      const { target } = await memberWithin(request, request.params.userId);
       const own = target.user_id === request.session?.userId;
       // Ending one's own other sessions keeps this one, so it has to be known which this one is.
       if (own && !request.session?.id) {
@@ -349,10 +339,11 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request) => {
+      await lockRoleChanges(request.txClient);
       const invite = await lockOpenInvite(request.txClient, request.params.inviteId);
       if (!invite) throw new HttpError(404, 'invite_not_found', 'No such open invitation');
       const roles = await roleGrants(request.txClient);
-      if (!grantsWithin(roles.get(invite.role_id)?.grants ?? [], await heldBy(request))) {
+      if (!grantsWithin(roles.get(invite.role_id)?.grants ?? [], await heldNow(request, INVITE))) {
         throw notAllowed();
       }
       const wait = Math.ceil(RESEND_GAP_SECONDS - (invite.queued_ago ?? RESEND_GAP_SECONDS));
@@ -399,10 +390,11 @@ export const memberRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (request, reply) => {
+      await lockRoleChanges(request.txClient);
       const invite = await lockOpenInvite(request.txClient, request.params.inviteId);
       if (!invite) throw new HttpError(404, 'invite_not_found', 'No such open invitation');
       const roles = await roleGrants(request.txClient);
-      if (!grantsWithin(roles.get(invite.role_id)?.grants ?? [], await heldBy(request))) {
+      if (!grantsWithin(roles.get(invite.role_id)?.grants ?? [], await heldNow(request, INVITE))) {
         throw notAllowed();
       }
       await revokeInvite(request.txClient, invite.id);

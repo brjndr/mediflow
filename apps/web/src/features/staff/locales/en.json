@@ -56,10 +56,11 @@
   },
   "role": {
     "heading": "Change the role of {{name}}",
-    "body": "Their permissions change at once: the next thing they do here uses the new role. Only roles that hold no more than your own are offered.",
+    "body": "Their permissions change at once: the next thing they do here uses the new role. Only roles that hold no more than your own are offered. Open invitations they sent that the new role could not send are withdrawn.",
     "label": "New role",
     "loading": "Loading the roles",
     "failed": "The roles could not be loaded.",
+    "retry": "Try again",
     "yes": "Change role",
     "no": "Cancel"
   },
@@ -73,7 +74,7 @@
   },
   "errors": {
     "ownAccess": "You cannot take away your own ability to manage staff or roles. Ask another administrator.",
-    "roleGone": "That role no longer exists at this hospital. Choose another.",
+    "roleChanged": "Someone else changed their role meanwhile. The list shows it now: check it and try again.",
     "self": "You cannot deactivate yourself. Ask another administrator.",
     "lastAdmin": "This is the only person who can manage staff here. Give someone else that role first.",
     "unknownRole": "That role no longer exists at this hospital. Choose another.",

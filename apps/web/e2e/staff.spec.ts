@@ -252,7 +252,9 @@ test('change a member’s role with the keyboard alone', async ({ page }) => {
   await expect(heading(page, 'Change the role of Aarav Iyer')).toBeFocused();
   await expectNoSidewaysScroll(page);
   await expectNoAxeViolations(page);
-  await page.getByRole('combobox', { name: 'New role' }).selectOption({ label: 'Pharmacist' });
+  const choice = page.getByRole('combobox', { name: 'New role' });
+  await choice.focus();
+  await page.keyboard.type('Pharmacist');
   await press(page, page.getByRole('button', { name: 'Change role', exact: true }));
   await expect(status(page, 'Aarav Iyer now has the role Pharmacist.')).toBeFocused();
 });

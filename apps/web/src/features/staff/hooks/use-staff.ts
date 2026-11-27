@@ -6,7 +6,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 import { sessionKey, useSession } from '@/app/session';
-import { createTenantKeys } from '@/shared/api';
+import { createTenantKeys, isApiError } from '@/shared/api';
 import { useTenant } from '@/tenancy';
 import {
   changeStaffRole,
@@ -24,6 +24,9 @@ import type { InviteRequest, StaffMember } from '../types';
 
 /** Every key is prefixed with the tenant, so one hospital's staff never show in another. */
 export const staffKeys = createTenantKeys('staff');
+
+// The role list counts each role's members. Named here: the roles feature imports this one.
+const roleManagementKeys = createTenantKeys('roles');
 
 const rolesKey = (tenantId: string) => [...staffKeys.all(tenantId), 'roles'] as const;
 
@@ -106,14 +109,22 @@ export function useChangeStaffRole() {
   const ownId = useSession()?.user.id;
   return useMutation({
     mutationFn: ({ member, roleId }: { member: StaffMember; roleId: string }) =>
-      changeStaffRole(member.id, roleId),
+      changeStaffRole(member.id, roleId, member.roleId),
     onSuccess: async (changed) => {
+      if (!tenantId) return;
+      void queryClient.invalidateQueries({ queryKey: roleManagementKeys.lists(tenantId) });
       // One's own role: the session and the roles on offer are read again now.
-      if (changed.id !== ownId || !tenantId) return;
+      if (changed.id !== ownId) return;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: sessionKey }),
-        queryClient.invalidateQueries({ queryKey: rolesKey(tenantId) }),
+        invalidateStaffRoles(queryClient, tenantId),
       ]);
+    },
+    onError: (error) => {
+      // The role chosen is gone: the choices are out of date.
+      if (tenantId && isApiError(error) && error.serverCode === 'role_not_found') {
+        void invalidateStaffRoles(queryClient, tenantId);
+      }
     },
     onSettled: refresh,
   });

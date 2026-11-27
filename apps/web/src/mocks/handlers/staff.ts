@@ -8,6 +8,7 @@ import {
   mockRoleHolds,
   mockRoleIds,
   onMockReset,
+  setMockMembershipRole,
   TENANT_IDS,
   USER_IDS,
 } from '../db';
@@ -286,7 +287,7 @@ export const staffHandlers = [
     if ('denied' in access) return access.denied;
     const member = find(access.tenantId, params.userId);
     if (!member) return notFound();
-    const body = (await request.json()) as { roleId?: unknown };
+    const body = (await request.json()) as { roleId?: unknown; expectedRoleId?: unknown };
     const roleId = typeof body.roleId === 'string' ? body.roleId : '';
     if (!mockRoleIds(access.tenantId).includes(roleId)) {
       return error(404, 'role_not_found', 'No such role');
@@ -294,16 +295,23 @@ export const staffHandlers = [
     if (!mayGive(access.tenantId, member.roleId) || !mayGive(access.tenantId, roleId)) {
       return error(403, 'role_not_allowed', 'That role holds more than you do');
     }
-    if (managesStaff(member) && !mockRoleHolds(access.tenantId, roleId, MANAGE)) {
+    if (![body.expectedRoleId, roleId].includes(member.roleId)) {
+      return error(409, 'role_changed', 'Their role was changed by someone else');
+    }
+    for (const permission of [MANAGE, 'role:manage']) {
+      const holds = (id: string) => mockRoleHolds(access.tenantId, id, permission);
+      if (member.status !== 'active' || !holds(member.roleId) || holds(roleId)) continue;
       if (member.userId === currentSession()?.user.id) {
         return error(409, 'cannot_remove_own_access', 'You cannot take away your own access');
       }
       const others = mockStaffOf(access.tenantId).filter(
-        (other) => managesStaff(other) && other.userId !== member.userId,
+        (other) =>
+          other.status === 'active' && other.userId !== member.userId && holds(other.roleId),
       );
       if (others.length === 0) return error(409, 'last_admin', 'Nobody else could manage here');
     }
     member.roleId = roleId;
+    setMockMembershipRole(member.userId, access.tenantId, roleId);
     return HttpResponse.json<StaffMember>(view(member));
   }),
 

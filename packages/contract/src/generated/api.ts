@@ -560,7 +560,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description Moves a member to another role of the hospital. Their next request uses the new permissions (their policy version holds the role id, so open tabs refresh). Both the role they have and the role they are to have must be within what the caller holds (403 role_not_allowed). 404 role_not_found for a role that is not one of this hospital. 409 last_admin when nobody else could manage staff or roles afterwards, 409 cannot_remove_own_access when the caller would lose their own ability to manage staff or roles. Open invitations the member sent that their new role could not send are withdrawn. Giving the role someone already has changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
+        /** @description Moves a member to another role of the hospital. Their next request uses the new permissions (their policy version holds the role id, so open tabs refresh). Both the role they have and the role they are to have must be within what the caller holds (403 role_not_allowed). 404 role_not_found for a role that is not one of this hospital. 409 role_changed when the role they have is no longer expectedRoleId. 409 last_admin when nobody else could manage staff or roles afterwards, 409 cannot_remove_own_access when the caller would lose their own ability to manage staff or roles. Open invitations the member sent that their new role could not send are withdrawn. Giving the role someone already has changes nothing. Someone who is not a member of the hospital answers 404 staff_not_found, the same as a user that does not exist. */
         put: operations["changeStaffRole"];
         post?: never;
         delete?: never;
@@ -8267,6 +8267,8 @@ export interface components {
         /** @description The role the member is to have. */
         StaffRoleChange: {
             roleId: string;
+            /** @description The role the member had when this one was chosen. */
+            expectedRoleId: string;
         };
         /** @description A patient as shown in a list: compact, no clinical data. */
         PatientSummary: {
@@ -17477,6 +17479,15 @@ export interface operations {
                 };
             };
             /** @description Standard error body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Standard error body. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -17505,15 +17516,6 @@ export interface operations {
             };
             /** @description Standard error body. */
             409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Standard error body. */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };
