@@ -253,17 +253,17 @@ export async function revokeInvitesSentBy(client: pg.ClientBase, userId: string)
   return rowCount ?? 0;
 }
 
-/** The open invitations a person sent here, locked. */
+/** The open invitations these people sent here, locked. */
 export async function lockOpenInvitesSentBy(
   client: pg.ClientBase,
-  userId: string,
+  userIds: readonly string[],
 ): Promise<{ id: string; role_id: string }[]> {
   const { rows } = await client.query<{ id: string; role_id: string }>(
     `select id, role_id from invites
-     where invited_by = $1 and accepted_at is null and revoked_at is null
+     where invited_by = any($1::uuid[]) and accepted_at is null and revoked_at is null
      order by id
      for update`,
-    [userId],
+    [userIds],
   );
   return rows;
 }

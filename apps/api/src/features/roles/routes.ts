@@ -7,6 +7,7 @@ import { HttpError } from '../../core/http/errors.js';
 import { errors, ref } from '../../core/http/schemas.js';
 import { tidyWithin } from '../../core/http/text.js';
 import { IdempotencyHeaders } from '../../core/idempotency/schema.js';
+import { withdrawUnsendableInvites } from '../staff/index.js';
 import {
   deleteRole,
   findRole,
@@ -16,6 +17,7 @@ import {
   listRoles,
   lockManagers,
   lockRoleChanges,
+  memberIdsOf,
   renameRole,
   replaceGrants,
   roleTaken,
@@ -258,7 +260,7 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
         operationId: 'updateRole',
         tags: ['roles'],
         description:
-          "Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). `expectedVersion` is the version the caller read: when the role has changed since, the answer is 409 version_conflict with the role as it is now in `current`, and nothing is changed. A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. Audited; moves the policy version.",
+          "Renames a custom role and/or replaces what a role may do (`permissions` is the whole new set). `expectedVersion` is the version the caller read: when the role has changed since, the answer is 409 version_conflict with the role as it is now in `current`, and nothing is changed. A built-in role keeps its id and name for good: sending another name answers 409 built_in_role; its permissions can be changed, and a default an admin removed is not put back by a deploy. Nobody acts above themselves: 403 role_not_allowed when the role holds now, or after the change would hold, more than the caller does. 409 last_admin when nobody active would be left holding role:manage or staff:manage; 409 cannot_remove_own_access when the caller's own role would lose role:manage. When the edit takes a permission or part of its scope from the role, the open invitations its members sent that the role could no longer send (no staff:invite, or an invited role holding more) are withdrawn. Audited; moves the policy version.",
         params: RoleParams,
         body: UpdateRoleBody,
         response: {
@@ -279,7 +281,7 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw new HttpError(400, 'validation_failed', 'The name must contain letters or digits');
       }
       const before = await beginChange(request);
-      const row = await findRole(request.txClient, roleId, true);
+      const row = await findRole(request.txClient, roleId, 'no key update');
       if (!row) throw notFound();
       if (row.version !== request.body.expectedVersion) {
         // Nothing has been written. Read under the lock, so this is the change that won. A role
@@ -304,7 +306,8 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       // What the role holds now and what it is to hold: a role above the caller is not theirs to
       // change, and they cannot raise one above themselves.
-      await ceiling(request, await grantsOf(request.txClient, roleId), grants ?? []);
+      const previous = await grantsOf(request.txClient, roleId);
+      await ceiling(request, previous, grants ?? []);
       if (renamed) await renameRole(request.txClient, roleId, name);
       if (grants) {
         await replaceGrants(request.txClient, roleId, grants);
@@ -312,6 +315,14 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       await endChange(request, before, roleId);
       request.audit('update', 'role', roleId);
+      // Only an edit that takes something away can leave a member's invitation beyond them.
+      if (grants && !grantsWithin(previous, grants)) {
+        await withdrawUnsendableInvites(
+          request,
+          await memberIdsOf(request.txClient, roleId),
+          grants,
+        );
+      }
       const updated = await findRole(request.txClient, roleId);
       if (!updated) throw notFound();
       return detail(updated, await grantsOf(request.txClient, roleId));
@@ -337,7 +348,7 @@ export const roleRoutes: FastifyPluginAsyncTypebox = async (app) => {
     async (request, reply) => {
       const { roleId } = request.params;
       const before = await beginChange(request);
-      const row = await findRole(request.txClient, roleId, true);
+      const row = await findRole(request.txClient, roleId, 'update');
       if (!row) throw notFound();
       if (row.built_in) {
         throw new HttpError(409, 'built_in_role', 'A built-in role cannot be deleted');
