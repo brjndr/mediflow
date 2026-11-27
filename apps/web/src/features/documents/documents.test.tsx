@@ -67,12 +67,10 @@ describe('the documents tab', () => {
     await within(table).findByText('Being scanned');
     finishMockScan('doc_h_3', 'infected');
     expect(
-      await screen.findByText(/Insurance card was blocked: it failed the virus scan/, undefined, {
-        timeout: 9000,
-      }),
+      await screen.findByText(/Insurance card was blocked: it failed the virus scan/),
     ).toBeInTheDocument();
     finishMockScan('doc_h_3');
-  }, 15000);
+  });
 
   it('filters by category on the server', async () => {
     const table = await openTab();
@@ -155,8 +153,7 @@ describe('who sees what', () => {
   it('has no tab without document:read, and reads nothing', async () => {
     revokePermission(HOSPITAL, 'admin', 'document:read');
     renderApp({ entry: '/patients/pth_00001' });
-    await screen.findByRole('heading', { level: 1 });
-    await screen.findByRole('tab', { name: /Overview|Details/i }).catch(() => undefined);
+    await screen.findByRole('tablist');
     expect(screen.queryByRole('tab', { name: 'Documents' })).toBeNull();
     expect(mockDocumentAudit(HOSPITAL)).toEqual([]);
   });

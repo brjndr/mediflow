@@ -12,13 +12,11 @@ const HOSPITAL = TENANT_IDS.hospital;
 
 async function openPanel() {
   renderApp({ entry: '/encounters/enc_h_1' });
-  await userEvent.click(
-    await screen.findByRole('button', { name: 'Documents' }, { timeout: 8000 }),
-  );
+  await userEvent.click(await screen.findByRole('button', { name: 'Documents' }));
   return screen.findByRole('table', { name: 'Documents of this visit' });
 }
 
-describe('documents of a visit', { timeout: 20000 }, () => {
+describe('documents of a visit', () => {
   it('attaches a file to the visit and lists only the visit documents', async () => {
     const table = await openPanel();
     // The patient's other documents are not the visit's.
@@ -60,7 +58,7 @@ describe('documents of a visit', { timeout: 20000 }, () => {
   });
 });
 
-describe('a scanned OPD sheet (#1200)', { timeout: 20000 }, () => {
+describe('a scanned OPD sheet (#1200)', () => {
   async function attachSheet() {
     await userEvent.click(screen.getByRole('button', { name: 'Add document' }));
     await userEvent.upload(

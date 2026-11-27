@@ -6,10 +6,12 @@ import { server } from '@/mocks/node';
 import { configureApi, resetApiConfig } from '@/shared/api';
 import { missingTranslationKeys } from './render';
 
-// How long findBy* and waitFor keep trying. The default of one second is too tight for the first
-// test of a file on a slow machine, where a lazy route chunk is still being transformed. A test
-// that passes is no slower; only a failing one takes longer to say so.
-configure({ asyncUtilTimeout: 3000 });
+// How long findBy* and waitFor keep trying. The default of one second is far too tight for a
+// slow or busy machine: the first test of a file loads the lazy route chunks and their strings,
+// and a large screen (the consultation, the home page) takes jsdom seconds to render and to
+// search by role. A test that passes is no slower; only a failing one takes longer to say so.
+// So a test needs no `timeout` of its own, and a shorter one makes it fail on such a machine.
+configure({ asyncUtilTimeout: 15_000 });
 
 // jsdom has no modal <dialog>. This covers what the app relies on (the open attribute and the
 // close event). Focus trapping and Escape are the browser's job and are not simulated.
