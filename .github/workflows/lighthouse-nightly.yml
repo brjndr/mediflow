@@ -54,4 +54,6 @@ jobs:
           path: |
             apps/web/.lighthouseci
             apps/web/.lighthouseci-slow4g
+          # Both folders start with a dot, which the action skips unless told otherwise (#1151).
+          include-hidden-files: true
           retention-days: 30
