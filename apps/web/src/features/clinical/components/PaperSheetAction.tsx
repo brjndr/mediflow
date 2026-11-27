@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useFeatureFlag, usePermission } from '@/access';
 import { useSession } from '@/app/session';
 import type { SlotProps } from '@/registry';
+import { focusIfLost } from '@/shared/lib/focus';
 import { Button } from '@/shared/ui/button';
 import { useTenant } from '@/tenancy';
 import { useEncounter } from '../hooks/use-clinical';
@@ -20,9 +21,13 @@ export default function PaperSheetAction({ context }: SlotProps) {
   const canReadPatients = usePermission('patient:read');
   const documents = useFeatureFlag('documents');
   const { tokenId, encounterId, status, number } = context ?? {};
-  if (!canUpload || !canReadPatients || !documents || status === 'cancelled') return null;
-  if (typeof tokenId === 'string') return <TokenButton tokenId={tokenId} number={number} />;
-  if (typeof encounterId === 'string') return <VisitButton encounterId={encounterId} />;
+  if (!canUpload || !canReadPatients || !documents) return null;
+  if (typeof tokenId === 'string') {
+    return status === 'cancelled' ? null : <TokenButton tokenId={tokenId} number={number} />;
+  }
+  if (typeof encounterId === 'string') {
+    return <VisitButton encounterId={encounterId} cancelled={status === 'cancelled'} />;
+  }
   return null;
 }
 
@@ -46,18 +51,28 @@ function TokenButton({ tokenId, number }: { tokenId: string; number: unknown }) 
   );
 }
 
-/** Only an OPD visit is kept on paper; the screen has read the visit already. */
-function VisitButton({ encounterId }: { encounterId: string }) {
+/**
+ * Only an OPD visit is kept on paper; the screen has read the visit already. A visit cancelled
+ * from the dialog (#1214) loses the button, and keeps the dialog until it is closed.
+ */
+function VisitButton({ encounterId, cancelled }: { encounterId: string; cancelled: boolean }) {
   const { t } = useTranslation('clinical');
   const encounter = useEncounter(encounterId);
   const [open, setOpen] = useState(false);
-  if (encounter.data?.type !== 'opd') return null;
+  if (encounter.data?.type !== 'opd' || (cancelled && !open)) return null;
+  const close = () => {
+    setOpen(false);
+    // With the button gone, focus goes to the screen once the dialog has let it go.
+    if (cancelled) setTimeout(() => focusIfLost(document.querySelector<HTMLElement>('main')));
+  };
   return (
     <>
-      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-        {t('paper.action')}
-      </Button>
-      <PaperDialog subject={open ? { encounterId } : null} onClose={() => setOpen(false)} />
+      {!cancelled && (
+        <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+          {t('paper.action')}
+        </Button>
+      )}
+      <PaperDialog subject={open ? { encounterId } : null} onClose={close} />
     </>
   );
 }

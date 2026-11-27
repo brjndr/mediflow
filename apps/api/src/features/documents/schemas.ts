@@ -144,6 +144,10 @@ export const PaperVisit = Type.Object(
       description:
         'Whether an OPD sheet that is clean or being scanned, and not retired, is on the visit, whoever attached it: the visit may then be closed from here.',
     }),
+    canCancel: Type.Boolean({
+      description:
+        'Whether the visit may be cancelled from here: open, opened from paper, and empty (nothing written on it, and no file, consent, billing, surgery, trip or admission).',
+    }),
     sheets: Type.Array(
       Type.Object(
         {
@@ -173,6 +177,19 @@ export const PaperVisitClose = Type.Object(
   { $id: 'PaperVisitClose', additionalProperties: false },
 );
 export type PaperVisitClose = Static<typeof PaperVisitClose>;
+export const PaperVisitCancel = Type.Object(
+  {
+    version: Type.Integer({ minimum: 1, description: 'Of the visit, as last read.' }),
+    reason: Type.String({
+      minLength: 1,
+      maxLength: 200,
+      pattern: PLAIN_TEXT,
+      description: 'Why it is cancelled: it was opened by mistake.',
+    }),
+  },
+  { $id: 'PaperVisitCancel', additionalProperties: false },
+);
+export type PaperVisitCancel = Static<typeof PaperVisitCancel>;
 
 export const DocumentListQuery = Type.Object({
   cursor: Type.Optional(Type.String()),
@@ -276,6 +293,7 @@ export const DOCUMENT_SCHEMAS = [
   PatientDocumentRetire,
   PaperVisit,
   PaperVisitClose,
+  PaperVisitCancel,
   RetentionRule,
   RetentionRules,
   RetentionRuleSet,

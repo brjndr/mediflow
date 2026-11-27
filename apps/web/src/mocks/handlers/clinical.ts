@@ -98,6 +98,8 @@ interface StoredEncounter {
   endedAt?: string;
   endedByName?: string;
   cancelReason?: string;
+  /** Opened from the paper OPD sheet (#1202). */
+  openedFromPaper?: boolean;
   version: number;
 }
 
@@ -1650,6 +1652,17 @@ function paperVisitHandlers() {
     return { tenantId: currentPolicy()?.tenantId ?? '' };
   };
   const sheetsOf = (stored: StoredEncounter) => mockVisitSheets(stored.tenantId, stored.id);
+  const ofVisit = <T extends { encounterId: string }>(stored: StoredEncounter, rows: T[]) =>
+    rows.filter((row) => row.encounterId === stored.id);
+  const written = (stored: StoredEncounter) =>
+    ofVisit(stored, state.notes).some((note) => note.status === 'signed') ||
+    ofVisit(stored, state.diagnoses).some((each) => !each.retractedAt) ||
+    ofVisit(stored, state.orders).some((order) => order.status !== 'cancelled') ||
+    ofVisit(stored, state.prescriptions).length > 0;
+  const hasDraft = (stored: StoredEncounter) =>
+    ofVisit(stored, state.notes).some((note) => note.status === 'draft');
+  const hasFile = (sheets: ReturnType<typeof sheetsOf>) =>
+    sheets.some((one) => ['pending', 'scanning', 'clean'].includes(one.status));
   const answer = (stored: StoredEncounter): PaperVisit => {
     const view = viewOf(stored);
     const token = stored.queueTokenId ? mockQueueToken(stored.queueTokenId) : undefined;
@@ -1667,6 +1680,12 @@ function paperVisitHandlers() {
         version: stored.version,
       },
       hasSheet: sheets.some((one) => one.status === 'scanning' || one.status === 'clean'),
+      canCancel:
+        stored.status === 'open' &&
+        stored.openedFromPaper === true &&
+        !written(stored) &&
+        !hasDraft(stored) &&
+        !hasFile(sheets),
       sheets: sheets
         .filter((one) => one.createdBy === caller().id)
         .map((one) => ({
@@ -1705,6 +1724,7 @@ function paperVisitHandlers() {
       tokenNumber: token.number,
       ...(doctor ? { doctorName: doctor.name } : {}),
       hasSheet: false,
+      canCancel: false,
       sheets: [],
     });
   };
@@ -1739,6 +1759,7 @@ function paperVisitHandlers() {
           doctorId: token.doctorId,
           openedAt: now(),
           openedByName: caller().name,
+          openedFromPaper: true,
           version: 1,
         });
       }
@@ -1762,21 +1783,42 @@ function paperVisitHandlers() {
           return error(409, 'invalid_transition', 'The visit does not change');
         }
         if (body.version !== stored.version) return error(409, 'conflict', 'It has changed');
-        const ofIt = <T extends { encounterId: string }>(rows: T[]) =>
-          rows.filter((row) => row.encounterId === stored.id);
-        const written =
-          ofIt(state.notes).some((note) => note.status === 'signed') ||
-          ofIt(state.diagnoses).some((each) => !each.retractedAt) ||
-          ofIt(state.orders).some((order) => order.status !== 'cancelled') ||
-          ofIt(state.prescriptions).length > 0;
-        if (written) return error(409, 'has_records', 'The visit has records');
+        if (written(stored)) return error(409, 'has_records', 'The visit has records');
         if (!answer(stored).hasSheet) {
           return error(409, 'opd_sheet_required', 'Attach the OPD sheet first');
         }
-        if (state.notes.some((note) => note.encounterId === stored.id && note.status === 'draft')) {
+        if (hasDraft(stored)) {
           return error(409, 'unsigned_notes', 'A note of the encounter is a draft');
         }
         stored.status = 'closed';
+        stored.endedAt = now();
+        stored.endedByName = caller().name;
+        stored.version += 1;
+        return HttpResponse.json<PaperVisit>(answer(stored));
+      },
+    ),
+    http.post(
+      '*/api/encounters/:encounterId/paper-visit/cancel',
+      async ({ request: asked, params }) => {
+        const access = guard(asked, [], []);
+        if ('denied' in access) return access.denied;
+        const body = (await asked.json()) as { version?: number; reason?: string };
+        const stored = visitOf(access.tenantId, String(params.encounterId));
+        if (!stored) return notFound();
+        if (stored.status !== 'open') {
+          return error(409, 'invalid_transition', 'The visit does not change');
+        }
+        if (body.version !== stored.version) return error(409, 'conflict', 'It has changed');
+        if (!stored.openedFromPaper) {
+          return error(409, 'not_paper_visit', 'The visit was not opened from paper');
+        }
+        if (hasDraft(stored)) return error(409, 'unsigned_notes', 'A note is a draft');
+        if (written(stored)) return error(409, 'has_records', 'The visit has records');
+        if (hasFile(sheetsOf(stored))) {
+          return error(409, 'visit_not_empty', 'Something is on the visit');
+        }
+        stored.status = 'cancelled';
+        stored.cancelReason = body.reason?.trim();
         stored.endedAt = now();
         stored.endedByName = caller().name;
         stored.version += 1;

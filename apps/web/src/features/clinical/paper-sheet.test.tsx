@@ -132,6 +132,90 @@ describe('attaching a scanned OPD sheet', { timeout: 30000 }, () => {
     );
   });
 
+  /** Attaches to token 1, which opens its visit, then retires the sheet as wrong. */
+  async function openedByMistake() {
+    const dialog = await openDialog();
+    await userEvent.upload(within(dialog).getByLabelText('Choose a file'), photo());
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));
+    await within(dialog).findByText(/The sheet was attached/, {}, SLOW);
+    const wrong = await within(dialog).findByRole(
+      'button',
+      { name: 'Wrong sheet: retire sheet.jpg' },
+      SLOW,
+    );
+    // A visit with a file on it is not cancelled.
+    expect(within(dialog).queryByRole('button', { name: 'Cancel visit' })).toBeNull();
+    await userEvent.click(wrong);
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: /Why it is retired/ }),
+      'Wrong token',
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Retire sheet' }));
+    await within(dialog).findByText(/The sheet was retired/, {}, SLOW);
+    return dialog;
+  }
+
+  it('cancels an empty visit opened for the wrong token, with a reason', async () => {
+    const dialog = await openedByMistake();
+    await userEvent.click(
+      await within(dialog).findByRole('button', { name: 'Cancel visit' }, SLOW),
+    );
+    expect(within(dialog).getByRole('heading', { name: 'Cancel this visit' })).toHaveFocus();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Keep the visit' }));
+    const cancel = within(dialog).getByRole('button', { name: 'Cancel visit' });
+    expect(cancel).toHaveFocus();
+    await userEvent.click(cancel);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel this visit' }));
+    const reason = within(dialog).getByRole('textbox', { name: /Why it is cancelled/ });
+    expect(reason).toHaveFocus();
+    await expectNoAxeViolations();
+    await userEvent.type(reason, 'Wrong token');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel this visit' }));
+    const done = await within(dialog).findByText('The visit was cancelled.', {}, SLOW);
+    await waitFor(() => expect(done).toHaveFocus());
+    expect(within(dialog).queryByRole('button', { name: /^Attach to/ })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'Cancel visit' })).toBeNull();
+  });
+
+  it('says why a cancel is refused, and reads the visit again', async () => {
+    server.use(
+      http.post('*/api/encounters/:encounterId/paper-visit/cancel', () =>
+        HttpResponse.json(
+          { error: { code: 'visit_not_empty', message: 'no', requestId: 'r' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    const dialog = await openedByMistake();
+    await userEvent.click(
+      await within(dialog).findByRole('button', { name: 'Cancel visit' }, SLOW),
+    );
+    await userEvent.type(
+      within(dialog).getByRole('textbox', { name: /Why it is cancelled/ }),
+      'Wrong token',
+    );
+    const reads = countReads();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel this visit' }));
+    await waitFor(
+      () =>
+        expect(
+          within(dialog)
+            .getAllByRole('status')
+            .some((each) => each.textContent?.includes('cannot be cancelled from here')),
+        ).toBe(true),
+      SLOW,
+    );
+    await waitFor(() => expect(reads).toHaveLength(1), SLOW);
+  });
+
+  it('does not offer cancelling a visit that was not opened from paper', async () => {
+    renderApp({ entry: '/encounters/enc_h_1' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach OPD sheet' }, SLOW));
+    const dialog = await screen.findByRole('dialog', {}, SLOW);
+    await within(dialog).findByRole('button', { name: /^Attach to / }, SLOW);
+    expect(within(dialog).queryByRole('button', { name: 'Cancel visit' })).toBeNull();
+  });
+
   it('asks for a file, and refuses a type that cannot be attached', async () => {
     const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole('button', { name: /^Attach to/ }));

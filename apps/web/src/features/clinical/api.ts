@@ -474,6 +474,19 @@ export async function closePaperVisit(
   return paperVisitSchema.parse(requireData(result));
 }
 
+/** A visit opened from paper by mistake, while it is empty (#1214). */
+export async function cancelPaperVisit(
+  encounterId: string,
+  body: { version: number; reason: string },
+  idempotencyKey: string,
+): Promise<PaperVisit> {
+  const result = await api.POST('/encounters/{encounterId}/paper-visit/cancel', {
+    params: { path: { encounterId }, header: { 'idempotency-key': idempotencyKey } },
+    body,
+  });
+  return paperVisitSchema.parse(requireData(result));
+}
+
 export async function retireOwnSheet(
   encounterId: string,
   documentId: string,

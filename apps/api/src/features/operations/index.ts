@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import type pg from 'pg';
 import { ambulanceRoutes } from './ambulance.js';
 import { bloodBankRoutes } from './bloodbank.js';
 import { bloodDonorRoutes } from './blooddonors.js';
@@ -40,3 +41,15 @@ export const operationsFeature: FastifyPluginAsync = async (app) => {
   app.jobs.work(BLOOD_EXPIRY_JOB, () => expireBloodUnitsEverywhere(app.database.pool));
   app.jobs.schedule(BLOOD_EXPIRY_JOB, '*/15 * * * *');
 };
+
+/** For the paper visit (#1214): a visit with a trip not cancelled is not empty. */
+export async function hasAmbulanceTripOn(
+  client: pg.ClientBase,
+  encounterId: string,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    "select 1 from ambulance_trips where encounter_id = $1 and status <> 'cancelled' limit 1",
+    [encounterId],
+  );
+  return (rowCount ?? 0) > 0;
+}

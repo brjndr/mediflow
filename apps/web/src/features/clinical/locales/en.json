@@ -627,6 +627,13 @@
     "closed": "The visit is closed.",
     "isClosed": "This visit is closed.",
     "isCancelled": "This visit was cancelled. Nothing can be attached to it.",
+    "cancelVisit": "Cancel visit",
+    "cancelHeading": "Cancel this visit",
+    "cancelHint": "For a visit opened by mistake, such as under the wrong token. Then attach the sheet to the correct one.",
+    "cancelReason": "Why it is cancelled",
+    "cancelSubmit": "Cancel this visit",
+    "cancelKeep": "Keep the visit",
+    "cancelled": "The visit was cancelled.",
     "errors": {
       "none": "Choose a file or take a photo first.",
       "type": "Only a JPEG, PNG or PDF can be attached.",
@@ -643,7 +650,9 @@
       "conflict": "The visit or sheet changed meanwhile. Check it and try again.",
       "merged": "This patient record was merged into another.",
       "hasRecords": "This visit has notes, a diagnosis or orders on screen. Whoever writes it up closes it from the consultation.",
-      "rejected": "The file was refused. Choose it again."
+      "rejected": "The file was refused. Choose it again.",
+      "notPaper": "This visit was not opened from paper. Ask the doctor to cancel it.",
+      "notEmpty": "Something is on this visit, such as a file, consent, charge or booking. It cannot be cancelled from here."
     }
   }
 }

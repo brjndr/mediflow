@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import type pg from 'pg';
 import { THEATRE_PERMISSIONS } from './permissions.js';
 import { operationRoutes } from './operation.js';
 import { OPERATION_SCHEMAS } from './operation-schemas.js';
@@ -27,3 +28,12 @@ export const theatreFeature: FastifyPluginAsync = async (app) => {
   await app.register(operationRoutes);
   await app.register(recoveryRoutes);
 };
+
+/** For the paper visit (#1214): a visit with a surgery not cancelled is not empty. */
+export async function hasSurgeryOn(client: pg.ClientBase, encounterId: string): Promise<boolean> {
+  const { rowCount } = await client.query(
+    "select 1 from ot_bookings where encounter_id = $1 and status <> 'cancelled' limit 1",
+    [encounterId],
+  );
+  return (rowCount ?? 0) > 0;
+}

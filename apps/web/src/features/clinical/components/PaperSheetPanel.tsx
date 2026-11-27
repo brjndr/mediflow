@@ -31,6 +31,9 @@ const REFUSED: Record<string, string> = {
   conflict: 'paper.errors.conflict',
   invalid_transition: 'paper.errors.conflict',
   already_retired: 'paper.errors.conflict',
+  not_paper_visit: 'paper.errors.notPaper',
+  visit_not_empty: 'paper.errors.notEmpty',
+  encounter_cancelled: 'paper.isCancelled',
   file_type_not_allowed: 'paper.errors.type',
   file_too_large: 'paper.errors.size',
   patient_merged: 'paper.errors.merged',
@@ -59,7 +62,8 @@ function useFailureText() {
 
 /**
  * The dialog's content: who the paper must be for, the file, the caller's own sheets with a way
- * to retire a wrong one, and closing the visit. The file stays in memory until it is sent.
+ * to retire a wrong one, and closing the visit, or cancelling an empty one opened by mistake
+ * (#1214). The file stays in memory until it is sent.
  */
 export function PaperSheetPanel({
   subject,
@@ -105,8 +109,13 @@ function Visit({
   const [retiring, setRetiring] = useState<PaperVisit['sheets'][number]>();
   const [done, setDone] = useState({ text: '', count: 0 });
   const say = (text: string) => setDone((now) => ({ text, count: now.count + 1 }));
+  const [cancelling, setCancelling] = useState(false);
   const busy =
-    paper.open.isPending || upload.isPending || paper.close.isPending || paper.retire.isPending;
+    paper.open.isPending ||
+    upload.isPending ||
+    paper.close.isPending ||
+    paper.cancel.isPending ||
+    paper.retire.isPending;
   useEffect(() => {
     onBusy(busy);
     return () => onBusy(false);
@@ -126,6 +135,14 @@ function Visit({
     sheetList.current?.querySelector<HTMLElement>(`[data-sheet="${keptId}"]`)?.focus();
     setKeptId('');
   }, [keptId]);
+  // "Keep the visit" goes back to the button that asked, once it is there again.
+  const cancelBox = useRef<HTMLDivElement>(null);
+  const [kept, setKept] = useState(false);
+  useLayoutEffect(() => {
+    if (!kept) return;
+    cancelBox.current?.querySelector('button')?.focus();
+    setKept(false);
+  }, [kept]);
   // A token for no doctor opens no visit: said before a file is chosen.
   const noDoctor = 'tokenId' in subject && !visit.encounter && !visit.doctorName;
 
@@ -138,6 +155,7 @@ function Visit({
     paper.open.reset();
     upload.reset();
     paper.close.reset();
+    paper.cancel.reset();
   };
   const choose = (input: HTMLInputElement) => {
     reset();
@@ -303,15 +321,19 @@ function Visit({
                   )}
                 </div>
                 {retiring?.id === sheet.id && (
-                  <RetireSheet
-                    name={sheet.fileName}
+                  <ReasonStep
+                    heading={t('paper.retireHeading', { name: sheet.fileName })}
+                    hint={t('paper.retireHint')}
+                    label={t('paper.retireReason')}
+                    submit={t('paper.retireSubmit')}
+                    keep={t('paper.keep')}
                     pending={paper.retire.isPending}
                     failure={failureText(paper.retire.error)}
                     onKeep={() => {
                       setRetiring(undefined);
                       setKeptId(sheet.id);
                     }}
-                    onRetire={(reason) =>
+                    onSubmit={(reason) =>
                       paper.retire.mutate(
                         {
                           encounterId: encounter.id,
@@ -344,6 +366,55 @@ function Visit({
         </section>
       )}
       {encounter?.status === 'closed' && <p className="text-sm">{t('paper.isClosed')}</p>}
+      {encounter?.status === 'open' && visit.canCancel && !cancelling && (
+        <div ref={cancelBox} className="self-start">
+          <Button
+            type="button"
+            variant="outline"
+            aria-disabled={busy || undefined}
+            onClick={() => {
+              if (busy) return;
+              reset();
+              setCancelling(true);
+            }}
+          >
+            {t('paper.cancelVisit')}
+          </Button>
+        </div>
+      )}
+      {encounter?.status === 'open' && visit.canCancel && cancelling && (
+        <ReasonStep
+          level="h3"
+          heading={t('paper.cancelHeading')}
+          hint={t('paper.cancelHint')}
+          label={t('paper.cancelReason')}
+          submit={t('paper.cancelSubmit')}
+          keep={t('paper.cancelKeep')}
+          pending={paper.cancel.isPending}
+          failure={failureText(paper.cancel.error)}
+          onKeep={() => {
+            setCancelling(false);
+            setKept(true);
+          }}
+          onSubmit={(reason) =>
+            paper.cancel.mutate(
+              { id: encounter.id, version: encounter.version, reason },
+              {
+                onSuccess: () => {
+                  setCancelling(false);
+                  say(t('paper.cancelled'));
+                },
+                // Changed elsewhere: the step may be gone once read again, so say it above.
+                onError: (error) => {
+                  if (!isApiError(error) || error.status !== 409) return;
+                  setCancelling(false);
+                  say(failureText(error));
+                },
+              },
+            )
+          }
+        />
+      )}
       {encounter?.status === 'open' && visit.hasSheet && (
         <Button
           type="button"
@@ -365,33 +436,44 @@ function Visit({
   );
 }
 
-function RetireSheet({
-  name,
+/** A change that needs a reason: retiring a sheet, or cancelling the visit. */
+function ReasonStep({
+  level: Heading = 'h4',
+  heading,
+  hint,
+  label,
+  submit,
+  keep,
   pending,
   failure,
   onKeep,
-  onRetire,
+  onSubmit,
 }: {
-  name: string;
+  /** Under the list of sheets it is a step deeper. */
+  level?: 'h3' | 'h4';
+  heading: string;
+  hint: string;
+  label: string;
+  submit: string;
+  keep: string;
   pending: boolean;
   failure: string;
   onKeep: () => void;
-  onRetire: (reason: string) => void;
+  onSubmit: (reason: string) => void;
 }) {
-  const { t } = useTranslation('clinical');
   const form = useZodForm(reasonSchema, { reason: '' });
-  const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => heading.current?.focus(), []);
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => title.current?.focus(), []);
   return (
     <div className="flex flex-col gap-2">
-      <h4 ref={heading} tabIndex={-1} className="font-medium break-all outline-none">
-        {t('paper.retireHeading', { name })}
-      </h4>
-      <p className="text-sm text-muted-foreground">{t('paper.retireHint')}</p>
-      <Form form={form} onSubmit={(values: ReasonValues) => onRetire(values.reason)}>
+      <Heading ref={title} tabIndex={-1} className="font-medium break-all outline-none">
+        {heading}
+      </Heading>
+      <p className="text-sm text-muted-foreground">{hint}</p>
+      <Form form={form} onSubmit={(values: ReasonValues) => onSubmit(values.reason)}>
         <TextField<ReasonValues>
           name="reason"
-          label={t('paper.retireReason')}
+          label={label}
           required
           maxLength={REASON_MAX}
           autoComplete="off"
@@ -403,10 +485,10 @@ function RetireSheet({
         )}
         <div className="flex flex-wrap gap-2">
           <SubmitButton pending={pending} variant="destructive">
-            {t('paper.retireSubmit')}
+            {submit}
           </SubmitButton>
           <Button type="button" variant="outline" onClick={onKeep}>
-            {t('paper.keep')}
+            {keep}
           </Button>
         </div>
       </Form>

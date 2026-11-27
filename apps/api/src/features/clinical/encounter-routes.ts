@@ -18,16 +18,13 @@ import {
 } from './http.js';
 import {
   encounterOpenedFor,
-  endEncounter,
   findEncounter,
-  hasDrafts,
-  hasRecords,
   listEncounters,
   ownDoctorId,
   practisingDoctor,
   type EncounterRow,
 } from './repository.js';
-import { closeOpenVisit, openOpdVisit, refuseManagedElsewhere } from './visit.js';
+import { cancelOpenVisit, closeOpenVisit, openOpdVisit, refuseManagedElsewhere } from './visit.js';
 import {
   Encounter,
   EncounterCancel,
@@ -339,18 +336,7 @@ export const encounterRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const reason = tidyWithin(body.reason, REASON_MAX);
       if (reason === '') throw new HttpError(400, 'validation_failed', 'A reason is needed');
       return changeEncounter(request, reply, body.version, async (row) => {
-        // Drafts too: a cancelled encounter's draft could never be signed.
-        if (await hasDrafts(request.txClient, row.id)) {
-          throw new HttpError(409, 'unsigned_notes', 'A note of the encounter is a draft');
-        }
-        if (await hasRecords(request.txClient, row.id)) {
-          throw new HttpError(409, 'has_records', 'The encounter has records');
-        }
-        await endEncounter(request.txClient, row.id, 'cancelled', userIdOf(request), reason);
-        await request.emit('encounter.cancelled', row.id, {
-          encounterId: row.id,
-          patientId: row.patient_id,
-        });
+        await cancelOpenVisit(request, row, reason);
       });
     },
   );

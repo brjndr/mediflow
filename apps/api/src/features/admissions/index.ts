@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import type pg from 'pg';
 import { dischargePlanRoutes } from './discharge-plan.js';
 import { dischargeSummaryRoutes } from './discharge-summary.js';
 import { ADMISSION_PERMISSIONS } from './permissions.js';
@@ -28,3 +29,15 @@ export { admittedStays, stayInScope, type AdmittedStay, type Stay } from './stay
 
 /** For emergency (ER-02, #172): admitting a patient from the department. */
 export { admitFromEmergency } from './from-emergency.js';
+
+/** For the paper visit (#1214): a visit an admission was raised from is not empty. */
+export async function hasAdmissionFrom(
+  client: pg.ClientBase,
+  encounterId: string,
+): Promise<boolean> {
+  const { rowCount } = await client.query(
+    'select 1 from admissions where source_encounter_id = $1 limit 1',
+    [encounterId],
+  );
+  return (rowCount ?? 0) > 0;
+}
