@@ -460,6 +460,39 @@ describe('calling', () => {
     });
   });
 
+  it('lists the served the latest called first, page by page, a tie by number', async () => {
+    const tokens: Token[] = [];
+    for (const patientId of crowd.slice(0, 4)) {
+      tokens.push(await issued({ patientId, departmentId: departments.general }));
+    }
+    // Called in an order that is not the order issued; the second and third at the same moment.
+    const calls = [
+      [tokens[3], '10:00:00.000001'],
+      [tokens[0], '10:00:00.000002'],
+      [tokens[2], '10:05:00'],
+      [tokens[1], '10:05:00'],
+    ] as const;
+    for (const [token, time] of calls) {
+      await pool.query(
+        `update queue_tokens set status = 'called', doctor_id = $2, call_count = 1,
+                called_at = (current_date || ' ' || $3 || '+00')::timestamptz
+          where id = $1`,
+        [token?.id, doctors.a, time],
+      );
+      await pool.query(`update queue_tokens set status = 'served' where id = $1`, [token?.id]);
+    }
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const page: Page<Token> = await list(
+        `status=served&limit=1${cursor === null ? '' : `&cursor=${cursor}`}`,
+      );
+      seen.push(...page.items.map((token) => token.id));
+      cursor = page.nextCursor;
+    } while (cursor !== null && seen.length <= tokens.length);
+    expect(seen).toEqual([2, 1, 0, 3].map((index) => tokens[index]?.id));
+  });
+
   it('says the queue is empty and leaves the doctor serving the same patient', async () => {
     await issued({ patientId: patients.one, departmentId: departments.general });
     const called = (await callNext(doctors.a)).json<Token>();

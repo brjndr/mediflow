@@ -281,6 +281,11 @@ function inCallOrder(a: StoredToken, b: StoredToken): number {
   );
 }
 
+/** Served tokens are listed the latest called first. */
+function latestCalledFirst(a: StoredToken, b: StoredToken): number {
+  return (b.calledAt ?? '').localeCompare(a.calledAt ?? '') || b.number - a.number;
+}
+
 /** A doctor's queue: theirs, and the tokens of their department issued for no doctor. */
 function inDoctorsQueue(token: StoredToken, doctorId: string, departmentId: string): boolean {
   return (
@@ -425,7 +430,7 @@ export const queueHandlers = [
       .filter((token) => token.status === status)
       .filter((token) => !departmentId || token.departmentId === departmentId)
       .filter((token) => !doctor || inDoctorsQueue(token, doctor.id, doctor.departmentId))
-      .sort(inCallOrder);
+      .sort(status === 'served' ? latestCalledFirst : inCallOrder);
     const first = cursor ? visible.findIndex((token) => token.id === cursor) : 0;
     if (first < 0) return error(400, 'invalid_cursor', 'Unknown cursor');
     const next = visible[first + limit];
