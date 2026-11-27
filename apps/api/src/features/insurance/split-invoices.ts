@@ -165,7 +165,9 @@ export const splitInvoiceRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const encounterId = request.params.encounterId;
       const patientId = await visitPatient(client, encounterId);
       await requirePatient(request, patientId);
-      await holdLiveVisit(client, encounterId);
+      // Taken before the charges: no charge is posted to the visit until this commits, so the
+      // split works only on charges it locks below (#1259).
+      await holdLiveVisit(client, encounterId, 'no key update');
       // The ledger is held while it is divided, so no draft takes a charge in between.
       const held = await client.query<{
         id: string;
