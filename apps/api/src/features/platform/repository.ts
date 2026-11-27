@@ -405,16 +405,20 @@ export function hasActiveManager(client: pg.ClientBase, hospitalId: string): Pro
 }
 
 /**
- * Whether the person may be handed the hospital's whole export: an active member holding
- * `role:manage`. Narrower than `hasActiveManager`: someone who only manages staff accounts is not
- * given every record of the hospital.
+ * Whether the person may be handed the offboarding hospital's whole export: one of its contacts
+ * (an active member and account, never a platform admin) who holds `role:manage`. Narrower than
+ * `hasActiveManager`: someone who only manages staff accounts is not given every record.
  */
-export function mayReceiveExport(
+export async function mayReceiveExport(
   client: pg.ClientBase,
   hospitalId: string,
   userId: string,
 ): Promise<boolean> {
-  return activeMemberHolds(client, hospitalId, ['role:manage'], userId);
+  const { rowCount } = await client.query(
+    'select 1 from offboarding_admin_contacts($1) where user_id = $2',
+    [hospitalId, userId],
+  );
+  return rowCount !== 0 && activeMemberHolds(client, hospitalId, ['role:manage'], userId);
 }
 
 export async function isPlatformAdminEmail(client: pg.ClientBase, email: string): Promise<boolean> {

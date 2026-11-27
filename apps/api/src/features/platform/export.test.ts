@@ -288,6 +288,17 @@ describe('the offboarding export', () => {
     const people = await member('people_lead', 'staff:manage');
     const access = await member('access_lead', 'role:manage');
 
+    // The same role id managing roles at another hospital counts for nothing here.
+    await pool.query(
+      "insert into roles (tenant_id, id, name) values ($1, 'people_lead', 'people_lead')",
+      [hospitalB.id],
+    );
+    await pool.query(
+      `insert into role_permissions (tenant_id, role_id, permission)
+       values ($1, 'people_lead', 'role:manage')`,
+      [hospitalB.id],
+    );
+
     const refused = await call('POST', link, { adminUserId: people.id });
     expect(refused.json().error.code).toBe('not_a_hospital_admin');
 
@@ -298,6 +309,13 @@ describe('the offboarding export', () => {
     const path = (notifier.sent[0]?.data as { linkPath: string }).linkPath;
     const url = path.slice('/api'.length);
     expect((await app.inject({ method: 'GET', url })).statusCode).toBe(200);
+
+    // A disabled account is refused, and its link stops working.
+    await pool.query("update users set status = 'disabled' where id = $1", [access.id]);
+    const disabled = await call('POST', link, { adminUserId: access.id });
+    expect(disabled.json().error.code).toBe('not_a_hospital_admin');
+    expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
+    await pool.query("update users set status = 'active' where id = $1", [access.id]);
 
     // Losing the permission, while still a member, ends both a queued email and the link.
     notifier.sent.length = 0;

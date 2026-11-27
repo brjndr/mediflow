@@ -34,7 +34,7 @@ Decided by permissions, never by the role id `admin`: a custom role may manage a
 | Who gets the deletion reminders (`offboarding_admin_contacts`, migration 0167) | `role:manage` or `staff:manage` |
 | Who may be emailed, and may use, the offboarding export link                   | `role:manage`                   |
 
-Either of the two is enough for the first two, because the API keeps each held by someone but not necessarily by one person. The export is every record of the hospital, so someone who only manages staff accounts is not given it. An `admin` member whose role no longer holds the permission does not count.
+Either of the two is enough for the first two, because the API keeps each held by someone but not necessarily by one person. The export is every record of the hospital, so someone who only manages staff accounts is not given it. An `admin` member whose role no longer holds the permission does not count. The export also needs an active account that is not a platform admin. Accepted with it: a role holding `role:manage` and no patient permission receives every record, although its holder could not have read them in the application.
 
 ## Decisions
 

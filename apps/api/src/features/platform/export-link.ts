@@ -33,8 +33,8 @@ export function exportLinkPath(
 /**
  * Emails the download link of a made export to the admin it was issued for. Looks everything up
  * again: nothing is sent when the export is not `succeeded`, the hospital is no longer offboarding
- * or the person is no longer an active member of it holding `role:manage` (`mayReceiveExport`; the
- * address comes from `offboarding_admin_contacts`, since the platform role has no grant on users).
+ * or the person may no longer receive it (`mayReceiveExport`; the address comes from
+ * `offboarding_admin_contacts`, since the platform role has no grant on users).
  * Returns whether an email went out. A failed send throws, so the queue retries it.
  */
 export async function sendExportLink(
